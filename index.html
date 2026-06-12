@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Russell 3000 Pairs Trading Research — NavnoorBawa</title>
+<meta name="description" content="A modular cointegration-based statistical arbitrage system with Kalman-filtered spreads, regime-adaptive position sizing, and a controlled ML ablation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080808;--bg-s:#0f0f0f;--bg-e:#141414;
+  --b:#1e1e1e;--bs:#161616;
+  --tp:#e8e8e8;--ts:#888;--tm:#444;
+  --pos:#4caf7d;--neg:#e05252;--wh:#fff
+}
+html,body{background:var(--bg);color:var(--tp);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6}
+a{text-decoration:none;color:inherit}
+
+nav{border-bottom:1px solid var(--b);padding:20px 48px;display:flex;justify-content:space-between;align-items:center}
+.brand{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ts);font-family:'JetBrains Mono',monospace}
+.nav-links{display:flex;gap:32px}
+.nav-links a{font-size:11px;color:var(--ts);letter-spacing:.06em;text-transform:uppercase;transition:color .15s}
+.nav-links a:hover{color:var(--tp)}
+
+.hero{padding:80px 48px 64px;border-bottom:1px solid var(--b)}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--tm);margin-bottom:20px;font-family:'JetBrains Mono',monospace}
+h1{font-size:42px;font-weight:300;letter-spacing:-.025em;color:var(--wh);line-height:1.15;max-width:640px;margin-bottom:16px}
+.subtitle{font-size:15px;color:var(--ts);max-width:560px;line-height:1.75;margin-bottom:48px}
+
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--b);max-width:780px}
+.metric{padding:24px 28px;border-right:1px solid var(--b)}
+.metric:last-child{border-right:none}
+.mval{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:500;color:var(--wh);letter-spacing:-.02em;margin-bottom:6px}
+.mval.pos{color:var(--pos)}
+.mlbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--tm)}
+.gh-btn{display:inline-flex;align-items:center;gap:8px;font-size:11px;color:var(--ts);border:1px solid var(--b);padding:10px 20px;letter-spacing:.06em;margin-top:36px;transition:color .15s,border-color .15s;text-transform:uppercase}
+.gh-btn:hover{color:var(--tp);border-color:#333}
+
+.section{padding:64px 48px;border-bottom:1px solid var(--b)}
+.sec-label{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--tm);margin-bottom:32px;font-family:'JetBrains Mono',monospace}
+h2{font-size:22px;font-weight:400;color:var(--wh);margin-bottom:12px;letter-spacing:-.015em}
+.desc{font-size:14px;color:var(--ts);max-width:600px;line-height:1.75;margin-bottom:40px}
+
+.pipeline{border:1px solid var(--b);max-width:760px}
+.p-row{display:grid;grid-template-columns:180px 1fr;border-bottom:1px solid var(--b)}
+.p-row:last-child{border-bottom:none}
+.p-key{padding:20px 24px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tm);border-right:1px solid var(--b);letter-spacing:.05em}
+.p-val{padding:20px 24px;font-size:13px;color:var(--ts);line-height:1.65}
+.p-val strong{color:var(--tp);font-weight:500}
+
+table{width:100%;border-collapse:collapse;border:1px solid var(--b)}
+th{padding:12px 20px;text-align:left;font-weight:400;color:var(--tm);letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--b);background:var(--bg-s);font-family:'JetBrains Mono',monospace;font-size:10px}
+td{padding:13px 20px;border-bottom:1px solid var(--bs);color:var(--ts);font-family:'JetBrains Mono',monospace;font-size:12px}
+td:first-child{color:var(--tp);font-family:'Inter',sans-serif;font-size:13px}
+tr:last-child td{border-bottom:none}
+.pos{color:var(--pos)}.neg{color:var(--neg)}.zero{color:var(--tm)}.spos{color:#5a9e72}
+
+.disc-box{border:1px solid var(--b);background:var(--bg-s);padding:28px 32px;max-width:700px}
+.disc-title{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--tm);margin-bottom:12px;font-family:'JetBrains Mono',monospace}
+.disc-text{font-size:13px;color:var(--ts);line-height:1.85}
+.disc-text em{color:var(--tp);font-style:normal;font-weight:500}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--b);max-width:700px}
+.g2-item{padding:24px 28px;border-right:1px solid var(--b);border-bottom:1px solid var(--b)}
+.g2-item:nth-child(2n){border-right:none}
+.g2-item:nth-last-child(-n+2){border-bottom:none}
+.g2-lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--tm);font-family:'JetBrains Mono',monospace;margin-bottom:8px}
+.g2-val{font-size:13px;color:var(--tp);line-height:1.55}
+.g2-sub{font-size:11px;color:var(--tm);font-family:'JetBrains Mono',monospace;margin-top:4px}
+
+footer{padding:28px 48px;display:flex;justify-content:space-between;align-items:center}
+.f-left{font-size:11px;color:var(--tm);font-family:'JetBrains Mono',monospace}
+.f-right{display:flex;gap:28px}
+.f-right a{font-size:11px;color:var(--tm);letter-spacing:.05em;transition:color .15s}
+.f-right a:hover{color:var(--ts)}
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">Statistical Arbitrage Research</span>
+  <div class="nav-links">
+    <a href="#methodology">Methodology</a>
+    <a href="#results">Results</a>
+    <a href="#ablation">Ablation</a>
+    <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">GitHub ↗</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="eyebrow">Russell 3000 &nbsp;·&nbsp; Equity Statistical Arbitrage &nbsp;·&nbsp; 2020–2025</div>
+  <h1>Pairs Trading<br>Research System</h1>
+  <p class="subtitle">A modular cointegration-based statistical arbitrage system with Kalman-filtered spreads, regime-adaptive position sizing, and a controlled ML ablation that quantifies each component's contribution to out-of-sample performance.</p>
+  <div class="metrics">
+    <div class="metric">
+      <div class="mval pos">+1.30%</div>
+      <div class="mlbl">OOS avg return / qtr</div>
+    </div>
+    <div class="metric">
+      <div class="mval">17/19</div>
+      <div class="mlbl">Profitable windows</div>
+    </div>
+    <div class="metric">
+      <div class="mval">74.3%</div>
+      <div class="mlbl">OOS win rate</div>
+    </div>
+    <div class="metric">
+      <div class="mval">1.22</div>
+      <div class="mlbl">OOS Sharpe (per-window)</div>
+    </div>
+  </div>
+  <a class="gh-btn" href="https://github.com/NavnoorBawa/russell3000-pairs-trading">↗ &nbsp;View on GitHub</a>
+</section>
+
+<section class="section" id="methodology">
+  <div class="sec-label">01 — Methodology</div>
+  <h2>System architecture</h2>
+  <p class="desc">A sequential pipeline from pair selection through signal generation, regime filtering, and portfolio accounting. Each stage is independently testable and documented across 25 versions.</p>
+  <div class="pipeline">
+    <div class="p-row">
+      <div class="p-key">pair selection</div>
+      <div class="p-val">Engle-Granger cointegration on all <strong>~45,150 pairs</strong>. ADF on OLS residuals, both directions, p &lt; 0.05. Half-life filter 4–25 days. PCA strips 5 systematic factors (~58% variance); idiosyncratic residual test adds quality bonus. CUSUM + Hurst pre-filters. Quarterly re-selection.</div>
+    </div>
+    <div class="p-row">
+      <div class="p-key">spread construction</div>
+      <div class="p-val"><strong>1-D Kalman filter</strong> estimates time-varying hedge ratio β_t. Spread = log P₁ − β_t · log P₂. Beta-weighted P&amp;L: Δlog P₁ − β_t · Δlog P₂, allocation split total/(1+|β|) per leg.</div>
+    </div>
+    <div class="p-row">
+      <div class="p-key">signal rule</div>
+      <div class="p-val">Rolling z-score with <strong>half-life-adaptive lookback</strong>. Entry |z| &gt; 1.8, exit |z| &lt; 0.5. Dynamic max hold = clamp(2.5 × half-life, 10–25 days).</div>
+    </div>
+    <div class="p-row">
+      <div class="p-key">regime gate</div>
+      <div class="p-val">VIX bands: &gt;30 → 0.5×, &gt;40 → 0.25×. 63-day cumulative sector dispersion gate ("walking on ice": low VIX + high dispersion → 0.4×). Hard skip: &gt;20% of trailing 63 days reduced-scale.</div>
+    </div>
+    <div class="p-row">
+      <div class="p-key">validation</div>
+      <div class="p-val"><strong>19 walk-forward windows</strong>, 252-day train / 63-day test, rolling by one test window. Agent retrained from scratch each window. No data leakage between train and test periods.</div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="results">
+  <div class="sec-label">02 — Results</div>
+  <h2>Walk-forward performance</h2>
+  <p class="desc">Out-of-sample performance across 19 non-overlapping quarters, 2020–2025. W10–W19 (2023–2025) represent post-regime-break windows. Sharpe figures are per-window averages on all calendar days. Portfolio Sharpe on the full equity curve is 0.22.</p>
+  <table>
+    <thead>
+      <tr><th>Period</th><th>Windows</th><th>Avg return / qtr</th><th>Sharpe (avg)</th><th>Win rate</th><th>Profitable</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>In-sample (W1–W9)</td><td>9</td><td class="pos">+5.26%</td><td>4.504</td><td>84.4%</td><td>9/9</td></tr>
+      <tr><td>OOS (W10–W19)</td><td>10</td><td class="pos">+1.30%</td><td>1.217</td><td>74.3%</td><td>17/19</td></tr>
+      <tr><td>IS→OOS degradation</td><td>—</td><td class="zero">75.3%</td><td class="zero">—</td><td class="zero">—</td><td class="zero">—</td></tr>
+      <tr><td>Main backtest (5yr)</td><td>—</td><td class="pos">+0.31%</td><td class="zero">0.22</td><td>52.9%</td><td>—</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="section" id="ablation">
+  <div class="sec-label">03 — Controlled ablation</div>
+  <h2>ML contribution: measured at +0.02pp/qtr</h2>
+  <p class="desc">A transformer-based signal-quality scorer was trained on entry-outcome labels from each training slice and used for opportunity ranking. A controlled ablation — identical data, identical code, one environment flag — quantifies its contribution precisely. The BCE loss converges to the base-rate entropy in every run: 82–91% of |z| &gt; 1.8 entries revert regardless of features, meaning the entry rule has already extracted the learnable signal.</p>
+  <table>
+    <thead>
+      <tr><th>Metric</th><th>Classical only</th><th>+ Transformer</th><th>Δ</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Main backtest return / Sharpe</td><td>+0.31% / 0.22</td><td>+0.31% / 0.22</td><td class="zero">0</td></tr>
+      <tr><td>IS avg return / Sharpe</td><td>+5.26%/qtr / 4.504</td><td>+5.26%/qtr / 4.504</td><td class="zero">0</td></tr>
+      <tr><td>OOS avg return / Sharpe</td><td>+1.30%/qtr / 1.217</td><td>+1.32%/qtr / 1.232</td><td class="spos">+0.02pp</td></tr>
+      <tr><td>Institutional cost profiles (5)</td><td>all negative</td><td>identical to cent</td><td class="zero">0</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:16px;font-size:11px;color:var(--tm);font-family:'JetBrains Mono',monospace">PAIRS_USE_TRANSFORMER=0 disables the scorer. Reproducible on any machine with the cached data.</p>
+</section>
+
+<section class="section">
+  <div class="sec-label">04 — Disclosure</div>
+  <h2>Honest assessment</h2>
+  <p class="desc">Negative results are reported in full. Every bug, fix, and failed hypothesis is documented across 25 versions in the engineering log.</p>
+  <div class="disc-box">
+    <div class="disc-title">What the data shows</div>
+    <div class="disc-text">
+      The system generates positive gross OOS returns (+1.30%/qtr, 17/19 windows profitable). It does <em>not</em> generate a deployable net edge. All five institutional cost profiles — quant HF (~5–7× leverage), pod shop (~4×), fundamental L/S (~1.5–2×), unlevered institutional, and retail — produce <span class="neg">negative net returns</span> on the five-year backtest. IS→OOS degradation of 75% is substantially above the 30–50% range typical of well-validated strategies. Whether this reflects regime break, overfit, or both is not settled by this work. The ML component was built, trained, and measured: its contribution is +0.02pp/qtr.
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="sec-label">05 — Engineering</div>
+  <h2>Documentation</h2>
+  <div class="grid2">
+    <div class="g2-item">
+      <div class="g2-lbl">Versions</div>
+      <div class="g2-val">v6 → v25</div>
+      <div class="g2-sub">25 iterations · every bug documented</div>
+    </div>
+    <div class="g2-item">
+      <div class="g2-lbl">Stack</div>
+      <div class="g2-val">Python 3.12 · PyTorch 2.4</div>
+      <div class="g2-sub">statsmodels · scikit-learn · yfinance</div>
+    </div>
+    <div class="g2-item">
+      <div class="g2-lbl">Universe</div>
+      <div class="g2-val">Russell 3000</div>
+      <div class="g2-sub">2,542 symbols · 2020–2025</div>
+    </div>
+    <div class="g2-item">
+      <div class="g2-lbl">Reproduce</div>
+      <div class="g2-sub" style="margin-top:0;line-height:1.8">python3 -m pairs_trading.main<br>PAIRS_USE_TRANSFORMER=0 python3 -m pairs_trading.main</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="f-left">MIT License &nbsp;·&nbsp; Research project &nbsp;·&nbsp; Not investment advice</div>
+  <div class="f-right">
+    <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">GitHub</a>
+    <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">Engineering log</a>
+  </div>
+</footer>
+
+</body>
+</html>
