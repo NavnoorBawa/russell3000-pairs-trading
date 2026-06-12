@@ -1,0 +1,37 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Claude Code local config (contains absolute paths, command history)
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs (large, reproducible by running main.py)
+logs/
+
+# Outputs (charts + JSON — reproducible)
+outputs/
+
+# Data cache (auto-refetched from yfinance if absent)
+data/*.pkl
+
+# Interview prep notes (local only)
+GRILL_NOTES.md
+
+# Environment
+.env
+*.env
