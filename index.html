@@ -11,18 +11,18 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
+  --bg:#ffffff;--bg-s:#f7f7f5;
+  --b:#e2e2df;--bs:#ececea;--bh:#b5b5b0;
+  --tp:#1d1d1b;--ts:#5c5c58;--tm:#97978f;--tf:#a3a39b;
+  --pos:#2e7d54;--posm:#3a7a55;--neg:#b03a3a;--wh:#0c0c0b;
+  --nav:rgba(255,255,255,.92)
+}
+html[data-theme="dark"]{
   --bg:#070707;--bg-s:#0e0e0e;
   --b:#1c1c1c;--bs:#151515;--bh:#3a3a3a;
   --tp:#e6e6e6;--ts:#8a8a8a;--tm:#454545;--tf:#333;
   --pos:#4caf7d;--posm:#3f7f5d;--neg:#c75050;--wh:#fff;
   --nav:rgba(7,7,7,.92)
-}
-html[data-theme="light"]{
-  --bg:#ffffff;--bg-s:#f7f7f5;
-  --b:#e2e2df;--bs:#ececea;--bh:#b5b5b0;
-  --tp:#1d1d1b;--ts:#5c5c58;--tm:#97978f;--tf:#b3b3ac;
-  --pos:#2e7d54;--posm:#3a7a55;--neg:#b03a3a;--wh:#0c0c0b;
-  --nav:rgba(255,255,255,.92)
 }
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--tp);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;transition:background .25s ease,color .25s ease}
@@ -156,7 +156,7 @@ footer{padding:36px 0}
         <a href="#notes">Research notes</a>
         <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">GitHub ↗</a>
       </div>
-      <button class="theme-btn" id="tt" aria-label="Toggle color theme">Light</button>
+      <button class="theme-btn" id="tt" aria-label="Toggle color theme">Dark</button>
     </div>
   </div>
 </nav>
@@ -385,15 +385,15 @@ footer{padding:36px 0}
 (function(){
   var root=document.documentElement;
   var btn=document.getElementById('tt');
-  function setLabel(){btn.textContent=root.getAttribute('data-theme')==='light'?'Dark':'Light'}
+  function setLabel(){btn.textContent=root.getAttribute('data-theme')==='dark'?'Light':'Dark'}
   try{
-    if(localStorage.getItem('theme')==='light'){root.setAttribute('data-theme','light')}
+    if(localStorage.getItem('theme')==='dark'){root.setAttribute('data-theme','dark')}
   }catch(e){}
   setLabel();
   btn.addEventListener('click',function(){
-    var light=root.getAttribute('data-theme')==='light';
-    if(light){root.removeAttribute('data-theme')}else{root.setAttribute('data-theme','light')}
-    try{localStorage.setItem('theme',light?'dark':'light')}catch(e){}
+    var dark=root.getAttribute('data-theme')==='dark';
+    if(dark){root.removeAttribute('data-theme')}else{root.setAttribute('data-theme','dark')}
+    try{localStorage.setItem('theme',dark?'light':'dark')}catch(e){}
     setLabel();
   });
 })();
