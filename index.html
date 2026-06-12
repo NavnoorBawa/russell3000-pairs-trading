@@ -12,21 +12,32 @@
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#070707;--bg-s:#0e0e0e;
-  --b:#1c1c1c;--bs:#151515;
+  --b:#1c1c1c;--bs:#151515;--bh:#3a3a3a;
   --tp:#e6e6e6;--ts:#8a8a8a;--tm:#454545;--tf:#333;
-  --pos:#4caf7d;--posm:#3f7f5d;--neg:#c75050;--wh:#fff
+  --pos:#4caf7d;--posm:#3f7f5d;--neg:#c75050;--wh:#fff;
+  --nav:rgba(7,7,7,.92)
+}
+html[data-theme="light"]{
+  --bg:#ffffff;--bg-s:#f7f7f5;
+  --b:#e2e2df;--bs:#ececea;--bh:#b5b5b0;
+  --tp:#1d1d1b;--ts:#5c5c58;--tm:#97978f;--tf:#b3b3ac;
+  --pos:#2e7d54;--posm:#3a7a55;--neg:#b03a3a;--wh:#0c0c0b;
+  --nav:rgba(255,255,255,.92)
 }
 html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--tp);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--tp);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;transition:background .25s ease,color .25s ease}
 a{text-decoration:none;color:inherit}
 .wrap{max-width:1080px;margin:0 auto;padding:0 48px}
 
-nav{border-bottom:1px solid var(--b);position:sticky;top:0;background:rgba(7,7,7,.92);backdrop-filter:blur(8px);z-index:10}
+nav{border-bottom:1px solid var(--b);position:sticky;top:0;background:var(--nav);backdrop-filter:blur(8px);z-index:10}
 .nav-in{max-width:1080px;margin:0 auto;padding:18px 48px;display:flex;justify-content:space-between;align-items:center}
 .brand{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ts);font-family:'JetBrains Mono',monospace}
+.nav-right{display:flex;gap:36px;align-items:center}
 .nav-links{display:flex;gap:36px}
 .nav-links a{font-size:11px;color:var(--tm);letter-spacing:.08em;text-transform:uppercase;transition:color .2s}
 .nav-links a:hover{color:var(--tp)}
+.theme-btn{font-size:10px;color:var(--tm);border:1px solid var(--b);background:none;padding:7px 16px;letter-spacing:.12em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:color .2s,border-color .2s}
+.theme-btn:hover{color:var(--tp);border-color:var(--bh)}
 
 .hero{padding:104px 0 72px;border-bottom:1px solid var(--b)}
 .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--tf);margin-bottom:28px;font-family:'JetBrains Mono',monospace}
@@ -38,7 +49,7 @@ h1{font-size:52px;font-weight:200;letter-spacing:-.02em;color:var(--wh);line-hei
 .mval.pos{color:var(--pos)}
 .mlbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--tf);line-height:1.5}
 .gh-btn{display:inline-flex;align-items:center;gap:10px;font-size:11px;color:var(--ts);border:1px solid var(--b);padding:12px 24px;letter-spacing:.1em;margin-top:48px;transition:all .2s;text-transform:uppercase}
-.gh-btn:hover{color:var(--wh);border-color:#3a3a3a}
+.gh-btn:hover{color:var(--wh);border-color:var(--bh)}
 
 .section{padding:80px 0;border-bottom:1px solid var(--b)}
 .sec-label{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--tf);margin-bottom:36px;font-family:'JetBrains Mono',monospace}
@@ -50,6 +61,11 @@ h2{font-size:24px;font-weight:300;color:var(--wh);margin-bottom:14px;letter-spac
 .chart-legend{display:flex;gap:20px}
 .lg{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--tm);text-transform:none;letter-spacing:.04em}
 .sw{width:10px;height:10px}
+.bar-p{fill:var(--pos)}
+.bar-n{fill:var(--neg)}
+.ax{stroke:var(--b)}
+.dv{stroke:var(--bh)}
+.ctx{fill:var(--tm);font-family:'JetBrains Mono',monospace;font-size:9px}
 
 .pipeline{border:1px solid var(--b)}
 .p-row{display:grid;grid-template-columns:200px 1fr;border-bottom:1px solid var(--b);transition:background .2s}
@@ -103,7 +119,7 @@ footer{padding:36px 0}
   .metrics{grid-template-columns:repeat(2,1fr)}
   .p-row{grid-template-columns:1fr}
   .p-key{border-right:none;border-bottom:1px solid var(--bs);padding-bottom:12px}
-  .nav-links{gap:18px}
+  .nav-links{display:none}
   .grid2{grid-template-columns:1fr}
   .g2-item{border-right:none}
 }
@@ -114,12 +130,15 @@ footer{padding:36px 0}
 <nav>
   <div class="nav-in">
     <span class="brand">Statistical Arbitrage Research</span>
-    <div class="nav-links">
-      <a href="#methodology">Methodology</a>
-      <a href="#results">Results</a>
-      <a href="#ablation">Ablation</a>
-      <a href="#notes">Research notes</a>
-      <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">GitHub ↗</a>
+    <div class="nav-right">
+      <div class="nav-links">
+        <a href="#methodology">Methodology</a>
+        <a href="#results">Results</a>
+        <a href="#ablation">Ablation</a>
+        <a href="#notes">Research notes</a>
+        <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">GitHub ↗</a>
+      </div>
+      <button class="theme-btn" id="tt" aria-label="Toggle color theme">Light</button>
     </div>
   </div>
 </nav>
@@ -164,37 +183,37 @@ footer{padding:36px 0}
       </span>
     </div>
     <svg viewBox="0 0 760 230" width="100%" role="img" aria-label="Bar chart of 19 walk-forward window returns">
-      <line x1="20" y1="170" x2="740" y2="170" stroke="#1c1c1c" stroke-width="1"/>
-      <line x1="361" y1="20" x2="361" y2="210" stroke="#2a2a2a" stroke-width="1" stroke-dasharray="3 4"/>
-      <text x="352" y="32" font-family="JetBrains Mono" font-size="9" fill="#454545" text-anchor="end">IN-SAMPLE</text>
-      <text x="370" y="32" font-family="JetBrains Mono" font-size="9" fill="#454545">OUT-OF-SAMPLE</text>
-      <rect x="22" y="123" width="24" height="47" fill="#4caf7d"/>
-      <rect x="60" y="165" width="24" height="5" fill="#4caf7d"/>
-      <rect x="98" y="165" width="24" height="5" fill="#4caf7d"/>
-      <rect x="136" y="148" width="24" height="22" fill="#4caf7d"/>
-      <rect x="174" y="51" width="24" height="119" fill="#4caf7d"/>
-      <rect x="212" y="133" width="24" height="37" fill="#4caf7d"/>
-      <rect x="250" y="143" width="24" height="27" fill="#4caf7d"/>
-      <rect x="288" y="144" width="24" height="26" fill="#4caf7d"/>
-      <rect x="326" y="126" width="24" height="44" fill="#4caf7d"/>
-      <rect x="368" y="158" width="24" height="12" fill="#4caf7d"/>
-      <rect x="406" y="165" width="24" height="5" fill="#4caf7d"/>
-      <rect x="444" y="164" width="24" height="6" fill="#4caf7d"/>
-      <rect x="482" y="166" width="24" height="4" fill="#4caf7d"/>
-      <rect x="520" y="168" width="24" height="2" fill="#4caf7d"/>
-      <rect x="558" y="161" width="24" height="9" fill="#4caf7d"/>
-      <rect x="596" y="159" width="24" height="11" fill="#4caf7d"/>
-      <rect x="634" y="170" width="24" height="20" fill="#c75050"/>
-      <rect x="672" y="96" width="24" height="74" fill="#4caf7d"/>
-      <rect x="710" y="170" width="24" height="10" fill="#c75050"/>
-      <text x="34" y="186" font-family="JetBrains Mono" font-size="9" fill="#454545" text-anchor="middle">W1</text>
-      <text x="186" y="186" font-family="JetBrains Mono" font-size="9" fill="#454545" text-anchor="middle">W5</text>
-      <text x="380" y="186" font-family="JetBrains Mono" font-size="9" fill="#454545" text-anchor="middle">W10</text>
-      <text x="570" y="186" font-family="JetBrains Mono" font-size="9" fill="#454545" text-anchor="middle">W15</text>
-      <text x="722" y="186" font-family="JetBrains Mono" font-size="9" fill="#454545" text-anchor="middle">W19</text>
-      <text x="186" y="44" font-family="JetBrains Mono" font-size="9" fill="#454545" text-anchor="middle">+17.0</text>
-      <text x="684" y="89" font-family="JetBrains Mono" font-size="9" fill="#454545" text-anchor="middle">+10.6</text>
-      <text x="646" y="203" font-family="JetBrains Mono" font-size="9" fill="#454545" text-anchor="middle">−2.9</text>
+      <line class="ax" x1="20" y1="170" x2="740" y2="170" stroke-width="1"/>
+      <line class="dv" x1="361" y1="20" x2="361" y2="210" stroke-width="1" stroke-dasharray="3 4"/>
+      <text class="ctx" x="352" y="32" text-anchor="end">IN-SAMPLE</text>
+      <text class="ctx" x="370" y="32">OUT-OF-SAMPLE</text>
+      <rect class="bar-p" x="22" y="123" width="24" height="47"/>
+      <rect class="bar-p" x="60" y="165" width="24" height="5"/>
+      <rect class="bar-p" x="98" y="165" width="24" height="5"/>
+      <rect class="bar-p" x="136" y="148" width="24" height="22"/>
+      <rect class="bar-p" x="174" y="51" width="24" height="119"/>
+      <rect class="bar-p" x="212" y="133" width="24" height="37"/>
+      <rect class="bar-p" x="250" y="143" width="24" height="27"/>
+      <rect class="bar-p" x="288" y="144" width="24" height="26"/>
+      <rect class="bar-p" x="326" y="126" width="24" height="44"/>
+      <rect class="bar-p" x="368" y="158" width="24" height="12"/>
+      <rect class="bar-p" x="406" y="165" width="24" height="5"/>
+      <rect class="bar-p" x="444" y="164" width="24" height="6"/>
+      <rect class="bar-p" x="482" y="166" width="24" height="4"/>
+      <rect class="bar-p" x="520" y="168" width="24" height="2"/>
+      <rect class="bar-p" x="558" y="161" width="24" height="9"/>
+      <rect class="bar-p" x="596" y="159" width="24" height="11"/>
+      <rect class="bar-n" x="634" y="170" width="24" height="20"/>
+      <rect class="bar-p" x="672" y="96" width="24" height="74"/>
+      <rect class="bar-n" x="710" y="170" width="24" height="10"/>
+      <text class="ctx" x="34" y="186" text-anchor="middle">W1</text>
+      <text class="ctx" x="186" y="186" text-anchor="middle">W5</text>
+      <text class="ctx" x="380" y="186" text-anchor="middle">W10</text>
+      <text class="ctx" x="570" y="186" text-anchor="middle">W15</text>
+      <text class="ctx" x="722" y="186" text-anchor="middle">W19</text>
+      <text class="ctx" x="186" y="44" text-anchor="middle">+17.0</text>
+      <text class="ctx" x="684" y="89" text-anchor="middle">+10.6</text>
+      <text class="ctx" x="646" y="203" text-anchor="middle">−2.9</text>
     </svg>
   </div>
 </section>
@@ -343,5 +362,23 @@ footer{padding:36px 0}
 </footer>
 
 </div>
+
+<script>
+(function(){
+  var root=document.documentElement;
+  var btn=document.getElementById('tt');
+  function setLabel(){btn.textContent=root.getAttribute('data-theme')==='light'?'Dark':'Light'}
+  try{
+    if(localStorage.getItem('theme')==='light'){root.setAttribute('data-theme','light')}
+  }catch(e){}
+  setLabel();
+  btn.addEventListener('click',function(){
+    var light=root.getAttribute('data-theme')==='light';
+    if(light){root.removeAttribute('data-theme')}else{root.setAttribute('data-theme','light')}
+    try{localStorage.setItem('theme',light?'dark':'light')}catch(e){}
+    setLabel();
+  });
+})();
+</script>
 </body>
 </html>
