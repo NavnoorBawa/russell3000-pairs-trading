@@ -75,6 +75,7 @@ h2{font-size:24px;font-weight:300;color:var(--wh);margin-bottom:14px;letter-spac
 .p-val{padding:24px 28px;font-size:13px;font-weight:300;color:var(--ts);line-height:1.7}
 .p-val strong{color:var(--tp);font-weight:400}
 
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table{width:100%;border-collapse:collapse;border:1px solid var(--b)}
 th{padding:14px 22px;text-align:left;font-weight:400;color:var(--tf);letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--b);background:var(--bg-s);font-family:'JetBrains Mono',monospace;font-size:10px}
 td{padding:15px 22px;border-bottom:1px solid var(--bs);color:var(--ts);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:400}
@@ -114,14 +115,31 @@ footer{padding:36px 0}
 .f-right a:hover{color:var(--ts)}
 
 @media(max-width:760px){
-  .wrap,.nav-in{padding-left:24px;padding-right:24px}
-  h1{font-size:36px}
+  .wrap,.nav-in{padding-left:20px;padding-right:20px}
+  .nav-in{flex-direction:column;align-items:flex-start;gap:12px;padding-top:14px;padding-bottom:14px}
+  .nav-right{width:100%;display:flex;justify-content:space-between;align-items:center;gap:16px}
+  .nav-links{gap:18px;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;max-width:70%}
+  .nav-links::-webkit-scrollbar{display:none}
+  .theme-btn{flex-shrink:0}
+  .hero{padding:60px 0 48px}
+  h1{font-size:33px}
+  .subtitle{font-size:14px;margin-bottom:40px}
   .metrics{grid-template-columns:repeat(2,1fr)}
+  .metric{padding:20px 12px 4px 0}
+  .mval{font-size:26px}
+  .section{padding:56px 0}
+  h2{font-size:21px}
+  .chart-box{padding:22px 14px 14px}
   .p-row{grid-template-columns:1fr}
   .p-key{border-right:none;border-bottom:1px solid var(--bs);padding-bottom:12px}
-  .nav-links{display:none}
+  .p-val{padding-top:16px}
+  .tw table{min-width:560px}
+  .disc-box{padding:24px 20px}
   .grid2{grid-template-columns:1fr}
-  .g2-item{border-right:none}
+  .g2-item{border-right:none;border-bottom:1px solid var(--b)}
+  .g2-item:nth-last-child(-n+2){border-bottom:1px solid var(--b)}
+  .g2-item:last-child{border-bottom:none}
+  .f-in{flex-direction:column;align-items:flex-start;gap:14px}
 }
 </style>
 </head>
@@ -250,7 +268,7 @@ footer{padding:36px 0}
   <div class="sec-label">03 — Results</div>
   <h2>Walk-forward performance</h2>
   <p class="desc">Sharpe figures are per-window averages computed on all calendar days. Portfolio Sharpe on the full five-year equity curve is 0.22. Metric integrity note: pre-v25 logs computed Sharpe on non-zero days only — inflating sparse windows ~6× — and were corrected and re-verified.</p>
-  <table>
+  <div class="tw"><table>
     <thead>
       <tr><th>Period</th><th>Windows</th><th>Avg return / qtr</th><th>Sharpe (avg)</th><th>Win rate</th><th>Profitable</th></tr>
     </thead>
@@ -260,14 +278,14 @@ footer{padding:36px 0}
       <tr><td>IS→OOS degradation</td><td>—</td><td class="zero">75.3%</td><td class="zero">—</td><td class="zero">—</td><td class="zero">—</td></tr>
       <tr><td>Main backtest (5yr)</td><td>—</td><td class="pos">+0.31%</td><td class="zero">0.22</td><td>52.9%</td><td>—</td></tr>
     </tbody>
-  </table>
+  </table></div>
 </section>
 
 <section class="section" id="ablation">
   <div class="sec-label">04 — Controlled ablation</div>
   <h2>ML contribution: measured at +0.02pp/qtr</h2>
   <p class="desc">A transformer-based signal-quality scorer was trained on entry-outcome labels from each training slice and used for opportunity ranking. A controlled ablation — identical data, identical code, one environment flag — quantifies its contribution. The BCE loss converges to base-rate entropy in every run: 82–91% of |z| &gt; 1.8 entries revert within the horizon regardless of features. The entry rule has already extracted the learnable signal.</p>
-  <table>
+  <div class="tw"><table>
     <thead>
       <tr><th>Metric</th><th>Classical only</th><th>+ Transformer</th><th>Δ</th></tr>
     </thead>
@@ -277,7 +295,7 @@ footer{padding:36px 0}
       <tr><td>OOS avg return / Sharpe</td><td>+1.30%/qtr / 1.217</td><td>+1.32%/qtr / 1.232</td><td class="spos">+0.02pp</td></tr>
       <tr><td>Institutional cost profiles (5)</td><td>all negative</td><td>identical to the cent</td><td class="zero">0</td></tr>
     </tbody>
-  </table>
+  </table></div>
   <p style="margin-top:18px;font-size:11px;color:var(--tf);font-family:'JetBrains Mono',monospace">PAIRS_USE_TRANSFORMER=0 disables the scorer · reproducible on any machine</p>
 </section>
 
