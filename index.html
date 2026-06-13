@@ -7,7 +7,9 @@
 <meta name="description" content="A modular cointegration-based statistical arbitrage system with Kalman-filtered spreads, regime-adaptive position sizing, and a controlled ML ablation.">
 <link rel="canonical" href="https://navnoorbawa.github.io/russell3000-pairs-trading/">
 <meta name="theme-color" content="#ffffff">
+<meta name="author" content="Navnoor Bawa">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Statistical Arbitrage Research">
 <meta property="og:title" content="Russell 3000 Pairs Trading Research">
 <meta property="og:description" content="Cointegration-based statistical arbitrage with walk-forward validation and a controlled ML ablation. +1.30%/qtr gross OOS; no net edge after institutional costs — disclosed.">
 <meta property="og:url" content="https://navnoorbawa.github.io/russell3000-pairs-trading/">
@@ -69,8 +71,12 @@ h1{font-size:52px;font-weight:200;letter-spacing:-.02em;color:var(--wh);line-hei
 .mval{font-family:'JetBrains Mono',monospace;font-size:34px;font-weight:400;color:var(--wh);letter-spacing:-.03em;margin-bottom:8px}
 .mval.pos{color:var(--pos)}
 .mlbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--tf);line-height:1.5}
-.gh-btn{display:inline-flex;align-items:center;gap:10px;font-size:11px;color:var(--ts);border:1px solid var(--b);padding:12px 24px;letter-spacing:.1em;margin-top:48px;transition:all .2s;text-transform:uppercase}
+.hero-note{font-size:13px;font-weight:300;color:var(--ts);max-width:560px;line-height:1.75;margin-top:40px;padding-left:16px;border-left:2px solid var(--bh)}
+.hero-cta{display:flex;align-items:center;gap:28px;margin-top:40px;flex-wrap:wrap}
+.gh-btn{display:inline-flex;align-items:center;gap:10px;font-size:11px;color:var(--ts);border:1px solid var(--b);padding:12px 24px;letter-spacing:.1em;transition:all .2s;text-transform:uppercase}
 .gh-btn:hover{color:var(--wh);border-color:var(--bh)}
+.gh-link{font-size:11px;color:var(--tm);letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid transparent;transition:color .2s,border-color .2s;padding-bottom:2px}
+.gh-link:hover{color:var(--tp);border-color:var(--bh)}
 
 .section{padding:80px 0;border-bottom:1px solid var(--b)}
 .sec-label{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--tf);margin-bottom:36px;font-family:'JetBrains Mono',monospace}
@@ -161,6 +167,16 @@ footer{padding:36px 0}
   .g2-item:nth-last-child(-n+2){border-bottom:1px solid var(--b)}
   .g2-item:last-child{border-bottom:none}
   .f-in{flex-direction:column;align-items:flex-start;gap:14px}
+  .hero-cta{gap:20px}
+}
+@media print{
+  nav,.theme-btn,.hero-cta{display:none}
+  html[data-theme="dark"]{--bg:#fff;--bg-s:#fff;--b:#ccc;--bs:#ddd;--tp:#000;--ts:#333;--tm:#555;--tf:#777;--wh:#000;--pos:#1a6b3f;--neg:#9a2a2a}
+  body{font-size:11pt}
+  .section,.hero{padding:18px 0;break-inside:avoid}
+  .chart-box,.pipeline,table,.disc-box,.grid2,.pub{break-inside:avoid}
+  html.js .section{opacity:1;transform:none}
+  a{color:inherit}
 }
 </style>
 </head>
@@ -192,22 +208,26 @@ footer{padding:36px 0}
   <div class="metrics">
     <div class="metric">
       <div class="mval pos">+1.30%</div>
-      <div class="mlbl">OOS avg return<br>per quarter</div>
+      <div class="mlbl">OOS gross return<br>per quarter</div>
     </div>
     <div class="metric">
       <div class="mval">17/19</div>
-      <div class="mlbl">Profitable<br>windows</div>
+      <div class="mlbl">Walk-forward<br>windows profitable</div>
     </div>
     <div class="metric">
-      <div class="mval">74.3%</div>
-      <div class="mlbl">OOS<br>win rate</div>
+      <div class="mval">0.22</div>
+      <div class="mlbl">Portfolio Sharpe<br>five-year curve</div>
     </div>
     <div class="metric">
-      <div class="mval">45,150</div>
-      <div class="mlbl">Pairs tested<br>quarterly</div>
+      <div class="mval">0 / 5</div>
+      <div class="mlbl">Cost profiles<br>net-profitable</div>
     </div>
   </div>
-  <a class="gh-btn" href="https://github.com/NavnoorBawa/russell3000-pairs-trading">View repository ↗</a>
+  <p class="hero-note">Positive gross returns; no net edge after institutional costs. Both numbers are stated here — the project's value is the measurement, not the result.</p>
+  <div class="hero-cta">
+    <a class="gh-btn" href="https://github.com/NavnoorBawa/russell3000-pairs-trading">View repository ↗</a>
+    <a class="gh-link" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">Read the engineering log ↗</a>
+  </div>
 </section>
 
 <section class="section" id="results-chart">
