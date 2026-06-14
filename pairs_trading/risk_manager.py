@@ -102,9 +102,10 @@ class FixedPrimeFundRiskManager:
             if volume < 1e6:
                 return False, f"Volume ${volume:,.0f} below $1M minimum"
 
-            if current_date:
-                self.last_trade_dates[pair_key_str] = current_date
-
+            # v26: do NOT stamp last_trade_dates here. validate_signal is called for
+            # every candidate during the ranking phase; stamping on validation marked
+            # pairs as "traded" even when they were ranked out and never executed.
+            # The caller now stamps last_trade_dates only on actual execution.
             return True, f"PASS: All adaptive requirements met"
 
         except Exception as e:

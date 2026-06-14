@@ -261,6 +261,23 @@ class FixedTransformerMultiAgentSystem:
             self.action_distribution[1] += 1
             return 1, 0.0
 
+    def score_signal_quality(self, state: np.ndarray) -> float:
+        """v26: transformer P(reversion) used for opportunity RANKING only.
+
+        Decoupled from get_action so the entry gate (raw z-score, applied in the
+        backtest) and the quality score (scaled features → transformer) no longer
+        share the unit-mismatched state[0]. Returns 1.0 when no transformer is
+        trained (classical-only / ablation path), so ranking degrades to
+        signal_strength × pair_quality. Never a gate — v19-v21 evidence: quality
+        gating degraded OOS.
+        """
+        if self.signal_transformer is None:
+            return 1.0
+        try:
+            return float(self.signal_transformer.predict_signal_quality(state))
+        except Exception:
+            return 1.0
+
     def _assess_feature_quality(self, state: np.ndarray) -> float:
         """FIXED: More balanced feature quality assessment"""
         try:
@@ -560,9 +577,15 @@ class FixedTransformerMultiAgentSystem:
                 )
                 if self.scaler_fitted:
                     feats = self.scaler.transform(feats.reshape(1, -1)).flatten()
-                z_f = (spread.iloc[t + horizon] - mean) / std
+                # v26: label = did |z| drop by >margin AT ANY POINT within the horizon
+                # (matches the documented "reverts within 10 days"). The prior code
+                # checked only the endpoint at exactly t+horizon, so a spread that
+                # reverted on day 3 then blew back out by day 10 was mislabeled 0.
+                future = spread.iloc[t + 1: t + horizon + 1]
+                z_future_abs = np.abs((future.values - mean) / std)
+                min_abs_z = float(z_future_abs.min()) if len(z_future_abs) else abs(z_t)
                 X.append(feats)
-                y.append(1.0 if (abs(z_t) - abs(z_f)) > margin else 0.0)
+                y.append(1.0 if (abs(z_t) - min_abs_z) > margin else 0.0)
                 if len(X) >= max_samples:
                     break
             if len(X) >= max_samples:

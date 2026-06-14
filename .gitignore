@@ -27,7 +27,10 @@ logs/
 outputs/
 
 # Data cache (auto-refetched from yfinance if absent)
-data/*.pkl
+data/
+
+# Internal dev backups, patches, status notes — not for the public repo
+archive/
 
 # Interview prep notes (local only)
 GRILL_NOTES.md

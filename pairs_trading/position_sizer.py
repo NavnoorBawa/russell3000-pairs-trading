@@ -55,11 +55,17 @@ class FixedPrimeFundPositionSizer:
                 if volatility > 0.08:
                     vol_multiplier = 0.8
 
-            combined_fraction = (base_size * signal_multiplier * quality_multiplier *
-                               performance_multiplier * vol_multiplier * risk_scaling_factor)
+            # v26: clamp to [min, max] on the pre-scaling size, THEN apply the
+            # risk/regime scaling factor. Previously the min floor was applied AFTER
+            # multiplying by risk_scaling_factor, so a regime cut to 0.25x could not
+            # push a position below the 3% floor — the gate's deep reductions were
+            # silently defeated. Now regime/vol/profit scaling genuinely bites.
+            pre_scale_fraction = (base_size * signal_multiplier * quality_multiplier *
+                                  performance_multiplier * vol_multiplier)
+            pre_scale_fraction = max(self.min_position_size,
+                                     min(self.max_position_size, pre_scale_fraction))
 
-            final_fraction = max(self.min_position_size,
-                               min(self.max_position_size, combined_fraction))
+            final_fraction = pre_scale_fraction * risk_scaling_factor
 
             position_size = final_fraction * current_capital
 

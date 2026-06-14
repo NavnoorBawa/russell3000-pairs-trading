@@ -245,6 +245,13 @@ class CompleteFixedRussell3000TradingSystem:
         # FIX: Pending PnL keyed by exit date - eliminates look-ahead bias
         pending_pnl: Dict = {}
 
+        # v26: track real concurrent gross exposure. Previously update_daily_stats
+        # was called with exposure=0, so current_exposure reset to 0 every day and
+        # the 30% total-exposure cap + exposure kill-switch never fired. open_exposure
+        # = sum of open position fractions; each entry schedules release on its exit.
+        open_exposure = 0.0
+        exposure_release: Dict = {}
+
         # v13: Per-pair consecutive loss tracking for cooling-off after 3 losses
         pair_loss_streak: Dict = {}    # pair_string -> consecutive loss count
         pair_cooloff_until: Dict = {}  # pair_string -> date cooloff triggered (reset after 30 cal days)
@@ -334,12 +341,19 @@ class CompleteFixedRussell3000TradingSystem:
         # Sorted re-selection dates for fast lookup
         resel_dates_sorted = sorted(pair_windows.keys()) if pair_windows else []
 
+        daily_dates = []   # v26: real calendar date per daily_pnl entry (for export)
+
         for date_idx, date in enumerate(tqdm(all_dates, desc="CORRECTED Backtesting")):
             daily_trades = 0
             # FIX: Start day PnL with any trades that closed today
             day_pnl = pending_pnl.pop(date, 0.0)
             day_costs = 0
             day_trade_details = []
+
+            # v26: release exposure from positions exiting today and expose the
+            # running gross total to the risk manager (enforces the 30% cap).
+            open_exposure = max(0.0, open_exposure - exposure_release.pop(date, 0.0))
+            self.risk_manager.current_exposure = open_exposure
 
             # Reset daily counters and get adaptive scaling
             self.risk_manager.reset_daily_counters()
@@ -404,10 +418,22 @@ class CompleteFixedRussell3000TradingSystem:
                     if _d_scale < 1.0:
                         _recent_reduced += 1
 
-                # If >20% of last quarter is reduced, SKIP this day
+                # If >20% of last quarter is reduced, SKIP NEW ENTRIES this day.
+                # v26: still book any P&L from positions exiting today and record the
+                # day — the prior code `continue`d before daily_pnl.append/portfolio
+                # update, silently discarding realized exit P&L that landed on a
+                # hard-stop day (those trades were still counted in win-rate/stats).
                 if _recent_reduced / len(_recent_63_dates) > 0.20:
-                    logger.debug(f"v11 hard stop: {_recent_reduced}/{len(_recent_63_dates)} days reduced → skip {date.date()}")
-                    continue  # Skip to next date (no trading today)
+                    logger.debug(f"v11 hard stop: {_recent_reduced}/{len(_recent_63_dates)} days reduced → no new entries {date.date()}")
+                    daily_pnl.append(day_pnl)
+                    daily_dates.append(date)
+                    portfolio_value *= (1 + day_pnl)
+                    self.risk_manager.update_daily_stats(0, open_exposure, day_pnl, portfolio_value)
+                    should_stop, stop_reason = self.risk_manager.should_stop_trading(day_pnl)
+                    if should_stop:
+                        logger.warning(f"LOGICAL Risk Management: {stop_reason}")
+                        break
+                    continue  # Skip new entries today
 
             risk_scaling_factor *= regime_scale
             _regime_scale_counts[regime_scale] = _regime_scale_counts.get(regime_scale, 0) + 1
@@ -541,15 +567,15 @@ class CompleteFixedRussell3000TradingSystem:
                     else:
                         features_scaled = features
 
-                    action, feature_quality = self.rl_agent.get_action(features_scaled, training=False, pair_key=pair_string)
-
+                    # v26: the entry decision is governed by the RAW z-score (the
+                    # documented |z|>1.8 rule). The prior code also gated on
+                    # get_action(), which compared the RobustScaler-SCALED state[0]
+                    # to 2.0 — a unit mismatch that silently raised the effective
+                    # entry threshold to ~2.7σ and could reject valid 1.8σ signals.
                     zscore = features[0] if len(features) > 0 else 0
                     signal_strength = min(abs(zscore) / 2.5, 1.0)
 
-                    if action == 1:
-                        continue
-
-                    # v18: entry z-score threshold
+                    # v18: entry z-score threshold (raw z)
                     if abs(zscore) < 1.8:
                         continue
 
@@ -559,6 +585,11 @@ class CompleteFixedRussell3000TradingSystem:
                         action = 0
                     else:
                         continue
+
+                    # v26: transformer quality score (RANKING only) computed directly,
+                    # defined for every raw-z entry — no longer tied to get_action's
+                    # scaled-z neutral short-circuit. Returns 1.0 if no transformer.
+                    feature_quality = self.rl_agent.score_signal_quality(features_scaled)
 
                     quality_opportunities += 1
 
@@ -720,14 +751,19 @@ class CompleteFixedRussell3000TradingSystem:
                                 continue
                             current_zscore = (locked_spread_cand - _m_fb) / _s_fb
 
-                        days_held = (candidate_date - date).days
+                        # v26: time-stop counts TRADING days, not calendar days.
+                        # _max_hold_days is a trading-day cap (the loop iterates
+                        # trading-day indices); the prior `(candidate_date-date).days`
+                        # was calendar, firing ~30% early (a 25-trading-day cap hit at
+                        # ~25 calendar ≈ 17 trading days).
+                        trading_days_held = future_idx - date_idx
 
                         if action == 0:
-                            if current_zscore > -0.5 or (current_zscore - entry_spread_zscore > 1.0) or days_held >= _max_hold_days:
+                            if current_zscore > -0.5 or (current_zscore - entry_spread_zscore > 1.0) or trading_days_held >= _max_hold_days:
                                 next_date = candidate_date
                                 break
                         else:
-                            if current_zscore < 0.5 or (entry_spread_zscore - current_zscore > 1.0) or days_held >= _max_hold_days:
+                            if current_zscore < 0.5 or (entry_spread_zscore - current_zscore > 1.0) or trading_days_held >= _max_hold_days:
                                 next_date = candidate_date
                                 break
 
@@ -735,6 +771,13 @@ class CompleteFixedRussell3000TradingSystem:
                         continue
 
                     total_position_value = position_size
+
+                    # v26: enforce the gross-exposure cap against real concurrent
+                    # open exposure (the risk manager's 30% limit). Previously
+                    # exposure was hardcoded to 0 so this never bound.
+                    _pos_pct = total_position_value / portfolio_value
+                    if open_exposure + _pos_pct > self.risk_manager.max_total_exposure:
+                        continue
 
                     # v22: equal-dollar position sizing (reverted from v19 beta-weighted).
                     # Empirical evidence across v19-v21: beta-weighted P&L with noisy Kalman β
@@ -821,6 +864,13 @@ class CompleteFixedRussell3000TradingSystem:
                     daily_trades += 1
                     total_costs += total_trade_cost
 
+                    # v26: add to live gross exposure; release it on the exit date.
+                    open_exposure += _pos_pct
+                    exposure_release[next_date] = exposure_release.get(next_date, 0.0) + _pos_pct
+                    # v26: stamp last-trade date on actual EXECUTION (moved out of
+                    # validate_signal, which fired for ranked-out candidates too).
+                    self.risk_manager.last_trade_dates[pair_string] = date
+
                     self.position_sizer.record_trade(pair_string, net_pnl_pct)
                     self.risk_manager.daily_trade_count = daily_trades
 
@@ -832,11 +882,12 @@ class CompleteFixedRussell3000TradingSystem:
                     continue
 
             daily_pnl.append(day_pnl)
+            daily_dates.append(date)   # v26: real date per daily_pnl entry
             portfolio_value *= (1 + day_pnl)
             max_daily_trades = max(max_daily_trades, daily_trades)
 
-            # Update risk manager with current portfolio state
-            self.risk_manager.update_daily_stats(daily_trades, 0, day_pnl, portfolio_value)
+            # Update risk manager with current portfolio state (v26: real exposure)
+            self.risk_manager.update_daily_stats(daily_trades, open_exposure, day_pnl, portfolio_value)
 
             # Check logical risk controls
             should_stop, stop_reason = self.risk_manager.should_stop_trading(day_pnl)
@@ -917,6 +968,9 @@ class CompleteFixedRussell3000TradingSystem:
             'trades': trades,
             'daily_pnl': daily_pnl,
             'daily_returns': daily_pnl,
+            # v26: real calendar date per daily_pnl entry (stringified) so the JSON
+            # export dates the equity curve correctly instead of synthesizing one.
+            'daily_dates': [str(d.date()) if hasattr(d, 'date') else str(d) for d in daily_dates],
             'test_period_days': len(all_dates)
         }
 
@@ -1370,13 +1424,15 @@ class CompleteFixedRussell3000TradingSystem:
                 total_cost    = cost_dict['total_cost']
                 cost_fraction = total_cost / max(equity, 1.0)
 
-                # ── Gross PnL (same sign convention as main backtest) ────────────
-                # action == 'LONG': we bought spread → profit when spread rises
-                # action == 'SHORT': we sold spread → profit when spread falls
-                if action == 'LONG':
-                    gross_fraction = spread_ret * position_fraction
-                else:
-                    gross_fraction = -spread_ret * position_fraction
+                # ── Gross PnL ────────────────────────────────────────────────────
+                # v26 FIX: trade['spread_return'] is ALREADY directional
+                # (profit-positive) — the main backtest stores log_ret1−log_ret2 for
+                # longs and log_ret2−log_ret1 for shorts, then books it with NO sign
+                # flip. The prior `-spread_ret` for SHORT double-negated every short
+                # trade's P&L, inverting winners and losers for ~half the book. Both
+                # directions use +spread_ret, matching the main backtest and this
+                # function's own docstring (net PnL = spread_return × fraction ± cost).
+                gross_fraction = spread_ret * position_fraction
 
                 net_fraction = gross_fraction - cost_fraction
 

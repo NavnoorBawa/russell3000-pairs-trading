@@ -2034,3 +2034,126 @@ Sharpe. The portfolio Sharpe for the 5-year equity curve is 0.22.
    (main backtest portfolio Sharpe 0.22 on the whole curve).
 3. No net edge after institutional costs — all five profiles negative, proven
    independent of ML, consistent across v23/v24/v25 on three different dataset vintages.
+
+---
+
+## v26 Changes (2026-06-14) — full correctness pass (code audit)
+
+A line-by-line audit of all 14 modules surfaced one outright bug in the result
+path, several logic inconsistencies, and minor robustness issues. All but one were
+fixed (the exception is documented). **Every fix below changes published numbers**,
+so a full re-run on the same cached data was launched (`logs/backtest_v26*.log`).
+v26 vs v25 is a clean A/B of the fixes (identical data).
+
+### A — correctness bugs (fixed)
+
+- **A1 — Fund comparison inverted P&L on every SHORT trade.**
+  `run_fund_type_comparison` did `gross = -spread_ret * fraction` for shorts, but
+  `trade['spread_return']` is already directional (the main backtest stores
+  `log_ret1−log_ret2` for longs / `log_ret2−log_ret1` for shorts and books it with
+  no sign flip). The extra negation inverted winners/losers for ~half the book and
+  contradicted the function's own docstring. Fixed: both directions use
+  `+spread_ret`. **Changes the fund-comparison table.**
+- **A2 — Hard-stop days discarded realized exit P&L.**
+  `day_pnl = pending_pnl.pop(date)` collected exits due today, but the regime
+  hard-stop `continue`d *before* `daily_pnl.append` / `portfolio_value *=`, silently
+  dropping P&L from trades exiting on a hard-stop day (while still counting them in
+  trade stats). Fixed: book exits + record the day before skipping new entries.
+- **A3 — Exported equity curve used fabricated dates.**
+  `calculate_equity_curve` synthesized consecutive business days from 2023-01-01;
+  the real series starts 2023-07-01 and skips hard-stop days. Fixed: backtest now
+  emits `daily_dates`, threaded into the export; monthly breakdown now correct.
+
+### B — logic inconsistencies (fixed)
+
+- **B1 — Entry gate ran on RobustScaler-scaled z.** The backtest fed scaled
+  features to `get_action`, whose neutral short-circuit compared the *scaled*
+  `state[0]` to 2.0 — a unit mismatch that raised the effective entry to ~2.7σ and
+  could reject valid 1.8σ signals. Fixed: entry decided on raw z (documented 1.8),
+  new `score_signal_quality()` computes the transformer ranking score directly for
+  every entry (ranking only, never a gate). **Expected to increase trade count.**
+- **B2 — Hold cap mixed calendar and trading days.** Time-stop compared
+  `(candidate_date−date).days` (calendar) against a trading-day cap → fired ~30%
+  early. Fixed: counts trading days (`future_idx − date_idx`).
+- **B3 — 30% gross-exposure cap was never enforced.** `update_daily_stats(...,0,...)`
+  reset `current_exposure` to 0 daily, disabling the cap and the exposure kill-switch.
+  Fixed: real concurrent `open_exposure` tracked with an exit-date release schedule;
+  enforced at entry and reported to the risk manager.
+- **B5 — Outcome label checked the endpoint, not the horizon.** Labeled on |z| at
+  exactly t+10 rather than the min over t+1..t+10 ("reverts within 10 days"). Fixed
+  to min-over-horizon. (ML-arm only.)
+- **B6 — `validate_signal` stamped `last_trade_dates` for ranked-out candidates.**
+  Moved the stamp to actual execution.
+- **C — minor:** position-size floor now applied *before* risk scaling (regime cuts
+  below 3% now bite); `profit_factor` capped at 999 instead of `inf` (valid JSON);
+  `main.py` numeric format defaults (no crash on missing VIX key).
+
+### B4 — documented, NOT changed (deliberate)
+
+Transformer **train/serve feature skew**: training calls `extract_advanced_features`
+with empty stock DataFrames and hardcoded `get_pair_stats()`, so per-stock RSI/
+momentum/vol features and corr/HL/quality are constant/default during training but
+real at inference. This biases the scaler + transformer. NOT fixed because (a) it
+only affects the transformer ranking arm, which the v24/v25 ablation proves
+contributes ≈0 (+0.02pp/qtr), and (b) a proper fix means real per-sample feature
+extraction across 19 retrainings — a large perf hit for a noise-level component.
+Flagged here as a known limitation; partially explains why BCE ≈ base-rate entropy.
+
+### v26 verification runs (launched 2026-06-14, chained, same cached pickle)
+
+1. `PAIRS_USE_TRANSFORMER=1` → `logs/backtest_v26.log`
+2. `PAIRS_USE_TRANSFORMER=0` → `logs/backtest_v26_ablation_noml.log`
+
+Smoke-tested on synthetic data first (backtest + fund comparison run clean,
+`daily_dates` aligned, all 5 profiles finite). Results table + published artifacts
+(README, website, Notion, resume) to be refreshed from these logs on completion —
+**v25 numbers are superseded.** The fixes most likely to move numbers: B1 (more
+trades at the true 1.8σ threshold), A1 (fund table), B3 (exposure cap can now block
+trades), A2 (hard-stop windows).
+
+### v26 RESULTS (both runs complete, chain exit 0/0) — MAJOR REVERSAL
+
+Both arms **bit-identical** → transformer still contributes exactly 0 (the B4 skew
++ base-rate finding holds; the ML layer remains tested-and-rejected).
+
+| Metric | v25 (buggy) | v26 (corrected) |
+|---|---|---|
+| Main backtest return / Sharpe | +0.31% / 0.22 | **+1.86% / 0.58** |
+| Main backtest trades / WR / MaxDD | 34 / 52.9% / −0.63% | **71 / 56.3% / −2.11%** |
+| Walk-forward profitable | 17/19 | **14/19** (IS 9/9, OOS 5/10) |
+| IS W1–W9 avg / Sharpe | +5.26%/qtr / 4.504 | **+3.12%/qtr / 4.654** |
+| OOS W10–W19 avg / Sharpe | +1.30%/qtr / 1.217 | **+0.36%/qtr / 0.474** |
+
+**Fund comparison — the all-negative result was largely an A1 artifact:**
+
+| Profile | v25 | v26 (corrected) |
+|---|---|---|
+| Quant HF (~5–7x) | −5.41% | **+5.94%** (Sharpe 1.47) |
+| Multi-Strat (~4x) | −3.87% | **+3.60%** (1.33) |
+| Fundamental L/S (~1.5–2x) | −2.40% | **+1.14%** (0.86) |
+| Buy-Side Institutional (1x) | −0.65% | **+1.58%** (2.23) |
+| Retail (1x) | −1.57% | **−0.09%** (−0.12) |
+
+**Internal-consistency check that confirms A1 is now correct:** Buy-Side (1x,
+~0.10% cost) = +1.58% ≈ main backtest gross +1.86% − costs. Under v25 it was −0.65%
+while the main backtest was +0.31% — opposite signs, the signature of the bug.
+
+**Honest interpretation (important — do NOT overswing to "it works"):**
+1. The "all five fund profiles negative / no deployable edge" headline was
+   **substantially a sign bug** (A1 inverted P&L on ~half the trades — the shorts).
+   Corrected, four of five profiles are net-positive on the main backtest.
+2. BUT the rigorous **walk-forward OOS is the binding constraint and it is THIN**:
+   +0.36%/qtr, Sharpe 0.474, only 5/10 OOS windows positive — and it *declined* vs
+   v25 because the corrected 1.8σ entry (B1) is less selective than the accidental
+   ~2.7σ gate the buggy code was effectively using. The documented threshold is not
+   the OOS-optimal one.
+3. The fund table runs on the MAIN backtest (optimistic: contiguous run + quarterly
+   reselection). The walk-forward OOS is the pessimistic/honest forward bound. The
+   truth is between them, closer to the thin OOS.
+4. Net honest claim now: *correct accounting shows a modest positive gross edge that
+   survives leverage on the main backtest, but the rigorous OOS is thin (+0.36%/qtr,
+   Sharpe 0.47) — not a confirmed deployable edge.* This is a more nuanced and more
+   defensible story than either "no edge" (v25, partly a bug) or "it works".
+
+All published artifacts (README, website, Notion, resume, LinkedIn draft) carried the
+v25 "all-negative / +1.30%/qtr OOS" narrative and are now **wrong** — pending refresh.

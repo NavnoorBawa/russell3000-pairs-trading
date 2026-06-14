@@ -48,7 +48,12 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
 
         # Calculate daily equity curve
         initial_value = 100000000  # $100M
-        equity_curve = calculate_equity_curve(daily_returns, initial_value)
+        # v26: pass the REAL trading dates so the equity curve and monthly breakdown
+        # are correctly dated. Previously dates were synthesized as consecutive
+        # business days from 2023-01-01, which mislabeled the axis by ~6 months and
+        # treated regime-skipped days as contiguous.
+        daily_dates = backtest_results.get('daily_dates', None)
+        equity_curve = calculate_equity_curve(daily_returns, initial_value, daily_dates)
 
         # Prepare comprehensive JSON structure
         export_data = {
@@ -242,7 +247,9 @@ def calculate_profit_factor(returns: np.ndarray) -> float:
         if len(positive_returns) == 0:
             return 0.0
         if len(negative_returns) == 0:
-            return float('inf') if len(positive_returns) > 0 else 0.0
+            # v26: cap at a large finite value — float('inf') serializes to the
+            # bare token `Infinity`, which is invalid JSON and breaks strict parsers.
+            return 999.0 if len(positive_returns) > 0 else 0.0
 
         profit = np.sum(positive_returns)
         loss = abs(np.sum(negative_returns))
@@ -267,8 +274,15 @@ def calculate_max_drawdown_from_returns(returns: np.ndarray) -> float:
         return 0.0
 
 
-def calculate_equity_curve(daily_returns: List[float], initial_value: float) -> Dict:
-    """Calculate detailed equity curve data"""
+def calculate_equity_curve(daily_returns: List[float], initial_value: float,
+                            daily_dates: List = None) -> Dict:
+    """Calculate detailed equity curve data.
+
+    v26: if daily_dates (the real per-day trading dates from the backtest) is
+    provided, use it; otherwise fall back to synthetic business days. Synthetic
+    dates were misleading — the backtest starts 2023-07-01 and skips regime
+    hard-stop days, so a contiguous 2023-01-01 calendar mislabels the curve.
+    """
     returns_array = np.array(daily_returns)
 
     # Calculate cumulative values
@@ -280,9 +294,12 @@ def calculate_equity_curve(daily_returns: List[float], initial_value: float) -> 
     peak = np.maximum.accumulate(values)
     drawdowns = (peak - values) / peak
 
-    # Generate dates (assuming trading days from 2023-01-01)
-    start_date = pd.Timestamp('2023-01-01')
-    dates = pd.date_range(start=start_date, periods=len(returns_array), freq='B')  # Business days
+    if daily_dates is not None and len(daily_dates) == len(returns_array):
+        dates = [pd.Timestamp(d) for d in daily_dates]
+    else:
+        # Fallback: synthetic business days (only when real dates unavailable)
+        start_date = pd.Timestamp('2023-07-01')
+        dates = pd.date_range(start=start_date, periods=len(returns_array), freq='B')
 
     return {
         'dates': [d.strftime("%Y-%m-%d") for d in dates],

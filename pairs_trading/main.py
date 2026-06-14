@@ -81,11 +81,11 @@ def main():
             print("\n" + "="*70)
             print("REGIME BREAK DIAGNOSIS — W10 (Apr–Jul 2023)")
             print("="*70)
-            print(f"VIX avg: {rd.get('vix_avg', '?'):.1f}  "
-                  f"(min {rd.get('vix_min', '?'):.1f} / max {rd.get('vix_max', '?'):.1f})  "
+            print(f"VIX avg: {rd.get('vix_avg', 0.0):.1f}  "
+                  f"(min {rd.get('vix_min', 0.0):.1f} / max {rd.get('vix_max', 0.0):.1f})  "
                   f"[historical avg {rd.get('vix_pre_period_avg', 20):.1f}]")
-            print(f"Sector dispersion z-score: avg {rd.get('sector_dispersion_avg_z', '?'):.2f}σ  "
-                  f"max {rd.get('sector_dispersion_max_z', '?'):.2f}σ")
+            print(f"Sector dispersion z-score: avg {rd.get('sector_dispersion_avg_z', 0.0):.2f}σ  "
+                  f"max {rd.get('sector_dispersion_max_z', 0.0):.2f}σ")
             print(f"Days with dispersion > 2σ: {rd.get('days_above_2sigma', '?')} "
                   f"/ {rd.get('total_days_in_period', '?')}")
             print("Root cause: 'Walking on Ice' — low VIX masked broken pair correlations")
