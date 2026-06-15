@@ -60,15 +60,18 @@ days). See [docs/PROGRESS.md](docs/PROGRESS.md) §v26 for the full list.
 |---|---|---|
 | Main backtest (Jul 2023–2025) return / Sharpe | +1.86% / 0.58 | identical |
 | Main backtest trades / win rate | 71 / 56.3% | identical |
-| Walk-forward IS (W1–W9) avg / Sharpe | +3.12%/qtr / 4.65 | identical |
-| Walk-forward OOS (W10–W19) avg / Sharpe | **+0.36%/qtr / 0.47** | identical |
-| Walk-forward windows profitable | 14/19 (OOS 5/10) | identical |
+| Walk-forward IS (W1–W9) avg / Sharpe | +3.12%/qtr / 4.65 | +3.00%/qtr / 4.70 |
+| Walk-forward OOS (W10–W19) avg / Sharpe | **+0.36%/qtr / 0.47** | +0.53%/qtr (4-seed mean) |
+| Walk-forward windows profitable | 14/19 (OOS 5/10) | ~identical |
 
-**The transformer contributes nothing** — both arms are bit-identical to the cent, as
-in every prior version. The learned layer is real, trained, and **measurably zero**;
-the edge (such as it is) is the classical pipeline. The diagnosis: at |z|>1.8 entry,
-most signals revert regardless of features, so the entry rule already extracts the
-learnable signal (BCE converges to base-rate entropy).
+**The transformer contributes ≈ 0, and that's a seed-robustness result, not a guess.**
+The main backtest and all five cost profiles are bit-identical with and without it
+(ranking only binds in the walk-forward). The transformer *does* train correctly here —
+BCE falls below coin-flip entropy, so it genuinely discriminates — and **one** training
+seed showed an OOS gain (+0.74%/qtr). A four-seed check (42, 1, 2, 7) dissolved it: OOS
+spans 0.30–0.74%/qtr (mean +0.53 vs classical +0.36), a spread wider than the mean
+effect, with one seed below baseline. So the apparent gain was a lucky draw; the edge is
+the classical pipeline.
 
 ### Institutional cost profiles (the v26 reversal)
 
@@ -105,8 +108,9 @@ the P&L of every short trade. Corrected:
 ## What this project is not
 
 - **Not an "AI-enhanced" strategy.** The transformer is real, trained, wired in — and
-  contributes zero (ablation identical to the cent). v10–v23 carried it as dead code;
-  v24 fixed the wiring; the ablation quantified the truth.
+  contributes ≈0, confirmed by a four-seed robustness check (one lucky seed suggested
+  otherwise). v10–v23 carried it as dead code; v24 wired it in; v26 a label bug stopped
+  it training; v26.1 fixed that and the seed check settled it.
 - **Not reinforcement learning.** No DDPG/SAC/policy network exists in this codebase.
 - **Not a validated deployable edge** — the rigorous OOS is thin (see above).
 - The encoder runs on a single feature vector (sequence length 1), so it is
@@ -148,6 +152,7 @@ unflattering; it is the most honest artifact in the repository.
 | v24 | transformer actually trained + wired in (ranking-only); controlled ablation |
 | v25 | portfolio Sharpe corrected (computed on all days, not non-zero days) |
 | v26 | code audit: fund-comparison sign bug, entry-threshold/hold-time/exposure fixes — reversed the all-negative fund result; rigorous OOS now the binding constraint |
+| v26.1 | fixed a label bug that had silently disabled transformer training; 4-seed robustness check confirmed the ML contribution is ≈0 (one lucky seed had suggested otherwise) |
 
 ---
 

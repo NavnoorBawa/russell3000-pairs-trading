@@ -56,15 +56,21 @@ class TransformerEnhancedTradingAgent:
 
         return quality_score
 
-    def train_on_batch(self, features_batch: np.ndarray, targets_batch: np.ndarray):
-        """Train Transformer on a batch of data"""
+    def train_on_batch(self, features_batch: np.ndarray, targets_batch: np.ndarray,
+                       pos_weight: float = None):
+        """Train Transformer on a batch of data.
+
+        v26.1: optional pos_weight (= n_neg/n_pos) up-weights the rare class so an
+        imbalanced label set trains a real model instead of collapsing to the prior.
+        """
         self.transformer.train()
 
         features = torch.FloatTensor(features_batch).to(self.device)
         targets = torch.FloatTensor(targets_batch).to(self.device)
 
         predictions = self.transformer(features).squeeze(-1)
-        loss = nn.functional.binary_cross_entropy_with_logits(predictions, targets)
+        pw = torch.tensor(pos_weight, device=self.device) if pos_weight is not None else None
+        loss = nn.functional.binary_cross_entropy_with_logits(predictions, targets, pos_weight=pw)
 
         self.optimizer.zero_grad()
         loss.backward()

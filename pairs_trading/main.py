@@ -7,6 +7,7 @@ Run this file to execute the complete trading system.
 DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
 """
 
+import os
 import random
 import numpy as np
 import torch
@@ -19,10 +20,14 @@ logger = logging.getLogger(__name__)
 
 def main():
     try:
-        # Set random seeds for reproducibility
-        random.seed(42)
-        np.random.seed(42)
-        torch.manual_seed(42)
+        # Set random seeds for reproducibility. Default 42; PAIRS_SEED overrides so
+        # the transformer arm can be re-run across seeds for robustness testing
+        # (the classical path is deterministic and unaffected by the seed).
+        _seed = int(os.environ.get("PAIRS_SEED", "42"))
+        random.seed(_seed)
+        np.random.seed(_seed)
+        torch.manual_seed(_seed)
+        logger.info(f"Random seed: {_seed}")
 
         logger.info("Starting Fixed Transformer Encoder Trading System...")
 

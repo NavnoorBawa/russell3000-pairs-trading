@@ -550,15 +550,21 @@ class FixedTransformerMultiAgentSystem:
         plot_training_results(plot_stats)
 
     def _build_outcome_dataset(self, train_spreads: Dict, entry_z: float = 1.8,
-                               horizon: int = 10, margin: float = 0.25,
+                               horizon: int = 10, exit_z: float = 0.5,
                                max_samples: int = 15000):
         """v24: Build (features, label) samples for the signal-quality transformer.
 
         A sample is any training day whose spread z-score breaches the entry
         threshold — the same |z| > 1.8 condition the backtest trades on. The label
-        is 1 if |z| dropped by more than `margin` within `horizon` days (the
-        mean-reversion thesis played out), else 0. Features are computed from data
-        up to the entry day only; the future enters through labels alone.
+        is the decision-relevant outcome the ranking cares about: **did this entry
+        complete a round-trip to the exit band (|z| < exit_z = 0.5) within the
+        horizon** — i.e. would the trade have hit its profit target.
+
+        v26.1: this replaced the "|z| dropped by >0.25 at any point" label, which
+        was satisfied by ~all entries (base rate >0.95) and tripped the degeneracy
+        guard, silently disabling transformer training in the v26 run. The exit-band
+        label is more balanced and is exactly what the backtest's exit rule rewards.
+        Features use data up to the entry day only; the future enters via labels alone.
         """
         X, y = [], []
         for pair_key, spread in train_spreads.items():
@@ -577,15 +583,11 @@ class FixedTransformerMultiAgentSystem:
                 )
                 if self.scaler_fitted:
                     feats = self.scaler.transform(feats.reshape(1, -1)).flatten()
-                # v26: label = did |z| drop by >margin AT ANY POINT within the horizon
-                # (matches the documented "reverts within 10 days"). The prior code
-                # checked only the endpoint at exactly t+horizon, so a spread that
-                # reverted on day 3 then blew back out by day 10 was mislabeled 0.
                 future = spread.iloc[t + 1: t + horizon + 1]
                 z_future_abs = np.abs((future.values - mean) / std)
                 min_abs_z = float(z_future_abs.min()) if len(z_future_abs) else abs(z_t)
                 X.append(feats)
-                y.append(1.0 if (abs(z_t) - min_abs_z) > margin else 0.0)
+                y.append(1.0 if min_abs_z < exit_z else 0.0)   # reached exit band?
                 if len(X) >= max_samples:
                     break
             if len(X) >= max_samples:
@@ -594,15 +596,25 @@ class FixedTransformerMultiAgentSystem:
         if len(X) < 400:
             return None, None
         y_arr = np.array(y, dtype=np.float32)
-        if y_arr.mean() < 0.05 or y_arr.mean() > 0.95:
-            return None, None   # degenerate labels — nothing learnable
+        # v26.1: only bail on TRULY degenerate labels; class weighting handles
+        # ordinary imbalance, so the transformer trains across a wide base-rate range.
+        if y_arr.mean() < 0.02 or y_arr.mean() > 0.98:
+            return None, None
         return np.array(X, dtype=np.float32), y_arr
 
     def _train_signal_transformer(self, X: np.ndarray, y: np.ndarray,
                                   epochs: int = 3, batch_size: int = 256):
-        """v24: BCE-train the transformer to predict P(reversion) at entry."""
+        """v24: BCE-train the transformer to predict P(reach exit band) at entry.
+
+        v26.1: pass a class-balancing pos_weight = n_neg / n_pos so an imbalanced
+        label set still trains a real model instead of collapsing to the prior —
+        otherwise the ablation would just be re-measuring the base rate.
+        """
         from pairs_trading.transformer_agent import TransformerEnhancedTradingAgent
         agent = TransformerEnhancedTradingAgent(state_dim=X.shape[1])
+        n_pos = float((y > 0.5).sum())
+        n_neg = float((y <= 0.5).sum())
+        pos_weight = (n_neg / n_pos) if n_pos > 0 else 1.0
         n = len(X)
         idx = np.arange(n)
         for ep in range(epochs):
@@ -610,10 +622,10 @@ class FixedTransformerMultiAgentSystem:
             losses = []
             for i in range(0, n, batch_size):
                 b = idx[i:i + batch_size]
-                losses.append(agent.train_on_batch(X[b], y[b]))
+                losses.append(agent.train_on_batch(X[b], y[b], pos_weight=pos_weight))
             logger.info(f"v24 transformer epoch {ep + 1}/{epochs}: "
                         f"BCE loss {np.mean(losses):.4f} "
-                        f"({n} samples, base rate {y.mean():.1%})")
+                        f"({n} samples, base rate {y.mean():.1%}, pos_weight {pos_weight:.2f})")
         self.signal_transformer = agent
 
     def get_pair_stats(self, pair_key):

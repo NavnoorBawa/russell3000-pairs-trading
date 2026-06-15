@@ -219,11 +219,11 @@ footer{padding:36px 0}
       <div class="mlbl">Walk-forward OOS<br>Sharpe</div>
     </div>
     <div class="metric">
-      <div class="mval">+0.02pp</div>
-      <div class="mlbl">Measured ML<br>contribution</div>
+      <div class="mval">≈ 0</div>
+      <div class="mlbl">ML contribution<br>(seed-tested)</div>
     </div>
   </div>
-  <p class="hero-note">A code audit corrected a sign bug that had understated results — the institutional cost comparison is now mostly positive. But the rigorous walk-forward out-of-sample result is thin (+0.36%/qtr, Sharpe 0.47) and is the binding constraint. Both the flattering and the unflattering corrections are reported; the value is the measurement, not the result.</p>
+  <p class="hero-note">A code audit corrected a sign bug that had understated results — the institutional cost comparison is now mostly positive — but the rigorous walk-forward out-of-sample result is thin (+0.36%/qtr, Sharpe 0.47) and is the binding constraint. The transformer trains correctly yet its OOS effect dissolves into seed noise (4-seed check). Bugs and lucky draws are corrected in both directions; the value is the measurement, not the result.</p>
   <div class="hero-cta">
     <a class="gh-btn" href="https://github.com/NavnoorBawa/russell3000-pairs-trading">View repository ↗</a>
     <a class="gh-link" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">Read the engineering log ↗</a>
@@ -322,20 +322,20 @@ footer{padding:36px 0}
 
 <section class="section" id="ablation">
   <div class="sec-label">04 — Controlled ablation</div>
-  <h2>ML contribution: measured at +0.02pp/qtr</h2>
-  <p class="desc">A transformer-based signal-quality scorer was trained on entry-outcome labels and used for opportunity ranking. A controlled ablation — identical data, identical code, one environment flag — quantifies its contribution. Across every version the two arms come out <strong>bit-identical to the cent</strong>: the learned layer is real, trained, and measurably zero. The diagnosis: at |z| &gt; 1.8 most entries revert regardless of features, so the entry rule already extracts the learnable signal (BCE converges to base-rate entropy).</p>
+  <h2>ML contribution: ≈ 0, confirmed by a seed-robustness check</h2>
+  <p class="desc">A transformer-based signal-quality scorer is trained (leak-free, per window) on whether an entry reaches its exit band, and used for opportunity ranking. It trains correctly — BCE falls below the coin-flip entropy, so it genuinely discriminates. Yet the main backtest and all five cost profiles are <strong>bit-identical with and without it</strong> (ranking only binds in the walk-forward). One training seed showed an OOS gain (+0.74%/qtr); a four-seed robustness check dissolved it into noise — the OOS spread (0.30–0.74%/qtr) is larger than the mean effect, with one seed below the classical baseline.</p>
   <div class="tw"><table>
     <thead>
       <tr><th>Metric</th><th>Classical only</th><th>+ Transformer</th><th>Δ</th></tr>
     </thead>
     <tbody>
       <tr><td>Main backtest return / Sharpe</td><td>+1.86% / 0.58</td><td>+1.86% / 0.58</td><td class="zero">0</td></tr>
-      <tr><td>IS avg return / Sharpe</td><td>+3.12%/qtr / 4.65</td><td>+3.12%/qtr / 4.65</td><td class="zero">0</td></tr>
-      <tr><td>OOS avg return / Sharpe</td><td>+0.36%/qtr / 0.47</td><td>+0.36%/qtr / 0.47</td><td class="zero">0</td></tr>
+      <tr><td>IS avg return / Sharpe</td><td>+3.12%/qtr / 4.65</td><td>+3.00%/qtr / 4.70</td><td class="zero">~0</td></tr>
+      <tr><td>OOS avg return (4-seed mean / range)</td><td>+0.36%/qtr</td><td>+0.53%/qtr (0.30–0.74)</td><td class="zero">noise</td></tr>
       <tr><td>Institutional cost profiles (5)</td><td>4 of 5 positive</td><td>identical to the cent</td><td class="zero">0</td></tr>
     </tbody>
   </table></div>
-  <p style="margin-top:18px;font-size:11px;color:var(--tf);font-family:'JetBrains Mono',monospace">PAIRS_USE_TRANSFORMER=0 disables the scorer · reproducible on any machine</p>
+  <p style="margin-top:18px;font-size:11px;color:var(--tf);font-family:'JetBrains Mono',monospace">PAIRS_USE_TRANSFORMER=0 disables the scorer · seeds {42,1,2,7} · reproducible on any machine</p>
 </section>
 
 <section class="section" id="notes">
@@ -377,7 +377,7 @@ footer{padding:36px 0}
   <div class="disc-box">
     <div class="disc-title">What the data shows</div>
     <div class="disc-text">
-      A code audit (v26) corrected a sign error in the cost comparison that had been inverting the P&amp;L of every short trade — it was making results look <em>worse</em> than reality. Corrected, four of five institutional cost profiles are net-positive (quant HF +5.94%, multi-strat +3.60%, fundamental L/S +1.14%, buy-side +1.58%, retail −0.09%), and the main backtest is +1.86% gross. <em>But this is not a confirmed deployable edge.</em> The rigorous, leak-free walk-forward out-of-sample result is the binding constraint and it is thin: <span class="neg">+0.36%/qtr, Sharpe 0.47, 5 of 10 OOS windows positive</span>. The fund table runs on the main backtest (the optimistic bound); the walk-forward is the honest forward estimate; the truth sits between them, closer to the thin OOS. The documented 1.8σ entry is not OOS-optimal — a stricter threshold the buggy code was accidentally using did better out-of-sample. The ML layer contributes exactly zero. Every claim here is derived from logged, reproducible runs, and the audit corrected bugs in both directions — ones that flattered results and ones that understated them.
+      A code audit (v26) corrected a sign error in the cost comparison that had been inverting the P&amp;L of every short trade — it was making results look <em>worse</em> than reality. Corrected, four of five institutional cost profiles are net-positive (quant HF +5.94%, multi-strat +3.60%, fundamental L/S +1.14%, buy-side +1.58%, retail −0.09%), and the main backtest is +1.86% gross. <em>But this is not a confirmed deployable edge.</em> The rigorous, leak-free walk-forward out-of-sample result is the binding constraint and it is thin: <span class="neg">+0.36%/qtr, Sharpe 0.47, 5 of 10 OOS windows positive</span>. The fund table runs on the main backtest (the optimistic bound); the walk-forward is the honest forward estimate; the truth sits between them, closer to the thin OOS. The documented 1.8σ entry is not OOS-optimal — a stricter threshold the buggy code was accidentally using did better out-of-sample. The transformer trains correctly but its OOS contribution is within seed noise (≈0, confirmed by a four-seed check after one lucky seed suggested otherwise). Every claim here is derived from logged, reproducible runs, and the audit corrected bugs in both directions and a lucky draw — flattering and unflattering alike.
     </div>
   </div>
 </section>

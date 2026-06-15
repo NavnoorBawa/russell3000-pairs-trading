@@ -2113,8 +2113,15 @@ trades), A2 (hard-stop windows).
 
 ### v26 RESULTS (both runs complete, chain exit 0/0) — MAJOR REVERSAL
 
-Both arms **bit-identical** → transformer still contributes exactly 0 (the B4 skew
-+ base-rate finding holds; the ML layer remains tested-and-rejected).
+> **CORRECTION (v26.1, see below):** the "both arms bit-identical ⇒ transformer
+> contributes 0" reading in this v26 section is WRONG. A code review found that the
+> v26 B5 label ("|z| dropped 0.25 within horizon") was satisfied by ~97% of entries,
+> tripping the >0.95 degeneracy guard, so the transformer **never trained in v26** —
+> the arms were identical because neither had a transformer. v26.1 fixed the label;
+> see the v26.1 section for the real ablation. The v26 *classical* numbers stand.
+
+Both arms **bit-identical** → ~~transformer still contributes exactly 0~~ (see
+correction above — the transformer did not train in v26).
 
 | Metric | v25 (buggy) | v26 (corrected) |
 |---|---|---|
@@ -2157,3 +2164,85 @@ while the main backtest was +0.31% — opposite signs, the signature of the bug.
 
 All published artifacts (README, website, Notion, resume, LinkedIn draft) carried the
 v25 "all-negative / +1.30%/qtr OOS" narrative and are now **wrong** — pending refresh.
+
+## v26.1 Changes (2026-06-15) — transformer actually trains; first non-zero ML signal
+
+A `/code-review` of the v26 diff caught that the transformer never trained in v26
+(B5 label degeneracy → 0 epoch lines vs 60 in v25; "insufficient outcome samples"
+on all 20 calls). Fixes in `multi_agent_system.py` + `transformer_agent.py`:
+
+1. **Label is now decision-relevant and balanced:** `_build_outcome_dataset` labels a
+   sample 1 if the spread **reached the exit band (|z| < 0.5) within the horizon** —
+   i.e. would the trade have hit its target — instead of "|z| dropped 0.25 at any
+   point" (which was ~97% positive). Base rates now ~48–54%.
+2. **Class weighting:** `train_on_batch(pos_weight = n_neg/n_pos)` so imbalance trains
+   a real model instead of collapsing to the prior. Degeneracy guard loosened to
+   [0.02, 0.98].
+
+Verified: transformer trains (60 epoch lines), **BCE ~0.64 < 0.69 coin-flip entropy**
+⇒ genuine (if weak) discrimination — the first time the model learned signal.
+
+### v26.1 RESULTS — the real ablation (both runs, same cached data, chain exit 0/0)
+
+| Metric | Classical only | + Transformer (trained) | Δ |
+|---|---|---|---|
+| Main backtest return / Sharpe | +1.86% / 0.58 | +1.86% / 0.58 | **0** |
+| All 5 fund profiles | +5.94% … −0.09% | identical to the cent | **0** |
+| Walk-forward IS (W1–W9) | +3.12%/qtr / 4.654 | +3.00%/qtr / 4.701 | ~0 |
+| Walk-forward **OOS (W10–W19)** | +0.36%/qtr / 0.474 / WR 65.1% | **+0.74%/qtr / 1.067 / WR 68.5%** | **+0.38pp / +0.59 / +3.4pp** |
+
+**Mechanism (internally consistent):** main backtest + fund table are *identical*
+because there <8 opportunities/day so the quality ranking rarely binds; the
+walk-forward windows have many competing pairs, so ranking by the trained transformer's
+P(reach exit) reorders the top-8 selection → better OOS trades (win rate 65→68%, OOS
+return roughly doubles). Leak-free: the model trains only on each window's 252-day
+slice.
+
+**Honest interpretation — do NOT overswing (again):**
+- This is the **first measured non-zero ML contribution** in the project: +0.38pp/qtr
+  OOS, Sharpe +0.59. It reverses the prior "transformer contributes 0" — but that
+  prior claim was itself partly an artifact (v24/v25 small effect; v26 didn't train).
+- **Heavily caveated:** 10 OOS windows, a SINGLE torch seed (42), and the effect is
+  invisible in the main backtest and all 5 fund profiles (where ranking doesn't bind).
+  A doubling of a thin number on 10 windows / one seed is well within noise.
+- Absolute OOS is still thin (+0.74%/qtr ≈ 3%/yr gross). Not a deployable edge.
+- **Robustness across training seeds is NOT yet established** — required before any
+  public claim that "the transformer helps." Pending: re-run the transformer arm with
+  ≥3 seeds; report mean ± spread of the OOS delta.
+
+Logs: `logs/backtest_v26_1.log` (transformer), `logs/backtest_v26_1_ablation_noml.log`
+(classical). Public artifacts NOT yet updated to a "transformer helps" claim — awaiting
+seed-robustness. The v26 public "contributes 0 (bit-identical)" wording must still be
+corrected (it described an untrained model).
+
+### v26.1 SEED-ROBUSTNESS (4 seeds) — the OOS gain was noise; ML contribution ≈ 0 (confirmed)
+
+The seed-42 OOS gain did NOT survive seed variation. Transformer arm re-run with
+torch/np/random seeds {42, 1, 2, 7} (classical baseline is deterministic at
++0.36%/qtr, Sharpe 0.474):
+
+| Seed | OOS return/qtr | OOS Sharpe | Δ vs classical |
+|---|---|---|---|
+| 42 | +0.74% | 1.067 | +0.38pp |
+| 1  | +0.30% | 0.480 | −0.06pp |
+| 2  | +0.56% | 0.875 | +0.20pp |
+| 7  | +0.51% | 0.630 | +0.15pp |
+| **mean** | **+0.53%** | **0.763** | **+0.17pp** |
+
+Spread (0.30–0.74%/qtr, 0.44pp) is **larger than the mean effect (+0.17pp)**, and one
+of four seeds sits below the classical baseline. On 10 OOS windows × 4 seeds this is
+indistinguishable from noise. **Verdict: the transformer, even correctly trained,
+contributes ≈0 robustly.** Main backtest and all five fund profiles remain bit-identical
+with/without it regardless of seed (ranking only binds in the walk-forward, where the
+effect is seed-noise).
+
+This is the final, properly-established version of the long-standing finding: the edge
+is the classical pipeline; the ML layer is tested-and-rejected — now with the transformer
+demonstrably training (BCE < entropy) AND its contribution shown to be within seed noise.
+Logs: `logs/backtest_v26_1_seed{1,2,7}.log`. The strongest honest narrative: built the
+ML, saw a +0.38pp OOS gain on the first seed, ran a 4-seed robustness check, and the
+effect dissolved into noise — so it's reported as no robust contribution.
+
+Public artifacts updated to this conclusion (v26.1). The misleading v26
+"contributes 0 (bit-identical, untrained)" wording is replaced with "trains correctly;
+contribution within seed noise (≈0)."
