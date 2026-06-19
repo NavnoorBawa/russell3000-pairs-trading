@@ -466,6 +466,12 @@ class CompleteFixedRussell3000TradingSystem:
                     symbol1, symbol2 = pair_key
                     pair_string = f"{symbol1}-{symbol2}"
 
+                    # v27: cross-symbol concentration check (v22 intent, now enforced).
+                    # If either leg is already in an open position, skip — otherwise we
+                    # accumulate a hidden directional bet on a single name across pairs.
+                    if symbol1 in _active_symbols or symbol2 in _active_symbols:
+                        continue
+
                     historical_spread = spread.loc[:date]
                     if len(historical_spread) < 50:
                         continue
@@ -870,6 +876,10 @@ class CompleteFixedRussell3000TradingSystem:
                     # v26: stamp last-trade date on actual EXECUTION (moved out of
                     # validate_signal, which fired for ranked-out candidates too).
                     self.risk_manager.last_trade_dates[pair_string] = date
+                    # v27: lock both legs until exit so neither stock can appear in a
+                    # concurrent pair (v22 cross-symbol intent, was declared but never populated).
+                    _active_symbols[symbol1] = next_date
+                    _active_symbols[symbol2] = next_date
 
                     self.position_sizer.record_trade(pair_string, net_pnl_pct)
                     self.risk_manager.daily_trade_count = daily_trades
@@ -1110,6 +1120,7 @@ class CompleteFixedRussell3000TradingSystem:
 
             # Retrain agent on this window's training data
             window_agent = FixedTransformerMultiAgentSystem()
+            window_agent.pair_statistics = self.pair_selector.pair_statistics  # v27: real stats
             window_agent.train_agent(window_train, episodes=episodes_per_window)
 
             # Swap in the window agent temporarily
@@ -1334,7 +1345,8 @@ class CompleteFixedRussell3000TradingSystem:
         logger.info(f"Quarterly schedule built: {len(pair_windows)} windows")
         return pair_windows
 
-    def run_fund_type_comparison(self, main_results: Dict) -> Dict:
+    def run_fund_type_comparison(self, main_results: Dict,
+                                 main_daily_dates: list = None) -> Dict:
         """
         Replay the SAME trade signals from the main backtest under five different
         institutional fund profiles (costs + position sizing).
@@ -1518,8 +1530,37 @@ class CompleteFixedRussell3000TradingSystem:
             # ── Return / Sharpe ──────────────────────────────────────────────────
             total_return = (equity - self.initial_capital) / self.initial_capital
 
-            # v25: Sharpe on ALL days (see run_comprehensive_backtest stats fix)
-            returns_arr = np.array(daily_return_series)
+            # v27: Sharpe on ALL trading days, not just exit dates.
+            # Prior code only appended to daily_return_series on exit dates (when
+            # pending_pnl had an entry), so the std was understated and Sharpe
+            # was inflated — the same bug fixed for the main backtest in v25.
+            # Fix: build a zero-padded return series over the full backtest period
+            # using main_daily_dates if available; otherwise fall back to exit-only.
+            if main_daily_dates:
+                pending_map = {pd.Timestamp(d): pending_pnl.get(pd.Timestamp(d), 0.0)
+                               for d in main_daily_dates}
+                full_returns = []
+                equity_recompute = float(self.initial_capital)
+                peak_recompute = equity_recompute
+                max_drawdown_recompute = 0.0
+                for d in main_daily_dates:
+                    ts = pd.Timestamp(d)
+                    if stopped_early and stopped_date is not None and ts > stopped_date:
+                        break
+                    day_r = pending_pnl.get(ts, 0.0)
+                    full_returns.append(day_r)
+                    equity_recompute *= (1 + day_r)
+                    if equity_recompute > peak_recompute:
+                        peak_recompute = equity_recompute
+                    dd_recompute = (peak_recompute - equity_recompute) / max(peak_recompute, 1.0)
+                    if dd_recompute > max_drawdown_recompute:
+                        max_drawdown_recompute = dd_recompute
+                returns_arr = np.array(full_returns)
+                n_days = len(full_returns)
+            else:
+                returns_arr = np.array(daily_return_series)
+                n_days = len(daily_return_series)
+
             sharpe = (
                 float(np.mean(returns_arr) / (np.std(returns_arr) + 1e-10) * np.sqrt(252))
                 if len(returns_arr) > 1 else 0.0
@@ -1535,7 +1576,9 @@ class CompleteFixedRussell3000TradingSystem:
             cost_pct_of_capital = total_cost_dollars / self.initial_capital * 100.0
 
             # ── Annualised return ─────────────────────────────────────────────────
-            n_days = len(daily_return_series)
+            # v27: use actual trading-day count (len of all backtest dates) not
+            # exit-date count. Prior code used len(daily_return_series) = number
+            # of exit days (~71 trades), grossly overstating annualised return.
             annualized_return = total_return * 252.0 / max(n_days, 1)
 
             comparison[profile_key] = {
@@ -1803,6 +1846,11 @@ class CompleteFixedRussell3000TradingSystem:
             except Exception:
                 continue
         logger.info(f"v10: Extended train set has {len(extended_train_spreads)} pairs (was {len(train_spreads)} in v9)")
+        # v27: inject real pair statistics into the agent before training so
+        # get_pair_stats() returns actual correlation/half_life/quality_score
+        # instead of hardcoded defaults, eliminating the training/serving skew
+        # on transformer features 17-19.
+        self.rl_agent.pair_statistics = self.pair_selector.pair_statistics
         self.rl_agent.train_agent(extended_train_spreads, episodes=1000)
 
         # Build quarterly re-selection schedule
@@ -1858,7 +1906,9 @@ class CompleteFixedRussell3000TradingSystem:
         # Replay the same trade signals under 5 different fund economics so the
         # results section can show how performance varies by institution type.
         logger.info("Starting fund-type comparison analysis...")
-        fund_comparison = self.run_fund_type_comparison(results)
+        fund_comparison = self.run_fund_type_comparison(
+            results, main_daily_dates=results.get('daily_dates', [])
+        )
         results['fund_comparison'] = fund_comparison
 
         if fund_comparison:

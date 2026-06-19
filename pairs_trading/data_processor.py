@@ -239,7 +239,7 @@ class EnhancedRussell3000DataProcessor:
                     else:
                         processed[col] = 0
                 else:
-                    processed[col] = processed[col].fillna(method='ffill').fillna(method='bfill').fillna(0)
+                    processed[col] = processed[col].ffill().bfill().fillna(0)
 
             return processed
 

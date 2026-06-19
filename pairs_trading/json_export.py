@@ -581,15 +581,18 @@ def calculate_signal_strength_statistics(trades: List[Dict]) -> Dict:
     """Calculate statistics by signal strength"""
     try:
         buckets = {
-            'weak (0.5-0.7)': (0.5, 0.7),
-            'medium (0.7-0.85)': (0.7, 0.85),
-            'strong (0.85-1.0)': (0.85, 1.0)
+            'weak (0.5-0.7)':    (0.5,  0.7,  False),
+            'medium (0.7-0.85)': (0.7,  0.85, False),
+            'strong (0.85-1.0)': (0.85, 1.0,  True),   # inclusive upper bound
         }
 
         stats_by_strength = {}
 
-        for bucket_name, (min_strength, max_strength) in buckets.items():
-            bucket_trades = [t for t in trades if min_strength <= t['signal_strength'] < max_strength]
+        for bucket_name, (min_strength, max_strength, inclusive_upper) in buckets.items():
+            if inclusive_upper:
+                bucket_trades = [t for t in trades if min_strength <= t['signal_strength'] <= max_strength]
+            else:
+                bucket_trades = [t for t in trades if min_strength <= t['signal_strength'] < max_strength]
 
             if bucket_trades:
                 returns = [t['net_pnl_pct'] for t in bucket_trades]

@@ -45,6 +45,9 @@ class FixedTransformerMultiAgentSystem:
         self.training_step = 0
 
         self.signal_quality_history = deque(maxlen=1000)
+        # v27: real pair statistics injected from pair_selector after selection.
+        # Used by get_pair_stats so transformer training features match inference.
+        self.pair_statistics: Dict = {}
 
         self.episode_rewards = []
         self.eval_rewards = []
@@ -629,12 +632,25 @@ class FixedTransformerMultiAgentSystem:
         self.signal_transformer = agent
 
     def get_pair_stats(self, pair_key):
-        """Get pair statistics"""
+        """Get pair statistics — uses real stored stats when available (v27 fix).
+        Falls back to neutral defaults only when stats haven't been injected yet
+        (e.g. before pair selection runs). Eliminates the training/serving skew
+        where features[17-19] (correlation, half_life, quality_score) were always
+        0.5/0.3/0.8 during transformer training but real values at inference time.
+        """
         if isinstance(pair_key, tuple):
             pair_string = f"{pair_key[0]}-{pair_key[1]}"
         else:
             pair_string = str(pair_key)
 
+        stored = self.pair_statistics.get(pair_string)
+        if stored:
+            return {
+                'correlation':          stored.get('correlation', 0.5),
+                'half_life':            stored.get('half_life', 30),
+                'cointegration_pvalue': stored.get('cointegration_pvalue', 0.05),
+                'quality_score':        stored.get('quality_score', 0.8),
+            }
         return {
             'correlation': 0.5,
             'half_life': 30,
