@@ -320,6 +320,9 @@ class FixedPrimeFundPairSelector:
         selected_pairs = [p['symbols'] for p in valid_pairs]
 
         self.selected_pairs = selected_pairs
+        # expose the quality-symbol universe so the benchmark can run the textbook
+        # distance method on the exact same universe (apples-to-apples comparison)
+        self.last_quality_symbols = list(quality_symbols)
 
         self.pair_statistics = {}
         for pair in valid_pairs:

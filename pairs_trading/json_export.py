@@ -145,7 +145,11 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
 
             # Statistical significance of the edge (PSR, HAC Sharpe t-stat,
             # bootstrap CIs, OOS window test, Deflated Sharpe). Measurement only.
-            "significance": backtest_results.get('significance', {})
+            "significance": backtest_results.get('significance', {}),
+
+            # Baseline benchmarks: Gatev (2006) distance method + random-pair control
+            # on the same universe/period — does the pipeline beat the textbook?
+            "benchmarks": backtest_results.get('benchmarks', {})
         }
 
         # Save to JSON file
@@ -168,7 +172,8 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
             "top_10_pairs": export_data["top_10_pairs"],
             "daily_equity_curve": export_data["daily_equity_curve"],
             "walk_forward_validation": export_data["walk_forward_validation"],
-            "significance": export_data["significance"]
+            "significance": export_data["significance"],
+            "benchmarks": export_data["benchmarks"]
         }
 
         compact_filename = output_filename.replace('.json', '_compact.json')

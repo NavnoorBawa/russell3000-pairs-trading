@@ -1960,6 +1960,29 @@ class CompleteFixedRussell3000TradingSystem:
             wf_summary.pop('oos_daily_returns', None)
             wf_summary.pop('all_window_daily_returns', None)
 
+        # ── Baseline benchmarks — does the pipeline beat the textbook? ─────────
+        # Gatev (2006) distance method + random-pair control on the SAME quality
+        # universe and OOS period. Context for the headline: is the cointegration +
+        # Kalman pair selection actually adding value over the naive baseline?
+        try:
+            from pairs_trading.benchmark import run_benchmarks, log_benchmark_vs_strategy
+            _universe = getattr(self.pair_selector, 'last_quality_symbols', None) or \
+                        list({s for pair in self.selected_pairs for s in pair})
+            benchmarks = run_benchmarks(
+                self.processed_data, _universe,
+                formation_end='2023-06-30', trade_start='2023-07-01',
+                trade_end=_max_test_str, n_pairs=20, max_symbols=350,
+            )
+            if benchmarks:
+                log_benchmark_vs_strategy(
+                    benchmarks,
+                    strategy_return_pct=results.get('total_return', 0.0) * 100,
+                    strategy_sharpe=results.get('sharpe_ratio', 0.0),
+                )
+                results['benchmarks'] = benchmarks
+        except Exception as e:
+            logger.warning(f"Benchmark analysis failed (non-fatal): {e}")
+
         # ── Regime Break Diagnosis ─────────────────────────────────────────────
         # Analyze W10 (Apr-Jul 2023) — the known regime break window.
         # This runs after walk-forward so the log context is clear.
