@@ -1,5 +1,7 @@
 # Russell 3000 Statistical Arbitrage — Pairs Trading Research System
 
+**[Live project page →](https://navnoorbawa.github.io/russell3000-pairs-trading/)**
+
 A modular pairs-trading research system: cointegration-based pair selection over the
 Russell 3000, Kalman-filtered spreads, z-score mean-reversion signals, regime-aware
 position scaling, walk-forward validation, institutional cost modeling, and a learned
@@ -123,11 +125,18 @@ the P&L of every short trade. Corrected:
 ## Reproducing
 
 ```bash
+pip install -r requirements.txt   # Python 3.12 required; see requirements.txt
+
 # full pipeline, transformer-ranked (default)
-python3 -m pairs_trading.main > logs/backtest.log 2>&1
+python3.12 -m pairs_trading.main > logs/backtest.log 2>&1
 
 # classical-only ablation (same code path, quality ranking disabled)
-PAIRS_USE_TRANSFORMER=0 python3 -m pairs_trading.main > logs/backtest_noml.log 2>&1
+PAIRS_USE_TRANSFORMER=0 python3.12 -m pairs_trading.main > logs/backtest_noml.log 2>&1
+
+# seed-robustness check (reproduce the 4-seed ablation)
+for seed in 42 1 2 7; do
+  PAIRS_SEED=$seed python3.12 -m pairs_trading.main > logs/backtest_seed${seed}.log 2>&1
+done
 ```
 
 Inputs: `data/enhanced_russell_3000_data.pkl` (price cache; auto-refetched if absent),
