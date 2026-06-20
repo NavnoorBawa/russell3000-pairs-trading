@@ -87,14 +87,14 @@ on a tz-key bug, both now fixed):
 
 | Profile (leverage) | Net return | Sharpe | Max DD |
 |---|---|---|---|
-| Quant HF (~5–7×) | +4.44% | 0.60 | −3.7% |
-| Multi-Strat pod (~4×) | +2.72% | 0.56 | −2.5% |
-| Fundamental L/S (~1.5–2×) | +0.95% | 0.40 | −1.4% |
-| Buy-side institutional (1×) | +1.07% | 0.87 | −0.6% |
-| Retail (1×) | +0.07% | 0.06 | −0.9% |
+| Quant HF (~5–7×) | +4.45% | 0.59 | −3.7% |
+| Multi-Strat pod (~4×) | +2.72% | 0.55 | −2.5% |
+| Fundamental L/S (~1.5–2×) | +0.95% | 0.38 | −1.4% |
+| Buy-side institutional (1×) | +1.07% | 0.85 | −0.6% |
+| Retail (1×) | +0.07% | 0.05 | −0.9% |
 
 All five are net-positive on the main backtest, though retail only marginally (+0.07%).
-The unlevered buy-side profile has the best risk-adjusted return (Sharpe 0.87) — lowest
+The unlevered buy-side profile has the best risk-adjusted return (Sharpe 0.85) — lowest
 costs, smallest drawdown.
 
 ### What is honestly claimable — and what is not

@@ -2391,11 +2391,11 @@ Institutional cost profiles (Sharpe now on the full equity curve, all five net-p
 
 | Profile | Net return | Sharpe | Max DD |
 |---|---|---|---|
-| Quant HF (~5–7×) | +4.44% | 0.60 | −3.7% |
-| Multi-Strat pod (~4×) | +2.72% | 0.56 | −2.5% |
-| Fundamental L/S (~1.5–2×) | +0.95% | 0.40 | −1.4% |
-| Buy-side institutional (1×) | +1.07% | 0.87 | −0.6% |
-| Retail (1×) | +0.07% | 0.06 | −0.9% |
+| Quant HF (~5–7×) | +4.45% | 0.59 | −3.7% |
+| Multi-Strat pod (~4×) | +2.72% | 0.55 | −2.5% |
+| Fundamental L/S (~1.5–2×) | +0.95% | 0.38 | −1.4% |
+| Buy-side institutional (1×) | +1.07% | 0.85 | −0.6% |
+| Retail (1×) | +0.07% | 0.05 | −0.9% |
 
 **Interpretation unchanged:** the edge is the classical pipeline; the rigorous OOS is the
 binding constraint and is thin (+0.49%/qtr ≈ 2%/yr gross, Sharpe 0.86, 6/10 windows).
