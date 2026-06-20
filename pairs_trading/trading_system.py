@@ -1557,16 +1557,28 @@ class CompleteFixedRussell3000TradingSystem:
             if main_daily_dates:
                 # v27 (audit cont.): build a zero-padded daily return series over the
                 # full backtest calendar (P&L lands on exit dates, 0 elsewhere). Only
-                # returns_arr and n_days are consumed downstream — the earlier draft
-                # also recomputed an equity curve / max-drawdown here that was never
-                # used (zero-padding can't change total_return or drawdown, which the
-                # exit-date loop above already computes), so that dead block is gone.
+                # returns_arr and n_days are consumed downstream.
+                #
+                # v27 (audit cont., fix): pending_pnl is keyed by tz-AWARE exit
+                # Timestamps (main-backtest entry dates are America/New_York), while
+                # main_daily_dates are 'YYYY-MM-DD' strings. The first draft looked up
+                # with a tz-NAIVE pd.Timestamp(d) — every key missed, so the whole
+                # series was zeros and every fund Sharpe collapsed to 0.00. Bucket the
+                # P&L by calendar-date string so the lookup matches regardless of
+                # tz/time-of-day. (total_return + max_drawdown are unaffected — they
+                # come from the exit-date equity loop above.)
+                pending_by_day: Dict = {}
+                for _xdt, _val in pending_pnl.items():
+                    _k = str(pd.Timestamp(_xdt).date())
+                    pending_by_day[_k] = pending_by_day.get(_k, 0.0) + _val
+                _stop_day = (str(pd.Timestamp(stopped_date).date())
+                             if stopped_early and stopped_date is not None else None)
                 full_returns = []
                 for d in main_daily_dates:
-                    ts = pd.Timestamp(d)
-                    if stopped_early and stopped_date is not None and ts > stopped_date:
+                    _day = str(pd.Timestamp(d).date())   # 'YYYY-MM-DD' sorts chronologically
+                    if _stop_day is not None and _day > _stop_day:
                         break
-                    full_returns.append(pending_pnl.get(ts, 0.0))
+                    full_returns.append(pending_by_day.get(_day, 0.0))
                 returns_arr = np.array(full_returns)
                 n_days = len(full_returns)
             else:
