@@ -1173,6 +1173,9 @@ class CompleteFixedRussell3000TradingSystem:
                 'max_drawdown_pct': round(window_dd * 100, 4),
                 'total_trades': window_trades,
                 'win_rate_pct': round(window_wr * 100, 2),
+                # significance: keep this window's daily return series + its test_start
+                # so the OOS daily series can be stitched for autocorrelation-aware tests
+                '_daily_returns': list(window_result.get('daily_returns', [])),
             })
 
             logger.info(f"  → Return: {window_return:.2%} | Sharpe: {window_sharpe:.2f} | "
@@ -1226,6 +1229,27 @@ class CompleteFixedRussell3000TradingSystem:
 
         summary['in_sample_era']     = is_stats
         summary['out_of_sample_era'] = oos_stats
+
+        # ── Stitch daily return series for significance testing ──────────────────
+        # OOS windows have non-overlapping test periods, so concatenating their daily
+        # returns gives one contiguous out-of-sample daily series — enough observations
+        # for an autocorrelation-aware Sharpe t-stat (the per-window n=10 is too small).
+        oos_daily, all_daily = [], []
+        for w in wf_results:
+            dr = w.get('_daily_returns', [])
+            all_daily.extend(dr)
+            if pd.Timestamp(w['test_start']) >= _regime_break_date:
+                oos_daily.extend(dr)
+        summary['oos_daily_returns']    = oos_daily
+        summary['all_window_daily_returns'] = all_daily
+        # per-window OOS Sharpe spread → trial-variance estimate for the Deflated Sharpe
+        _oos_sharpes = [w['sharpe_ratio'] for w in oos_windows]
+        summary['oos_window_sharpe_var'] = (
+            float(np.var(_oos_sharpes, ddof=1)) if len(_oos_sharpes) > 1 else 0.0
+        )
+        # drop the bulky per-window daily arrays from the public window records
+        for w in wf_results:
+            w.pop('_daily_returns', None)
 
         logger.info("\n" + "=" * 60)
         logger.info("WALK-FORWARD SUMMARY")
@@ -1909,6 +1933,32 @@ class CompleteFixedRussell3000TradingSystem:
             pair_windows=pair_windows
         )
         results['walk_forward'] = wf_summary
+
+        # ── Statistical significance — is the edge real? ──────────────────────
+        # Pure measurement on the results already produced (no look-ahead, no trading
+        # change): PSR, Newey-West Sharpe t-stat, block-bootstrap CIs, OOS window test,
+        # and the multiple-testing-aware Deflated Sharpe. Answers the PM's first question.
+        try:
+            from pairs_trading.significance import significance_report, log_significance_report
+            _break = pd.Timestamp('2023-04-04')
+            _oos_win_rets = [w['total_return_pct'] / 100.0 for w in wf_summary.get('windows', [])
+                             if pd.Timestamp(w['test_start']) >= _break]
+            sig = significance_report(
+                daily_returns=results.get('daily_returns', []),
+                oos_window_returns=_oos_win_rets,
+                oos_daily_returns=wf_summary.get('oos_daily_returns', []),
+                # n_trials: disclosed, conservative count of strategy iterations explored
+                # across development (the project has ~27 versioned configurations).
+                n_trials=27,
+            )
+            log_significance_report(sig)
+            results['significance'] = sig
+        except Exception as e:
+            logger.warning(f"Significance analysis failed (non-fatal): {e}")
+        finally:
+            # drop the bulky stitched daily arrays so they don't bloat the JSON export
+            wf_summary.pop('oos_daily_returns', None)
+            wf_summary.pop('all_window_daily_returns', None)
 
         # ── Regime Break Diagnosis ─────────────────────────────────────────────
         # Analyze W10 (Apr-Jul 2023) — the known regime break window.

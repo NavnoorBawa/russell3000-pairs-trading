@@ -141,7 +141,11 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
                 "by_signal_strength": calculate_signal_strength_statistics(trades)
             },
 
-            "walk_forward_validation": backtest_results.get('walk_forward', {})
+            "walk_forward_validation": backtest_results.get('walk_forward', {}),
+
+            # Statistical significance of the edge (PSR, HAC Sharpe t-stat,
+            # bootstrap CIs, OOS window test, Deflated Sharpe). Measurement only.
+            "significance": backtest_results.get('significance', {})
         }
 
         # Save to JSON file
@@ -163,7 +167,8 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
             "overall_performance": export_data["overall_performance"],
             "top_10_pairs": export_data["top_10_pairs"],
             "daily_equity_curve": export_data["daily_equity_curve"],
-            "walk_forward_validation": export_data["walk_forward_validation"]
+            "walk_forward_validation": export_data["walk_forward_validation"],
+            "significance": export_data["significance"]
         }
 
         compact_filename = output_filename.replace('.json', '_compact.json')
