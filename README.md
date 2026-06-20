@@ -51,56 +51,60 @@ data (2,542 Russell 3000 symbols, 2020–2025, America/New_York)
 14 Python modules under [pairs_trading/](pairs_trading/). Entry point:
 `python3 -m pairs_trading.main`.
 
-## Results (v26.1/v27 — post-audit, runs of 2026-06-14)
+## Results (v27 — post-audit, run of 2026-06-20)
 
-All figures are from the post-audit codebase. The main backtest return (+1.86%, Sharpe 0.58)
-and walk-forward OOS (+0.36%/qtr, Sharpe 0.47) are stable v26.1 figures and are unaffected
-by v27 changes. **Note:** the fund comparison Sharpe values below were computed on trade
-exit-days only (~71 obs), not the full equity curve — a known v27 bug fix; these values are
-inflated and will be replaced when the v27 re-run completes. Fund total returns are correct.
-See [docs/PROGRESS.md](docs/PROGRESS.md) §v26 and §v27 for the full audit trail.
+All figures are from the post-audit (v27) codebase. They **supersede v26.1**: fully
+enforcing the cross-symbol concentration limit (no stock in two concurrent pairs, across-
+*and* within-day) cut the main backtest from 71 to 42 trades — fewer but higher-quality
+(win rate 56→62%, Sharpe 0.58→0.75). See [docs/PROGRESS.md](docs/PROGRESS.md) §v26 and
+§v27 for the full audit trail.
 
 | Metric | Classical only | + Transformer |
 |---|---|---|
-| Main backtest (Jul 2023–2025) return / Sharpe | +1.86% / 0.58 | identical |
-| Main backtest trades / win rate | 71 / 56.3% | identical |
-| Walk-forward IS (W1–W9) avg / Sharpe | +3.12%/qtr / 4.65 | +3.00%/qtr / 4.70 |
-| Walk-forward OOS (W10–W19) avg / Sharpe | **+0.36%/qtr / 0.47** | +0.53%/qtr (4-seed mean) |
-| Walk-forward windows profitable | 14/19 (OOS 5/10) | ~identical |
+| Main backtest (Jul 2023–2025) return / Sharpe | +1.32% / 0.75 | identical |
+| Main backtest trades / win rate | 42 / 61.9% | identical |
+| Walk-forward IS (W1–W9) avg / Sharpe | +2.34%/qtr / 4.77 | ~identical |
+| Walk-forward OOS (W10–W19) avg / Sharpe | **+0.49%/qtr / 0.86** | ~identical |
+| Walk-forward windows profitable | 15/19 (OOS 6/10) | ~identical |
 
-**The transformer contributes ≈ 0, and that's a seed-robustness result, not a guess.**
-The main backtest and all five cost profiles are bit-identical with and without it
-(ranking only binds in the walk-forward). The transformer *does* train correctly here —
-BCE falls below coin-flip entropy, so it genuinely discriminates — and **one** training
-seed showed an OOS gain (+0.74%/qtr). A four-seed check (42, 1, 2, 7) dissolved it: OOS
-spans 0.30–0.74%/qtr (mean +0.53 vs classical +0.36), a spread wider than the mean
-effect, with one seed below baseline. So the apparent gain was a lucky draw; the edge is
-the classical pipeline.
+**The transformer contributes ≈ 0 — an established, seed-tested result.** The quality
+score only reorders same-day opportunities, so it can bind only when many pairs compete
+on one day (the walk-forward), never in the sparse main backtest or the fund replay —
+those are independent of it by construction. The transformer *does* train correctly
+(BCE below coin-flip entropy, so it genuinely discriminates), and one training seed
+showed an OOS gain (+0.74%/qtr); a four-seed check (42/1/2/7, run on the v26.1 codebase)
+dissolved it into noise (mean +0.53 vs classical +0.36, a spread wider than the mean
+effect, one seed below baseline). The edge is the classical pipeline; the ML layer is
+tested-and-rejected.
 
-### Institutional cost profiles (the v26 reversal)
+### Institutional cost profiles
 
-The same trade signals replayed under five fund-cost structures. In earlier versions
-all five were negative — but that was **largely a bug**: the cost comparison inverted
-the P&L of every short trade. Corrected:
+The same 42 trade signals replayed under five fund-cost structures. In versions before
+v26 all five were negative — but that was **largely a bug** (the cost comparison inverted
+the P&L of every short trade). Corrected, and with Sharpe computed on the full equity
+curve (the v27 fix — earlier drafts inflated it on exit-days-only, then briefly zeroed it
+on a tz-key bug, both now fixed):
 
-| Profile (leverage) | Net return | Sharpe †  | Max DD |
+| Profile (leverage) | Net return | Sharpe | Max DD |
 |---|---|---|---|
-| Quant HF (~5–7×) | +5.94% | 1.47 | −10.4% |
-| Multi-Strat pod (~4×) | +3.60% | 1.33 | −7.2% |
-| Fundamental L/S (~1.5–2×) | +1.14% | 0.86 | −4.0% |
-| Buy-side institutional (1×) | +1.58% | 2.23 | −1.4% |
-| Retail (1×) | −0.09% | −0.12 | −2.4% |
+| Quant HF (~5–7×) | +4.44% | 0.60 | −3.7% |
+| Multi-Strat pod (~4×) | +2.72% | 0.56 | −2.5% |
+| Fundamental L/S (~1.5–2×) | +0.95% | 0.40 | −1.4% |
+| Buy-side institutional (1×) | +1.07% | 0.87 | −0.6% |
+| Retail (1×) | +0.07% | 0.06 | −0.9% |
 
-† *Sharpe values inflated (v27 bug fix in progress): computed on ~71 exit-days, not the full ~503-day equity curve. Total returns are correct.*
+All five are net-positive on the main backtest, though retail only marginally (+0.07%).
+The unlevered buy-side profile has the best risk-adjusted return (Sharpe 0.87) — lowest
+costs, smallest drawdown.
 
 ### What is honestly claimable — and what is not
 
 - **The "no deployable edge / all profiles negative" headline from earlier versions
-  was substantially a sign bug**, not a property of the strategy. Corrected, four of
-  five cost profiles are net-positive on the main backtest. This is disclosed as a
-  correction, not buried.
-- **The binding constraint is the walk-forward OOS, and it is thin: +0.36%/qtr
-  (~1.4%/yr gross), Sharpe 0.47, 5/10 OOS windows positive.** The fund table is
+  was substantially a sign bug**, not a property of the strategy. Corrected, all five
+  cost profiles are net-positive on the main backtest (retail only marginally). This is
+  disclosed as a correction, not buried.
+- **The binding constraint is the walk-forward OOS, and it is thin: +0.49%/qtr
+  (~2%/yr gross), Sharpe 0.86, 6/10 OOS windows positive.** The fund table is
   computed on the main backtest (a contiguous run with quarterly re-selection — the
   optimistic bound); the walk-forward is the rigorous forward estimate. The truth is
   between them, closer to the thin OOS.
