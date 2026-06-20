@@ -676,8 +676,14 @@ class CompleteFixedRussell3000TradingSystem:
                 reverse=True
             )
 
-            max_daily_trades = min(self.risk_manager.max_daily_trades, len(pair_opportunities))
-            selected_opportunities = pair_opportunities[:max_daily_trades]
+            # v27 (audit cont.): use a distinct local for the per-day selection cap.
+            # Previously this reused `max_daily_trades` — the SAME name as the
+            # running peak-trades-per-day statistic (init 0, updated below at
+            # `max_daily_trades = max(max_daily_trades, daily_trades)`). Overwriting
+            # it here each day clobbered the cross-day max, so the reported
+            # 'max_daily_trades' stat only ever reflected the final day.
+            n_select = min(self.risk_manager.max_daily_trades, len(pair_opportunities))
+            selected_opportunities = pair_opportunities[:n_select]
 
             for opportunity in selected_opportunities:
                 if daily_trades >= self.risk_manager.max_daily_trades:
@@ -687,6 +693,18 @@ class CompleteFixedRussell3000TradingSystem:
                     pair_key = opportunity['pair_key']
                     symbol1, symbol2 = pair_key
                     pair_string = opportunity['pair_string']
+
+                    # v27 (audit cont.): enforce cross-symbol concentration WITHIN the
+                    # day too. The gathering loop only checks _active_symbols against
+                    # prior days' locks (it runs before any of today's trades book), so
+                    # two same-day top-ranked opportunities sharing a leg would BOTH
+                    # execute — putting one stock in two concurrent pairs (the exact
+                    # hidden net-directional bet the v27 lock was meant to prevent).
+                    # _active_symbols is populated as trades book below, so this
+                    # re-check blocks the second same-day collision.
+                    if symbol1 in _active_symbols or symbol2 in _active_symbols:
+                        continue
+
                     action = opportunity['action']
                     signal_strength = opportunity['signal_strength']
                     zscore = opportunity['zscore']
@@ -1537,24 +1555,18 @@ class CompleteFixedRussell3000TradingSystem:
             # Fix: build a zero-padded return series over the full backtest period
             # using main_daily_dates if available; otherwise fall back to exit-only.
             if main_daily_dates:
-                pending_map = {pd.Timestamp(d): pending_pnl.get(pd.Timestamp(d), 0.0)
-                               for d in main_daily_dates}
+                # v27 (audit cont.): build a zero-padded daily return series over the
+                # full backtest calendar (P&L lands on exit dates, 0 elsewhere). Only
+                # returns_arr and n_days are consumed downstream — the earlier draft
+                # also recomputed an equity curve / max-drawdown here that was never
+                # used (zero-padding can't change total_return or drawdown, which the
+                # exit-date loop above already computes), so that dead block is gone.
                 full_returns = []
-                equity_recompute = float(self.initial_capital)
-                peak_recompute = equity_recompute
-                max_drawdown_recompute = 0.0
                 for d in main_daily_dates:
                     ts = pd.Timestamp(d)
                     if stopped_early and stopped_date is not None and ts > stopped_date:
                         break
-                    day_r = pending_pnl.get(ts, 0.0)
-                    full_returns.append(day_r)
-                    equity_recompute *= (1 + day_r)
-                    if equity_recompute > peak_recompute:
-                        peak_recompute = equity_recompute
-                    dd_recompute = (peak_recompute - equity_recompute) / max(peak_recompute, 1.0)
-                    if dd_recompute > max_drawdown_recompute:
-                        max_drawdown_recompute = dd_recompute
+                    full_returns.append(pending_pnl.get(ts, 0.0))
                 returns_arr = np.array(full_returns)
                 n_days = len(full_returns)
             else:

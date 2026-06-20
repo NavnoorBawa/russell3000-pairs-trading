@@ -2249,12 +2249,14 @@ contribution within seed noise (≈0)."
 
 ---
 
-## v27 — Full Code Audit: 6 Logical Bugs Fixed (2026-06-20)
+## v27 — Full Code Audit: 9 Logical Bugs Fixed (2026-06-20)
 
-A systematic read-through of all 14 modules identified 6 bugs. None affected the
-main-backtest total return or walk-forward OOS result (the primary public claims), but
-two inflated the fund comparison Sharpe numbers, one meant cross-symbol concentration
-was never enforced, and one caused training/serving feature skew on the ML layer.
+A systematic read-through of all 14 modules identified 9 bugs across two passes. None
+affected the main-backtest total return or walk-forward OOS result (the primary public
+claims), but two inflated the fund comparison Sharpe numbers, two meant cross-symbol
+concentration was never fully enforced, one caused training/serving feature skew on the
+ML layer, and one corrupted a diagnostic statistic. The first six were found in the
+initial pass; bugs 7–9 in a second, deeper read.
 
 ### Bug 1 — `get_pair_stats()` always returned hardcoded defaults (`multi_agent_system.py`)
 
@@ -2324,8 +2326,44 @@ Fix: the "strong" bucket now uses an inclusive upper bound (`<= 1.0`).
 
 Impact: JSON analytics only; no effect on trading or backtest returns.
 
+### Bug 7 — cross-symbol concentration only enforced ACROSS days, not WITHIN a day (`trading_system.py`)
+
+Bug 2's `_active_symbols` lock is checked in the opportunity-gathering loop, which
+runs *before* any of the day's trades book — so it only sees prior days' locks. The
+execution loop that actually books trades never re-checked `_active_symbols`. Result:
+two same-day top-ranked opportunities sharing a leg (e.g. XOM-CVX and XOM-COP) would
+**both** execute, putting XOM in two concurrent pairs — the exact hidden
+net-directional single-name bet the lock was meant to prevent. The cross-day case
+worked; the same-day case didn't.
+
+Fix: re-check `if symbol1 in _active_symbols or symbol2 in _active_symbols: continue`
+at the top of the execution loop. `_active_symbols` is populated as each trade books,
+so the second same-day collision is now skipped. Fully enforces the constraint in both
+directions. Expect a further small trade-count reduction.
+
+### Bug 8 — `max_daily_trades` variable shadowing corrupted the peak-trades/day stat (`trading_system.py`)
+
+`max_daily_trades` was initialised to 0 as the running "most trades executed in any
+single day" statistic (reported in results). But the per-day opportunity-selection cap
+reused the **same variable name** (`max_daily_trades = min(8, len(opportunities))`),
+overwriting it every day before the running-max update ran. The reported stat therefore
+only ever reflected the final day, not the true peak.
+
+Fix: the per-day cap is now a distinct local `n_select`; the running-max stat is
+preserved. Diagnostic-only — no effect on returns, Sharpe, or trade count.
+
+### Bug 9 — dead recompute block in fund comparison + dead module-level pandas shadow
+
+Two pieces of dead code removed (no behavioural change): (a) the v27 Sharpe fix had
+left an unused equity/max-drawdown recompute loop and an unused `pending_map` dict in
+`run_fund_type_comparison` — only `returns_arr`/`n_days` are consumed, and zero-padding
+cannot change total return or drawdown (already computed by the exit-date loop);
+(b) a trailing `pd = __import__('pandas')` at the bottom of `multi_agent_system.py` that
+re-imported pandas at module scope, shadowing the `pd` already imported from `config`.
+
 ### v27 re-run status
 
-Backtest launched 2026-06-20. Expected: main-backtest return/Sharpe ≈ v26.1 (classical
-pipeline unchanged; small trade-count reduction possible from Bug 2 fix); fund
-comparison Sharpe values will be lower and correctly computed. Log: `logs/backtest_v27.log`.
+Backtest re-launched 2026-06-20 after the 9-bug fix pass. Expected: main-backtest
+return/Sharpe ≈ v26.1 (classical pipeline unchanged; trade count slightly lower from
+the now-fully-enforced cross-symbol lock, Bugs 2+7); fund comparison Sharpe values
+lower and correctly computed on the full equity curve. Log: `logs/backtest_v27.log`.

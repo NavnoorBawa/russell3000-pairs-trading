@@ -692,7 +692,6 @@ class FixedTransformerMultiAgentSystem:
             'quality_signals_tracked': len(self.signal_quality_history),
             'training_step': self.training_step
         }
-
-
-# Need pd import for DataFrame in extract_advanced_features
-pd = __import__('pandas')
+# v27 (audit cont.): removed the trailing `pd = __import__('pandas')` — it
+# re-imported pandas at module scope, shadowing the `pd` already imported from
+# pairs_trading.config at the top of the file. Harmless (same module) but dead.

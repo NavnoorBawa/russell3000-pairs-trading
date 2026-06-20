@@ -166,7 +166,7 @@ unflattering; it is the most honest artifact in the repository.
 | v25 | portfolio Sharpe corrected (computed on all days, not non-zero days) |
 | v26 | code audit: fund-comparison sign bug, entry-threshold/hold-time/exposure fixes — reversed the all-negative fund result; rigorous OOS now the binding constraint |
 | v26.1 | fixed a label bug that had silently disabled transformer training; 4-seed robustness check confirmed the ML contribution is ≈0 (one lucky seed had suggested otherwise) |
-| v27 | second code audit: 6 bugs fixed — `get_pair_stats()` feature skew, `_active_symbols` concentration check never enforced, fund-comparison Sharpe computed on exit-days-only, deprecated fillna, signal-strength bucket off-by-one |
+| v27 | second code audit: 9 bugs fixed — `get_pair_stats()` feature skew, cross-symbol concentration not enforced (across- *and* within-day), fund-comparison Sharpe computed on exit-days-only, `max_daily_trades` stat shadowing, deprecated fillna, signal-strength bucket off-by-one, dead code |
 
 ---
 
