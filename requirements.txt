@@ -1,4 +1,4 @@
-# Pinned to the interpreter that produced the v26 results (Python 3.12.0).
+# Pinned to the interpreter that produced the v26/v27 results (Python 3.12.0).
 numpy==1.26.4
 pandas==2.2.3
 scipy==1.15.2

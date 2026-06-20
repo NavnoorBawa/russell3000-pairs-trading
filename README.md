@@ -49,12 +49,14 @@ data (2,542 Russell 3000 symbols, 2020–2025, America/New_York)
 14 Python modules under [pairs_trading/](pairs_trading/). Entry point:
 `python3 -m pairs_trading.main`.
 
-## Results (v26 — corrected, runs of 2026-06-14)
+## Results (v26.1/v27 — post-audit, runs of 2026-06-14)
 
-All figures below are from the post-audit (v26) code. They **supersede earlier
-versions** — a code audit fixed one sign bug in the cost comparison plus several logic
-inconsistencies (entry threshold, hold-time units, exposure cap, P&L on regime-skip
-days). See [docs/PROGRESS.md](docs/PROGRESS.md) §v26 for the full list.
+All figures are from the post-audit codebase. The main backtest return (+1.86%, Sharpe 0.58)
+and walk-forward OOS (+0.36%/qtr, Sharpe 0.47) are stable v26.1 figures and are unaffected
+by v27 changes. **Note:** the fund comparison Sharpe values below were computed on trade
+exit-days only (~71 obs), not the full equity curve — a known v27 bug fix; these values are
+inflated and will be replaced when the v27 re-run completes. Fund total returns are correct.
+See [docs/PROGRESS.md](docs/PROGRESS.md) §v26 and §v27 for the full audit trail.
 
 | Metric | Classical only | + Transformer |
 |---|---|---|
@@ -79,13 +81,15 @@ The same trade signals replayed under five fund-cost structures. In earlier vers
 all five were negative — but that was **largely a bug**: the cost comparison inverted
 the P&L of every short trade. Corrected:
 
-| Profile (leverage) | Net return | Sharpe | Max DD |
+| Profile (leverage) | Net return | Sharpe †  | Max DD |
 |---|---|---|---|
 | Quant HF (~5–7×) | +5.94% | 1.47 | −10.4% |
 | Multi-Strat pod (~4×) | +3.60% | 1.33 | −7.2% |
 | Fundamental L/S (~1.5–2×) | +1.14% | 0.86 | −4.0% |
 | Buy-side institutional (1×) | +1.58% | 2.23 | −1.4% |
 | Retail (1×) | −0.09% | −0.12 | −2.4% |
+
+† *Sharpe values inflated (v27 bug fix in progress): computed on ~71 exit-days, not the full ~503-day equity curve. Total returns are correct.*
 
 ### What is honestly claimable — and what is not
 
@@ -133,7 +137,7 @@ Inputs: `data/enhanced_russell_3000_data.pkl` (price cache; auto-refetched if ab
 ```
 ├── pairs_trading/   # source (14 modules; main.py is the entry point)
 ├── data/            # price + macro caches
-├── docs/            # PROGRESS.md — complete version history v6→v26, every bug documented
+├── docs/            # PROGRESS.md — complete version history v6→v27, every bug documented
 ├── logs/            # one log per backtest version
 ├── outputs/         # charts + JSON exports
 ├── scripts/         # diagnostics
@@ -153,6 +157,7 @@ unflattering; it is the most honest artifact in the repository.
 | v25 | portfolio Sharpe corrected (computed on all days, not non-zero days) |
 | v26 | code audit: fund-comparison sign bug, entry-threshold/hold-time/exposure fixes — reversed the all-negative fund result; rigorous OOS now the binding constraint |
 | v26.1 | fixed a label bug that had silently disabled transformer training; 4-seed robustness check confirmed the ML contribution is ≈0 (one lucky seed had suggested otherwise) |
+| v27 | second code audit: 6 bugs fixed — `get_pair_stats()` feature skew, `_active_symbols` concentration check never enforced, fund-comparison Sharpe computed on exit-days-only, deprecated fillna, signal-strength bucket off-by-one |
 
 ---
 

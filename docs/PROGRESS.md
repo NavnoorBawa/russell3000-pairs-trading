@@ -1,5 +1,5 @@
 # Pairs Trading System — Progress Reference Document
-Last updated: 2026-02-21 (v11 complete — current best)
+Last updated: 2026-06-20 (v27 — full code audit, 6 bugs fixed)
 
 ---
 
@@ -2246,3 +2246,86 @@ effect dissolved into noise — so it's reported as no robust contribution.
 Public artifacts updated to this conclusion (v26.1). The misleading v26
 "contributes 0 (bit-identical, untrained)" wording is replaced with "trains correctly;
 contribution within seed noise (≈0)."
+
+---
+
+## v27 — Full Code Audit: 6 Logical Bugs Fixed (2026-06-20)
+
+A systematic read-through of all 14 modules identified 6 bugs. None affected the
+main-backtest total return or walk-forward OOS result (the primary public claims), but
+two inflated the fund comparison Sharpe numbers, one meant cross-symbol concentration
+was never enforced, and one caused training/serving feature skew on the ML layer.
+
+### Bug 1 — `get_pair_stats()` always returned hardcoded defaults (`multi_agent_system.py`)
+
+`get_pair_stats()` contained a key-format mismatch: it looked up `pair_string` in
+`self.pair_statistics` which is keyed by tuples, so every lookup missed and returned
+`{'correlation': 0.5, 'half_life': 30, 'cointegration_pvalue': 0.05, 'quality_score': 0.8}`.
+These three features (indices 17–19 of the 38-feature input) were always the same value
+at training time AND at serve time, so there was no net bias — but real pair statistics
+were never used for ML scoring.
+
+Fix: added `self.pair_statistics: Dict = {}` to `__init__` (was absent, so it was
+always empty); rewrote `get_pair_stats()` to convert tuple keys to `"SYM1-SYM2"` string
+form matching the stored keys; injected real pair statistics from `pair_selector` before
+training both the main agent and each walk-forward window agent.
+
+Impact on results: negligible (transformer contribution ≈0 robustly), but the ML path
+now uses real statistics as originally intended.
+
+### Bug 2 — `_active_symbols` declared but never populated (`trading_system.py`)
+
+`_active_symbols` was initialised as an empty dict and cleaned up daily but **never
+written to**. The intent (v22 architecture note) was to prevent the same stock from
+appearing simultaneously in two open pairs (e.g. AAPL long in one pair, AAPL short in
+another, creating a hidden net-zero position). Without the write, the check was dead:
+every opportunity passed the "if symbol in _active_symbols" guard.
+
+Fix: after booking each trade, `_active_symbols[symbol1] = next_date` and
+`_active_symbols[symbol2] = next_date`. The entry-gate check now correctly blocks
+both legs of any already-open pair.
+
+Impact: a small reduction in trade count is expected (pairs sharing a symbol with an
+open trade are skipped). The main backtest result pending the v27 re-run.
+
+### Bugs 3+4 — Fund comparison Sharpe and annualised return computed on exit-days-only (`trading_system.py`)
+
+`run_fund_type_comparison` built a `daily_return_series` list by appending only on
+trade-exit days (≈71 entries over the 2023–2025 window). Annualised return was then
+`total_return * 252 / 71` (≈3.5× too high) and Sharpe was `annualised_return / (std(71_returns) * sqrt(252))`
+(std computed on only the 71 non-zero entries, inflating Sharpe).
+
+Fix: added a `main_daily_dates` parameter carrying the full ~503-day date sequence from
+the main backtest. The fund comparison now builds a zero-padded daily return series over
+all dates (P&L arrives on exit dates, zero otherwise), so both annualised return and
+Sharpe are computed on the full equity curve — consistent with how the main backtest
+Sharpe has been computed since v25.
+
+Impact: fund comparison Sharpe values will be lower (and more honest) in the v27 re-run.
+Fund comparison **total returns** are unchanged (they accumulate on the correct trade P&L).
+
+### Bug 5 — Deprecated `fillna(method=...)` API (`data_processor.py`)
+
+`processed[col].fillna(method='ffill').fillna(method='bfill')` is deprecated in
+pandas ≥2.2 (raises `FutureWarning` and breaks in ≥3.0).
+
+Fix: replaced with `.ffill().bfill().fillna(0)`.
+
+Impact: runtime warning suppressed; no change to numerical output.
+
+### Bug 6 — Signal-strength "strong" bucket excluded `signal_strength == 1.0` (`json_export.py`)
+
+The JSON export grouped trades into `weak (0.5–0.7)`, `medium (0.7–0.85)`, and
+`strong (0.85–1.0)` buckets using `< max_strength` for all three. Any trade with
+`signal_strength == 1.0` fell into none of the three buckets and was silently dropped
+from the analysis table.
+
+Fix: the "strong" bucket now uses an inclusive upper bound (`<= 1.0`).
+
+Impact: JSON analytics only; no effect on trading or backtest returns.
+
+### v27 re-run status
+
+Backtest launched 2026-06-20. Expected: main-backtest return/Sharpe ≈ v26.1 (classical
+pipeline unchanged; small trade-count reduction possible from Bug 2 fix); fund
+comparison Sharpe values will be lower and correctly computed. Log: `logs/backtest_v27.log`.

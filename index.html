@@ -242,7 +242,7 @@ footer{padding:36px 0}
         <span class="lg"><span class="sw" style="background:var(--neg)"></span>negative</span>
       </span>
     </div>
-    <svg viewBox="0 0 760 230" width="100%" role="img" aria-label="Bar chart of 19 walk-forward window returns (v26)">
+    <svg viewBox="0 0 760 230" width="100%" role="img" aria-label="Bar chart of 19 walk-forward window returns (v27)">
       <line class="ax" x1="20" y1="170" x2="740" y2="170" stroke-width="1"/>
       <line class="dv" x1="361" y1="20" x2="361" y2="206" stroke-width="1" stroke-dasharray="3 4"/>
       <text class="ctx" x="352" y="32" text-anchor="end">IN-SAMPLE</text>
@@ -279,7 +279,7 @@ footer{padding:36px 0}
 <section class="section" id="methodology">
   <div class="sec-label">02 — Methodology</div>
   <h2>System architecture</h2>
-  <p class="desc">A sequential pipeline from pair selection through signal generation, regime filtering, and portfolio accounting. Each stage is independently testable and documented across 26 versions.</p>
+  <p class="desc">A sequential pipeline from pair selection through signal generation, regime filtering, and portfolio accounting. Each stage is independently testable and documented across 27 versions.</p>
   <div class="pipeline">
     <div class="p-row">
       <div class="p-key">pair selection</div>
@@ -307,7 +307,7 @@ footer{padding:36px 0}
 <section class="section" id="results">
   <div class="sec-label">03 — Results</div>
   <h2>Walk-forward performance</h2>
-  <p class="desc">v26 (post-audit) figures. Sharpe is per-window average on all calendar days; the main backtest Sharpe (0.58) is the portfolio Sharpe on the full equity curve. The out-of-sample row is the rigorous, leak-free forward estimate — and it is the binding constraint.</p>
+  <p class="desc">v27 (post-audit) figures. Sharpe is per-window average on all calendar days; the main backtest Sharpe (0.58) is the portfolio Sharpe on the full equity curve. The out-of-sample row is the rigorous, leak-free forward estimate — and it is the binding constraint.</p>
   <div class="tw"><table>
     <thead>
       <tr><th>Period</th><th>Windows</th><th>Avg return / qtr</th><th>Sharpe</th><th>Win rate</th><th>Profitable</th></tr>
@@ -341,12 +341,12 @@ footer{padding:36px 0}
 <section class="section" id="notes">
   <div class="sec-label">05 — Research notes</div>
   <h2>Selected documentation</h2>
-  <p class="desc">The engineering log records every version, bug, and failed hypothesis from v6 to v26. Selected research notes below.</p>
+  <p class="desc">The engineering log records every version, bug, and failed hypothesis from v6 to v27. Selected research notes below.</p>
   <div class="pubs">
     <a class="pub" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">
-      <div class="pub-meta">Engineering log · v6 → v26</div>
-      <div class="pub-title">Progress reference: twenty-six versions of bias hunts, fixes, and verification</div>
-      <div class="pub-abs">Complete chronological record — survivorship bias (v9), Kalman spread differencing (v16), the dead-code audit (v24), the Sharpe correction (v25), and the v26 code audit that reversed the all-negative fund result by fixing a short-trade sign bug. Kept deliberately unflattering — bugs in both directions.</div>
+      <div class="pub-meta">Engineering log · v6 → v27</div>
+      <div class="pub-title">Progress reference: twenty-seven versions of bias hunts, fixes, and verification</div>
+      <div class="pub-abs">Complete chronological record — survivorship bias (v9), Kalman spread differencing (v16), the dead-code audit (v24), the Sharpe correction (v25), the v26 sign-bug that reversed the all-negative fund result, and the v27 audit (6 bugs: feature skew, cross-symbol concentration, fund Sharpe inflation, deprecated API). Kept deliberately unflattering — bugs in both directions.</div>
       <div class="pub-tags"><span class="tag">methodology</span><span class="tag">validation</span></div>
     </a>
     <a class="pub" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/deep_research_regime_breaks_stat_arb.md">
@@ -377,7 +377,7 @@ footer{padding:36px 0}
   <div class="disc-box">
     <div class="disc-title">What the data shows</div>
     <div class="disc-text">
-      A code audit (v26) corrected a sign error in the cost comparison that had been inverting the P&amp;L of every short trade — it was making results look <em>worse</em> than reality. Corrected, four of five institutional cost profiles are net-positive (quant HF +5.94%, multi-strat +3.60%, fundamental L/S +1.14%, buy-side +1.58%, retail −0.09%), and the main backtest is +1.86% gross. <em>But this is not a confirmed deployable edge.</em> The rigorous, leak-free walk-forward out-of-sample result is the binding constraint and it is thin: <span class="neg">+0.36%/qtr, Sharpe 0.47, 5 of 10 OOS windows positive</span>. The fund table runs on the main backtest (the optimistic bound); the walk-forward is the honest forward estimate; the truth sits between them, closer to the thin OOS. The documented 1.8σ entry is not OOS-optimal — a stricter threshold the buggy code was accidentally using did better out-of-sample. The transformer trains correctly but its OOS contribution is within seed noise (≈0, confirmed by a four-seed check after one lucky seed suggested otherwise). Every claim here is derived from logged, reproducible runs, and the audit corrected bugs in both directions and a lucky draw — flattering and unflattering alike.
+      Two code audits (v26 and v27) systematically corrected 12 bugs across both directions — some were flattering results, some were unflattering. The v26 audit found a sign error inverting the P&amp;L of every short trade in the cost comparison, which had made results look <em>worse</em> than reality; corrected, four of five institutional cost profiles are net-positive (quant HF +5.94%, multi-strat +3.60%, fundamental L/S +1.14%, buy-side +1.58%, retail −0.09%). The v27 audit fixed cross-symbol concentration (never enforced), fund-comparison Sharpe (computed on exit-days-only, now full equity curve), and transformer feature skew. <em>But this is not a confirmed deployable edge.</em> The rigorous, leak-free walk-forward out-of-sample result is the binding constraint and it is thin: <span class="neg">+0.36%/qtr, Sharpe 0.47, 5 of 10 OOS windows positive</span>. The fund table runs on the main backtest (the optimistic bound); the walk-forward is the honest forward estimate; the truth sits between them, closer to the thin OOS. The documented 1.8σ entry is not OOS-optimal — a stricter threshold the buggy code was accidentally using did better out-of-sample. The transformer trains correctly but its OOS contribution is within seed noise (≈0, confirmed by a four-seed check after one lucky seed suggested otherwise). Every claim here is derived from logged, reproducible runs.
     </div>
   </div>
 </section>
@@ -388,8 +388,8 @@ footer{padding:36px 0}
   <div class="grid2" style="margin-top:36px">
     <div class="g2-item">
       <div class="g2-lbl">Versions</div>
-      <div class="g2-val">v6 → v26</div>
-      <div class="g2-sub">26 iterations · every bug documented</div>
+      <div class="g2-val">v6 → v27</div>
+      <div class="g2-sub">27 iterations · every bug documented</div>
     </div>
     <div class="g2-item">
       <div class="g2-lbl">Stack</div>
