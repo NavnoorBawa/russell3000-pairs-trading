@@ -106,7 +106,7 @@ class FixedPrimeFundRiskManager:
             # every candidate during the ranking phase; stamping on validation marked
             # pairs as "traded" even when they were ranked out and never executed.
             # The caller now stamps last_trade_dates only on actual execution.
-            return True, f"PASS: All adaptive requirements met"
+            return True, "PASS: All adaptive requirements met"
 
         except Exception as e:
             return False, f"Validation error: {str(e)}"

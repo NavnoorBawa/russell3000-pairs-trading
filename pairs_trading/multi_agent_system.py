@@ -301,7 +301,6 @@ class FixedTransformerMultiAgentSystem:
 
             if len(state) > 5:
                 momentum_5 = state[5] if len(state) > 5 else 0
-                momentum_10 = state[6] if len(state) > 6 else 0
                 if abs(momentum_5) > 0.005:
                     quality_score += 0.25
 
@@ -324,7 +323,7 @@ class FixedTransformerMultiAgentSystem:
 
             return min(1.0, quality_score)
 
-        except:
+        except Exception:
             return 0.0
 
     def calculate_advanced_reward(self, action: int, actual_return: float, zscore: float = 0,
@@ -403,7 +402,7 @@ class FixedTransformerMultiAgentSystem:
                     if len(features) > 0:
                         all_features.append(features)
 
-            except:
+            except Exception:
                 continue
 
         if all_features:
@@ -414,7 +413,6 @@ class FixedTransformerMultiAgentSystem:
 
         phase_1_episodes = episodes // 3
         phase_2_episodes = episodes * 2 // 3
-        phase_3_episodes = episodes
 
         best_performance_window = deque(maxlen=50)
 

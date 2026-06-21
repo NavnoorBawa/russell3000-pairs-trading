@@ -6,7 +6,7 @@ DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
 """
 
 from pairs_trading.config import (
-    torch, nn, optim, np, logging
+    torch, nn, np, logging
 )
 from pairs_trading.transformer_encoder import FinancialTransformerEncoder
 

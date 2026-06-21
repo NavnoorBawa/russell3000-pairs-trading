@@ -4,7 +4,6 @@ Hermetic: builds a tiny synthetic price universe in-memory.
 """
 import numpy as np
 import pandas as pd
-import pytest
 
 from pairs_trading.benchmark import (
     _aligned_closes, _normalize, select_distance_pairs,

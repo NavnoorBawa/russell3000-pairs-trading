@@ -222,7 +222,6 @@ def plot_fund_comparison(comparison_results: dict):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         profiles   = list(comparison_results.values())
-        names      = [p['profile_name'] for p in profiles]
         short_names = ['Quant HF', 'Multi-Strat', 'Fundamental L/S', 'Institutional', 'Retail']
         colors     = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
 
@@ -268,9 +267,9 @@ def plot_fund_comparison(comparison_results: dict):
         cost_drags    = [p['total_cost_pct_of_capital'] for p in profiles]
         gross_returns = [n + c for n, c in zip(net_returns, cost_drags)]
 
-        bars_gross = ax2.bar(x - bar_width/2, gross_returns, bar_width,
-                             label='Gross Return (before costs)', color=[c+'aa' for c in colors],
-                             edgecolor=colors, linewidth=1.5)
+        ax2.bar(x - bar_width/2, gross_returns, bar_width,
+                label='Gross Return (before costs)', color=[c+'aa' for c in colors],
+                edgecolor=colors, linewidth=1.5)
         bars_net   = ax2.bar(x + bar_width/2, net_returns, bar_width,
                              label='Net Return (after all costs)', color=colors, alpha=0.9)
 

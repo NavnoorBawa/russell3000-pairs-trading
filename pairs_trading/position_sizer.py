@@ -6,7 +6,7 @@ DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
 """
 
 from pairs_trading.config import (
-    pd, np, logging, Dict
+    pd, logging
 )
 
 logger = logging.getLogger(__name__)

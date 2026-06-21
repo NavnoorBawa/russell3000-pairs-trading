@@ -29,7 +29,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.5"]
 
 [project.urls]
 Homepage = "https://navnoorbawa.github.io/russell3000-pairs-trading/"
@@ -42,3 +42,22 @@ packages = ["pairs_trading"]
 testpaths = ["tests"]
 addopts = "-q"
 filterwarnings = ["ignore::DeprecationWarning", "ignore::FutureWarning"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+# Lint the package and its tests; scripts/ and archive/ are throwaway diagnostics.
+extend-exclude = ["scripts", "archive"]
+
+[tool.ruff.lint]
+# pyflakes (real bugs: unused imports/vars, undefined names) + key pycodestyle errors.
+# E501 (line length) is intentionally not enforced — reflowing 6k LOC of working,
+# verified research code is churn, not quality.
+select = ["E", "F", "W"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# config.py is a deliberate re-export hub: other modules do `from config import pd, np…`.
+# Those imports are "unused" in config.py itself but required everywhere else.
+"pairs_trading/config.py" = ["F401"]
+"pairs_trading/__init__.py" = ["F401"]

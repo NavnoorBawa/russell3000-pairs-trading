@@ -191,21 +191,23 @@ Inputs: `data/enhanced_russell_3000_data.pkl` (price cache; auto-refetched if ab
 
 ## Testing
 
-A hermetic [`pytest`](tests/) suite (49 tests, ~4s, no data files or network) guards the
-core math and the fixes from the audits — the significance estimators (PSR, Newey-West
+A hermetic [`pytest`](tests/) suite (59 tests, ~3s, no data files or network) guards the
+core math and the fixes from the audits — the engine internals (Kalman spread, max
+drawdown, Hurst exponent, CUSUM break), the significance estimators (PSR, Newey-West
 t-stat, bootstrap CIs, Deflated Sharpe), the benchmark date-alignment and degenerate-pair
 exclusion, the transaction-cost model (sign, scaling, borrow logic), the pair-selection
-statistics (correlation, half-life), and an import/instantiation smoke test. CI runs them
-on every push ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+statistics (correlation, half-life), and an import/instantiation smoke test. CI runs
+`ruff` lint + the suite on every push ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 ```bash
-pip install pytest        # or: pip install -e ".[dev]"
-pytest -q
+pip install pytest ruff      # or: pip install -e ".[dev]"
+ruff check .                 # lint (clean)
+pytest -q                    # 59 tests
 ```
 
 ```
 ├── pairs_trading/   # source (16 modules; main.py is the entry point)
-├── tests/           # pytest suite (49 hermetic tests; no data files / network)
+├── tests/           # pytest suite (59 hermetic tests; no data files / network)
 ├── data/            # price + macro caches
 ├── docs/            # PROGRESS.md — complete version history v6→v29, every bug documented
 ├── logs/            # one log per backtest version

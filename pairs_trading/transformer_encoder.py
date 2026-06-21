@@ -6,7 +6,7 @@ DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
 """
 
 from pairs_trading.config import (
-    torch, nn, math, logging, np
+    torch, nn, math, logging
 )
 
 logger = logging.getLogger(__name__)

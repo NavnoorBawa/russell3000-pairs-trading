@@ -66,7 +66,7 @@ class FixedPrimeFundPairSelector:
             correlation = np.corrcoef(r1_clean, r2_clean)[0, 1]
             return correlation if not np.isnan(correlation) else 0.0
 
-        except:
+        except Exception:
             return 0.0
 
     def test_cointegration(self, data1: pd.DataFrame, data2: pd.DataFrame) -> Tuple[bool, float]:
@@ -99,10 +99,10 @@ class FixedPrimeFundPairSelector:
                 pvalue = min(pvalue1, pvalue2)
                 is_cointegrated = pvalue < self.cointegration_threshold
                 return is_cointegrated, pvalue
-            except:
+            except Exception:
                 return False, 1.0
 
-        except:
+        except Exception:
             return False, 1.0
 
     def calculate_half_life(self, data1: pd.DataFrame, data2: pd.DataFrame) -> float:
@@ -137,10 +137,10 @@ class FixedPrimeFundPairSelector:
                     return max(1, min(999, half_life))
                 else:
                     return 999.0
-            except:
+            except Exception:
                 return 999.0
 
-        except:
+        except Exception:
             return 999.0
 
     def compute_pca_residuals(self, processed_data: Dict, quality_symbols: List[str],
@@ -314,7 +314,7 @@ class FixedPrimeFundPairSelector:
                     'Rate': f'{len(valid_pairs)/test_progress.n*100:.1f}%' if hasattr(test_progress, 'n') and test_progress.n > 0 else '0%'
                 })
 
-            except Exception as e:
+            except Exception:
                 continue
 
         valid_pairs.sort(key=lambda x: x['score'], reverse=True)
@@ -404,7 +404,7 @@ class FixedPrimeFundPairSelector:
                     data2_completeness = 1 - (data2.loc[common_dates, 'Close'].isnull().sum() / len(common_dates))
                     if data1_completeness > 0.95 and data2_completeness > 0.95:
                         bonus_score += 0.2
-            except:
+            except Exception:
                 pass
 
             # v19: PCA idiosyncratic cointegration bonus (+0.15).
@@ -416,5 +416,5 @@ class FixedPrimeFundPairSelector:
             total_score = corr_score + coint_score + hl_score + bonus_score + pca_bonus
             return min(1.0, total_score)
 
-        except:
+        except Exception:
             return 0.0

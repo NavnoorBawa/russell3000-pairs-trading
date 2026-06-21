@@ -24,7 +24,8 @@ Relative-Value Arbitrage Rule", Review of Financial Studies.
 """
 
 from pairs_trading.config import pd, np, logging
-import itertools, random
+import itertools
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -114,14 +115,17 @@ def _trade_pair_distance(norm_form, norm_trade, sym_a, sym_b, ret_a, ret_b,
             continue
         # accrue today's P&L from yesterday's position
         if pos != 0 and t > 0:
-            ra = ret_a.get(idx[t], 0.0); rb = ret_b.get(idx[t], 0.0)
+            ra = ret_a.get(idx[t], 0.0)
+            rb = ret_b.get(idx[t], 0.0)
             daily[t] = pos * (ra - rb)
         # update position AFTER booking today's return (decision on close)
         if pos == 0:
             if s > mu + entry_z * sd:
-                pos = -1; daily[t] -= cost_roundtrip / 2.0     # short a / long b
+                pos = -1                                       # short a / long b
+                daily[t] -= cost_roundtrip / 2.0
             elif s < mu - entry_z * sd:
-                pos = +1; daily[t] -= cost_roundtrip / 2.0     # long a / short b
+                pos = +1                                       # long a / short b
+                daily[t] -= cost_roundtrip / 2.0
         else:
             reverted = (pos == +1 and s >= mu) or (pos == -1 and s <= mu)
             if reverted:

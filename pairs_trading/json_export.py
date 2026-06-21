@@ -269,7 +269,7 @@ def calculate_profit_factor(returns: np.ndarray) -> float:
         loss = abs(np.sum(negative_returns))
 
         return profit / loss if loss > 0 else 0.0
-    except:
+    except Exception:
         return 0.0
 
 
@@ -284,7 +284,7 @@ def calculate_max_drawdown_from_returns(returns: np.ndarray) -> float:
         drawdown = (cumulative - running_max) / running_max
 
         return abs(np.min(drawdown)) if len(drawdown) > 0 else 0.0
-    except:
+    except Exception:
         return 0.0
 
 
@@ -364,9 +364,6 @@ def calculate_pair_correlations(trades: List[Dict]) -> Dict[str, List]:
 
         if len(pairs) < 2:
             return {"pairs": pairs, "correlation_matrix": []}
-
-        # Create return series for each pair
-        pair_returns = {pair: [] for pair in pairs}
 
         # Group trades by date and pair
         trades_by_date = {}

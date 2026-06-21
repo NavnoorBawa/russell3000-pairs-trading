@@ -6,7 +6,7 @@ DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
 """
 
 from pairs_trading.config import (
-    pd, np, logging, tqdm, Dict, List, Tuple
+    pd, np, logging, tqdm, Dict, Tuple
 )
 from statsmodels.tsa.stattools import coint as _coint
 from pairs_trading.data_processor import EnhancedRussell3000DataProcessor
@@ -145,7 +145,7 @@ class CompleteFixedRussell3000TradingSystem:
         if n < 20:
             return 0.5  # insufficient data → neutral (pass through)
 
-        lags = [l for l in [1, 2, 4, 8, 16] if l < n // 2]
+        lags = [lag for lag in [1, 2, 4, 8, 16] if lag < n // 2]
         if len(lags) < 3:
             return 0.5
 
@@ -239,7 +239,6 @@ class CompleteFixedRussell3000TradingSystem:
         portfolio_value = self.initial_capital
         trades = []
         daily_pnl = []
-        daily_metrics = []
         total_costs = 0
 
         # FIX: Pending PnL keyed by exit date - eliminates look-ahead bias
@@ -259,8 +258,6 @@ class CompleteFixedRussell3000TradingSystem:
         # v22: Cross-symbol exposure limit — prevent same stock in 2+ simultaneous open pairs.
         # Reduces hidden directional concentration (e.g. AAPL-MSFT + AAPL-GOOG open = net AAPL bet).
         _active_symbols: Dict = {}    # symbol -> scheduled exit_date
-
-        monthly_volume = self.initial_capital * 1.0
 
         # Build master date list from ALL windows if re-selection is active
         all_dates = set()
@@ -665,7 +662,7 @@ class CompleteFixedRussell3000TradingSystem:
                         'entry_locked_zscore': _entry_locked_zscore,
                     })
 
-                except Exception as e:
+                except Exception:
                     continue
 
             if date_idx % 50 == 0:
@@ -922,7 +919,7 @@ class CompleteFixedRussell3000TradingSystem:
                         logger.info(f"TRADE {len(trades)}: {pair_string} {trade_record['action']} "
                                    f"zscore={zscore:.2f} quality={pair_quality:.2f} cost={cost_pct:.3%}")
 
-                except Exception as e:
+                except Exception:
                     continue
 
             daily_pnl.append(day_pnl)
@@ -1018,7 +1015,7 @@ class CompleteFixedRussell3000TradingSystem:
             'test_period_days': len(all_dates)
         }
 
-        logger.info(f"FIXED BACKTEST COMPLETED")
+        logger.info("FIXED BACKTEST COMPLETED")
 
         return results
 
@@ -1545,8 +1542,7 @@ class CompleteFixedRussell3000TradingSystem:
             for exit_date in all_exit_dates:
                 day_net = pending_pnl[exit_date]
 
-                prev_equity = equity
-                equity      = equity * (1.0 + day_net)
+                equity = equity * (1.0 + day_net)
 
                 daily_return_series.append(day_net)
                 daily_equity_curve.append((exit_date, equity))

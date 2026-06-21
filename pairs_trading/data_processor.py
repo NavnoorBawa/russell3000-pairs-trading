@@ -186,7 +186,7 @@ class EnhancedRussell3000DataProcessor:
                 return False
 
             return True
-        except:
+        except Exception:
             return False
 
     def _process_indicators(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -261,7 +261,7 @@ class EnhancedRussell3000DataProcessor:
             rsi = 100 - (100 / (1 + rs))
 
             return rsi.fillna(50)
-        except:
+        except Exception:
             return pd.Series(50, index=prices.index)
 
     def load_macro_data(self) -> Dict:
