@@ -38,3 +38,8 @@ GRILL_NOTES.md
 # Environment
 .env
 *.env
+
+# Coverage data
+.coverage
+htmlcov/
+.ruff_cache/
