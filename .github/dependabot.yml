@@ -1,0 +1,17 @@
+version: 2
+updates:
+  # Keep the CI's GitHub Actions current (also clears the Node-20 deprecation notice).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "ci"
+
+  # Surface security/maintenance updates for the Python dependencies.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "deps"

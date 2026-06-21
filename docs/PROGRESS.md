@@ -29,9 +29,15 @@ A modular, research-grade statistical arbitrage system for Russell 3000 stocks.
 | `transaction_costs.py` | Cost model (commission, bid-ask, market impact, borrow) |
 | `fund_profiles.py` | **NEW** — 5 institutional fund profiles for comparison |
 | `trading_system.py` | Core engine: backtest, walk-forward, fund comparison, regime |
+| `significance.py` | **v28** — PSR, Deflated Sharpe, Newey-West t-stat, bootstrap CIs |
+| `benchmark.py` | **v28** — Gatev (2006) distance method + random-pair control |
 | `plotting.py` | All charts including fund comparison 6-panel figure |
 | `json_export.py` | JSON export of all results |
 | `main.py` | Entry point, final console output |
+
+> Plus a `tests/` pytest suite (74 hermetic tests) and `pyproject.toml` / `.github/`
+> tooling (ruff lint + CI). Position sizer floor is 3% (v18); the "min 2%" note above
+> is historical.
 
 ---
 

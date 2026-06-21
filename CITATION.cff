@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you reference this work, please cite it as below."
+title: "Russell 3000 Statistical Arbitrage — Pairs Trading Research System"
+abstract: >-
+  A modular cointegration-based statistical-arbitrage research system over the
+  Russell 3000: Kalman-filtered spreads, z-score mean-reversion signals,
+  regime-adaptive position sizing, walk-forward validation, institutional cost
+  modeling, a controlled transformer ablation, statistical-significance testing
+  (Probabilistic & Deflated Sharpe, Newey-West t-stat, bootstrap CIs), and
+  Gatev-distance / random-pair baselines. Under realistic t+1 execution the
+  out-of-sample edge is not statistically significant — reported in full.
+authors:
+  - family-names: Bawa
+    given-names: Navnoor
+type: software
+license: MIT
+repository-code: "https://github.com/NavnoorBawa/russell3000-pairs-trading"
+url: "https://navnoorbawa.github.io/russell3000-pairs-trading/"
+version: "29.0.0"
+date-released: "2026-06-21"
+keywords:
+  - statistical arbitrage
+  - pairs trading
+  - cointegration
+  - Kalman filter
+  - walk-forward validation
+  - Sharpe ratio significance
+  - quantitative finance
