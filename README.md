@@ -1,6 +1,7 @@
 # Russell 3000 Statistical Arbitrage — Pairs Trading Research System
 
 [![CI](https://github.com/NavnoorBawa/russell3000-pairs-trading/actions/workflows/ci.yml/badge.svg)](https://github.com/NavnoorBawa/russell3000-pairs-trading/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/NavnoorBawa/russell3000-pairs-trading/actions/workflows/codeql.yml/badge.svg)](https://github.com/NavnoorBawa/russell3000-pairs-trading/actions/workflows/codeql.yml)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-1a1a1a.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-1a1a1a.svg)](LICENSE)
 
@@ -191,24 +192,30 @@ Inputs: `data/enhanced_russell_3000_data.pkl` (price cache; auto-refetched if ab
 
 ## Testing
 
-A hermetic [`pytest`](tests/) suite (74 tests, ~4s, no data files or network) guards the
+A hermetic [`pytest`](tests/) suite (91 tests, ~4s, no data files or network) guards the
 core math and the fixes from the audits — the engine internals (Kalman spread, max
 drawdown, Hurst exponent, CUSUM break), the trade-gating logic (position-size clamps,
 risk-validation rejections, drawdown/loss kill-switches), the significance estimators
 (PSR, Newey-West t-stat, bootstrap CIs, Deflated Sharpe), the benchmark date-alignment
 and degenerate-pair exclusion, the transaction-cost model (sign, scaling, borrow logic),
-the pair-selection statistics (correlation, half-life), and an import/instantiation smoke
-test. CI runs `ruff` lint + the suite on every push ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+the pair-selection statistics (correlation, half-life), the JSON analytics helpers, the
+data-validation/RSI helpers, and an import/instantiation smoke test.
+
+The deterministic **core-logic modules are 73–97% covered** (transaction costs 97%,
+benchmark 77%, significance 75%, position sizer 73%); overall line coverage is lower only
+because the data-dependent pipeline (`run_comprehensive_backtest` needs the full price
+cache) is validated by the full reproducible runs rather than unit tests. CI runs `ruff`
+lint, a compile gate, the suite with coverage, and CodeQL security analysis on every push.
 
 ```bash
-pip install pytest ruff      # or: pip install -e ".[dev]"
-ruff check .                 # lint (clean)
-pytest -q                    # 74 tests
+pip install pytest pytest-cov ruff       # or: pip install -e ".[dev]"
+ruff check .                             # lint (clean)
+pytest -q --cov=pairs_trading            # 91 tests + coverage
 ```
 
 ```
 ├── pairs_trading/   # source (16 modules; main.py is the entry point)
-├── tests/           # pytest suite (74 hermetic tests; no data files / network)
+├── tests/           # pytest suite (91 hermetic tests; no data files / network)
 ├── data/            # price + macro caches
 ├── docs/            # PROGRESS.md — complete version history v6→v29, every bug documented
 ├── logs/            # one log per backtest version
