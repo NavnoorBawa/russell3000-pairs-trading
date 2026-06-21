@@ -8,11 +8,14 @@ position scaling, walk-forward validation, institutional cost modeling, and a le
 signal-quality layer whose contribution is measured with a **controlled ablation**.
 
 The point of this project is the process, not a headline Sharpe: every component's
-contribution is measured, every metric is reproducible from the logs, and the bugs —
-including ones that flattered results *and* ones that understated them — are documented
-in full. The most recent example: a sign error in the cost comparison was making the
-results look **worse** than reality; correcting it (v26) reversed the fund-cost
-conclusion. Both directions are reported.
+contribution is measured, every metric is reproducible from the logs, and the result is
+tested for whether it's real rather than asserted. The honest bottom line (v29): under
+realistic t+1 execution there is **no statistically significant edge** — the
+out-of-sample Sharpe is 0.08 with p=0.83, every bootstrap CI includes zero, and zero
+pairs survive a Benjamini-Hochberg multiple-testing correction. The pipeline still beats
+a random-pair control decisively and the textbook distance method on a risk-adjusted
+basis. The deliverable is a rigorously validated research framework — and the discipline
+to prove to itself that the edge isn't significant — not a deployable alpha.
 
 ---
 
@@ -34,6 +37,7 @@ data (2,542 Russell 3000 symbols, 2020–2025, America/New_York)
   ├─ Signal rule
   │    Entry |z| > 1.8, exit |z| < 0.5, half-life-adaptive z lookback,
   │    dynamic max hold = clamp(2.5 × half-life, 10–25 trading days)
+  │    t+1 execution: signal on day-t close, fill at t+1 close (no same-bar look-ahead)
   │
   ├─ Learned signal-quality layer (v24, switchable)
   │    Transformer-encoder scorer (38 features) trained on entry-outcome labels,
@@ -43,77 +47,110 @@ data (2,542 Russell 3000 symbols, 2020–2025, America/New_York)
   │    VIX bands (>30 → 0.5×, >40 → 0.25×) + 63-day sector-dispersion gate;
   │    hard skip (new entries) when >20% of trailing 63 days were reduced-scale
   │
-  └─ Risk manager + portfolio accounting
-       $100M capital, 3–10% positions, 30% gross-exposure cap, vol/profit scaling,
-       walk-forward: 252-day train / 63-day test, 19 windows (2020–2025)
+  ├─ Risk manager + portfolio accounting
+  │    $100M capital, 3–10% positions, 30% gross-exposure cap, vol/profit scaling,
+  │    walk-forward: 252-day train / 63-day test, 19 windows (2020–2025)
+  │
+  └─ Rigor layer (v28–v29) — "is the edge real?"
+       significance.py: Probabilistic & Deflated Sharpe, Newey-West Sharpe t-stat,
+       bootstrap CIs · benchmark.py: Gatev (2006) distance + random-pair control ·
+       Benjamini-Hochberg FDR diagnostic on the cointegration p-values
 ```
 
 14 Python modules under [pairs_trading/](pairs_trading/). Entry point:
 `python3 -m pairs_trading.main`.
 
-## Results (v27 — post-audit, run of 2026-06-20)
+## Results (v29 — realistic t+1 execution, run of 2026-06-21)
 
-All figures are from the post-audit (v27) codebase. They **supersede v26.1**: fully
-enforcing the cross-symbol concentration limit (no stock in two concurrent pairs, across-
-*and* within-day) cut the main backtest from 71 to 42 trades — fewer but higher-quality
-(win rate 56→62%, Sharpe 0.58→0.75). See [docs/PROGRESS.md](docs/PROGRESS.md) §v26 and
-§v27 for the full audit trail.
+These figures use **t+1 execution**: the |z|>1.8 signal is decided on the day-t close,
+but the trade *fills at the next trading day's close*, removing the same-bar look-ahead
+of trading at the very price that generated the signal (v29). This is the honest cost of
+realistic fills — and it matters a lot: the out-of-sample edge that looked like
++0.49%/qtr under same-bar execution (v27) **collapses to +0.08%/qtr** once you can't trade
+on the signal bar. Most of the apparent OOS edge was that look-ahead.
 
-| Metric | Classical only | + Transformer |
+| Metric | Value |
+|---|---|
+| Main backtest (Jul 2023–2025) return / Sharpe | +0.90% / 0.50 |
+| Main backtest trades / win rate / max DD | 41 / 58.5% / −1.15% |
+| Walk-forward IS (W1–W9) avg / Sharpe | +2.52%/qtr / 5.08 |
+| Walk-forward OOS (W10–W19) avg / Sharpe | **+0.08%/qtr / 0.08** |
+| Walk-forward windows profitable | 13/19 (OOS 4/10) |
+
+### Is the edge real? — statistical significance (the headline)
+
+The pipeline doesn't just report a Sharpe; it tests whether the Sharpe is distinguishable
+from zero ([`significance.py`](pairs_trading/significance.py)). It is not.
+
+| Test | Main backtest | Out-of-sample (stitched daily) |
 |---|---|---|
-| Main backtest (Jul 2023–2025) return / Sharpe | +1.32% / 0.75 | identical |
-| Main backtest trades / win rate | 42 / 61.9% | identical |
-| Walk-forward IS (W1–W9) avg / Sharpe | +2.34%/qtr / 4.77 | ~identical |
-| Walk-forward OOS (W10–W19) avg / Sharpe | **+0.49%/qtr / 0.86** | ~identical |
-| Walk-forward windows profitable | 15/19 (OOS 6/10) | ~identical |
+| Annualised Sharpe | 0.50 | 0.14 |
+| Newey-West t-stat (Sharpe ≠ 0) | 0.70 (p=0.49) | 0.21 (p=0.83) |
+| Probabilistic Sharpe P(SR>0) | 78% | 58% |
+| Bootstrap 95% CI on Sharpe | [−0.96, +1.93] | [−1.09, +1.59] |
+| Deflated Sharpe (vs best-of-27 trials) | 11% | 3.6% |
 
-**The transformer contributes ≈ 0 — an established, seed-tested result.** The quality
-score only reorders same-day opportunities, so it can bind only when many pairs compete
-on one day (the walk-forward), never in the sparse main backtest or the fund replay —
-those are independent of it by construction. The transformer *does* train correctly
-(BCE below coin-flip entropy, so it genuinely discriminates), and one training seed
-showed an OOS gain (+0.74%/qtr); a four-seed check (42/1/2/7, run on the v26.1 codebase)
-dissolved it into noise (mean +0.53 vs classical +0.36, a spread wider than the mean
-effect, one seed below baseline). The edge is the classical pipeline; the ML layer is
-tested-and-rejected.
+The per-window OOS test agrees: mean +0.08%/qtr, t-stat 0.22, **p=0.83**, 4/10 windows
+positive, 95% CI **[−0.54%, +0.79%]**. Every CI includes zero; every t-stat is below 1.
+**Under realistic execution there is no statistically significant edge.** That conclusion —
+reached with standard methods, on logged and reproducible runs — is the deliverable.
+
+### Does it beat the textbook? — baseline benchmarks
+
+[`benchmark.py`](pairs_trading/benchmark.py) runs the canonical Gatev (2006) distance
+method and a random-pair control on the **same universe and OOS period**:
+
+| Strategy | Return | Sharpe |
+|---|---|---|
+| Cointegration + Kalman (this project) | +0.90% | **0.50** |
+| Distance method (Gatev 2006) | +1.82% | 0.16 |
+| Random-pair control (avg of 5 draws) | −7.69% | −0.35 |
+
+The pipeline crushes random pair selection (so the selection method genuinely matters)
+and, while the distance method edges it on raw return, it does so at ~3× the volatility —
+this project wins decisively on risk-adjusted return (Sharpe 0.50 vs 0.16). The edge over
+the textbook is in *risk control*, not raw return.
+
+### Multiple-testing reality check — FDR
+
+Testing tens of thousands of pairs at p<0.05 manufactures false positives. A
+Benjamini-Hochberg pass quantifies it: of **37,546 pairs tested, 6,052 are "cointegrated"
+at raw p<0.05 — but ~1,877 of those are expected false positives by chance, and zero
+survive BH-FDR at q<0.05** (only 8 at q<0.10). The cointegration signal is far weaker than
+the raw p-values suggest. This is reported, not hidden — it's consistent with the
+insignificant out-of-sample result above.
 
 ### Institutional cost profiles
 
-The same 42 trade signals replayed under five fund-cost structures. In versions before
-v26 all five were negative — but that was **largely a bug** (the cost comparison inverted
-the P&L of every short trade). Corrected, and with Sharpe computed on the full equity
-curve (the v27 fix — earlier drafts inflated it on exit-days-only, then briefly zeroed it
-on a tz-key bug, both now fixed):
+The same t+1 trade signals replayed under five fund-cost structures (Sharpe on the full
+equity curve):
 
 | Profile (leverage) | Net return | Sharpe | Max DD |
 |---|---|---|---|
-| Quant HF (~5–7×) | +4.45% | 0.59 | −3.7% |
-| Multi-Strat pod (~4×) | +2.72% | 0.55 | −2.5% |
-| Fundamental L/S (~1.5–2×) | +0.95% | 0.38 | −1.4% |
-| Buy-side institutional (1×) | +1.07% | 0.85 | −0.6% |
-| Retail (1×) | +0.07% | 0.05 | −0.9% |
+| Quant HF (~5–7×) | +2.87% | 0.54 | −4.5% |
+| Multi-Strat pod (~4×) | +1.69% | 0.49 | −3.0% |
+| Fundamental L/S (~1.5–2×) | +0.45% | 0.33 | −1.7% |
+| Buy-side institutional (1×) | +0.81% | 0.80 | −0.7% |
+| Retail (1×) | −0.17% | 0.01 | −1.1% |
 
-All five are net-positive on the main backtest, though retail only marginally (+0.07%).
-The unlevered buy-side profile has the best risk-adjusted return (Sharpe 0.85) — lowest
-costs, smallest drawdown.
+Four of five are net-positive (retail goes slightly negative after costs). But these run
+on the main backtest — the optimistic bound — and the binding constraint is the
+insignificant OOS above.
 
 ### What is honestly claimable — and what is not
 
-- **The "no deployable edge / all profiles negative" headline from earlier versions
-  was substantially a sign bug**, not a property of the strategy. Corrected, all five
-  cost profiles are net-positive on the main backtest (retail only marginally). This is
-  disclosed as a correction, not buried.
-- **The binding constraint is the walk-forward OOS, and it is thin: +0.49%/qtr
-  (~2%/yr gross), Sharpe 0.86, 6/10 OOS windows positive.** The fund table is
-  computed on the main backtest (a contiguous run with quarterly re-selection — the
-  optimistic bound); the walk-forward is the rigorous forward estimate. The truth is
-  between them, closer to the thin OOS.
-- **This is not a confirmed deployable strategy.** A modest positive gross edge that
-  survives leverage on the main backtest, but a thin and fragile out-of-sample
-  result, is an honest description — not "it works."
-- Notably, the documented 1.8σ entry threshold is **not** OOS-optimal: a stricter
-  threshold the buggy code was accidentally using did better out-of-sample. That is
-  flagged, not hidden.
+- **Under realistic (t+1) execution there is no statistically significant edge.** OOS is
+  +0.08%/qtr, Sharpe 0.08, p=0.83, CI includes zero, Deflated Sharpe 3.6%, and zero pairs
+  survive FDR at q<0.05. This is the honest conclusion, stated plainly.
+- **Much of the prior apparent edge was same-bar look-ahead.** Removing it (v29) cut OOS
+  from +0.49%/qtr to +0.08%/qtr. That is exactly the kind of bias rigorous testing exists
+  to catch — and it is reported, not buried.
+- **The methodology is nonetheless sound:** it beats a random-pair control decisively and
+  the textbook distance method on a risk-adjusted basis. The value here is a rigorously
+  validated *research framework*, not a deployable alpha.
+- **This is not a deployable strategy** — and the project proves that to itself with
+  significance tests, a multiple-testing correction, and an execution-realism check,
+  rather than overfitting to a number.
 
 ## What this project is not
 
@@ -122,7 +159,8 @@ costs, smallest drawdown.
   otherwise). v10–v23 carried it as dead code; v24 wired it in; v26 a label bug stopped
   it training; v26.1 fixed that and the seed check settled it.
 - **Not reinforcement learning.** No DDPG/SAC/policy network exists in this codebase.
-- **Not a validated deployable edge** — the rigorous OOS is thin (see above).
+- **Not a validated deployable edge** — under realistic t+1 execution the OOS edge is
+  statistically indistinguishable from zero (see above).
 - The encoder runs on a single feature vector (sequence length 1), so it is
   architecturally an MLP head; described as a "learned signal-quality scorer."
 
@@ -150,7 +188,7 @@ Inputs: `data/enhanced_russell_3000_data.pkl` (price cache; auto-refetched if ab
 ```
 ├── pairs_trading/   # source (14 modules; main.py is the entry point)
 ├── data/            # price + macro caches
-├── docs/            # PROGRESS.md — complete version history v6→v27, every bug documented
+├── docs/            # PROGRESS.md — complete version history v6→v29, every bug documented
 ├── logs/            # one log per backtest version
 ├── outputs/         # charts + JSON exports
 ├── scripts/         # diagnostics
@@ -171,6 +209,8 @@ unflattering; it is the most honest artifact in the repository.
 | v26 | code audit: fund-comparison sign bug, entry-threshold/hold-time/exposure fixes — reversed the all-negative fund result; rigorous OOS now the binding constraint |
 | v26.1 | fixed a label bug that had silently disabled transformer training; 4-seed robustness check confirmed the ML contribution is ≈0 (one lucky seed had suggested otherwise) |
 | v27 | second code audit: 9 bugs fixed — `get_pair_stats()` feature skew, cross-symbol concentration not enforced (across- *and* within-day), fund-comparison Sharpe computed on exit-days-only, `max_daily_trades` stat shadowing, deprecated fillna, signal-strength bucket off-by-one, dead code |
+| v28 | rigor layer: statistical-significance module (PSR, Newey-West Sharpe t-stat, bootstrap CIs, Deflated Sharpe) + Gatev (2006) distance-method & random-pair benchmarks — the edge is **not** significant; pipeline beats both baselines on risk-adjusted terms |
+| v29 | t+1 execution (removes same-bar look-ahead — OOS edge collapses +0.49%→+0.08%/qtr, confirming most of it was look-ahead) + Benjamini-Hochberg FDR diagnostic (0 pairs survive q<0.05) |
 
 ---
 
