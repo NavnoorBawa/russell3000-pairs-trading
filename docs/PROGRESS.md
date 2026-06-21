@@ -10,7 +10,7 @@ A modular, research-grade statistical arbitrage system for Russell 3000 stocks.
 - **Initial capital**: $100M
 - **Data**: 2020–2025, daily prices, yfinance
 - **Technology**: Transformer encoder + RL agent for signal generation
-- **Architecture**: 14 Python modules in `pairs_trading/`
+- **Architecture**: 16 Python modules in `pairs_trading/` + a `tests/` pytest suite
 
 ---
 

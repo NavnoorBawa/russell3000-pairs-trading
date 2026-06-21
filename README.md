@@ -1,5 +1,9 @@
 # Russell 3000 Statistical Arbitrage — Pairs Trading Research System
 
+[![CI](https://github.com/NavnoorBawa/russell3000-pairs-trading/actions/workflows/ci.yml/badge.svg)](https://github.com/NavnoorBawa/russell3000-pairs-trading/actions/workflows/ci.yml)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-1a1a1a.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-1a1a1a.svg)](LICENSE)
+
 **[Live project page →](https://navnoorbawa.github.io/russell3000-pairs-trading/)**
 
 A modular pairs-trading research system: cointegration-based pair selection over the
@@ -57,8 +61,8 @@ data (2,542 Russell 3000 symbols, 2020–2025, America/New_York)
        Benjamini-Hochberg FDR diagnostic on the cointegration p-values
 ```
 
-14 Python modules under [pairs_trading/](pairs_trading/). Entry point:
-`python3 -m pairs_trading.main`.
+16 Python modules under [pairs_trading/](pairs_trading/) (incl. `significance.py` and
+`benchmark.py`, the v28–v29 rigor layer). Entry point: `python3 -m pairs_trading.main`.
 
 ## Results (v29 — realistic t+1 execution, run of 2026-06-21)
 
@@ -185,8 +189,23 @@ Inputs: `data/enhanced_russell_3000_data.pkl` (price cache; auto-refetched if ab
 `data/macro_data.pkl` (VIX + sector ETFs). Outputs: charts and JSON in
 [outputs/](outputs/), logs in [logs/](logs/).
 
+## Testing
+
+A hermetic [`pytest`](tests/) suite (49 tests, ~4s, no data files or network) guards the
+core math and the fixes from the audits — the significance estimators (PSR, Newey-West
+t-stat, bootstrap CIs, Deflated Sharpe), the benchmark date-alignment and degenerate-pair
+exclusion, the transaction-cost model (sign, scaling, borrow logic), the pair-selection
+statistics (correlation, half-life), and an import/instantiation smoke test. CI runs them
+on every push ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
+```bash
+pip install pytest        # or: pip install -e ".[dev]"
+pytest -q
 ```
-├── pairs_trading/   # source (14 modules; main.py is the entry point)
+
+```
+├── pairs_trading/   # source (16 modules; main.py is the entry point)
+├── tests/           # pytest suite (49 hermetic tests; no data files / network)
 ├── data/            # price + macro caches
 ├── docs/            # PROGRESS.md — complete version history v6→v29, every bug documented
 ├── logs/            # one log per backtest version
