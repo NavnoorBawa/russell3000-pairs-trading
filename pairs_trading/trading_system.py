@@ -5,6 +5,7 @@ Complete Fixed Russell 3000 Trading System with balanced improvements.
 DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
 """
 
+import os
 from pairs_trading.config import (
     pd, np, logging, tqdm, Dict, Tuple
 )
@@ -258,6 +259,13 @@ class CompleteFixedRussell3000TradingSystem:
         # v22: Cross-symbol exposure limit — prevent same stock in 2+ simultaneous open pairs.
         # Reduces hidden directional concentration (e.g. AAPL-MSFT + AAPL-GOOG open = net AAPL bet).
         _active_symbols: Dict = {}    # symbol -> scheduled exit_date
+
+        # v29 (sensitivity): fill column for t+1 execution. Default 'Close' (the conservative
+        # headline). PAIRS_FILL=open fills at the next bar's OPEN — the standard next-bar
+        # convention that captures the overnight gap — used to report the execution-realism
+        # sensitivity (does the conclusion hold under both fill conventions?). Signal/exit
+        # logic is unchanged (still close-based z-score); only the fill PRICE changes.
+        _fill_col = 'Open' if os.environ.get('PAIRS_FILL', 'close').lower() == 'open' else 'Close'
 
         # Build master date list from ALL windows if re-selection is active
         all_dates = set()
@@ -736,9 +744,9 @@ class CompleteFixedRussell3000TradingSystem:
                     if entry_idx >= len(all_dates):
                         continue
                     entry_date = all_dates[entry_idx]
-                    current_price1 = self.processed_data[symbol1].loc[entry_date, 'Close'] \
+                    current_price1 = self.processed_data[symbol1].loc[entry_date, _fill_col] \
                         if entry_date in self.processed_data[symbol1].index else signal_price1
-                    current_price2 = self.processed_data[symbol2].loc[entry_date, 'Close'] \
+                    current_price2 = self.processed_data[symbol2].loc[entry_date, _fill_col] \
                         if entry_date in self.processed_data[symbol2].index else signal_price2
 
                     # v19: beta-weighted position sizing — clamp beta to a sane range
@@ -847,9 +855,9 @@ class CompleteFixedRussell3000TradingSystem:
                         continue
 
                     # v22: equal-dollar P&L (reverted from v19 beta-weighted).
-                    price1_exit = self.processed_data[symbol1].loc[next_date, 'Close'] \
+                    price1_exit = self.processed_data[symbol1].loc[next_date, _fill_col] \
                                   if next_date in self.processed_data[symbol1].index else current_price1
-                    price2_exit = self.processed_data[symbol2].loc[next_date, 'Close'] \
+                    price2_exit = self.processed_data[symbol2].loc[next_date, _fill_col] \
                                   if next_date in self.processed_data[symbol2].index else current_price2
                     log_ret1 = np.log(max(price1_exit, 1e-8) / max(current_price1, 1e-8))
                     log_ret2 = np.log(max(price2_exit, 1e-8) / max(current_price2, 1e-8))
