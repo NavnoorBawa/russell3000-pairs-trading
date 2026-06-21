@@ -247,6 +247,7 @@ class FixedPrimeFundPairSelector:
         logger.info(f"FIXED: Testing ALL {len(pairs_to_test):,} unique pairs")
 
         valid_pairs = []
+        _all_coint_pvalues = []   # every correlation-passing pair's coint p-value (for FDR)
 
         # Use tqdm for progress bar
         test_progress = tqdm(pairs_to_test, desc="FIXED pair testing", unit="pair")
@@ -268,6 +269,8 @@ class FixedPrimeFundPairSelector:
                     continue
 
                 is_cointegrated, coint_pvalue = self.test_cointegration(data1, data2)
+                if coint_pvalue is not None and np.isfinite(coint_pvalue):
+                    _all_coint_pvalues.append(coint_pvalue)   # collect for FDR diagnostic
                 if not is_cointegrated:
                     continue
 
@@ -328,6 +331,38 @@ class FixedPrimeFundPairSelector:
         for pair in valid_pairs:
             s1, s2 = pair['symbols']
             self.pair_statistics[f"{s1}-{s2}"] = pair['stats']
+
+        # ── Multiple-testing (FDR) diagnostic ────────────────────────────────────
+        # Testing tens of thousands of pairs at raw p<0.05 yields many false positives
+        # by chance. Benjamini-Hochberg controls the false-discovery rate; reporting how
+        # many pairs survive BH (and the implied false-positive count at raw p<0.05)
+        # turns the "~N spurious pairs" caveat into a measured number. Diagnostic only —
+        # it does not change which pairs are selected.
+        self.fdr_diagnostic = {}
+        try:
+            from statsmodels.stats.multitest import multipletests
+            pvals = np.asarray(_all_coint_pvalues, dtype=float)
+            n_tested = int(pvals.size)
+            if n_tested > 0:
+                n_raw_sig = int((pvals < 0.05).sum())
+                exp_false_pos = 0.05 * n_tested        # expected false positives at raw 5%
+                bh05 = int(multipletests(pvals, alpha=0.05, method='fdr_bh')[0].sum())
+                bh10 = int(multipletests(pvals, alpha=0.10, method='fdr_bh')[0].sum())
+                self.fdr_diagnostic = {
+                    'pairs_tested': n_tested,
+                    'significant_raw_p05': n_raw_sig,
+                    'expected_false_positives_at_p05': round(exp_false_pos, 1),
+                    'survive_bh_fdr_q05': bh05,
+                    'survive_bh_fdr_q10': bh10,
+                    'final_selected_pairs': len(self.selected_pairs),
+                }
+                logger.info("FDR diagnostic (Benjamini-Hochberg on cointegration p-values):")
+                logger.info(f"  tested {n_tested:,} pairs | raw p<0.05: {n_raw_sig:,} "
+                            f"(≈{exp_false_pos:,.0f} expected false positives by chance)")
+                logger.info(f"  survive BH-FDR q<0.05: {bh05:,} | q<0.10: {bh10:,} | "
+                            f"final selected (after half-life/quality/PCA): {len(self.selected_pairs):,}")
+        except Exception as e:
+            logger.debug(f"FDR diagnostic skipped: {e}")
 
         logger.info(f"FIXED: Found {len(self.selected_pairs)} pairs satisfying all conditions")
 

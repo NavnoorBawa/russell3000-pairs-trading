@@ -720,16 +720,29 @@ class CompleteFixedRussell3000TradingSystem:
                     _ent_lz = opportunity.get('entry_locked_zscore')
                     entry_spread_zscore = _ent_lz if _ent_lz is not None else zscore
 
-                    # v12 fix: fetch entry prices and lock beta BEFORE the exit loop.
-                    # Kalman β drifts after entry; the old code computed exit z-score using
-                    # current Kalman β, so the spread would appear to "revert" purely from
-                    # β drift — not from actual price mean reversion. Lock β at entry.
-                    current_price1 = self.processed_data[symbol1].loc[date, 'Close'] if date in self.processed_data[symbol1].index else 100
-                    current_price2 = self.processed_data[symbol2].loc[date, 'Close'] if date in self.processed_data[symbol2].index else 100
+                    # v12 fix: lock β at the SIGNAL day (decision-time info). β comes from
+                    # the day-t close + the day-t Kalman spread and feeds the exit z-score,
+                    # so β drift can't be booked as profit.
+                    signal_price1 = self.processed_data[symbol1].loc[date, 'Close'] if date in self.processed_data[symbol1].index else 100
+                    signal_price2 = self.processed_data[symbol2].loc[date, 'Close'] if date in self.processed_data[symbol2].index else 100
                     current_spread = spread.loc[date]
-                    _lp2e = np.log(max(current_price2, 1e-8))
-                    beta_entry = (np.log(max(current_price1, 1e-8)) - current_spread) / _lp2e \
+                    _lp2e = np.log(max(signal_price2, 1e-8))
+                    beta_entry = (np.log(max(signal_price1, 1e-8)) - current_spread) / _lp2e \
                                  if abs(_lp2e) > 1e-4 else 1.0
+
+                    # v29: t+1 EXECUTION — the signal is decided on the day-t close, but the
+                    # trade FILLS at the NEXT trading day's close. This removes the same-bar
+                    # look-ahead of entering at the very close that produced the signal (you
+                    # cannot trade at a price whose information you just used). If there is no
+                    # next bar (end of data), the trade can't be executed → skip.
+                    entry_idx = date_idx + 1
+                    if entry_idx >= len(all_dates):
+                        continue
+                    entry_date = all_dates[entry_idx]
+                    current_price1 = self.processed_data[symbol1].loc[entry_date, 'Close'] \
+                        if entry_date in self.processed_data[symbol1].index else signal_price1
+                    current_price2 = self.processed_data[symbol2].loc[entry_date, 'Close'] \
+                        if entry_date in self.processed_data[symbol2].index else signal_price2
 
                     # v19: beta-weighted position sizing — clamp beta to a sane range
                     # v21: tightened clamp [0.5, 2.0] (was [0.1, 10.0]).
@@ -748,7 +761,9 @@ class CompleteFixedRussell3000TradingSystem:
                     _pair_hl = float(_pair_stats_ex.get('half_life', 10.0))
                     _max_hold_days = max(10, min(int(2.5 * _pair_hl), 25))
 
-                    for future_idx in range(date_idx + 1, min(date_idx + _max_hold_days + 1, len(all_dates))):
+                    # v29: hold window runs from the t+1 entry fill, not the signal day,
+                    # so the earliest possible exit is the day after entry.
+                    for future_idx in range(entry_idx + 1, min(entry_idx + _max_hold_days + 1, len(all_dates))):
                         candidate_date = all_dates[future_idx]
                         if candidate_date not in spread.index:
                             continue
@@ -780,7 +795,7 @@ class CompleteFixedRussell3000TradingSystem:
                         # trading-day indices); the prior `(candidate_date-date).days`
                         # was calendar, firing ~30% early (a 25-trading-day cap hit at
                         # ~25 calendar ≈ 17 trading days).
-                        trading_days_held = future_idx - date_idx
+                        trading_days_held = future_idx - entry_idx
 
                         if action == 0:
                             if current_zscore > -0.5 or (current_zscore - entry_spread_zscore > 1.0) or trading_days_held >= _max_hold_days:
@@ -819,7 +834,7 @@ class CompleteFixedRussell3000TradingSystem:
                         long_symbol, short_symbol = symbol2, symbol1
                         long_price, short_price = current_price2, current_price1
 
-                    holding_days = max(1, (next_date - date).days)
+                    holding_days = max(1, (next_date - entry_date).days)
 
                     trade_costs = self.cost_model.calculate_total_trade_costs(
                         long_position_size, short_position_size,
@@ -850,7 +865,8 @@ class CompleteFixedRussell3000TradingSystem:
                     net_pnl_pct = gross_pnl_pct - cost_pct
 
                     trade_record = {
-                        'date': date,
+                        'date': entry_date,        # v29: actual t+1 fill date (not the signal day)
+                        'signal_date': date,       # day the |z|>1.8 signal fired
                         'pair': pair_string,
                         'action': 'LONG' if action == 0 else 'SHORT',
                         'position_size': total_position_value,
@@ -1933,6 +1949,8 @@ class CompleteFixedRussell3000TradingSystem:
             pair_windows=pair_windows
         )
         results['walk_forward'] = wf_summary
+        # multiple-testing (FDR) diagnostic computed during pair selection
+        results['fdr_diagnostic'] = getattr(self.pair_selector, 'fdr_diagnostic', {})
 
         # ── Statistical significance — is the edge real? ──────────────────────
         # Pure measurement on the results already produced (no look-ahead, no trading
