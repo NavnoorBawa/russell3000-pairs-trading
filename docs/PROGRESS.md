@@ -2487,6 +2487,28 @@ false positives) · **0 survive BH-FDR q<0.05**, 8 at q<0.10 · 756 finally sele
 **Fund profiles (v29, t+1):** Quant HF +2.87%/0.54 · Multi-Strat +1.69%/0.49 · Fundamental
 +0.45%/0.33 · Buy-side +0.81%/0.80 · Retail −0.17%/0.01 (4/5 positive).
 
+### Execution sensitivity — t+1-open vs t+1-close (configurable fill mode)
+
+The headline uses t+1-**close** (most conservative). A configurable fill mode
+(`PAIRS_FILL=open|close`, default close = bit-identical to v29) lets the same engine
+fill at the next bar's OPEN — the standard next-bar convention that captures the overnight
+gap. Only the fill price changes; signal/exit logic stays close-based, so the trade set is
+near-identical. The conclusion is robust to the choice — the OOS straddles zero either way:
+
+| Out-of-sample | t+1 close | t+1 open |
+|---|---|---|
+| Return/qtr | +0.08% | −0.28% |
+| Stitched-daily Sharpe | 0.14 | −0.49 |
+| Newey-West t (p) | 0.21 (0.83) | −0.83 (0.41) |
+| Deflated Sharpe | 3.6% | 0.1% |
+| Windows positive | 4/10 | 3/10 |
+| Main return / Sharpe | +0.90% / 0.50 | +0.72% / 0.40 |
+
+The overnight gap works marginally *against* the strategy (t+1-open is slightly worse), so
+"no statistically significant edge under realistic execution" is not an artifact of one
+pessimistic fill choice. The benchmark ordering also holds under t+1-open (strategy Sharpe
+0.40 > Gatev distance 0.16 > random −0.35). Log: `logs/backtest_v29_open.log`.
+
 **Bottom line:** under honest assumptions there is no statistically significant deployable
 edge — and the project demonstrates that with significance tests, a multiple-testing
 correction, and an execution-realism check, rather than overfitting to a number. The

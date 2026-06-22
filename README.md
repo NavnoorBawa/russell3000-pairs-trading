@@ -82,6 +82,25 @@ on the signal bar. Most of the apparent OOS edge was that look-ahead.
 | Walk-forward OOS (W10–W19) avg / Sharpe | **+0.08%/qtr / 0.08** |
 | Walk-forward windows profitable | 13/19 (OOS 4/10) |
 
+### Execution sensitivity — the conclusion holds under both fill conventions
+
+t+1-close (above) is the most conservative fill. The standard next-bar alternative is
+t+1-**open** (`PAIRS_FILL=open`), which captures the overnight gap. The honest OOS result
+straddles zero either way — under neither convention is there a positive, significant edge:
+
+| Out-of-sample | t+1 close (headline) | t+1 open |
+|---|---|---|
+| Return / qtr | +0.08% | **−0.28%** |
+| Stitched-daily Sharpe | 0.14 | −0.49 |
+| Newey-West t-stat (p) | 0.21 (p=0.83) | −0.83 (p=0.41) |
+| Deflated Sharpe | 3.6% | 0.1% |
+| Windows positive | 4/10 | 3/10 |
+
+The overnight gap works slightly *against* the strategy, so t+1-open is marginally worse —
+the "no significant edge" conclusion is therefore robust to the fill assumption, not an
+artifact of one pessimistic choice. (The pipeline still beats Gatev distance on Sharpe
+— 0.40 vs 0.16 — and crushes random pairs under t+1-open too.)
+
 ### Is the edge real? — statistical significance (the headline)
 
 The pipeline doesn't just report a Sharpe; it tests whether the Sharpe is distinguishable
@@ -146,7 +165,9 @@ insignificant OOS above.
 
 - **Under realistic (t+1) execution there is no statistically significant edge.** OOS is
   +0.08%/qtr, Sharpe 0.08, p=0.83, CI includes zero, Deflated Sharpe 3.6%, and zero pairs
-  survive FDR at q<0.05. This is the honest conclusion, stated plainly.
+  survive FDR at q<0.05. This is the honest conclusion, stated plainly — and it holds under
+  **both** fill conventions (t+1-open is −0.28%/qtr, slightly worse), so it isn't an
+  artifact of one pessimistic execution choice.
 - **Much of the prior apparent edge was same-bar look-ahead.** Removing it (v29) cut OOS
   from +0.49%/qtr to +0.08%/qtr. That is exactly the kind of bias rigorous testing exists
   to catch — and it is reported, not buried.
@@ -184,6 +205,9 @@ PAIRS_USE_TRANSFORMER=0 python3.12 -m pairs_trading.main > logs/backtest_noml.lo
 for seed in 42 1 2 7; do
   PAIRS_SEED=$seed python3.12 -m pairs_trading.main > logs/backtest_seed${seed}.log 2>&1
 done
+
+# execution sensitivity: fill at the next bar's OPEN instead of CLOSE
+PAIRS_FILL=open python3.12 -m pairs_trading.main > logs/backtest_open.log 2>&1
 ```
 
 Inputs: `data/enhanced_russell_3000_data.pkl` (price cache; auto-refetched if absent),
@@ -239,7 +263,7 @@ unflattering; it is the most honest artifact in the repository.
 | v26.1 | fixed a label bug that had silently disabled transformer training; 4-seed robustness check confirmed the ML contribution is ≈0 (one lucky seed had suggested otherwise) |
 | v27 | second code audit: 9 bugs fixed — `get_pair_stats()` feature skew, cross-symbol concentration not enforced (across- *and* within-day), fund-comparison Sharpe computed on exit-days-only, `max_daily_trades` stat shadowing, deprecated fillna, signal-strength bucket off-by-one, dead code |
 | v28 | rigor layer: statistical-significance module (PSR, Newey-West Sharpe t-stat, bootstrap CIs, Deflated Sharpe) + Gatev (2006) distance-method & random-pair benchmarks — the edge is **not** significant; pipeline beats both baselines on risk-adjusted terms |
-| v29 | t+1 execution (removes same-bar look-ahead — OOS edge collapses +0.49%→+0.08%/qtr, confirming most of it was look-ahead) + Benjamini-Hochberg FDR diagnostic (0 pairs survive q<0.05) |
+| v29 | t+1 execution (removes same-bar look-ahead — OOS edge collapses +0.49%→+0.08%/qtr, confirming most of it was look-ahead) + Benjamini-Hochberg FDR diagnostic (0 pairs survive q<0.05) + configurable fill mode: under t+1-open the OOS is −0.28%/qtr, so the "no edge" conclusion holds under both conventions |
 
 ---
 
