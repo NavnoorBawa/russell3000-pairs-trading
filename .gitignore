@@ -43,3 +43,6 @@ GRILL_NOTES.md
 .coverage
 htmlcov/
 .ruff_cache/
+
+# Local preview server config
+.claude/launch.json

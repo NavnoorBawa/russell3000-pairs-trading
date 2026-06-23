@@ -156,13 +156,18 @@ footer{padding:36px 0}
 .f-right a{font-size:11px;color:var(--tf);letter-spacing:.06em;transition:color .2s}
 .f-right a:hover{color:var(--ts)}
 
-@media(max-width:760px){
-  .wrap,.nav-in{padding-left:20px;padding-right:20px}
-  .nav-in{flex-direction:column;align-items:flex-start;gap:12px;padding-top:14px;padding-bottom:14px}
+@media(max-width:900px){
+  /* Stack the nav earlier so the links + theme button never crowd or truncate
+     in the ~760–900px tablet zone (was only handled below 760px). */
+  .nav-in{flex-direction:column;align-items:flex-start;gap:12px}
   .nav-right{width:100%;display:flex;justify-content:space-between;align-items:center;gap:16px}
-  .nav-links{gap:18px;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;max-width:70%}
+  .nav-links{gap:18px;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;max-width:78%}
   .nav-links::-webkit-scrollbar{display:none}
   .theme-btn{flex-shrink:0}
+}
+@media(max-width:760px){
+  .wrap,.nav-in{padding-left:20px;padding-right:20px}
+  .nav-in{padding-top:14px;padding-bottom:14px}
   .hero{padding:60px 0 48px}
   h1{font-size:33px}
   .subtitle{font-size:14px;margin-bottom:40px}
@@ -223,15 +228,15 @@ footer{padding:36px 0}
   <div class="metrics">
     <div class="metric">
       <div class="mval pos">+0.90%</div>
-      <div class="mlbl">Main backtest gross<br>Jul 2023–2025 (t+1)</div>
+      <div class="mlbl">Main backtest return<br>Jul 2023–2025 (t+1)</div>
     </div>
     <div class="metric">
       <div class="mval">+0.08%</div>
       <div class="mlbl">Walk-forward OOS<br>per quarter</div>
     </div>
     <div class="metric">
-      <div class="mval">0.08</div>
-      <div class="mlbl">Walk-forward OOS<br>Sharpe</div>
+      <div class="mval pos">0.50</div>
+      <div class="mlbl">Main Sharpe vs 0.16<br>textbook (Gatev)</div>
     </div>
     <div class="metric">
       <div class="mval">p = 0.83</div>
@@ -437,7 +442,7 @@ footer{padding:36px 0}
     </div>
     <div class="g2-item">
       <div class="g2-lbl">Stack</div>
-      <div class="g2-val">Python 3.12 · PyTorch 2.4</div>
+      <div class="g2-val">Python 3.12 · PyTorch 2.7</div>
       <div class="g2-sub">statsmodels · scikit-learn · yfinance</div>
     </div>
     <div class="g2-item">
@@ -447,7 +452,7 @@ footer{padding:36px 0}
     </div>
     <div class="g2-item">
       <div class="g2-lbl">Reproduce</div>
-      <div class="g2-sub" style="margin-top:2px">python3 -m pairs_trading.main<br>PAIRS_USE_TRANSFORMER=0 python3 -m pairs_trading.main</div>
+      <div class="g2-sub" style="margin-top:2px">python3.12 -m pairs_trading.main<br>PAIRS_USE_TRANSFORMER=0 python3.12 -m pairs_trading.main<br>PAIRS_FILL=open python3.12 -m pairs_trading.main</div>
     </div>
   </div>
 </section>
