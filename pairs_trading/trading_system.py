@@ -1035,8 +1035,17 @@ class CompleteFixedRussell3000TradingSystem:
         return np.min(drawdown) if len(drawdown) > 0 else 0.0
 
     def run_walk_forward_validation(self, train_window_days: int = 252, test_window_days: int = 63,
-                                    episodes_per_window: int = 200, pair_windows: Dict = None) -> Dict:
+                                    episodes_per_window: int = 200, pair_windows: Dict = None,
+                                    pair_selection_cutoff: str = '2022-12-31') -> Dict:
         """Walk-forward validation with rolling train/test windows.
+
+        LEAKAGE NOTE (v30): the pair UNIVERSE is selected once on data up to
+        `pair_selection_cutoff` (2022-12-31). Any window whose TEST period starts at or
+        before that cutoff is therefore trading a universe chosen with look-ahead (its
+        own future), so its performance is contaminated by selection bias and is
+        diagnostic only — not a clean forward estimate. Each window is tagged
+        `selection_clean` accordingly; only selection-clean windows (test_start after the
+        cutoff) are a leak-free test, and those are the binding result.
 
         Each window:
           - train_window_days (252 = 1 year) of spread data used for model training
@@ -1157,6 +1166,22 @@ class CompleteFixedRussell3000TradingSystem:
                 logger.warning(f"  Window {w_idx+1}: insufficient spread data, skipping")
                 continue
 
+            # v30 LEAK GUARD: the per-window agent must train ONLY on data strictly
+            # before the test period. This fails loudly if a future refactor ever
+            # assigns full-history spreads (tst_full) to window_train instead of the
+            # train slice. (The transformer's forward labels are additionally capped at
+            # horizon < len(train) inside _build_outcome_dataset, so no test-period label
+            # can bleed into training.)
+            _te_cmp = pd.Timestamp(train_end)
+            _te_cmp = _te_cmp.tz_localize(None) if _te_cmp.tzinfo else _te_cmp
+            for _k, _tr in window_train.items():
+                if len(_tr):
+                    _mx = pd.Timestamp(_tr.index.max())
+                    _mx = _mx.tz_localize(None) if _mx.tzinfo else _mx
+                    assert _mx <= _te_cmp, (
+                        f"Walk-forward leak: window {w_idx+1} training data reaches "
+                        f"{_mx.date()} > train_end {_te_cmp.date()}")
+
             # Retrain agent on this window's training data
             window_agent = FixedTransformerMultiAgentSystem()
             window_agent.pair_statistics = self.pair_selector.pair_statistics  # v27: real stats
@@ -1189,6 +1214,10 @@ class CompleteFixedRussell3000TradingSystem:
                 'train_end':   str(train_end.date()),
                 'test_start':  str(test_start.date()),
                 'test_end':    str(test_end.date()),
+                # v30: window is leak-free on pair selection only if its test period
+                # starts AFTER the pair-selection cutoff; otherwise the universe was
+                # chosen with look-ahead and the window is diagnostic only.
+                'selection_clean': str(test_start.date()) > pair_selection_cutoff,
                 'total_return_pct': round(window_return * 100, 4),
                 'sharpe_ratio': round(window_sharpe, 3),
                 'max_drawdown_pct': round(window_dd * 100, 4),
@@ -1210,9 +1239,13 @@ class CompleteFixedRussell3000TradingSystem:
         profitable_windows = sum(1 for r in returns if r > 0)
         stitched_return = cumulative_equity[-1] / self.initial_capital - 1
 
+        _n_clean = sum(1 for w in wf_results if w.get('selection_clean'))
         summary = {
             'windows': wf_results,
             'total_windows': len(wf_results),
+            # v30: count of windows free of pair-selection look-ahead (test after cutoff)
+            'selection_clean_windows': _n_clean,
+            'pair_selection_cutoff': pair_selection_cutoff,
             'profitable_windows': profitable_windows,
             'profitable_window_pct': round(profitable_windows / len(wf_results) * 100, 1),
             'avg_window_return_pct': round(float(sum(returns)) / len(returns) * 100, 4),
@@ -1292,6 +1325,13 @@ class CompleteFixedRussell3000TradingSystem:
             _degradation = (is_stats['avg_return_pct'] - oos_stats['avg_return_pct']) / (abs(is_stats['avg_return_pct']) + 1e-8) * 100
             logger.info(f"  IS→OOS degradation: {_degradation:.1f}% "
                         f"[30-50% expected per QuantifiedStrategies research]")
+        # v30: the IS windows are not just pre-regime — their TEST periods predate the
+        # pair-selection cutoff ({cutoff}), so the universe was chosen with look-ahead.
+        # They are diagnostic only. The {n} selection-clean windows (test after cutoff)
+        # are the leak-free result.
+        logger.info(f"  SELECTION-LEAK NOTE: {_n_clean}/{len(wf_results)} windows are "
+                    f"selection-clean (test starts after cutoff {pair_selection_cutoff}); "
+                    f"the rest trade a look-ahead-selected universe and are diagnostic only.")
         logger.info("=" * 60)
 
         return summary

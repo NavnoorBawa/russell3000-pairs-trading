@@ -144,6 +144,35 @@ survive BH-FDR at q<0.05** (only 8 at q<0.10). The cointegration signal is far w
 the raw p-values suggest. This is reported, not hidden — it's consistent with the
 insignificant out-of-sample result above.
 
+### Known limitations (every one biases *upward* on an already-null result)
+
+A skeptical-reviewer pass surfaced three caveats. Crucially, all of them inflate apparent
+performance, and the headline is already statistically insignificant — so the *true* edge
+is at or below what is reported, and the negative conclusion is conservative, not at risk.
+
+- **Survivorship bias (material, confirmed empirically).** The universe is sourced from
+  ~current Russell 3000 membership back-filled with prices: of 36 names that delisted,
+  failed, or were acquired during 2020–2025 (SIVB, FRC, SBNY, TWTR, ATVI, VMW, PXD, …),
+  only **1 (BBBY) is present**. For pairs trading this biases results upward — the spreads
+  that diverged permanently because a company failed (the catastrophic mean-reversion
+  losses) are pre-filtered out. A leak-free fix needs a point-in-time, survivorship-free
+  dataset (e.g. CRSP), which is not free; the limitation is disclosed rather than hidden.
+- **Walk-forward in-sample windows carry pair-selection look-ahead.** The pair universe is
+  chosen once on data through 2022-12-31, but windows W1–W9 test in 2020–2023, i.e. they
+  trade a universe selected with their own future. Their high numbers (Sharpe ~5) are
+  therefore *diagnostic only*, not a clean forward estimate. Only windows whose test period
+  starts after the selection cutoff (W10+) are leak-free — and those are the ~0 result the
+  conclusion rests on. Each window is now tagged `selection_clean` in the output.
+- **The transformer scorer's labels are overlapping** (10-day forward, sampled every 2
+  days), so its effective sample size is smaller than the raw count and its training is
+  less informative than it looks. It does *not* leak across the train/test boundary (the
+  forward horizon is capped inside the training window — verified, with a regression test
+  in [`tests/test_leakage.py`](tests/test_leakage.py)) and it contributes ≈0 regardless.
+
+This negative result is also consistent with the published literature: Do & Faff (2010,
+*FAJ*; 2012, *J. Financial Research*) document that simple distance/cointegration pairs
+profits declined after ~2002 and are largely consumed by trading costs.
+
 ### Institutional cost profiles
 
 The same t+1 trade signals replayed under five fund-cost structures (Sharpe on the full

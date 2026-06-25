@@ -2516,3 +2516,40 @@ methodology is sound (beats random + textbook on risk-adjusted terms); the deliv
 a rigorously validated research framework. A fix follow-up in the v28 wiring (tz-naive vs
 tz-aware lookup) was caught and corrected before publication. All artifacts (README, site,
 og-image, JSON) refreshed to v29. Logs: `logs/backtest_v28.log`, `logs/backtest_v29.log`.
+
+---
+
+## v30 — Skeptical-reviewer pass: leakage audit + data caveats (2026-06-22)
+
+A hedge-fund-PM-style review stress-tested the v29 result for leakage and data quality.
+Net: the headline conclusion (no statistically significant edge under realistic execution)
+**survives and is in fact strengthened**, because every issue found biases performance
+*upward* and the result is already a null.
+
+**Confirmed leak / data issues (disclosed, all upward-biasing):**
+1. **Survivorship bias (material).** The universe is ~current Russell 3000 membership
+   back-filled with prices: of 36 names that delisted/failed/were acquired in 2020–2025
+   (SIVB, FRC, SBNY, TWTR, ATVI, VMW, PXD, …) only **1 (BBBY) is present**. For pairs
+   trading this inflates results (permanent-divergence blow-ups are pre-filtered out). A
+   true fix needs a point-in-time survivorship-free dataset (CRSP), not free → disclosed.
+2. **Walk-forward IS selection look-ahead.** Pairs are selected once on data ≤2022-12-31,
+   but windows W1–W9 test in 2020–2023 → they trade a universe chosen with their own
+   future. Their Sharpe ~5 is diagnostic only. Only test-after-cutoff windows (W10+) are
+   leak-free, and those are the ~0 result. Code now tags each window `selection_clean` +
+   `selection_clean_windows` in the WF summary, plus a runtime leak guard that raises if a
+   refactor ever feeds test-period data into per-window training.
+
+**Retracted (claimed in review, then verified false against the code):**
+- The transformer's outcome label does NOT leak across the train/test boundary. The
+  forward-horizon labels are capped at `len(spread) - horizon` and built only from the
+  per-window train slice (`window_train`) / `extended_train_spreads` (≤2023-06-30), so no
+  test-period outcome can enter training. Residual caveat is non-independence (overlapping
+  10-day labels → smaller effective N), not leakage. Guarded by `tests/test_leakage.py`.
+
+**Structural point the writeup now makes (Grinold's Fundamental Law):** 41 trades ≈ 20
+bets/yr ⇒ IR = IC·√BR is negligible even for a real IC; the risk controls that keep the
+book clean also strangle breadth, so this architecture cannot satisfy the Fundamental Law.
+
+**Added:** `tests/test_leakage.py` (3 leak-invariant tests, now 94 total); README "Known
+limitations" section; site disclosure; Do & Faff (2010/2012) literature corroboration of
+the null. No trade logic changed ⇒ v29 numbers unchanged (additive flags/guards/tests).
