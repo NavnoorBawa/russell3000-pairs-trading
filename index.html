@@ -459,7 +459,8 @@ footer{padding:36px 0}
 
 <footer>
   <div class="f-in">
-    <div class="f-left">MIT License · Research project · Not investment advice</div>
+    <div class="f-left">MIT License · Research project · Not investment advice<br>
+      Results: v29.0.0 · study window Jul 2023–2025 (fixed) · page updated <span id="lastmod">—</span></div>
     <div class="f-right">
       <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">GitHub</a>
       <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">Engineering log</a>
@@ -472,6 +473,18 @@ footer{padding:36px 0}
 
 <script>
 (function(){
+  // Self-updating "page updated" stamp: document.lastModified reflects when this file
+  // was last deployed (GitHub Pages sets it on each build), so this always shows the
+  // true freshness with zero maintenance and no commit loop. The RESULTS themselves are
+  // a fixed, versioned study (v29.0.0) and deliberately do not auto-mutate.
+  try{
+    var lm=document.getElementById('lastmod');
+    if(lm){
+      var d=new Date(document.lastModified);
+      lm.textContent=isNaN(d)?'recently':d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+    }
+  }catch(e){}
+
   var root=document.documentElement;
   var btn=document.getElementById('tt');
   function setLabel(){btn.textContent=root.getAttribute('data-theme')==='dark'?'Light':'Dark'}
