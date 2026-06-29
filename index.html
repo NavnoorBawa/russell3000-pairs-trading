@@ -431,8 +431,32 @@ footer{padding:36px 0}
   </div>
 </section>
 
+<section class="section" id="roadmap">
+  <div class="sec-label">07 — Research roadmap</div>
+  <h2>What I'd test next, with data and capital</h2>
+  <p class="desc">None of these is promised to produce alpha. Each is the specific, falsifiable experiment that would either confirm the null is real or locate an edge the free-tier study could not reach — and each maps one-to-one onto a limitation disclosed above. This is the difference between "give me resources and I'll figure it out" and knowing exactly what the next experiment is and why.</p>
+  <div class="pipeline">
+    <div class="p-row">
+      <div class="p-key">survivorship-free data</div>
+      <div class="p-val">Re-run the entire study on a point-in-time, delisting-inclusive universe (CRSP / Compustat) to eliminate the survivorship bias documented above. Because every known bias points <em>up</em> on a null, the first falsifiable question is whether the edge is genuinely zero or merely masked by a clean-sample artifact. <strong>Cost:</strong> a data licence, not new modelling.</div>
+    </div>
+    <div class="p-row">
+      <div class="p-key">breadth at scale</div>
+      <div class="p-val">Trade hundreds of cointegrated pairs simultaneously under portfolio-level optimisation (risk-parity / constrained mean-variance) instead of ~40 near-sequential bets. By Grinold's law, IR = IC · √breadth — a small information coefficient only becomes a book at scale, and the risk controls that keep this backtest honest also cap breadth far below what a deployable strategy needs.</div>
+    </div>
+    <div class="p-row">
+      <div class="p-key">more forecastable targets</div>
+      <div class="p-val">Point the same significance + walk-forward + leakage-audit machinery at <strong>volatility and covariance forecasting</strong>, where genuine out-of-sample predictability exists (Gu, Kelly &amp; Xiu, <em>RFS</em> 2020), rather than decayed price-spread mean reversion. The infrastructure transfers directly; only the target changes.</div>
+    </div>
+    <div class="p-row">
+      <div class="p-key">execution &amp; capacity</div>
+      <div class="p-val">Add a market-impact and borrow-availability model plus forward paper-trading, to estimate real capacity at size and confirm out-of-sample behaviour in live time before a dollar of capital is risked.</div>
+    </div>
+  </div>
+</section>
+
 <section class="section" style="border-bottom:none">
-  <div class="sec-label">07 — Engineering</div>
+  <div class="sec-label">08 — Engineering</div>
   <h2>Stack and reproduction</h2>
   <div class="grid2" style="margin-top:36px">
     <div class="g2-item">
