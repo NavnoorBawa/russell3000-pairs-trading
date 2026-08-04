@@ -194,15 +194,34 @@ def oos_window_test(window_returns: np.ndarray) -> dict:
     if n < 2:
         return {'n': n, 'mean': float(v.mean()) if n else 0.0, 'tstat': 0.0, 'pvalue': 1.0}
     t, p = _sps.ttest_1samp(v, 0.0)
-    ci = bootstrap_mean_ci(v)
+    boot = bootstrap_mean_ci(v)
+
+    # v31 (audit): report the interval that is COHERENT WITH THE REPORTED TEST.
+    # This previously paired the t-test p-value with a percentile-bootstrap CI, and on
+    # the v31 window set the two contradict each other in public: p=0.085 ("not
+    # significant") next to a bootstrap CI of [-0.548%, -0.008%] that EXCLUDES zero.
+    # The t-based interval is [-0.611%, +0.047%] and does include zero, agreeing with
+    # its own p-value. The percentile bootstrap is the unreliable one here: n=10 with
+    # three windows at exactly 0.0 means resampling cannot produce values outside the
+    # observed set, so it understates the tail and shrinks the interval.
+    # Primary CI is now the t interval; the bootstrap is kept alongside, clearly named.
+    se = float(v.std(ddof=1) / np.sqrt(n))
+    tcrit = float(_sps.t.ppf(0.975, n - 1))
+    ci_lo, ci_hi = float(v.mean() - tcrit * se), float(v.mean() + tcrit * se)
+
     return {
         'n': n,
         'mean': float(v.mean()),
         'std': float(v.std(ddof=1)),
+        'stderr': se,
         'tstat': float(t),
         'pvalue': float(p),
         'positive': int((v > 0).sum()),
-        'ci_lo': ci['lo'], 'ci_hi': ci['hi'],
+        # primary: Student-t interval, consistent with `tstat`/`pvalue` above
+        'ci_lo': ci_lo, 'ci_hi': ci_hi,
+        'ci_method': 't',
+        # secondary: percentile bootstrap, retained for comparison only
+        'boot_ci_lo': boot['lo'], 'boot_ci_hi': boot['hi'],
     }
 
 
@@ -274,6 +293,10 @@ def log_significance_report(report: dict):
         logger.info(f"\nOOS WINDOWS (n={w['n']}, the binding constraint):")
         logger.info(f"  mean {w['mean']*100:+.3f}%/qtr | t-stat {w['tstat']:.2f} | "
                     f"p={w['pvalue']:.3f} | {w['positive']}/{w['n']} positive | "
-                    f"95% CI [{w['ci_lo']*100:+.3f}%, {w['ci_hi']*100:+.3f}%]")
+                    f"95% CI (t) [{w['ci_lo']*100:+.3f}%, {w['ci_hi']*100:+.3f}%]")
+        logger.info(f"    (percentile bootstrap CI, secondary: "
+                    f"[{w['boot_ci_lo']*100:+.3f}%, {w['boot_ci_hi']*100:+.3f}%] — "
+                    f"unreliable at n={w['n']} with tied zeros; the t interval above is "
+                    f"the one consistent with the reported p-value)")
         logger.info(f"  {'SIGNIFICANT' if w['pvalue']<0.05 else 'NOT significant'} @5%")
     logger.info("=" * 78)

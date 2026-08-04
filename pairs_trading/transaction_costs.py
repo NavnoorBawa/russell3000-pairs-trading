@@ -21,6 +21,11 @@ class EnhancedPrimeFundTransactionCostModel:
         self.min_commission_per_trade = 0.50
         self.typical_bid_ask_spread = 0.8
         self.market_impact_coefficient = 0.3
+        # v31 (audit): explicit, and set to a realistic institutional ceiling. Was an
+        # inline `min(bps, 2)` inside calculate_market_impact_cost, which bound on every
+        # trade. 50 bps is a safety rail for pathological participation rates, not the
+        # operating point — see the note in calculate_market_impact_cost.
+        self.market_impact_cap_bps = 50.0
 
         self.volume_tiers = {
             'tier_1': {'min_volume': 0, 'max_volume': 10e6, 'discount': 0.80},
@@ -57,7 +62,12 @@ class EnhancedPrimeFundTransactionCostModel:
         return max(commission, self.min_commission_per_trade)
 
     def calculate_market_impact_cost(self, position_size: float, price: float,
-                                   daily_volume: float) -> float:
+                                     daily_volume: float,
+                                     daily_volatility: float = 0.02) -> float:
+        """Almgren-style square-root market impact.
+
+        impact_fraction = coefficient x daily_volatility x sqrt(participation_rate)
+        """
         trade_value = position_size * price
 
         if daily_volume > 0:
@@ -65,8 +75,19 @@ class EnhancedPrimeFundTransactionCostModel:
         else:
             participation_rate = 0.0005
 
-        market_impact_bps = self.market_impact_coefficient * np.sqrt(participation_rate) * 10000
-        market_impact_bps = min(market_impact_bps, 2)
+        # v31 (audit): the square-root term was missing its VOLATILITY factor, so this
+        # returned a fraction ~2 orders of magnitude too large:
+        #     0.3 * sqrt(0.02) * 10000  ~=  424 bps
+        # against a hardcoded `min(..., 2)` cap. The cap therefore bound on every
+        # realistic trade and market impact was a flat 2 bps constant — the sqrt model
+        # was dead code, and 2 bps is itself inconsistent with this project's own fund
+        # profiles, which cap impact at 4-80 bps. Restoring sigma puts the model in the
+        # right range (0.3 x 0.02 x sqrt(0.02) ~= 8.5 bps at 2% participation) so the
+        # cap becomes a genuine safety rail rather than the whole model.
+        market_impact_bps = (self.market_impact_coefficient
+                             * max(daily_volatility, 1e-6)
+                             * np.sqrt(max(participation_rate, 0.0)) * 10000)
+        market_impact_bps = min(market_impact_bps, self.market_impact_cap_bps)
 
         return trade_value * (market_impact_bps / 10000)
 

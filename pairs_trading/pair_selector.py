@@ -96,7 +96,15 @@ class FixedPrimeFundPairSelector:
                 _, pvalue1, _ = coint(log_prices1, log_prices2)
                 _, pvalue2, _ = coint(log_prices2, log_prices1)
 
-                pvalue = min(pvalue1, pvalue2)
+                # v31 (audit): min() of two Engle-Granger directions is NOT a p-value.
+                # The two regressions are separate (correlated) tests, so taking the
+                # smaller and comparing it to alpha inflates the false-positive rate —
+                # roughly a 1.5-2x effective size at alpha=0.05. That matters twice over
+                # here: it corrupts pair selection, AND these p-values are the input to
+                # the published Benjamini-Hochberg FDR analysis.
+                # Bonferroni over the 2 tests restores a valid (conservative) p-value
+                # while keeping the existing "test both directions" intent.
+                pvalue = min(1.0, 2.0 * min(pvalue1, pvalue2))
                 is_cointegrated = pvalue < self.cointegration_threshold
                 return is_cointegrated, pvalue
             except Exception:
@@ -172,9 +180,25 @@ class FixedPrimeFundPairSelector:
                 logger.info(f"PCA: insufficient symbols ({len(ret_series)}) — skipping factor stripping")
                 return {}
 
-            # Align all return series on common dates; fill missing with 0 (neutral)
-            ret_df = pd.DataFrame(ret_series).fillna(0.0)
+            # v31 (audit): was `pd.DataFrame(ret_series).fillna(0.0)`. Assembling the
+            # series produces a UNION index, so any symbol with a shorter history or
+            # trading gaps received fabricated 0.0 "returns" on every date it did not
+            # actually trade — up to ~43% of a column for late-listing symbols. Zeros are
+            # not neutral here: a long run of them is a perfectly mean-reverting, zero-
+            # variance stretch, which both distorts the PCA factor structure and makes the
+            # resulting residual series look spuriously stationary — earning a residual-
+            # cointegration quality BONUS for the symbols with the worst data.
+            # Drop thin columns, then restrict to genuinely common dates.
+            ret_df = pd.DataFrame(ret_series)
+            _coverage = ret_df.notna().mean()
+            _keep = _coverage[_coverage >= 0.90].index
+            _dropped = len(ret_df.columns) - len(_keep)
+            ret_df = ret_df[_keep].dropna(how='any')
+            if _dropped:
+                logger.info(f"PCA: dropped {_dropped} symbol(s) with <90% return coverage; "
+                            f"{ret_df.shape[1]} symbols on {ret_df.shape[0]} common dates")
             if ret_df.shape[0] < 100 or ret_df.shape[1] < n_components + 1:
+                logger.info("PCA: insufficient common history after coverage filter — skipping")
                 return {}
 
             n_fit = min(n_components, ret_df.shape[1] - 1)

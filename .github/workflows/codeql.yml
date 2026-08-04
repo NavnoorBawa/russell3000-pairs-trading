@@ -10,18 +10,32 @@ on:
   schedule:
     - cron: "0 6 * * 1"        # Mondays 06:00 UTC
 
+# Deny by default at the top level so any job added later must opt in explicitly
+# rather than silently inheriting the repository's default token scope.
+permissions: {}
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    timeout-minutes: 30    # analysis takes ~90s; bounds a wedged run
     permissions:
-      security-events: write
-      contents: read
+      security-events: write   # upload the SARIF results
+      contents: read           # check out the code
+      actions: read            # read workflow run metadata; CodeQL documents this as a
+                               # prerequisite and it is required on private/internal repos
     steps:
-      - uses: actions/checkout@v4
+      # SHA-pinned for the same reason as ci.yml: a mutable tag can be repointed.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@d1ba80a13dd99fba24a470575428917156a28b43 # v4.37.5
         with:
           languages: python
           queries: security-and-quality
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@d1ba80a13dd99fba24a470575428917156a28b43 # v4.37.5

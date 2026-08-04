@@ -16,7 +16,7 @@ type: software
 license: MIT
 repository-code: "https://github.com/NavnoorBawa/russell3000-pairs-trading"
 url: "https://navnoorbawa.github.io/russell3000-pairs-trading/"
-version: "29.0.0"
+version: "31.0.0"
 date-released: "2026-06-21"
 keywords:
   - statistical arbitrage

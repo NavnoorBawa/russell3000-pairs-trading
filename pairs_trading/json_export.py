@@ -12,6 +12,48 @@ from pairs_trading.config import (
 logger = logging.getLogger(__name__)
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Safe serialization
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _json_safe(obj):
+    """Recursively replace non-finite floats with None and numpy scalars with Python.
+
+    v31 (audit): Python's `json.dump` writes NaN/Infinity as the BARE tokens `NaN`,
+    `Infinity`, `-Infinity`. That is valid JavaScript but invalid JSON (RFC 8259), so
+    strict parsers — `jq`, Go, Rust, Postgres, most JS `JSON.parse` consumers — reject
+    the whole file. Three shipped exports in outputs/ are unparseable for exactly this
+    reason (`"profit_factor": Infinity`, from a pair with no losing trades).
+
+    Individual call sites were being patched one at a time (v26 capped profit_factor at
+    999.0, v31 guarded monthly volatility). That is whack-a-mole: any future metric that
+    divides by zero silently reintroduces the bug. This sanitiser plus `allow_nan=False`
+    makes it structurally impossible — a non-finite value now either becomes null or
+    raises at write time, instead of producing a corrupt file that looks fine.
+    """
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    if isinstance(obj, np.ndarray):
+        return [_json_safe(v) for v in obj.tolist()]
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, (np.floating,)):
+        obj = float(obj)
+    if isinstance(obj, (np.bool_,)):
+        return bool(obj)
+    if isinstance(obj, float):
+        return obj if np.isfinite(obj) else None
+    return obj
+
+
+def _dump_json(data, fh, **kwargs):
+    """json.dump with the sanitiser applied and bare NaN/Infinity tokens forbidden."""
+    kwargs.setdefault('indent', 2)
+    json.dump(_json_safe(data), fh, allow_nan=False, **kwargs)
+
+
 def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
                                    output_filename: str = "pairs_trading_results_2023_2025_unbiased.json") -> str:
     """
@@ -91,7 +133,12 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
                     "avg_holding_days": round(stats['avg_holding_days'], 1),
                     "profit_factor": round(stats['profit_factor'], 2),
                     "avg_trade_return_pct": round(stats['avg_trade_return_pct'], 4),
-                    "sharpe_ratio": round(stats['sharpe_ratio'], 3),
+                    # v31 (audit): renamed upstream; per-trade and frequency-annualised
+                    # are now reported separately instead of one sqrt(252)-inflated number.
+                    "sharpe_per_trade": (round(stats['sharpe_per_trade'], 3)
+                                         if stats.get('sharpe_per_trade') is not None else None),
+                    "sharpe_ratio_annualized": (round(stats['sharpe_ratio_annualized'], 3)
+                                                if stats.get('sharpe_ratio_annualized') is not None else None),
                     "max_drawdown_pct": round(stats['max_drawdown'] * 100, 2),
                     "total_pnl_dollars": round(stats['total_pnl_dollars'], 2),
                     "avg_signal_strength": round(stats['avg_signal_strength'], 3),
@@ -159,7 +206,7 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
         os.makedirs(os.path.join(os.getcwd(), 'outputs'), exist_ok=True)
         output_path = os.path.join(os.getcwd(), 'outputs', output_filename)
         with open(output_path, 'w') as f:
-            json.dump(export_data, f, indent=2)
+            _dump_json(export_data, f)
 
         logger.info(f"Successfully exported testing results to: {output_path}")
         logger.info(f"   Total trades: {len(trades):,}")
@@ -183,7 +230,7 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
         compact_filename = output_filename.replace('.json', '_compact.json')
         compact_path = os.path.join(os.getcwd(), 'outputs', compact_filename)
         with open(compact_path, 'w') as f:
-            json.dump(compact_data, f, indent=2)
+            _dump_json(compact_data, f)
 
         logger.info(f"Also saved compact version: {compact_path}")
         logger.info(f"   Compact file size: {os.path.getsize(compact_path) / 1024:.2f} KB")
@@ -235,14 +282,29 @@ def calculate_pair_performance(trades: List[Dict]) -> Dict[str, Dict]:
         total_trades = len(stats['trades'])
         returns = np.array(stats['returns'])
 
+        _avg_hold = np.mean(stats['holding_days']) if stats['holding_days'] else 0
+
+        # v31 (audit): `returns` is a per-TRADE series, not a daily one. Scaling it by
+        # sqrt(252) annualises as though every trade were a single trading day, which
+        # inflated published per-pair Sharpes to as high as ~13.9 for pairs holding
+        # positions ~20 days at a time. Report the raw per-trade ratio, and annualise
+        # only via the pair's actual trade frequency (252 / average holding days).
+        _sharpe_per_trade = (float(np.mean(returns) / np.std(returns))
+                             if len(returns) > 1 and np.std(returns) > 0 else None)
+        _periods_per_year = (252.0 / _avg_hold) if _avg_hold and _avg_hold > 0 else None
+
         pair_performance[pair] = {
             'total_return_pct': np.sum(returns) * 100,
             'win_rate': stats['winning_trades'] / total_trades if total_trades > 0 else 0,
             'total_trades': total_trades,
-            'avg_holding_days': np.mean(stats['holding_days']) if stats['holding_days'] else 0,
+            'avg_holding_days': _avg_hold,
             'profit_factor': calculate_profit_factor(returns),
             'avg_trade_return_pct': np.mean(returns) * 100 if len(returns) > 0 else 0,
-            'sharpe_ratio': np.mean(returns) / np.std(returns) * np.sqrt(252) if len(returns) > 1 and np.std(returns) > 0 else 0,
+            'sharpe_per_trade': _sharpe_per_trade,
+            'sharpe_ratio_annualized': (
+                _sharpe_per_trade * np.sqrt(_periods_per_year)
+                if _sharpe_per_trade is not None and _periods_per_year else None
+            ),
             'max_drawdown': calculate_max_drawdown_from_returns(returns),
             'total_pnl_dollars': stats['total_pnl'],
             'avg_signal_strength': np.mean(stats['signal_strengths']) if stats['signal_strengths'] else 0,
@@ -341,13 +403,23 @@ def calculate_monthly_performance(daily_returns: List[float], equity_curve: Dict
         for period, group in df.groupby('year_month'):
             monthly_return = np.prod(1 + group['return'].values) - 1
 
+            # v31 (audit): a month with a single trading day gives std()==NaN (ddof=1),
+            # and json.dump writes that as a bare `NaN` token — invalid JSON that strict
+            # parsers reject. Guard it, and emit null rather than a fake 0.0.
+            _std = group['return'].std()
+            _std_ok = bool(np.isfinite(_std)) and _std > 0
+
             monthly_stats.append({
                 'month': str(period),
                 'return_pct': round(monthly_return * 100, 2),
-                'trades': len(group),
-                'win_rate_pct': round(len(group[group['return'] > 0]) / len(group) * 100, 2) if len(group) > 0 else 0,
-                'volatility_pct': round(group['return'].std() * np.sqrt(21) * 100, 2),
-                'sharpe_ratio': round(group['return'].mean() / group['return'].std() * np.sqrt(21), 3) if group['return'].std() > 0 else 0
+                # v31 (audit): these two counted DAYS, not trades. `df` is the daily
+                # PnL series, so len(group) is trading days in the month and the ratio
+                # below is the fraction of positive DAYS. Renamed to match reality
+                # rather than relabelling day statistics as trade statistics.
+                'trading_days': len(group),
+                'positive_day_pct': round(len(group[group['return'] > 0]) / len(group) * 100, 2) if len(group) > 0 else 0,
+                'volatility_pct': round(_std * np.sqrt(21) * 100, 2) if np.isfinite(_std) else None,
+                'sharpe_ratio': round(group['return'].mean() / _std * np.sqrt(21), 3) if _std_ok else None
             })
 
         return monthly_stats
@@ -365,31 +437,33 @@ def calculate_pair_correlations(trades: List[Dict]) -> Dict[str, List]:
         if len(pairs) < 2:
             return {"pairs": pairs, "correlation_matrix": []}
 
-        # Group trades by date and pair
-        trades_by_date = {}
+        # v31 (audit): this previously built `trades_by_date` (then never used it) and
+        # returned a hardcoded IDENTITY matrix — 1.0 on the diagonal, 0.0 everywhere
+        # else — labelled `correlation_matrix`. That is fabricated data in a published
+        # artifact, and it fabricates the flattering answer: a reader would take it as
+        # "the pairs are mutually uncorrelated", i.e. maximum diversification.
+        #
+        # A genuine correlation cannot be recovered from this input. `trades` is a
+        # trade-level list (41 trades spread across ~40 distinct pairs in the published
+        # run), so most pairs share zero overlapping holding periods and any pairwise
+        # correlation is undefined. Computing it would need per-pair daily mark-to-market
+        # series, which this function is not given.
+        #
+        # Emitting nothing is strictly better than emitting a flattering fiction.
+        _pair_trade_counts = {}
         for trade in trades:
-            date = trade['date'].strftime("%Y-%m-%d")
-            if date not in trades_by_date:
-                trades_by_date[date] = {}
-            pair = trade['pair']
-            if pair not in trades_by_date[date]:
-                trades_by_date[date][pair] = []
-            trades_by_date[date][pair].append(trade['net_pnl_pct'])
-
-        # Calculate correlation (simplified)
-        correlation_matrix = []
-        for i, pair1 in enumerate(pairs):
-            row = []
-            for j, pair2 in enumerate(pairs):
-                if i == j:
-                    row.append(1.0)
-                else:
-                    row.append(0.0)
-            correlation_matrix.append(row)
+            _pair_trade_counts[trade['pair']] = _pair_trade_counts.get(trade['pair'], 0) + 1
 
         return {
             "pairs": pairs,
-            "correlation_matrix": correlation_matrix
+            "correlation_matrix": None,
+            "note": (
+                "Not computed. Correlations between pair return streams require per-pair "
+                "daily mark-to-market series; the trade-level record here gives too few "
+                "overlapping observations per pair to estimate them. Prior versions of "
+                "this export emitted an identity matrix here, which was not a measurement."
+            ),
+            "trades_per_pair": _pair_trade_counts,
         }
     except Exception as e:
         logger.error(f"Error calculating pair correlations: {str(e)}")
@@ -572,7 +646,7 @@ def export_fund_comparison_to_json(
         os.makedirs(os.path.join(os.getcwd(), 'outputs'), exist_ok=True)
         output_path = os.path.join(os.getcwd(), 'outputs', output_filename)
         with open(output_path, 'w') as f:
-            json.dump(export_data, f, indent=2, default=str)
+            _dump_json(export_data, f, default=str)
 
         size_kb = os.path.getsize(output_path) / 1024
         logger.info(f"Fund comparison exported: {output_path}  ({size_kb:.1f} KB)")

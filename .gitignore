@@ -3,8 +3,11 @@
 .AppleDouble
 .LSOverride
 
-# Claude Code local config (contains absolute paths, command history)
-.claude/settings.local.json
+# Claude Code local config (contains absolute paths, command history).
+# Ignore the whole directory, not just the two files that happen to exist today —
+# otherwise any newly-created .claude/ file (settings.json, agents/, commands/) is
+# swept into the public repo by a single `git add -A`.
+.claude/
 
 # Python
 __pycache__/
@@ -43,6 +46,3 @@ GRILL_NOTES.md
 .coverage
 htmlcov/
 .ruff_cache/
-
-# Local preview server config
-.claude/launch.json

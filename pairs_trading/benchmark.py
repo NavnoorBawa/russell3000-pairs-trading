@@ -192,23 +192,84 @@ def run_benchmarks(processed_data, universe_symbols,
     norm_trade = px_trade.divide(
         px_form.apply(lambda c: c.dropna().iloc[0] if c.dropna().size else np.nan), axis=1
     )                                                   # same base as formation
-    rets = {s: px_trade[s].pct_change().fillna(0.0) for s in px_trade.columns}
+    # (per-block returns are computed inside _run_rolling below, against each block's
+    # own formation base — a single full-period `rets` map is no longer meaningful.)
 
-    def _run(pairs, label):
-        series = []
-        for a, b in pairs:
-            if a in norm_trade.columns and b in norm_trade.columns:
-                series.append(_trade_pair_distance(
-                    norm_form, norm_trade, a, b, rets[a], rets[b],
-                    entry_z=entry_z, cost_roundtrip=cost_roundtrip))
-        st = _portfolio_stats(series)
+    # v31 (audit): ROLLING RE-FORMATION, per Gatev, Goetzmann & Rouwenhorst (2006).
+    # Previously the "Gatev" baseline formed ONCE on everything up to formation_end
+    # (~42 months of history) and then traded ~30 months with no re-formation and no
+    # time stop, while the main strategy re-selected its pairs QUARTERLY. That is not
+    # the Gatev method and it is not an apples-to-apples comparison: the baseline's
+    # pairs were left to go stale for two and a half years, which flatters the strategy
+    # in exactly the headline the README reports ("Sharpe 0.50 vs 0.16").
+    # The paper uses a 12-month formation period followed by a 6-month trading period,
+    # rolled forward. That is what runs now.
+    FORMATION_DAYS = 252     # ~12 months
+    TRADING_DAYS = 126       # ~6 months
+
+    _trade_idx = px_trade.index
+    _blocks = []
+    _i = 0
+    while _i < len(_trade_idx):
+        _blk = _trade_idx[_i:_i + TRADING_DAYS]
+        if len(_blk) < 20:
+            break
+        _blocks.append(_blk)
+        _i += TRADING_DAYS
+    logger.info(f"  Rolling scheme: {len(_blocks)} x 6-month trading blocks, "
+                f"each formed on the prior 12 months")
+
+    def _run_rolling(pick_pairs, label):
+        """pick_pairs(form_window_prices, normalised_form) -> [(a, b), ...]"""
+        block_series, n_pairs_seen, n_blocks_used = [], 0, 0
+        for blk in _blocks:
+            blk_start = blk[0]
+            form_win = px_all[px_all.index < blk_start].tail(FORMATION_DAYS)
+            if len(form_win) < 60:
+                continue                       # not enough history to form on yet
+            nf = _normalize(form_win).ffill().bfill()
+            px_blk = px_all.loc[blk]
+            _base = form_win.apply(lambda c: c.dropna().iloc[0] if c.dropna().size else np.nan)
+            nt = px_blk.divide(_base, axis=1)   # same base as its own formation window
+            blk_rets = {s: px_blk[s].pct_change().fillna(0.0) for s in px_blk.columns}
+
+            series = []
+            for a, b in pick_pairs(form_win, nf):
+                if a in nt.columns and b in nt.columns:
+                    series.append(_trade_pair_distance(
+                        nf, nt, a, b, blk_rets[a], blk_rets[b],
+                        entry_z=entry_z, cost_roundtrip=cost_roundtrip))
+            series = [s for s in series if s is not None]
+            if not series:
+                continue
+            n_pairs_seen = max(n_pairs_seen, len(series))
+            n_blocks_used += 1
+            block_series.append(pd.concat(series, axis=1).fillna(0.0).mean(axis=1))
+
+        if not block_series:
+            return {'total_return_pct': 0.0, 'sharpe_ratio': 0.0, 'n_days': 0,
+                    'n_pairs': 0, 'n_blocks': 0, 'daily_returns': []}
+
+        port = pd.concat(block_series).sort_index().values
+        sd = port.std(ddof=1)
+        st = {
+            'total_return_pct': round(float(np.prod(1.0 + port) - 1.0) * 100, 4),
+            'sharpe_ratio': round(float(port.mean() / sd * np.sqrt(252)) if sd > 0 else 0.0, 3),
+            'n_days': int(len(port)),
+            'n_pairs': int(n_pairs_seen),
+            'n_blocks': n_blocks_used,
+            'daily_returns': port.tolist(),
+        }
         logger.info(f"  {label:<26} return {st['total_return_pct']:+7.3f}% | "
-                    f"Sharpe {st['sharpe_ratio']:+.2f} | {st['n_pairs']} pairs")
+                    f"Sharpe {st['sharpe_ratio']:+.2f} | {st['n_pairs']} pairs "
+                    f"x {st['n_blocks']} blocks")
         return st
 
-    # 1) Gatev distance pairs
-    dist_pairs = select_distance_pairs(px_form, n_pairs=n_pairs, max_symbols=max_symbols)
-    distance = _run(dist_pairs, "Distance method (Gatev)")
+    # 1) Gatev distance pairs — re-formed every block
+    distance = _run_rolling(
+        lambda form_win, nf: select_distance_pairs(form_win, n_pairs=n_pairs,
+                                                   max_symbols=max_symbols),
+        "Distance method (Gatev)")
 
     # 2) Random control (averaged over a few draws to reduce luck)
     rng = random.Random(seed)
@@ -219,7 +280,8 @@ def run_benchmarks(processed_data, universe_symbols,
             break
         picks = rng.sample(cand, 2 * n_pairs)
         rpairs = list(zip(picks[0::2], picks[1::2]))
-        rand_stats.append(_run(rpairs, f"Random control (draw {k+1})"))
+        rand_stats.append(_run_rolling(lambda fw, nf, _rp=rpairs: _rp,
+                                       f"Random control (draw {k+1})"))
     if rand_stats:
         random_avg = {
             'total_return_pct': round(float(np.mean([r['total_return_pct'] for r in rand_stats])), 4),
@@ -236,6 +298,12 @@ def run_benchmarks(processed_data, universe_symbols,
             'formation_end': str(formation_end), 'trade_start': str(trade_start),
             'n_pairs': n_pairs, 'entry_z': entry_z,
             'cost_roundtrip_bps': cost_roundtrip * 1e4, 'universe_size': len(universe_symbols),
+            # v31: the baseline now follows the paper's rolling scheme rather than a
+            # single 42-month formation followed by 30 months of unmanaged trading.
+            'formation_days': FORMATION_DAYS,
+            'trading_block_days': TRADING_DAYS,
+            'n_trading_blocks': len(_blocks),
+            'scheme': 'rolling 12m formation / 6m trading (Gatev et al. 2006)',
         },
         'distance_method': distance,
         'random_control': random_avg,

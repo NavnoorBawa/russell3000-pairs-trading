@@ -14,12 +14,17 @@ signal-quality layer whose contribution is measured with a **controlled ablation
 
 The point of this project is the process, not a headline Sharpe: every component's
 contribution is measured, every metric is reproducible from the logs, and the result is
-tested for whether it's real rather than asserted. The honest bottom line (v29): under
-realistic t+1 execution there is **no statistically significant edge** — the
-out-of-sample Sharpe is 0.08 with p=0.83, every bootstrap CI includes zero, and zero
-pairs survive a Benjamini-Hochberg multiple-testing correction. The pipeline still beats
-a random-pair control decisively and the textbook distance method on a risk-adjusted
-basis. The deliverable is a rigorously validated research framework — and the discipline
+tested for whether it's real rather than asserted. The honest bottom line (v31): **the strategy does not work, and it loses
+to the textbook.** A pre-launch audit found six result-changing bugs — every one of them
+flattering the result — including an inverted stop-loss that cut winners and never stopped
+a loss, an exit search truncated to the trading window that silently discarded the trades
+that failed to revert, an exit still filling on its own signal bar, and a walk-forward
+universe built from the union of *all* quarterly re-selections including future ones. With
+those fixed the out-of-sample result is **−0.28%/qtr (pooled Sharpe −1.23, 1 of 10 windows
+positive)**, every bootstrap CI still includes zero, and zero pairs survive a
+Benjamini-Hochberg correction. Run with its own paper's rolling re-formation, the textbook
+Gatev distance method **beats this pipeline** (+0.26 vs −0.31 Sharpe). It still beats a
+random-pair control, which is the one comparative claim that survived. The deliverable is a rigorously validated research framework — and the discipline
 to prove to itself that the edge isn't significant — not a deployable alpha.
 
 ---
@@ -70,17 +75,19 @@ data (2,542 Russell 3000 symbols, 2020–2025, America/New_York)
 These figures use **t+1 execution**: the |z|>1.8 signal is decided on the day-t close,
 but the trade *fills at the next trading day's close*, removing the same-bar look-ahead
 of trading at the very price that generated the signal (v29). This is the honest cost of
-realistic fills — and it matters a lot: the out-of-sample edge that looked like
-+0.49%/qtr under same-bar execution (v27) **collapses to +0.08%/qtr** once you can't trade
-on the signal bar. Most of the apparent OOS edge was that look-ahead.
+realistic fills. As of v31 it applies to the **exit as well as the entry** — the exit
+previously filled at the exact bar whose close produced the exit signal, which was the same
+same-bar look-ahead v29 removed on the entry side. The out-of-sample edge that looked like
++0.49%/qtr under same-bar execution (v27), then +0.08%/qtr under entry-only t+1 (v29), is
+**−0.28%/qtr** once the exit is honest too and the selection leaks are closed.
 
 | Metric | Value |
 |---|---|
-| Main backtest (Jul 2023–2025) return / Sharpe | +0.90% / 0.50 |
-| Main backtest trades / win rate / max DD | 41 / 58.5% / −1.15% |
-| Walk-forward IS (W1–W9) avg / Sharpe | +2.52%/qtr / 5.08 |
-| Walk-forward OOS (W10–W19) avg / Sharpe | **+0.08%/qtr / 0.08** |
-| Walk-forward windows profitable | 13/19 (OOS 4/10) |
+| Main backtest (Jul 2023–2025) return / Sharpe | −0.31% / −0.31 |
+| Main backtest trades / win rate / max DD | 14 / 28.6% / −0.81% |
+| Walk-forward OOS avg / pooled Sharpe | **−0.28%/qtr / −1.23** |
+| Walk-forward windows profitable | 1/10 (3 of the 10 traded nothing) |
+| Selection-clean windows | 10/10 — the 9 earliest slots have no eligible universe and are skipped |
 
 ### Execution sensitivity — the conclusion holds under both fill conventions
 
@@ -90,16 +97,17 @@ straddles zero either way — under neither convention is there a positive, sign
 
 | Out-of-sample | t+1 close (headline) | t+1 open |
 |---|---|---|
-| Return / qtr | +0.08% | **−0.28%** |
-| Stitched-daily Sharpe | 0.14 | −0.49 |
-| Newey-West t-stat (p) | 0.21 (p=0.83) | −0.83 (p=0.41) |
-| Deflated Sharpe | 3.6% | 0.1% |
-| Windows positive | 4/10 | 3/10 |
+| Return / qtr | **−0.28%** | _re-running_ |
+| Pooled Sharpe | −1.23 | _re-running_ |
+| Newey-West t-stat (p) | −1.86 (p=0.06) | _re-running_ |
+| Deflated Sharpe | 0.0% | _re-running_ |
+| Windows positive | 1/10 | _re-running_ |
 
-The overnight gap works slightly *against* the strategy, so t+1-open is marginally worse —
-the "no significant edge" conclusion is therefore robust to the fill assumption, not an
-artifact of one pessimistic choice. (The pipeline still beats Gatev distance on Sharpe
-— 0.40 vs 0.16 — and crushes random pairs under t+1-open too.)
+> **v31 note.** The `PAIRS_FILL=open` sensitivity arm has not yet been re-run against the
+> corrected code, so its column is deliberately blank rather than carrying v29 numbers that
+> no longer describe this system. The t+1-close column above is the current, complete result.
+> Under v29 the open-fill arm was slightly *worse* than close-fill, so the conclusion is not
+> expected to improve — but that will be stated from a logged run, not assumed.
 
 ### Is the edge real? — statistical significance (the headline)
 
@@ -108,16 +116,17 @@ from zero ([`significance.py`](pairs_trading/significance.py)). It is not.
 
 | Test | Main backtest | Out-of-sample (stitched daily) |
 |---|---|---|
-| Annualised Sharpe | 0.50 | 0.14 |
-| Newey-West t-stat (Sharpe ≠ 0) | 0.70 (p=0.49) | 0.21 (p=0.83) |
-| Probabilistic Sharpe P(SR>0) | 78% | 58% |
-| Bootstrap 95% CI on Sharpe | [−0.96, +1.93] | [−1.09, +1.59] |
-| Deflated Sharpe (vs best-of-27 trials) | 11% | 3.6% |
+| Annualised Sharpe | −0.31 | −1.23 |
+| Newey-West t-stat (mean ≠ 0) | −0.49 (p=0.63) | −1.86 (p=0.06) |
+| Probabilistic Sharpe P(SR>0) | 32.5% | 2.2% |
+| Bootstrap 95% CI on Sharpe | [−1.70, +0.80] | [−2.41, +0.06] |
+| Deflated Sharpe (vs best-of-27 trials) | 0.9% | 0.0% |
 
-The per-window OOS test agrees: mean +0.08%/qtr, t-stat 0.22, **p=0.83**, 4/10 windows
-positive, 95% CI **[−0.54%, +0.79%]**. Every CI includes zero; every t-stat is below 1.
-**Under realistic execution there is no statistically significant edge.** That conclusion —
-reached with standard methods, on logged and reproducible runs — is the deliverable.
+The per-window OOS test agrees: mean **−0.282%/qtr**, t-stat −1.94, **p=0.085**, 1/10
+windows positive, 95% CI **[−0.611%, +0.047%]** (Student-t, consistent with the t-test).
+**The result is negative and not statistically distinguishable from zero.**
+That conclusion — reached with standard methods, on logged and reproducible runs — is the
+deliverable.
 
 ### Does it beat the textbook? — baseline benchmarks
 
@@ -126,22 +135,26 @@ method and a random-pair control on the **same universe and OOS period**:
 
 | Strategy | Return | Sharpe |
 |---|---|---|
-| Cointegration + Kalman (this project) | +0.90% | **0.50** |
-| Distance method (Gatev 2006) | +1.82% | 0.16 |
-| Random-pair control (avg of 5 draws) | −7.69% | −0.35 |
+| Cointegration + Kalman (this project) | −0.31% | **−0.31** |
+| Distance method (Gatev 2006), rolling 12m/6m | +2.78% | **+0.26** |
+| Random-pair control (avg of 5 draws) | −1.74% | −0.02 |
 
-The pipeline crushes random pair selection (so the selection method genuinely matters)
-and, while the distance method edges it on raw return, it does so at ~3× the volatility —
-this project wins decisively on risk-adjusted return (Sharpe 0.50 vs 0.16). The edge over
-the textbook is in *risk control*, not raw return.
+The pipeline still beats random pair selection, so the selection method does something.
+It does **not** beat the textbook. The earlier claim that it won on risk-adjusted return
+(Sharpe 0.50 vs 0.16) was an artifact of how the baseline was run: Gatev was formed **once**
+over ~42 months and then traded ~30 months with no re-formation, while this strategy
+re-selected quarterly. Given the paper's own rolling 12-month formation / 6-month trading
+scheme, the distance method wins on both raw and risk-adjusted return.
 
 ### Multiple-testing reality check — FDR
 
 Testing tens of thousands of pairs at p<0.05 manufactures false positives. A
-Benjamini-Hochberg pass quantifies it: of **37,546 pairs tested, 6,052 are "cointegrated"
-at raw p<0.05 — but ~1,877 of those are expected false positives by chance, and zero
-survive BH-FDR at q<0.05** (only 8 at q<0.10). The cointegration signal is far weaker than
-the raw p-values suggest. This is reported, not hidden — it's consistent with the
+Benjamini-Hochberg pass quantifies it: of **36,524 pairs with usable p-values, 3,725 are
+"cointegrated" at raw p<0.05 — but ~1,826 of those are expected false positives by chance,
+and zero survive BH-FDR at q<0.05** (zero at q<0.10 too). The cointegration signal is far
+weaker than the raw p-values suggest. As of v31 these are Bonferroni-corrected across the
+two Engle-Granger directions; the previous `min(p₁,p₂)` was not a valid p-value and
+inflated the test size, which means the *old* FDR input was itself too optimistic. This is reported, not hidden — it's consistent with the
 insignificant out-of-sample result above.
 
 ### Known limitations (every one biases *upward* on an already-null result)
@@ -192,17 +205,25 @@ insignificant OOS above.
 
 ### What is honestly claimable — and what is not
 
-- **Under realistic (t+1) execution there is no statistically significant edge.** OOS is
-  +0.08%/qtr, Sharpe 0.08, p=0.83, CI includes zero, Deflated Sharpe 3.6%, and zero pairs
-  survive FDR at q<0.05. This is the honest conclusion, stated plainly — and it holds under
-  **both** fill conventions (t+1-open is −0.28%/qtr, slightly worse), so it isn't an
-  artifact of one pessimistic execution choice.
-- **Much of the prior apparent edge was same-bar look-ahead.** Removing it (v29) cut OOS
-  from +0.49%/qtr to +0.08%/qtr. That is exactly the kind of bias rigorous testing exists
-  to catch — and it is reported, not buried.
-- **The methodology is nonetheless sound:** it beats a random-pair control decisively and
-  the textbook distance method on a risk-adjusted basis. The value here is a rigorously
-  validated *research framework*, not a deployable alpha.
+- **Under realistic (t+1) execution the result is negative.** OOS is −0.28%/qtr, pooled
+  Sharpe −1.23, per-window p=0.085, every CI includes zero, Deflated Sharpe 0.0%, and zero
+  pairs survive FDR at q<0.05. There is no edge here to deploy, and the honest statement is
+  not "not significant" but "negative and indistinguishable from noise".
+- **Essentially all of the prior apparent edge was look-ahead and bugs.** +0.49%/qtr
+  (same-bar, v27) → +0.08%/qtr (entry-only t+1, v29) → −0.28%/qtr (v31, once the exit also
+  fills at t+1, the stop-loss sign is corrected, unresolved trades stop being discarded, and
+  each walk-forward window can only trade a universe already selected at its train-end).
+  Every one of those six bugs was biased in the flattering direction.
+- **It does not beat the textbook.** Given its own paper's rolling re-formation, the Gatev
+  (2006) distance method returns +2.78% at Sharpe +0.26 versus this pipeline's −0.31. The
+  pipeline does still beat a random-pair control (−1.74%).
+- **Breadth is the structural problem.** 14 trades in the main backtest and 3 of 10
+  walk-forward windows with no trades at all. Under Grinold's Fundamental Law
+  (IR = IC·√BR) that is far too little breadth to produce a meaningful information ratio at
+  any plausible IC, regardless of signal quality.
+- **What is actually defensible** is the audit trail: a framework disciplined enough to keep
+  finding its own errors until the number stopped flattering it. That is a *research
+  framework*, not a deployable alpha.
 - **This is not a deployable strategy** — and the project proves that to itself with
   significance tests, a multiple-testing correction, and an execution-realism check,
   rather than overfitting to a number.
@@ -237,15 +258,30 @@ done
 
 # execution sensitivity: fill at the next bar's OPEN instead of CLOSE
 PAIRS_FILL=open python3.12 -m pairs_trading.main > logs/backtest_open.log 2>&1
+
+# guard against stale published figures — fails if README/index.html disagree with the log
+python3.12 scripts/check_published_numbers.py --log logs/backtest.log
+
+# regenerate the social card after the numbers change
+python3.12 scripts/make_og_image.py
 ```
 
-Inputs: `data/enhanced_russell_3000_data.pkl` (price cache; auto-refetched if absent),
-`data/macro_data.pkl` (VIX + sector ETFs). Outputs: charts and JSON in
-[outputs/](outputs/), logs in [logs/](logs/).
+> **Before publishing a new result**, run `check_published_numbers.py`. The v31 audit exists
+> partly because the site advertised v29 figures long after the code stopped producing them,
+> and nothing in the test suite could notice — no test reads the README or the site.
+
+Inputs: `data/marketcap.csv` (the study universe — **required**, and not redistributed
+here; `load_symbols()` fails with instructions if it is missing rather than silently
+substituting a different universe), `data/enhanced_russell_3000_data.pkl` (price cache;
+auto-refetched from yfinance if absent) and `data/macro_data.pkl` (VIX + sector ETFs).
+
+Outputs: charts and JSON are written to `outputs/`, logs to `logs/`. All four directories
+are `.gitignore`d — they are machine-generated and would otherwise add ~1 GB to the repo —
+so they do not exist in a fresh clone and are created on the first run.
 
 ## Testing
 
-A hermetic [`pytest`](tests/) suite (91 tests, ~4s, no data files or network) guards the
+A hermetic [`pytest`](tests/) suite (107 tests, ~6s, no data files or network) guards the
 core math and the fixes from the audits — the engine internals (Kalman spread, max
 drawdown, Hurst exponent, CUSUM break), the trade-gating logic (position-size clamps,
 risk-validation rejections, drawdown/loss kill-switches), the significance estimators
@@ -263,12 +299,12 @@ lint, a compile gate, the suite with coverage, and CodeQL security analysis on e
 ```bash
 pip install pytest pytest-cov ruff       # or: pip install -e ".[dev]"
 ruff check .                             # lint (clean)
-pytest -q --cov=pairs_trading            # 91 tests + coverage
+pytest -q --cov=pairs_trading            # 107 tests + coverage
 ```
 
 ```
 ├── pairs_trading/   # source (16 modules; main.py is the entry point)
-├── tests/           # pytest suite (91 hermetic tests; no data files / network)
+├── tests/           # pytest suite (107 hermetic tests; no data files / network)
 ├── data/            # price + macro caches
 ├── docs/            # PROGRESS.md — complete version history v6→v29, every bug documented
 ├── logs/            # one log per backtest version
@@ -293,6 +329,8 @@ unflattering; it is the most honest artifact in the repository.
 | v27 | second code audit: 9 bugs fixed — `get_pair_stats()` feature skew, cross-symbol concentration not enforced (across- *and* within-day), fund-comparison Sharpe computed on exit-days-only, `max_daily_trades` stat shadowing, deprecated fillna, signal-strength bucket off-by-one, dead code |
 | v28 | rigor layer: statistical-significance module (PSR, Newey-West Sharpe t-stat, bootstrap CIs, Deflated Sharpe) + Gatev (2006) distance-method & random-pair benchmarks — the edge is **not** significant; pipeline beats both baselines on risk-adjusted terms |
 | v29 | t+1 execution (removes same-bar look-ahead — OOS edge collapses +0.49%→+0.08%/qtr, confirming most of it was look-ahead) + Benjamini-Hochberg FDR diagnostic (0 pairs survive q<0.05) + configurable fill mode: under t+1-open the OOS is −0.28%/qtr, so the "no edge" conclusion holds under both conventions |
+| v30 | skeptical-reviewer leakage audit: confirmed **survivorship bias** (of 36 names that delisted/failed/were acquired 2020–2025, only 1 is in the cache) and pair-selection look-ahead in the walk-forward in-sample windows; added `selection_clean` window tagging, a runtime leak guard, `tests/test_leakage.py`, README "Known limitations", and the Do & Faff (2010/2012) corroboration. Additive only ⇒ v29 numbers unchanged |
+| v31 | pre-launch audit (101 findings, 20 agents, adversarial verification): **six result-changing bugs** — inverted stop-loss, exit search truncated to the window (discarded non-reverting trades), same-bar exit fill, walk-forward universe unioned from *future* re-selections, per-stock features read from the study's terminal date, `min(p₁,p₂)` used as a cointegration p-value; plus a 2× gross-PnL error in the fund replay, PCA zero-fill, full-sample Kalman Q, full-sample penny-stock filter, `bfill` look-ahead in indicator warm-up, and a Gatev baseline that never re-formed. **Result: OOS +0.08 → −0.28%/qtr; the textbook baseline now wins.** Security: `pip-audit` 16 → 0 |
 
 ---
 
