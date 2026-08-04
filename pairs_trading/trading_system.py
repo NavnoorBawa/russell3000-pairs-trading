@@ -65,9 +65,6 @@ class CompleteFixedRussell3000TradingSystem:
         lp2 = np.log(prices2.values + 1e-8)
         n = len(lp1)
 
-        # Process noise proportional to regressor variance
-        Q = delta / (1.0 - delta) * np.var(lp2)
-
         # Initialise β with OLS on first 30 points to avoid burn-in drift
         init_n = min(30, n)
         if init_n >= 2:
@@ -76,10 +73,29 @@ class CompleteFixedRussell3000TradingSystem:
             beta = 1.0
         P = 1.0
 
+        # v31 (audit): CAUSAL PROCESS NOISE. This was
+        #     Q = delta / (1.0 - delta) * np.var(lp2)
+        # — a single constant scaled by the variance of the ENTIRE log-price series,
+        # test period included. The filter's recursion is otherwise strictly causal, so
+        # this was the one channel by which full-sample information entered every
+        # spread value, and that spread drives entry, exit and P&L on every date.
+        # Q is now recomputed from an expanding window (data up to t only). The warm-up
+        # region reuses the variance measured over the initialisation window — the same
+        # burn-in already used to seed β above, so no future data is consulted.
+        _ratio = delta / (1.0 - delta)
+        _var_exp = pd.Series(lp2).expanding(min_periods=max(2, init_n)).var()
+        if n:
+            _seed_var = _var_exp.iloc[min(init_n, n) - 1]
+            if not np.isfinite(_seed_var):
+                _seed_var = float(np.var(lp2[:init_n])) if init_n else 0.0
+            _var_exp = _var_exp.fillna(_seed_var)
+        _q_series = (_ratio * _var_exp.to_numpy()) if n else np.zeros(0)
+
         spread = np.empty(n)
         for t in range(n):
             x = lp2[t]
             y = lp1[t]
+            Q = _q_series[t] if np.isfinite(_q_series[t]) else 0.0
             P_pred = P + Q
             denom = x * P_pred * x + R
             K = P_pred * x / denom if abs(denom) > 1e-12 else 0.0
@@ -237,6 +253,13 @@ class CompleteFixedRussell3000TradingSystem:
         self.risk_manager.daily_returns_history = []
         self.risk_manager.last_trade_dates = {}
 
+        # v31 (audit): reset the position sizer too. It accumulates `trade_history` and
+        # per-pair win/loss stats via record_trade() and feeds them back into sizing, but
+        # it was constructed once in __init__ and never cleared. The main 2023-2025
+        # backtest and all 19 walk-forward windows therefore shared one adaptive state:
+        # trades from one period sized positions in another, including earlier ones.
+        self.position_sizer = FixedPrimeFundPositionSizer()
+
         portfolio_value = self.initial_capital
         trades = []
         daily_pnl = []
@@ -277,6 +300,18 @@ class CompleteFixedRussell3000TradingSystem:
             for spread in test_spreads.values():
                 all_dates.update(spread.index)
         all_dates = sorted(list(all_dates))
+
+        # v31 (audit): keep the UNTRUNCATED calendar for position RESOLUTION.
+        # `all_dates` below is restricted to the tradeable window (date_range), but a
+        # position opened near the end of that window must still be allowed to close on
+        # real subsequent bars. Previously the exit search ran over the truncated list,
+        # so any trade that could not find an exit inside the window hit
+        # `next_date is None -> continue` and was silently dropped. Because the profit
+        # target fires early and the time stop fires late, the dropped trades were
+        # disproportionately the NON-reverting ones — i.e. a forward-looking winner
+        # filter over the last <=25 days of every 63-day walk-forward window.
+        full_dates = list(all_dates)
+        _full_pos = {d: i for i, d in enumerate(full_dates)}
 
         # If a date range is specified, restrict trading to that window only.
         # Normalise timezone so the comparison works whether the dates are
@@ -349,6 +384,10 @@ class CompleteFixedRussell3000TradingSystem:
         daily_dates = []   # v26: real calendar date per daily_pnl entry (for export)
 
         for date_idx, date in enumerate(tqdm(all_dates, desc="CORRECTED Backtesting")):
+            # v31 (audit): position of this day on the FULL calendar. `date_idx` is an
+            # index into the truncated window, so anything that needs real history or
+            # real future bars must go through `_day_pos` instead.
+            _day_pos = _full_pos.get(date, date_idx)
             daily_trades = 0
             # FIX: Start day PnL with any trades that closed today
             day_pnl = pending_pnl.pop(date, 0.0)
@@ -400,8 +439,13 @@ class CompleteFixedRussell3000TradingSystem:
             # If >20% of last 63 days are reduced-scale, the regime is genuinely
             # broken (not just transient stress). Suspend trading entirely.
             # Example: v10 W16 had 34/63 reduced days (54%) → lost -6.52%
-            if date_idx >= 62:  # Need 63 days of history
-                _recent_63_dates = list(all_dates)[max(0, date_idx-62):date_idx+1]
+            # v31 (audit): indexed off the FULL calendar, not the truncated window.
+            # Previously `date_idx >= 62` could never be true inside a 63-day
+            # walk-forward window until its very last day, so the hard stop was
+            # effectively unreachable out-of-sample — it only ever fired in the
+            # long main backtest.
+            if _day_pos >= 62:  # Need 63 days of history
+                _recent_63_dates = full_dates[max(0, _day_pos-62):_day_pos+1]
                 _recent_reduced = 0
                 for _d in _recent_63_dates:
                     _dk = str(_d.date()) if hasattr(_d, 'date') else str(_d)
@@ -740,10 +784,12 @@ class CompleteFixedRussell3000TradingSystem:
                     # look-ahead of entering at the very close that produced the signal (you
                     # cannot trade at a price whose information you just used). If there is no
                     # next bar (end of data), the trade can't be executed → skip.
-                    entry_idx = date_idx + 1
-                    if entry_idx >= len(all_dates):
+                    # v31 (audit): indexed on the FULL calendar so a signal on the last
+                    # day of a walk-forward window still fills on the real next bar.
+                    entry_idx = _day_pos + 1
+                    if entry_idx >= len(full_dates):
                         continue
-                    entry_date = all_dates[entry_idx]
+                    entry_date = full_dates[entry_idx]
                     current_price1 = self.processed_data[symbol1].loc[entry_date, _fill_col] \
                         if entry_date in self.processed_data[symbol1].index else signal_price1
                     current_price2 = self.processed_data[symbol2].loc[entry_date, _fill_col] \
@@ -768,8 +814,9 @@ class CompleteFixedRussell3000TradingSystem:
 
                     # v29: hold window runs from the t+1 entry fill, not the signal day,
                     # so the earliest possible exit is the day after entry.
-                    for future_idx in range(entry_idx + 1, min(entry_idx + _max_hold_days + 1, len(all_dates))):
-                        candidate_date = all_dates[future_idx]
+                    exit_signal_idx = None
+                    for future_idx in range(entry_idx + 1, min(entry_idx + _max_hold_days + 1, len(full_dates))):
+                        candidate_date = full_dates[future_idx]
                         if candidate_date not in spread.index:
                             continue
 
@@ -802,17 +849,40 @@ class CompleteFixedRussell3000TradingSystem:
                         # ~25 calendar ≈ 17 trading days).
                         trading_days_held = future_idx - entry_idx
 
+                        # v31 (audit): STOP-LOSS SIGN FIX.
+                        # docs/PROGRESS.md §v20 specifies a per-trade stop at 1.5σ ADVERSE
+                        # from entry: action==0 exits if `current_z < entry_z - 1.5`,
+                        # action==1 exits if `current_z > entry_z + 1.5`. The shipped code
+                        # had both comparisons INVERTED and the threshold at 1.0, so the
+                        # rule fired on 1σ of FAVOURABLE movement — it cut winners short and
+                        # left adverse moves completely unbounded. There was no stop-loss
+                        # anywhere in the system. Restored to the documented v20 design.
                         if action == 0:
-                            if current_zscore > -0.5 or (current_zscore - entry_spread_zscore > 1.0) or trading_days_held >= _max_hold_days:
-                                next_date = candidate_date
-                                break
+                            # Long the spread, entered at a negative z; reversion is z rising.
+                            _hit_target = current_zscore > -0.5
+                            _hit_stop   = current_zscore < entry_spread_zscore - 1.5
                         else:
-                            if current_zscore < 0.5 or (entry_spread_zscore - current_zscore > 1.0) or trading_days_held >= _max_hold_days:
-                                next_date = candidate_date
-                                break
+                            # Short the spread, entered at a positive z; reversion is z falling.
+                            _hit_target = current_zscore < 0.5
+                            _hit_stop   = current_zscore > entry_spread_zscore + 1.5
 
-                    if next_date is None:
+                        if _hit_target or _hit_stop or trading_days_held >= _max_hold_days:
+                            exit_signal_idx = future_idx
+                            break
+
+                    if exit_signal_idx is None:
                         continue
+
+                    # v31 (audit): t+1 EXIT FILL, symmetric with the t+1 entry fill.
+                    # The exit z-score is computed from the candidate day's CLOSE, so filling
+                    # at that same close is the exact same-bar look-ahead that v29 removed on
+                    # the entry side. The signal is decided on the exit bar; the fill happens
+                    # on the next bar. If there is no next bar, the position cannot be closed
+                    # on real data, so the trade is not booked.
+                    if exit_signal_idx + 1 >= len(full_dates):
+                        continue
+                    exit_signal_date = full_dates[exit_signal_idx]
+                    next_date = full_dates[exit_signal_idx + 1]
 
                     total_position_value = position_size
 
@@ -872,6 +942,8 @@ class CompleteFixedRussell3000TradingSystem:
                     trade_record = {
                         'date': entry_date,        # v29: actual t+1 fill date (not the signal day)
                         'signal_date': date,       # day the |z|>1.8 signal fired
+                        'exit_signal_date': exit_signal_date,  # v31: day the exit rule fired
+                        'exit_date': next_date,                # v31: t+1 fill of that exit
                         'pair': pair_string,
                         'action': 'LONG' if action == 0 else 'SHORT',
                         'position_size': total_position_value,
@@ -943,6 +1015,22 @@ class CompleteFixedRussell3000TradingSystem:
             if should_stop:
                 logger.warning(f"LOGICAL Risk Management: {stop_reason}")
                 break
+
+        # v31 (audit): settle PnL for positions that close AFTER the last traded day.
+        # `pending_pnl` is keyed by exit-fill date and collected by the daily loop, so any
+        # trade resolving past the window end (now possible, and correct — see the
+        # full_dates note above) would never reach portfolio_value. The same leak occurred
+        # when the risk manager broke out of the loop early. Trade-level stats counted
+        # this PnL; the portfolio did not. Book the remainder as one final settlement so
+        # the two agree.
+        if pending_pnl:
+            _residual = sum(pending_pnl.values())
+            _n_resid = len(pending_pnl)
+            pending_pnl.clear()
+            daily_pnl.append(_residual)
+            daily_dates.append(all_dates[-1] if all_dates else None)
+            portfolio_value *= (1 + _residual)
+            logger.info(f"Settled {_n_resid} post-window exit date(s): {_residual:+.4%} residual PnL")
 
         # Log regime gate activation summary
         if _regime_scale_counts:
@@ -1137,7 +1225,36 @@ class CompleteFixedRussell3000TradingSystem:
             # run_comprehensive_backtest has ≥50 days of context for feature
             # extraction. Trading is restricted to test dates via date_range.
             window_test  = {}
-            for pair_key, spread in spread_source.items():
+
+            # v31 (audit): SELECTION LOOK-AHEAD FIX. `spread_source` is the union of
+            # EVERY quarterly re-selection, including re-selections dated AFTER this
+            # window's test period, so window 1 (testing 2020-12) could trade pairs that
+            # were only identified as cointegrated in 2024. That is a look-ahead in the
+            # universe itself, and it is not addressed by the v30 `selection_clean`
+            # tagging — a window can be selection_clean and still inherit the future
+            # union. Restrict each window to pairs whose re-selection date is known by
+            # train_end.
+            if pair_windows:
+                _visible = {}
+                for _resel_date, _window_spreads in pair_windows.items():
+                    _rd = pd.Timestamp(_resel_date)
+                    _te_naive = pd.Timestamp(train_end)
+                    _rd = _rd.tz_localize(None) if _rd.tzinfo else _rd
+                    _te_naive = _te_naive.tz_localize(None) if _te_naive.tzinfo else _te_naive
+                    if _rd > _te_naive:
+                        continue                      # not yet selected at decision time
+                    for _pk, _sp in _window_spreads.items():
+                        if _pk not in _visible or len(_sp) > len(_visible[_pk]):
+                            _visible[_pk] = _sp
+                _window_universe = _visible
+                if not _window_universe:
+                    logger.warning(f"  Window {w_idx+1}: no pairs selected on or before "
+                                   f"{pd.Timestamp(train_end).date()}, skipping")
+                    continue
+            else:
+                _window_universe = spread_source
+
+            for pair_key, spread in _window_universe.items():
                 try:
                     if hasattr(spread.index, 'tz') and spread.index.tz is not None:
                         ts  = train_start.tz_localize(spread.index.tz) if train_start.tzinfo is None else train_start
@@ -1178,9 +1295,14 @@ class CompleteFixedRussell3000TradingSystem:
                 if len(_tr):
                     _mx = pd.Timestamp(_tr.index.max())
                     _mx = _mx.tz_localize(None) if _mx.tzinfo else _mx
-                    assert _mx <= _te_cmp, (
-                        f"Walk-forward leak: window {w_idx+1} training data reaches "
-                        f"{_mx.date()} > train_end {_te_cmp.date()}")
+                    # v31 (audit): raise explicitly rather than `assert`. A bare assert is
+                    # removed entirely under `python -O` / PYTHONOPTIMIZE=1, so the v30
+                    # "fails loudly" leak guarantee silently evaporated in exactly the
+                    # optimized runs a long backtest is most likely to use.
+                    if _mx > _te_cmp:
+                        raise RuntimeError(
+                            f"Walk-forward leak: window {w_idx+1} training data reaches "
+                            f"{_mx.date()} > train_end {_te_cmp.date()}")
 
             # Retrain agent on this window's training data
             window_agent = FixedTransformerMultiAgentSystem()
@@ -1250,6 +1372,13 @@ class CompleteFixedRussell3000TradingSystem:
             'profitable_window_pct': round(profitable_windows / len(wf_results) * 100, 1),
             'avg_window_return_pct': round(float(sum(returns)) / len(returns) * 100, 4),
             'median_window_return_pct': round(sorted(returns)[len(returns)//2] * 100, 4),
+            # v31 (audit): this is the MEAN OF PER-WINDOW ANNUALISED SHARPES, not a
+            # portfolio Sharpe. Each window annualises its own 63 daily observations by
+            # sqrt(252), then those 19 numbers are averaged — which discards the
+            # between-window variance that a real portfolio would experience and is
+            # biased by the windows that traded least. Kept (downstream consumers read
+            # it) but renamed in the log and paired with `pooled_sharpe` below, which is
+            # computed once over the concatenated daily series and is the honest number.
             'avg_sharpe': round(sum(w['sharpe_ratio'] for w in wf_results) / len(wf_results), 3),
             'stitched_total_return_pct': round(stitched_return * 100, 4),
         }
@@ -1296,6 +1425,21 @@ class CompleteFixedRussell3000TradingSystem:
                 oos_daily.extend(dr)
         summary['oos_daily_returns']    = oos_daily
         summary['all_window_daily_returns'] = all_daily
+
+        # v31 (audit): POOLED (portfolio) Sharpe — one annualisation over the whole
+        # concatenated daily series, rather than the mean of 19 separately-annualised
+        # 63-day Sharpes in `avg_sharpe`. This is the statistic that corresponds to
+        # actually having run the strategy across the period, and it is what the
+        # significance tests below already operate on.
+        def _pooled_sharpe(daily):
+            arr = np.asarray(daily, dtype=float)
+            arr = arr[np.isfinite(arr)]
+            if arr.size < 2 or arr.std(ddof=1) == 0:
+                return None
+            return round(float(arr.mean() / arr.std(ddof=1) * np.sqrt(252)), 3)
+
+        summary['pooled_sharpe']     = _pooled_sharpe(all_daily)
+        summary['oos_pooled_sharpe'] = _pooled_sharpe(oos_daily)
         # per-window OOS Sharpe spread → trial-variance estimate for the Deflated Sharpe
         _oos_sharpes = [w['sharpe_ratio'] for w in oos_windows]
         summary['oos_window_sharpe_var'] = (
@@ -1309,7 +1453,15 @@ class CompleteFixedRussell3000TradingSystem:
         logger.info("WALK-FORWARD SUMMARY")
         logger.info(f"  Windows: {summary['total_windows']} | Profitable: {summary['profitable_windows']} ({summary['profitable_window_pct']}%)")
         logger.info(f"  Avg window return: {summary['avg_window_return_pct']:.4f}%")
-        logger.info(f"  Avg Sharpe: {summary['avg_sharpe']:.3f}")
+        # v31: label these honestly — the first is a mean of per-window annualised
+        # Sharpes, the second is the actual portfolio Sharpe over the pooled series.
+        logger.info(f"  Mean of per-window Sharpes: {summary['avg_sharpe']:.3f} "
+                    f"(NOT a portfolio Sharpe)")
+        _ps, _ops = summary.get('pooled_sharpe'), summary.get('oos_pooled_sharpe')
+        logger.info(f"  Pooled Sharpe (all windows): "
+                    f"{_ps if _ps is not None else 'n/a'}")
+        logger.info(f"  Pooled Sharpe (OOS only)   : "
+                    f"{_ops if _ops is not None else 'n/a'}")
         logger.info(f"  Stitched total return: {summary['stitched_total_return_pct']:.4f}%")
         logger.info("")
         logger.info("  HARD ERA SPLIT (regime break boundary: 2023-04-04)")
@@ -1547,7 +1699,13 @@ class CompleteFixedRussell3000TradingSystem:
                 # trade's P&L, inverting winners and losers for ~half the book. Both
                 # directions use +spread_ret, matching the main backtest and this
                 # function's own docstring (net PnL = spread_return × fraction ± cost).
-                gross_fraction = spread_ret * position_fraction
+                # v31 (audit): apply the return to the PER-LEG notional, matching the main
+                # backtest. `position_fraction` is the GROSS fraction (long leg + short leg),
+                # and calculate_profile_trade_costs() charges on that same gross notional,
+                # but the main backtest books PnL on total_position_value / 2.0 (see the
+                # gross_pnl_pct line). Using the full gross here booked 2x the P&L against a
+                # 1x cost basis, inflating every profile in the published fund-type table.
+                gross_fraction = spread_ret * (position_fraction / 2.0)
 
                 net_fraction = gross_fraction - cost_fraction
 

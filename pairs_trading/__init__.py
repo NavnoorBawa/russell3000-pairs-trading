@@ -12,7 +12,8 @@ This package contains the complete implementation split into logical modules:
 - data_processor.py: Russell 3000 data processing
 - pair_selector.py: Pair selection and cointegration testing
 - transformer_agent.py: Transformer trading agent
-- multi_agent_system.py: Multi-agent RL system
+- multi_agent_system.py: Feature assembly + transformer ranking (NOT reinforcement
+  learning — no policy network or value function exists; see README "Not reinforcement learning")
 - position_sizer.py: Position sizing logic
 - risk_manager.py: Risk management
 - plotting.py: Visualization functions

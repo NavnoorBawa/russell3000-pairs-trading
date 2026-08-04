@@ -41,10 +41,30 @@ from collections import deque, namedtuple
 import math
 import itertools
 
-# Suppress warnings
-warnings.filterwarnings('ignore')
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# v31 (audit): do NOT mutate global interpreter state at import time.
+# This module previously ran `warnings.filterwarnings('ignore')` and
+# `logging.basicConfig(...)` unconditionally, so merely importing `pairs_trading`
+# silenced EVERY warning in the host process (including other libraries'
+# DeprecationWarnings and NumPy's RuntimeWarnings for invalid/overflow results —
+# exactly the signals this project needs) and hijacked the root logger for anyone
+# embedding the package. Both are now opt-in and applied only by the CLI entry
+# point (pairs_trading.main), which is the one context that owns the process.
 logger = logging.getLogger(__name__)
+
+
+def configure_runtime(quiet_warnings: bool = True) -> None:
+    """Apply the CLI's preferred logging/warning setup.
+
+    Called from `pairs_trading.main`. Library consumers who import the package
+    keep their own warning filters and root logger untouched.
+    """
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
+    if quiet_warnings:
+        # Scoped to the noisy third-party categories the pipeline genuinely floods
+        # on, rather than a blanket 'ignore' that also hides real numerical errors.
+        warnings.filterwarnings('ignore', category=DeprecationWarning)
+        warnings.filterwarnings('ignore', category=FutureWarning)
 
 # Sector ETF mapping — ticker → sector ETF symbol (GICS classification)
 SECTOR_MAP = {

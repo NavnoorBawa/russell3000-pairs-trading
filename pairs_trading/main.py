@@ -13,12 +13,16 @@ import numpy as np
 import torch
 import logging
 
+from pairs_trading.config import configure_runtime
 from pairs_trading.trading_system import CompleteFixedRussell3000TradingSystem
 
 logger = logging.getLogger(__name__)
 
 
 def main():
+    # v31 (audit): the CLI owns the process, so it — not module import — installs the
+    # log format and warning filters. See pairs_trading/config.configure_runtime.
+    configure_runtime()
     try:
         # Set random seeds for reproducibility. Default 42; PAIRS_SEED overrides so
         # the transformer arm can be re-run across seeds for robustness testing
@@ -121,6 +125,11 @@ def main():
         logger.error(f"System execution failed: {str(e)}")
         import traceback
         traceback.print_exc()
+        # v31 (audit): signal failure to the caller. Previously this swallowed every
+        # exception and returned normally, so a run that died partway through still
+        # exited 0 — `python -m pairs_trading.main && publish` would happily publish
+        # nothing, and CI/cron could not distinguish a completed run from a crashed one.
+        raise
 
 
 if __name__ == "__main__":

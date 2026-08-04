@@ -2553,3 +2553,133 @@ book clean also strangle breadth, so this architecture cannot satisfy the Fundam
 **Added:** `tests/test_leakage.py` (3 leak-invariant tests, now 94 total); README "Known
 limitations" section; site disclosure; Do & Faff (2010/2012) literature corroboration of
 the null. No trade logic changed ⇒ v29 numbers unchanged (additive flags/guards/tests).
+
+---
+
+## v31 — Pre-launch audit: security hardening + 6 result-changing bugs (2026-08-04)
+
+A 20-agent adversarial audit across 10 dimensions (secrets, dependencies, CI supply chain,
+deserialization/IO/network, web frontend, trading core ×2, selection/risk, statistics/costs,
+export/ML, launch hygiene). **101 findings, 4 refuted, 97 surviving.** Each dimension's
+findings were passed to a separate verifier prompted to refute them.
+
+### Result-changing bugs found (published v29 numbers are INVALID pending a re-run)
+
+1. **Stop-loss sign inverted** (`trading_system.py`). §v20 above specifies a 1.5σ *adverse*
+   stop: `current_z < entry_z - 1.5` (long) / `current_z > entry_z + 1.5` (short). The
+   shipped code had **both comparisons flipped and the threshold at 1.0**, so the rule fired
+   on 1σ of *favourable* movement — it cut winners short and left adverse moves unbounded.
+   The system had no stop-loss at all. Restored to the documented v20 design.
+2. **Exit search truncated to the trading window.** The exit scan ran over the
+   `date_range`-truncated `all_dates`, so a position that could not close inside the window
+   hit `next_date is None → continue` and was silently discarded. The profit target fires
+   early and the time stop fires late, so the discarded trades were disproportionately the
+   non-reverting ones — a forward-looking winner filter over the last ≤25 days of every
+   63-day window. Exits now resolve on the full calendar (`full_dates`).
+3. **Exit fill was same-bar.** v29 moved the *entry* to a t+1 fill but left the exit filling
+   at the exact bar whose close produced the exit signal — the same look-ahead v29 removed.
+   Exits now fill at t+1 as well.
+4. **Fund table booked 2× gross PnL.** The main backtest applies the spread return to
+   `total_position_value / 2.0` (per-leg notional); the fund replay applied it to the full
+   gross while `calculate_profile_trade_costs()` charged on that same full notional.
+5. **Position sizer never reset.** `self.position_sizer` was built once in `__init__`, so its
+   adaptive `trade_history` carried the 2023–2025 main backtest into every walk-forward
+   window, including chronologically earlier ones.
+6. **`min(p1, p2)` is not a p-value** (`pair_selector.py`). Cointegration took the smaller of
+   two Engle-Granger directions and compared it to α, inflating test size. These p-values are
+   also the input to the published Benjamini-Hochberg FDR claim. Now Bonferroni-corrected.
+
+Also fixed: regime hard stop was indexed off the truncated window (structurally unreachable
+out-of-sample); post-window exit PnL was never booked into `portfolio_value`; the v30 leak
+guard was a bare `assert` (stripped under `python -O`) and now raises.
+
+### Security
+
+`pip-audit`: **16 known vulnerabilities → 0.** `requests` 2.32.3→2.34.2, `torch` 2.7.0→2.13.0.
+CI now installs `requirements.txt` (it previously never read it, so every green check on a
+dependency-bump PR was uninformative) via a pinned/latest matrix, and gates `pip-audit` with
+no ignore-list. Added least-privilege `permissions:`, SHA-pinned actions,
+`persist-credentials: false`, `concurrency`, `timeout-minutes`; widened the byte-compile gate
+to `tests/` and `scripts/`; coverage floor 20→25. Added `SECURITY.md`. `.gitignore` now
+ignores `.claude/` as a directory rather than two exact files.
+
+**Universe fallback now fails loudly.** `data/marketcap.csv` is gitignored, so on a fresh
+clone `load_symbols()` silently substituted a hardcoded ~290-name mega-cap list — containing
+delisted tickers (ANTM, WCG, ATVI, PXD), a non-ticker (`BERKSHIREH-B`), six duplicates and
+two ETFs — while the README presented the run as reproducing the Russell 3000 result. It now
+raises with instructions; `PAIRS_DEMO_UNIVERSE=1` opts into a cleaned ~60-name smoke test.
+
+### Leakage set — also fixed
+
+7. **Walk-forward universe was the union of ALL quarterly re-selections**, future ones
+   included, so window 1 (testing 2020-12) could trade pairs first identified as
+   cointegrated in 2024. The v30 `selection_clean` tag did not address this — a window
+   could be selection-clean and still inherit the future union. Each window is now
+   restricted to pairs whose re-selection date is known by its `train_end`.
+8. **Serving features read the terminal date of the whole study.** `trading_system.py`
+   passed the full unsliced price frame per leg while the spread was correctly truncated,
+   so `common_dates[-1]` pulled RSI_14 / Momentum_5 / High_Vol_Regime / day-of-week from
+   the last day of the dataset on *every* backtest date. Now anchored to
+   `spread_data.index[-1]`, the same reference the macro block already used.
+9. **`_validate_data` applied a full-sample price filter** (`close.min() < 2.0` over
+   2020–2025), retroactively deleting any name that ever fell below $2 — removing future
+   losers from past selection. Now screens on the start of the series.
+10. **`.bfill()` pulled future values into every indicator warm-up.** Removed; `MA_*` now
+    uses `min_periods=1` for a causal partial average. Because the price cache stores
+    *processed* frames, this fix would have been inert for anyone with a warm cache, so
+    `load_or_fetch_data()` now recomputes indicators from the cached raw OHLCV
+    (`PAIRS_SKIP_REPROCESS=1` opts out). The shipped cache demonstrably carried the bug:
+    `MA_50` began with 34 identical rows computed from days 35–50.
+11. **PCA filled missing returns with 0.0**, fabricating flat, zero-variance stretches for
+    short-history symbols — which both distort the factor structure and make residuals look
+    spuriously stationary, *earning a cointegration quality bonus for the worst data*. Now
+    drops columns below 90% coverage and uses genuinely common dates.
+12. **Kalman process noise used full-sample variance.** `Q = δ/(1−δ)·var(lp2)` over the
+    entire series was the one non-causal element in an otherwise sequential filter, and it
+    shaped every spread value. Now an expanding-window variance.
+13. **Walk-forward Sharpe was a mean of separately-annualised 63-day Sharpes.** Kept for
+    continuity but relabelled; `pooled_sharpe` / `oos_pooled_sharpe` now compute the real
+    portfolio Sharpe over the concatenated daily series.
+14. **Market impact was a flat 2 bps constant.** The square-root model was missing its
+    volatility factor, returning ~424 bps at 2% participation against a hardcoded
+    `min(..., 2)` cap — so the cap bound on every trade and the model was dead code (and
+    2 bps contradicts this project's own fund profiles, which cap at 4–80 bps).
+15. **The "Gatev (2006)" baseline was not Gatev.** It formed once on ~42 months and then
+    traded ~30 months with no re-formation, while the strategy re-selected quarterly —
+    an unfair comparison in the headline the README reports. Now uses the paper's rolling
+    12-month formation / 6-month trading scheme.
+
+All of these bias **upward**, consistent with §v30's conclusion.
+
+### Controlled ablation (v31)
+
+Re-run against the corrected code (`PAIRS_USE_TRANSFORMER=0`, seed 42,
+`logs/backtest_v31_ablation.log`). The two arms are **bit-identical on every reported
+metric** — return −0.31%, Sharpe −0.31, 14 trades, 28.57% win rate, walk-forward OOS
+pooled Sharpe −1.228, and all five fund profiles to the basis point. The measured ML
+contribution is exactly 0, not approximately 0. This is consistent with the mechanism:
+the score only reorders same-day opportunities, and at 14 trades there is essentially
+never more than one candidate competing on a given day.
+
+### Regression tests
+
+None of the 25 bugs above was caught by the existing 94-test suite, because those tests
+checked that functions *ran*, not that they were *causal*. `tests/test_v31_audit.py` adds
+11 tests built around prefix invariance — computing a function on the first k bars must
+match computing it on the full series and taking the first k. A full-sample variance, a
+`.bfill()`, or a terminal-date lookup fails that immediately, without needing to know the
+correct output value.
+
+Each test was verified to FAIL against the pre-v31 implementation; a regression test that
+passes on the buggy code is worthless. One did pass on both (`prefix_invariant` could not
+see the `.bfill()` leak, because that leak is bounded inside the first `min_periods` rows
+which prefix and full series share) — it was kept as a guard against a different class of
+regression, and `test_indicator_warmup_uses_only_past_bars` was added as the one with
+teeth for that bug.
+
+### Known limitation this does not fix
+
+`_validate_data` (#9) only affects fresh fetches. The shipped price cache was built under
+the old full-sample filter, so symbols it excluded are simply absent and cannot be recovered
+without a refetch. This compounds the survivorship bias already documented in §v30 (only
+1 of 36 names delisted 2020–2025 is present in the cache).

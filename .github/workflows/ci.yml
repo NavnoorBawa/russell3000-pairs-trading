@@ -7,34 +7,101 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Least privilege: this workflow only reads the repo. No job needs write access.
+permissions:
+  contents: read
+
+# Supersede in-flight runs for the same ref so a force-push doesn't leave stale
+# jobs holding runner minutes (and, on a compromised action, extra dwell time).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    # The suite runs in ~2 minutes; 15 bounds a hung install or a wedged test
+    # instead of inheriting GitHub's 360-minute default.
+    timeout-minutes: 15
     env:
       MPLBACKEND: Agg            # headless matplotlib
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # "pinned" gates the reproducibility claim: requirements.txt is documented as the
+          # exact set that produced the published results, so CI must actually install it.
+          # Previously CI installed unpinned packages and never read requirements.txt, which
+          # meant a green check attested nothing about the published environment.
+          - name: pinned
+            install: requirements
+          # "latest" gates forward compatibility and gives the Dependabot version-bump PRs
+          # real signal (under the old workflow they passed regardless of the pin they changed).
+          - name: latest
+            install: latest
+    name: test (${{ matrix.name }})
     steps:
-      - uses: actions/checkout@v4
+      # Actions are pinned to immutable commit SHAs, not mutable tags: a tag can be
+      # repointed at new code by the action's owner or a compromised account.
+      # Dependabot updates these SHAs and keeps the trailing version comment in sync.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Don't leave a usable credential in .git/config for the rest of the job.
+          persist-credentials: false
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: requirements.txt
 
-      - name: Install dependencies (CPU-only torch)
+      # CPU-only torch first: the PyPI wheel is the CUDA build (multi-GB) and this runner
+      # has no GPU. Installing the exact pinned version here means the requirements.txt
+      # install below finds it already satisfied rather than pulling the CUDA wheel.
+      - name: Install CPU-only torch (pinned set)
+        if: matrix.install == 'requirements'
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install pinned dependencies
+        if: matrix.install == 'requirements'
+        run: pip install -r requirements.txt
+
+      - name: Install latest dependencies (CPU-only torch)
+        if: matrix.install == 'latest'
         run: |
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install numpy pandas scipy scikit-learn statsmodels matplotlib seaborn tqdm yfinance requests pytest pytest-cov ruff
+          pip install numpy pandas scipy scikit-learn statsmodels matplotlib seaborn tqdm yfinance requests
+
+      - name: Install dev tooling
+        # Test/lint tools are deliberately unpinned — they are not part of the
+        # reproducibility claim that requirements.txt encodes.
+        run: pip install pytest pytest-cov ruff
+
+      - name: Dependency vulnerability scan (pip-audit)
+        # CodeQL analyses source code; it does not look at the dependency manifest.
+        # This gates the pinned set that the published results were produced on.
+        # Deliberately no --ignore-vuln list: a new advisory should turn CI red.
+        if: matrix.install == 'requirements'
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt --progress-spinner off
 
       - name: Lint (ruff)
         run: ruff check .
 
-      - name: Byte-compile all modules (syntax gate)
-        run: python -m compileall -q pairs_trading
+      - name: Byte-compile all Python (syntax gate)
+        # Covers the package, the test suite, and the publicly shipped scripts/ —
+        # the previous step compiled only pairs_trading/ despite being named "all modules".
+        run: python -m compileall -q pairs_trading tests scripts
 
       - name: Run test suite (with coverage)
-        # Per-module report in the log; fail-under is a regression floor. Total is held
-        # down by the data-dependent pipeline modules (run_comprehensive_backtest needs
-        # the full price cache), while the deterministic core is 70-97% covered.
-        run: pytest -q --cov=pairs_trading --cov-report=term-missing --cov-fail-under=20
+        # Per-module report in the log; fail-under is a regression floor set just under the
+        # current total (28%). Total is held down by the data-dependent pipeline modules
+        # (run_comprehensive_backtest needs the full price cache), while the deterministic
+        # core (transaction_costs, fund_profiles, benchmark, significance, position_sizer)
+        # is 73-97% covered.
+        run: pytest -q --cov=pairs_trading --cov-report=term-missing --cov-fail-under=25

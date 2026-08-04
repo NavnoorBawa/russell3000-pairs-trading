@@ -106,6 +106,24 @@ class FixedTransformerMultiAgentSystem:
             else:
                 features.extend([0, 0])
 
+            # v31 (audit): LOOK-AHEAD FIX. Callers pass the FULL price history for each
+            # leg (trading_system.py passes self.processed_data[symbol] unsliced) while
+            # `spread_data` is correctly truncated to the decision date. Taking
+            # common_dates[-1] therefore read RSI_14 / Momentum_5 / High_Vol_Regime — and
+            # the day-of-week feature below — from the LAST DAY OF THE ENTIRE STUDY on
+            # every single backtest date. Anchor to the spread's last observation, which
+            # is the decision date; the macro block at the bottom of this function already
+            # uses exactly this reference (`ref_date = spread_data.index[-1]`).
+            _as_of = spread_data.index[-1]
+            try:
+                stock1_data = stock1_data.loc[:_as_of]
+                stock2_data = stock2_data.loc[:_as_of]
+            except (TypeError, KeyError):
+                # Mismatched/incomparable index types — fall back to the raw frames
+                # rather than crashing, but do not silently keep the look-ahead.
+                logger.warning("extract_advanced_features: could not align stock data to "
+                               f"as-of {_as_of}; per-stock features may be stale")
+
             common_dates = stock1_data.index.intersection(stock2_data.index)
             if len(common_dates) > 0:
                 latest_date = common_dates[-1]

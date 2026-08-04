@@ -32,44 +32,49 @@ class EnhancedRussell3000DataProcessor:
             if os.path.exists("data/marketcap.csv"):
                 marketcap_df = pd.read_csv("data/marketcap.csv")
                 logger.info(f"Successfully loaded Marketcap.csv with {len(marketcap_df)} rows")
-            else:
-                logger.warning("Marketcap.csv not found, using comprehensive Russell 3000 fallback")
+            elif os.environ.get('PAIRS_DEMO_UNIVERSE') == '1':
+                # v31 (audit): opt-in SMOKE-TEST universe. This is deliberately NOT the
+                # study universe and will NOT reproduce the published results.
+                logger.warning(
+                    "PAIRS_DEMO_UNIVERSE=1: using a ~60-symbol smoke-test universe. "
+                    "This does NOT reproduce the published Russell 3000 results."
+                )
                 symbols = [
-                    'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'NVDA', 'META', 'TSLA', 'AVGO', 'ORCL',
-                    'CRM', 'ADBE', 'NOW', 'INTC', 'AMD', 'QCOM', 'TXN', 'MU', 'AMAT', 'LRCX',
-                    'MRVL', 'ADI', 'KLAC', 'CDNS', 'SNPS', 'FTNT', 'TEAM', 'WDAY', 'DDOG', 'CRWD',
-                    'ZS', 'NET', 'SNOW', 'PLTR', 'OKTA', 'ZM', 'DOCU', 'TWLO', 'SHOP', 'SQ',
-                    'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'AXP', 'BLK', 'SCHW', 'SPGI',
-                    'MCO', 'CME', 'ICE', 'NDAQ', 'CBOE', 'COF', 'DFS', 'SYF', 'TROW', 'BEN',
-                    'PNC', 'USB', 'TFC', 'MTB', 'FITB', 'HBAN', 'RF', 'KEY', 'CFG', 'ZION',
-                    'WRB', 'AON', 'MMC', 'AJG', 'BRO', 'PGR', 'TRV', 'ALL', 'AIG', 'MET',
-                    'UNH', 'JNJ', 'PFE', 'ABT', 'TMO', 'DHR', 'MRK', 'ABBV', 'LLY', 'BMY',
-                    'AMGN', 'GILD', 'VRTX', 'REGN', 'BIIB', 'ILMN', 'MRNA', 'BNTX', 'ZTS', 'ELV',
-                    'CVS', 'CI', 'HUM', 'ANTM', 'CNC', 'MOH', 'WCG', 'VEEV', 'ISRG', 'SYK',
-                    'BSX', 'MDT', 'EW', 'HOLX', 'RMD', 'IQV', 'DXCM', 'ALGN', 'IDXX', 'MTD',
-                    'WMT', 'HD', 'COST', 'TGT', 'LOW', 'TJX', 'SBUX', 'MCD', 'NKE', 'LULU',
-                    'EBAY', 'ETSY', 'W', 'CHWY', 'PETS', 'BBY', 'GPS', 'M', 'KSS', 'JWN',
-                    'DG', 'DLTR', 'ROST', 'ULTA', 'TPG', 'F', 'GM', 'TSLA', 'RIVN', 'LCID',
-                    'DIS', 'NFLX', 'CMCSA', 'WBD', 'PARA', 'LYV', 'ROKU', 'SPOT', 'MTCH', 'BMBL',
-                    'XOM', 'CVX', 'COP', 'EOG', 'SLB', 'MPC', 'VLO', 'PSX', 'OXY', 'DVN',
-                    'PXD', 'FANG', 'MRO', 'APA', 'HES', 'HAL', 'BKR', 'NOV', 'KMI', 'OKE',
-                    'NEE', 'DUK', 'SO', 'D', 'AEP', 'EXC', 'XEL', 'PEG', 'SRE', 'ES',
-                    'WEC', 'ETR', 'AWK', 'ATO', 'CNP', 'CMS', 'EVRG', 'FE', 'NI', 'PNW',
-                    'CAT', 'BA', 'GE', 'HON', 'UPS', 'RTX', 'LMT', 'NOC', 'GD', 'MMM',
-                    'EMR', 'ETN', 'PH', 'ITW', 'CMI', 'DE', 'FDX', 'CSX', 'UNP', 'NSC',
-                    'WM', 'RSG', 'PCAR', 'IR', 'OTIS', 'CARR', 'TDG', 'LHX', 'HWM', 'AOS',
-                    'DHI', 'LEN', 'NVR', 'PHM', 'KBH', 'TOL', 'TPG', 'BLD', 'BLDR', 'SSD',
-                    'LIN', 'APD', 'ECL', 'SHW', 'DD', 'DOW', 'PPG', 'NEM', 'FCX', 'GOLD',
-                    'ALB', 'CE', 'FMC', 'IFF', 'MLM', 'VMC', 'NUE', 'STLD', 'RS', 'X',
-                    'AA', 'CENX', 'WY', 'IP', 'PKG', 'CCK', 'BALL', 'SLG', 'BXP', 'ARE',
-                    'PLD', 'AMT', 'CCI', 'EQIX', 'PSA', 'EXR', 'AVB', 'EQR', 'DLR', 'WELL',
-                    'SPG', 'O', 'CBRE', 'VTR', 'ESS', 'MAA', 'UDR', 'CPT', 'FRT', 'BXP',
-                    'HST', 'SLG', 'KRC', 'HIW', 'ARE', 'COLD', 'CUZ', 'FR', 'KIM', 'REG',
-                    'VZ', 'T', 'TMUS', 'CHTR', 'LYV', 'NWSA', 'NYT', 'DISH', 'SIRI', 'IPG',
-                    'OMC', 'TTWO', 'EA', 'ATVI', 'RBLX', 'U', 'PATH', 'BILL', 'PYPL', 'V',
-                    'MA', 'KO', 'PEP', 'PM', 'MO', 'BRK-B', 'BERKSHIREH-B', 'VTI', 'SPY'
+                    # Deliberately short so every ticker can be verified as currently
+                    # listed. The old 290-name fallback contained delisted/renamed tickers
+                    # (ANTM, WCG, ATVI, PXD, MRO, DISH), a non-ticker ('BERKSHIREH-B'),
+                    # duplicates (TSLA, TPG, SLG, ARE, BXP, LYV) and two ETFs (SPY, VTI)
+                    # inside a single-stock pairs universe.
+                    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'AVGO', 'ORCL',
+                    'CRM', 'ADBE', 'INTC', 'AMD', 'QCOM', 'TXN', 'MU', 'AMAT',
+                    'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'AXP', 'BLK', 'SCHW', 'PNC',
+                    'UNH', 'JNJ', 'PFE', 'ABT', 'TMO', 'MRK', 'ABBV', 'LLY', 'BMY', 'AMGN',
+                    'WMT', 'HD', 'COST', 'TGT', 'LOW', 'TJX', 'SBUX', 'MCD', 'NKE',
+                    'XOM', 'CVX', 'COP', 'EOG', 'SLB', 'MPC', 'VLO', 'PSX',
+                    'NEE', 'DUK', 'SO', 'AEP', 'CAT', 'BA', 'HON', 'UPS', 'RTX', 'LMT',
+                    'LIN', 'APD', 'SHW', 'NEM', 'FCX', 'NUE',
+                    'PLD', 'AMT', 'EQIX', 'PSA', 'SPG', 'O',
+                    'VZ', 'T', 'TMUS', 'DIS', 'NFLX', 'CMCSA', 'V', 'MA', 'KO', 'PEP',
                 ]
                 marketcap_df = pd.DataFrame({'Symbol': symbols})
+            else:
+                # v31 (audit): FAIL LOUDLY. Previously a missing universe file silently
+                # substituted a hardcoded mega-cap list, so `python -m pairs_trading.main`
+                # on a fresh clone ran a completely different (and survivorship-biased)
+                # study while the README/site presented it as reproducing the published
+                # Russell 3000 result. data/ is .gitignored, so this was the DEFAULT path
+                # for every person who cloned the repo.
+                raise FileNotFoundError(
+                    "data/marketcap.csv not found — this file defines the study universe "
+                    "(Russell 3000 constituents) and is required to reproduce the published "
+                    "results. It is not redistributed in this repository.\n"
+                    "  • Supply your own CSV with a 'Symbol' (or 'Ticker') column at "
+                    "data/marketcap.csv, or\n"
+                    "  • set PAIRS_DEMO_UNIVERSE=1 for a ~60-symbol smoke-test run that "
+                    "exercises the pipeline but does NOT reproduce the published numbers.\n"
+                    "Run from the repository root: the path is resolved relative to the "
+                    "current working directory."
+                )
 
             possible_symbol_columns = ['Symbol', 'Ticker', 'symbol', 'ticker', 'SYMBOL', 'TICKER']
             symbol_column = None
@@ -182,7 +187,16 @@ class EnhancedRussell3000DataProcessor:
             if (close_prices <= 0).any() or close_prices.isnull().sum() > len(data) * 0.15:
                 return False
 
-            if close_prices.min() < 2.0:
+            # v31 (audit): SURVIVORSHIP FIX. This was `close_prices.min() < 2.0` over the
+            # ENTIRE 2020-2025 sample, so a symbol that fell below $2 at any point — a
+            # 2024 collapse, say — was deleted from the universe retroactively, including
+            # for 2020-2022 when it was a perfectly ordinary stock. That removes future
+            # losers from past pair selection, which flatters every backtest that selects
+            # on this universe.
+            # A penny-stock screen is legitimate, but it must use information available at
+            # selection time. Screen on the START of the series instead of its minimum.
+            _early = close_prices.dropna().iloc[:21]
+            if len(_early) == 0 or float(_early.median()) < 2.0:
                 return False
 
             return True
@@ -198,7 +212,14 @@ class EnhancedRussell3000DataProcessor:
             processed['Log_Returns'] = np.log(processed['Close'] / processed['Close'].shift(1))
 
             for period in [5, 10, 20, 50]:
-                processed[f'MA_{period}'] = processed['Close'].rolling(window=period, min_periods=int(period*0.7)).mean()
+                # v31 (audit): min_periods=1 so the warm-up is a CAUSAL partial average
+                # (the mean of however many bars exist so far) rather than NaN. With the
+                # old min_periods=int(period*0.7) the head was NaN and then got .bfill()ed
+                # with a future value; simply dropping the bfill would instead leave a
+                # price-level column filled with the neutral 0, which blows up derived
+                # terms like Trend_Strength = |MA_20 - MA_50| / std. A partial average is
+                # both leak-free and dimensionally correct.
+                processed[f'MA_{period}'] = processed['Close'].rolling(window=period, min_periods=1).mean()
                 processed[f'EMA_{period}'] = processed['Close'].ewm(span=period).mean()
 
             for period in [14, 21]:
@@ -229,17 +250,29 @@ class EnhancedRussell3000DataProcessor:
 
             numeric_columns = processed.select_dtypes(include=[np.number]).columns
             for col in numeric_columns:
-                if processed[col].isnull().sum() > len(processed) * 0.5:
-                    if 'RSI' in col:
-                        processed[col] = 50
-                    elif 'Volatility' in col:
-                        processed[col] = 0.2
-                    elif 'BB_Position' in col:
-                        processed[col] = 0.5
-                    else:
-                        processed[col] = 0
+                # Neutral prior for this indicator family, used for the warm-up region
+                # where the rolling window genuinely has no information yet.
+                if 'RSI' in col:
+                    _neutral = 50
+                elif 'Volatility' in col:
+                    _neutral = 0.2
+                elif 'BB_Position' in col:
+                    _neutral = 0.5
                 else:
-                    processed[col] = processed[col].ffill().bfill().fillna(0)
+                    _neutral = 0
+
+                if processed[col].isnull().sum() > len(processed) * 0.5:
+                    processed[col] = _neutral
+                else:
+                    # v31 (audit): LOOK-AHEAD FIX — dropped `.bfill()`. Back-filling copies
+                    # the first VALID indicator value backwards over the whole warm-up
+                    # region, so e.g. MA_50's first 34 rows were filled with a mean
+                    # computed from days 35-50 — future data at those timestamps. Every
+                    # rolling indicator here (MA/EMA/RSI/Volatility/BB/Trend) had a
+                    # future-contaminated head, and the walk-forward windows that start
+                    # earliest are the ones most affected. Forward-fill only, then seed
+                    # the remaining leading gap with a neutral constant.
+                    processed[col] = processed[col].ffill().fillna(_neutral)
 
             return processed
 
@@ -313,6 +346,48 @@ class EnhancedRussell3000DataProcessor:
 
         return macro
 
+    # Columns that come straight from the data vendor. Everything else in a cached frame
+    # is derived by _process_indicators and can be safely recomputed from these.
+    _RAW_COLUMNS = ('Open', 'High', 'Low', 'Close', 'Volume',
+                    'Dividends', 'Stock Splits', 'Repaired?')
+
+    def _reprocess_cached_indicators(self, saved_data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
+        """Recompute derived indicators from the cached raw OHLCV.
+
+        v31 (audit): the price cache stores *processed* frames, so indicator columns
+        written by an older, buggy `_process_indicators` persist across runs — a fix to
+        that function would otherwise be silently inert for anyone with a warm cache.
+        Concretely: the shipped cache was built when `_process_indicators` ended with
+        `.ffill().bfill()`, which back-filled future values across every rolling
+        indicator's warm-up region (cached MA_50 begins with 34 identical rows computed
+        from days 35-50). Recomputing from the raw OHLCV — which is untouched vendor
+        data — makes the look-ahead fix effective without a multi-hour refetch.
+
+        Set PAIRS_SKIP_REPROCESS=1 to load the cache verbatim (e.g. to reproduce an
+        older published run bit-for-bit).
+        """
+        if os.environ.get('PAIRS_SKIP_REPROCESS') == '1':
+            logger.warning("PAIRS_SKIP_REPROCESS=1: using cached indicator columns as-is "
+                           "(these may carry the pre-v31 bfill look-ahead)")
+            return saved_data
+
+        out, reprocessed, skipped = {}, 0, 0
+        for sym, df in saved_data.items():
+            try:
+                raw_cols = [c for c in self._RAW_COLUMNS if c in df.columns]
+                if 'Close' not in raw_cols:
+                    out[sym] = df
+                    skipped += 1
+                    continue
+                out[sym] = self._process_indicators(df[raw_cols].copy())
+                reprocessed += 1
+            except Exception:
+                out[sym] = df
+                skipped += 1
+        logger.info(f"Recomputed indicators from cached OHLCV for {reprocessed} symbols "
+                    f"({skipped} left as-is) — removes the pre-v31 bfill look-ahead")
+        return out
+
     def load_or_fetch_data(self, symbols: List[str], max_workers: int = 8) -> Dict[str, pd.DataFrame]:
         """Load or fetch data"""
 
@@ -322,7 +397,7 @@ class EnhancedRussell3000DataProcessor:
                 with open(self.data_file, 'rb') as f:
                     saved_data = pickle.load(f)
                 logger.info(f"Loaded {len(saved_data)} symbols from saved data")
-                return saved_data
+                return self._reprocess_cached_indicators(saved_data)
             except Exception as e:
                 logger.warning(f"Failed to load saved data: {str(e)}")
 

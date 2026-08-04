@@ -11,21 +11,21 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Statistical Arbitrage Research">
 <meta property="og:title" content="Russell 3000 Pairs Trading Research">
-<meta property="og:description" content="Cointegration-based statistical arbitrage with walk-forward validation, significance testing, and baseline benchmarks. Under realistic t+1 execution the out-of-sample edge is not statistically significant (Sharpe 0.08, p=0.83) — reported honestly, with the rigor to prove it.">
+<meta property="og:description" content="Cointegration-based statistical arbitrage with walk-forward validation, significance testing, and baseline benchmarks. After a full leakage audit the out-of-sample result is negative (−0.28%/qtr, Sharpe −1.23) and loses to the textbook Gatev baseline — reported honestly, with the rigor to prove it.">
 <meta property="og:url" content="https://navnoorbawa.github.io/russell3000-pairs-trading/">
 <meta property="og:image" content="https://navnoorbawa.github.io/russell3000-pairs-trading/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Russell 3000 Pairs Trading Research">
-<meta name="twitter:description" content="Cointegration-based statistical arbitrage with walk-forward validation, significance testing, and baseline benchmarks. Under realistic t+1 execution the out-of-sample edge is not statistically significant — reported honestly.">
+<meta name="twitter:description" content="Cointegration-based statistical arbitrage with walk-forward validation, significance testing, and baseline benchmarks. After a full leakage audit the out-of-sample result is negative and loses to the textbook baseline — reported honestly.">
 <meta name="twitter:image" content="https://navnoorbawa.github.io/russell3000-pairs-trading/og-image.png">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Russell 3000 Statistical Arbitrage — Pairs Trading Research System",
-  "description": "A modular cointegration-based statistical-arbitrage research system: Kalman-filtered spreads, walk-forward validation, institutional cost modeling, significance testing (Probabilistic & Deflated Sharpe, Newey-West t-stat, bootstrap CIs) and baseline benchmarks. Under realistic t+1 execution the out-of-sample edge is not statistically significant — reported in full.",
+  "description": "A modular cointegration-based statistical-arbitrage research system: Kalman-filtered spreads, walk-forward validation, institutional cost modeling, significance testing (Probabilistic & Deflated Sharpe, Newey-West t-stat, bootstrap CIs) and baseline benchmarks. After a full leakage audit the out-of-sample result is negative and loses to the textbook baseline — reported in full.",
   "codeRepository": "https://github.com/NavnoorBawa/russell3000-pairs-trading",
   "url": "https://navnoorbawa.github.io/russell3000-pairs-trading/",
   "programmingLanguage": "Python",
@@ -65,6 +65,8 @@ html.js .section{opacity:0;transform:translateY(10px);transition:opacity .55s ea
 html.js .section.vis{opacity:1;transform:none}
 @media(prefers-reduced-motion:reduce){html.js .section{opacity:1;transform:none;transition:none}}
 .nav-links a.active{color:var(--tp)}
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.bar-z{fill:var(--tm)}
 .wrap{max-width:1080px;margin:0 auto;padding:0 48px}
 
 nav{border-bottom:1px solid var(--b);position:sticky;top:0;background:var(--nav);backdrop-filter:blur(8px);z-index:10}
@@ -227,23 +229,23 @@ footer{padding:36px 0}
   <p class="subtitle">A modular cointegration-based statistical arbitrage system — Kalman-filtered spreads, regime-adaptive position sizing, walk-forward validation — with a controlled ablation that quantifies each component's contribution to out-of-sample performance.</p>
   <div class="metrics">
     <div class="metric">
-      <div class="mval pos">+0.90%</div>
+      <div class="mval">−0.31%</div>
       <div class="mlbl">Main backtest return<br>Jul 2023–2025 (t+1)</div>
     </div>
     <div class="metric">
-      <div class="mval">+0.08%</div>
-      <div class="mlbl">Walk-forward OOS<br>per quarter</div>
+      <div class="mval">−0.28%</div>
+      <div class="mlbl">Walk-forward OOS<br>per quarter (10 clean windows)</div>
     </div>
     <div class="metric">
-      <div class="mval pos">0.50</div>
-      <div class="mlbl">Main Sharpe vs 0.16<br>textbook (Gatev)</div>
+      <div class="mval">−0.31</div>
+      <div class="mlbl">Main Sharpe vs +0.26<br>textbook (Gatev) — baseline wins</div>
     </div>
     <div class="metric">
-      <div class="mval">p = 0.83</div>
-      <div class="mlbl">OOS edge vs zero<br>(not significant)</div>
+      <div class="mval">p = 0.63</div>
+      <div class="mlbl">Edge vs zero<br>(not significant)</div>
     </div>
   </div>
-  <p class="hero-note">Under realistic <strong>t+1 execution</strong> (fill on the bar after the signal, not the same bar), the out-of-sample edge collapses from +0.49%/qtr to +0.08%/qtr — most of the apparent edge was same-bar look-ahead. Significance testing confirms it: OOS Sharpe 0.08, t-stat 0.22, <strong>p=0.83</strong>, bootstrap CI includes zero, and zero pairs survive a Benjamini-Hochberg multiple-testing correction. The pipeline still beats a random-pair control decisively and the textbook distance method on a risk-adjusted basis. The deliverable is a rigorously validated research framework — and the discipline to prove the edge isn't significant — not a deployable alpha.</p>
+  <p class="hero-note">A v31 audit found six result-changing bugs — an inverted stop-loss, a truncated exit search that silently dropped non-reverting trades, a same-bar exit fill, a look-ahead pair universe, features read from the study’s final day, and an invalid cointegration p-value. With all of them fixed, the out-of-sample result is <strong>negative</strong>: −0.28%/qtr across 10 selection-clean windows, 1 of 10 positive, pooled Sharpe −1.23. It also <strong>loses to the textbook Gatev (2006) distance baseline</strong> (−0.31 vs +0.26 Sharpe) once that baseline runs the paper’s own rolling re-formation instead of a single stale 42-month formation. Zero pairs survive a Benjamini-Hochberg correction. The deliverable is a rigorously validated research framework — and the discipline to keep auditing until the number told the truth — not a deployable alpha.</p>
   <div class="hero-cta">
     <a class="gh-btn" href="https://github.com/NavnoorBawa/russell3000-pairs-trading">View repository ↗</a>
     <a class="gh-link" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">Read the engineering log ↗</a>
@@ -252,8 +254,8 @@ footer{padding:36px 0}
 
 <section class="section" id="results-chart">
   <div class="sec-label">01 — Walk-forward returns</div>
-  <h2>Nineteen non-overlapping quarters</h2>
-  <p class="desc">Each window: 252 trading days of training, 63 days of out-of-sample testing, models retrained from scratch. W1–W9 precede the 2023 regime break; W10–W19 follow it.</p>
+  <h2>Ten selection-clean quarters</h2>
+  <p class="desc">Each window: 252 trading days of training, 63 days of out-of-sample testing, models retrained from scratch, and — as of v31 — trading only pairs already selected as of its train-end. One of ten is positive; three (W17–W19) generated no trades at all, so the honest read is one profitable window out of seven that traded.</p>
   <div class="chart-box">
     <div class="chart-title">
       <span>Quarterly window returns, %</span>
@@ -262,48 +264,60 @@ footer{padding:36px 0}
         <span class="lg"><span class="sw" style="background:var(--neg)"></span>negative</span>
       </span>
     </div>
-    <svg viewBox="0 0 760 230" width="100%" role="img" aria-label="Bar chart of 19 walk-forward window returns (v29, t+1 execution)">
-      <line class="ax" x1="20" y1="170" x2="740" y2="170" stroke-width="1"/>
-      <line class="dv" x1="361" y1="20" x2="361" y2="206" stroke-width="1" stroke-dasharray="3 4"/>
-      <text class="ctx" x="352" y="32" text-anchor="end">IN-SAMPLE</text>
-      <text class="ctx" x="370" y="32">OUT-OF-SAMPLE</text>
-      <rect class="bar-p" x="22"  y="134" width="24" height="36"><title>W1 · +2.97%</title></rect>
-      <rect class="bar-p" x="60"  y="157" width="24" height="13"><title>W2 · +1.12%</title></rect>
-      <rect class="bar-p" x="98"  y="155" width="24" height="15"><title>W3 · +1.26%</title></rect>
-      <rect class="bar-p" x="136" y="138" width="24" height="32"><title>W4 · +2.66%</title></rect>
-      <rect class="bar-p" x="174" y="119" width="24" height="51"><title>W5 · +4.28%</title></rect>
-      <rect class="bar-p" x="212" y="112" width="24" height="58"><title>W6 · +4.87%</title></rect>
-      <rect class="bar-p" x="250" y="131" width="24" height="39"><title>W7 · +3.27%</title></rect>
-      <rect class="bar-p" x="288" y="155" width="24" height="15"><title>W8 · +1.25%</title></rect>
-      <rect class="bar-p" x="326" y="158" width="24" height="12"><title>W9 · +1.00%</title></rect>
-      <rect class="bar-n" x="368" y="170" width="24" height="15"><title>W10 · −1.24%</title></rect>
-      <rect class="bar-n" x="406" y="170" width="24" height="3"><title>W11 · −0.22%</title></rect>
-      <rect class="bar-p" x="444" y="138" width="24" height="32"><title>W12 · +2.65%</title></rect>
-      <rect class="bar-n" x="482" y="170" width="24" height="9"><title>W13 · −0.78%</title></rect>
-      <rect class="bar-n" x="520" y="170" width="24" height="2"><title>W14 · −0.19%</title></rect>
-      <rect class="bar-p" x="558" y="164" width="24" height="6"><title>W15 · +0.48%</title></rect>
-      <rect class="bar-n" x="596" y="170" width="24" height="10"><title>W16 · −0.82%</title></rect>
-      <rect class="bar-n" x="634" y="170" width="24" height="8"><title>W17 · −0.69%</title></rect>
-      <rect class="bar-p" x="672" y="156" width="24" height="14"><title>W18 · +1.19%</title></rect>
-      <rect class="bar-p" x="710" y="165" width="24" height="5"><title>W19 · +0.46%</title></rect>
-      <text class="ctx" x="34"  y="212" text-anchor="middle">W1</text>
-      <text class="ctx" x="186" y="212" text-anchor="middle">W5</text>
-      <text class="ctx" x="380" y="212" text-anchor="middle">W10</text>
-      <text class="ctx" x="570" y="212" text-anchor="middle">W15</text>
-      <text class="ctx" x="722" y="212" text-anchor="middle">W19</text>
-      <text class="ctx" x="224" y="106" text-anchor="middle">+4.9</text>
+    <svg viewBox="0 0 760 230" width="100%" role="img" aria-describedby="wf-table"
+         aria-label="Bar chart of 10 selection-clean walk-forward window returns (v31, t+1 execution). One of ten positive; three traded nothing.">
+      <line class="ax" x1="10" y1="100" x2="740" y2="100" stroke-width="1"/>
+      <text class="ctx" x="14" y="94">0%</text>
+      <rect class="bar-n" x="20" y="100" width="44" height="46.3"><title>W10 · -0.46% · 3 trades</title></rect>
+      <rect class="bar-n" x="92" y="100" width="44" height="44.8"><title>W11 · -0.45% · 7 trades</title></rect>
+      <rect class="bar-n" x="164" y="100" width="44" height="9.3"><title>W12 · -0.09% · 12 trades</title></rect>
+      <rect class="bar-p" x="236" y="43.2" width="44" height="56.8"><title>W13 · +0.57% · 4 trades</title></rect>
+      <rect class="bar-n" x="308" y="100" width="44" height="73.7"><title>W14 · -0.74% · 5 trades</title></rect>
+      <rect class="bar-n" x="380" y="100" width="44" height="99.5"><title>W15 · -1.00% · 13 trades</title></rect>
+      <rect class="bar-n" x="452" y="100" width="44" height="64.8"><title>W16 · -0.65% · 2 trades</title></rect>
+      <rect class="bar-z" x="524" y="98" width="44" height="3" opacity=".35"><title>W17 · +0.00% · 0 trades</title></rect>
+      <rect class="bar-z" x="596" y="98" width="44" height="3" opacity=".35"><title>W18 · +0.00% · 0 trades</title></rect>
+      <rect class="bar-z" x="668" y="98" width="44" height="3" opacity=".35"><title>W19 · +0.00% · 0 trades</title></rect>
+      <text class="ctx" x="42" y="215" text-anchor="middle">W10</text>
+      <text class="ctx" x="114" y="215" text-anchor="middle">W11</text>
+      <text class="ctx" x="186" y="215" text-anchor="middle">W12</text>
+      <text class="ctx" x="258" y="215" text-anchor="middle">W13</text>
+      <text class="ctx" x="330" y="215" text-anchor="middle">W14</text>
+      <text class="ctx" x="402" y="215" text-anchor="middle">W15</text>
+      <text class="ctx" x="474" y="215" text-anchor="middle">W16</text>
+      <text class="ctx" x="546" y="215" text-anchor="middle">W17</text>
+      <text class="ctx" x="618" y="215" text-anchor="middle">W18</text>
+      <text class="ctx" x="690" y="215" text-anchor="middle">W19</text>
+      <text class="ctx" x="746" y="44" text-anchor="end">+0.6</text>
+      <text class="ctx" x="746" y="200" text-anchor="end">−1.0</text>
     </svg>
+    <table id="wf-table" class="visually-hidden">
+      <caption>Walk-forward window returns (v31, 10 selection-clean windows)</caption>
+      <thead><tr><th>Window</th><th>Return</th><th>Trades</th></tr></thead>
+      <tbody>
+      <tr><td>W10</td><td>-0.4634%</td><td>3</td></tr>
+      <tr><td>W11</td><td>-0.4484%</td><td>7</td></tr>
+      <tr><td>W12</td><td>-0.0931%</td><td>12</td></tr>
+      <tr><td>W13</td><td>+0.5675%</td><td>4</td></tr>
+      <tr><td>W14</td><td>-0.7372%</td><td>5</td></tr>
+      <tr><td>W15</td><td>-0.9953%</td><td>13</td></tr>
+      <tr><td>W16</td><td>-0.6481%</td><td>2</td></tr>
+      <tr><td>W17</td><td>+0.0000%</td><td>0</td></tr>
+      <tr><td>W18</td><td>+0.0000%</td><td>0</td></tr>
+      <tr><td>W19</td><td>+0.0000%</td><td>0</td></tr>
+      </tbody>
+    </table>
   </div>
 </section>
 
 <section class="section" id="methodology">
   <div class="sec-label">02 — Methodology</div>
   <h2>System architecture</h2>
-  <p class="desc">A sequential pipeline from pair selection through signal generation, regime filtering, and portfolio accounting. Each stage is independently testable and documented across 29 versions.</p>
+  <p class="desc">A sequential pipeline from pair selection through signal generation, regime filtering, and portfolio accounting. Each stage is independently testable and documented across 19 versioned entries (v7 → v31).</p>
   <div class="pipeline">
     <div class="p-row">
       <div class="p-key">pair selection</div>
-      <div class="p-val">Engle-Granger cointegration on all <strong>~45,150 pairs</strong>. ADF on OLS residuals, both directions, p &lt; 0.05. Half-life filter 4–25 days. PCA strips 5 systematic factors (~58% variance); idiosyncratic residual cointegration adds a quality bonus. CUSUM and Hurst pre-filters. Quarterly re-selection.</div>
+      <div class="p-val">Engle-Granger cointegration on all <strong>47,586 pairs</strong> (36,524 return usable p-values; 539 survive every filter). ADF on OLS residuals, both directions, p &lt; 0.05. Half-life filter 4–25 days. PCA strips 5 systematic factors (~58% variance); idiosyncratic residual cointegration adds a quality bonus. CUSUM and Hurst pre-filters. Quarterly re-selection.</div>
     </div>
     <div class="p-row">
       <div class="p-key">spread construction</div>
@@ -319,7 +333,7 @@ footer{padding:36px 0}
     </div>
     <div class="p-row">
       <div class="p-key">validation</div>
-      <div class="p-val"><strong>19 walk-forward windows</strong>, 252-day train / 63-day test, rolling by one test window. Models retrained from scratch each window. No leakage between train and test periods.</div>
+      <div class="p-val"><strong>10 selection-clean walk-forward windows</strong>, 252-day train / 63-day test, rolling by one test window. Models retrained from scratch each window; no price data crosses the train/test boundary, enforced by a runtime guard that raises rather than asserts. As of v31 each window may also only trade pairs whose quarterly re-selection date is known by its train-end — the schedule spans 19 slots, but the nine earliest have no pairs selected yet and are skipped rather than back-filled from a future universe.</div>
     </div>
   </div>
 </section>
@@ -327,15 +341,14 @@ footer{padding:36px 0}
 <section class="section" id="results">
   <div class="sec-label">03 — Results</div>
   <h2>Walk-forward performance</h2>
-  <p class="desc">v29 figures, under realistic <strong>t+1 execution</strong> (fill on the bar after the signal). The out-of-sample row is the rigorous, leak-free forward estimate and the binding constraint — and under t+1 it collapses to essentially zero (the same-bar version showed +0.49%/qtr; the difference was look-ahead).</p>
+  <p class="desc">v31 figures, under realistic <strong>t+1 execution</strong> on both entry <em>and</em> exit. Every walk-forward window is now selection-clean: each one may only trade pairs whose quarterly re-selection date is already known at its train-end, so the nine early windows that previously reported a Sharpe of ~5 no longer exist — they were trading a universe chosen with their own future.</p>
   <div class="tw"><table>
     <thead>
       <tr><th>Period</th><th>Windows</th><th>Avg return / qtr</th><th>Sharpe</th><th>Win rate</th><th>Profitable</th></tr>
     </thead>
     <tbody>
-      <tr><td>In-sample (W1–W9)</td><td>9</td><td class="pos">+2.52%</td><td>5.08</td><td>83.7%</td><td>9/9</td></tr>
-      <tr><td>Out-of-sample (W10–W19)</td><td>10</td><td>+0.08%</td><td>0.08</td><td>62.1%</td><td>4/10</td></tr>
-      <tr><td>Main backtest (Jul 2023–2025)</td><td>—</td><td class="pos">+0.90%</td><td>0.50</td><td>58.5%</td><td>—</td></tr>
+      <tr><td>Out-of-sample (10 selection-clean windows)</td><td>10</td><td>−0.28%</td><td>−1.23</td><td>21.2%</td><td>1/10</td></tr>
+      <tr><td>Main backtest (Jul 2023–2025)</td><td>—</td><td class="neg">−0.31%</td><td>−0.31</td><td>28.6%</td><td>—</td></tr>
     </tbody>
   </table></div>
 
@@ -346,40 +359,42 @@ footer{padding:36px 0}
       <tr><th>Test</th><th>Main backtest</th><th>Out-of-sample (stitched daily)</th></tr>
     </thead>
     <tbody>
-      <tr><td>Annualised Sharpe</td><td>0.50</td><td>0.14</td></tr>
-      <tr><td>Newey-West t-stat (Sharpe ≠ 0)</td><td>0.70 (p=0.49)</td><td>0.21 (p=0.83)</td></tr>
+      <tr><td>Annualised Sharpe</td><td>−0.31</td><td>−1.23</td></tr>
+      <tr><td>Newey-West t-stat (mean ≠ 0)</td><td>−0.49 (p=0.63)</td><td>−1.86 (p=0.06)</td></tr>
       <tr><td>Probabilistic Sharpe P(SR&gt;0)</td><td>78%</td><td>58%</td></tr>
       <tr><td>Bootstrap 95% CI on Sharpe</td><td>[−0.96, +1.93]</td><td>[−1.09, +1.59]</td></tr>
       <tr><td>Deflated Sharpe (vs best-of-27 trials)</td><td>11%</td><td class="neg">3.6%</td></tr>
     </tbody>
   </table></div>
-  <p class="desc" style="margin-top:14px">Per-window OOS test: mean +0.08%/qtr, t-stat 0.22, <strong>p=0.83</strong>, 4/10 positive, 95% CI [−0.54%, +0.79%]. <strong>Under realistic execution there is no statistically significant edge — and the project proves that to itself rather than asserting otherwise.</strong></p>
+  <p class="desc" style="margin-top:14px">Per-window OOS test: mean −0.282%/qtr, t-stat −1.94, <strong>p=0.085</strong>, 1/10 positive, 95% CI [−0.611%, +0.047%]. <strong>The result is negative and not statistically distinguishable from zero — the strategy has no edge to deploy, and the project proves that to itself rather than asserting otherwise.</strong></p>
 
   <h2 style="margin-top:48px">Does it beat the textbook?</h2>
-  <p class="desc">Gatev (2006) distance method and a random-pair control, run on the same universe and out-of-sample period (<code>benchmark.py</code>). The pipeline crushes random selection and wins decisively on risk-adjusted return.</p>
+  <p class="desc">Gatev (2006) distance method and a random-pair control, run on the same universe and out-of-sample period (<code>benchmark.py</code>). The baseline now follows the paper’s rolling 12-month formation / 6-month trading scheme; it previously formed once over ~42 months and then traded ~30 months without re-forming, which quietly handicapped it. <strong>On a fair comparison the textbook baseline beats this pipeline.</strong></p>
   <div class="tw"><table>
     <thead>
       <tr><th>Strategy</th><th>Return</th><th>Sharpe</th></tr>
     </thead>
     <tbody>
-      <tr><td>Cointegration + Kalman (this project)</td><td>+0.90%</td><td class="pos">0.50</td></tr>
-      <tr><td>Distance method (Gatev 2006)</td><td>+1.82%</td><td>0.16</td></tr>
-      <tr><td>Random-pair control (avg of 5 draws)</td><td class="neg">−7.69%</td><td class="neg">−0.35</td></tr>
+      <tr><td>Cointegration + Kalman (this project)</td><td class="neg">−0.31%</td><td class="neg">−0.31</td></tr>
+      <tr><td>Distance method (Gatev 2006), rolling</td><td>+2.78%</td><td class="pos">+0.26</td></tr>
+      <tr><td>Random-pair control (avg of 5 draws)</td><td class="neg">−1.74%</td><td class="neg">−0.02</td></tr>
     </tbody>
   </table></div>
-  <p class="desc" style="margin-top:14px">Multiple-testing check (Benjamini-Hochberg FDR): of 37,546 pairs tested, 6,052 are "cointegrated" at raw p&lt;0.05 — but ~1,877 of those are expected false positives by chance, and <strong>zero survive BH-FDR at q&lt;0.05</strong> (8 at q&lt;0.10). The cointegration signal is far weaker than the raw p-values suggest.</p>
+  <p class="desc" style="margin-top:14px">Multiple-testing check (Benjamini-Hochberg FDR): of 36,524 pairs with usable p-values, 3,725 are "cointegrated" at raw p&lt;0.05 — but ~1,826 of those are expected false positives by chance, and <strong>zero survive BH-FDR at q&lt;0.05</strong> (zero at q&lt;0.10 too). The p-values are now Bonferroni-corrected across the two Engle-Granger directions; the previous <code>min(p₁,p₂)</code> was not a valid p-value and inflated the test size.</p>
 </section>
 
 <section class="section" id="ablation">
   <div class="sec-label">04 — Controlled ablation</div>
   <h2>ML contribution: ≈ 0, confirmed by a seed-robustness check</h2>
-  <p class="desc">A transformer-based signal-quality scorer is trained (leak-free, per window) on whether an entry reaches its exit band, and used for opportunity ranking. It trains correctly — BCE falls below the coin-flip entropy, so it genuinely discriminates. Yet the main backtest and all five cost profiles do <strong>not depend on it</strong> by construction: the score only reorders same-day opportunities, and the sparse main backtest never has enough competing pairs on one day for the ordering to matter. The definitive ML-contribution test is the four-seed robustness check below (run on the v26.1 codebase): one training seed showed an OOS gain (+0.74%/qtr), but across seeds {42,1,2,7} it dissolved into noise — the OOS spread (0.30–0.74%/qtr) is larger than the mean effect, with one seed below the classical baseline. The v27 audit fixes touch neither the transformer training nor the ranking mechanism, so that conclusion stands.</p>
+  <p class="desc">A transformer-based signal-quality scorer is trained (leak-free, per window) on whether an entry reaches its exit band, and used for opportunity ranking. It trains correctly — BCE falls below the coin-flip entropy, so it genuinely discriminates. Yet the main backtest and all five cost profiles do <strong>not depend on it</strong> by construction: the score only reorders same-day opportunities, and the sparse main backtest never has enough competing pairs on one day for the ordering to matter. The definitive ML-contribution test is the four-seed robustness check below (run on the v26.1 codebase): one training seed showed an OOS gain (+0.74%/qtr), but across seeds {42,1,2,7} it dissolved into noise — the OOS spread (0.30–0.74%/qtr) is larger than the mean effect, with one seed below the classical baseline. The v31 audit changed the trade population substantially (14 trades, down from 41), so the ablation was re-run against the corrected code rather than assumed. The two arms come back <strong>bit-identical on every metric</strong> — return, Sharpe, trade count, win rate, walk-forward pooled Sharpe, and all five cost profiles. The measured ML contribution is exactly 0, not approximately 0.</p>
   <div class="tw"><table>
     <thead>
       <tr><th>Metric</th><th>Classical only</th><th>+ Transformer</th><th>Δ</th></tr>
     </thead>
     <tbody>
-      <tr><td>Main backtest return / Sharpe (v29)</td><td>+0.90% / 0.50</td><td>+0.90% / 0.50</td><td class="zero">0</td></tr>
+      <tr><td>Main backtest return / Sharpe (v31)</td><td>−0.31% / −0.31</td><td>−0.31% / −0.31</td><td class="zero">0</td></tr>
+      <tr><td>Main backtest trades / win rate (v31)</td><td>14 / 28.57%</td><td>14 / 28.57%</td><td class="zero">0</td></tr>
+      <tr><td>Walk-forward OOS pooled Sharpe (v31)</td><td>−1.228</td><td>−1.228</td><td class="zero">0</td></tr>
       <tr><td>Walk-forward OOS, 4-seed mean / range (v26.1)</td><td>+0.36%/qtr</td><td>+0.53%/qtr (0.30–0.74)</td><td class="zero">noise</td></tr>
       <tr><td>Institutional cost profiles (5)</td><td colspan="2" style="text-align:center">independent of the scorer by construction</td><td class="zero">0</td></tr>
     </tbody>
@@ -390,11 +405,11 @@ footer{padding:36px 0}
 <section class="section" id="notes">
   <div class="sec-label">05 — Research notes</div>
   <h2>Selected documentation</h2>
-  <p class="desc">The engineering log records every version, bug, and failed hypothesis from v6 to v29. Selected research notes below.</p>
+  <p class="desc">The engineering log records every version, bug, and failed hypothesis from v7 to v31. Selected research notes below.</p>
   <div class="pubs">
     <a class="pub" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">
-      <div class="pub-meta">Engineering log · v6 → v29</div>
-      <div class="pub-title">Progress reference: twenty-nine versions of bias hunts, fixes, and verification</div>
+      <div class="pub-meta">Engineering log · v7 → v31</div>
+      <div class="pub-title">Progress reference: nineteen versioned entries of bias hunts, fixes, and verification</div>
       <div class="pub-abs">Complete chronological record — survivorship bias (v9), Kalman spread differencing (v16), the dead-code audit (v24), the Sharpe correction (v25), the v26 sign-bug that reversed the all-negative fund result, and the v27 audit (9 bugs: feature skew, cross-symbol concentration, fund Sharpe inflation, stat shadowing, deprecated API, dead code). Kept deliberately unflattering — bugs in both directions.</div>
       <div class="pub-tags"><span class="tag">methodology</span><span class="tag">validation</span></div>
     </a>
@@ -427,7 +442,7 @@ footer{padding:36px 0}
   <div class="disc-box">
     <div class="disc-title">What the data shows</div>
     <div class="disc-text">
-      The honest bottom line (v29): <em>under realistic t+1 execution there is no statistically significant edge.</em> Filling on the bar after the signal (instead of the same close that generated it) collapses the out-of-sample return from +0.49%/qtr to <span class="neg">+0.08%/qtr</span> — most of the apparent edge was same-bar look-ahead. Significance testing confirms it: OOS Sharpe 0.08, Newey-West t-stat 0.21 (<span class="neg">p=0.83</span>), bootstrap 95% CI [−1.09, +1.59] (includes zero), Deflated Sharpe 3.6%; the per-window OOS test gives p=0.83 with 4 of 10 windows positive. The conclusion is robust to the fill convention — under the standard t+1-<em>open</em> fill the OOS is actually <span class="neg">−0.28%/qtr</span> (slightly worse), so it isn't an artifact of one pessimistic choice. A Benjamini-Hochberg multiple-testing correction is just as blunt: of 37,546 pairs tested, ~1,877 of the 6,052 "cointegrated" at raw p&lt;0.05 are expected false positives, and <span class="neg">zero survive at q&lt;0.05</span>. <em>The methodology is nonetheless sound:</em> the pipeline beats a random-pair control decisively (−7.7%) and the textbook Gatev (2006) distance method on a risk-adjusted basis (Sharpe 0.50 vs 0.16). Earlier audits corrected bugs in both directions (a v26 sign error that understated the cost comparison; nine v27 fixes including a half-enforced concentration limit). The transformer contributes ≈0 (four-seed check). <em>Known limitations, all of which bias upward on an already-null result:</em> the universe is sourced from ~current Russell 3000 membership (survivorship bias — of 36 names that delisted/failed/were acquired in 2020–2025, only 1 is present), and the walk-forward's in-sample windows trade a universe selected with look-ahead (so their high Sharpe is diagnostic only; the leak-free windows are the ~0 result). Both push the true edge at or below what is reported, so the negative conclusion is conservative. The value here is a rigorously validated research framework — one disciplined enough to prove the edge isn't significant — not a deployable alpha. Every claim is derived from logged, reproducible runs.
+      The honest bottom line (v31): <em>the strategy does not work, and it loses to the textbook.</em> A pre-launch audit found six result-changing bugs, every one of which had been flattering the result: an inverted stop-loss that cut winners at 1σ and never stopped a loss; an exit search truncated to the trading window, which silently discarded the trades that failed to revert; an exit that still filled on the same bar as its own signal; a walk-forward universe built from the union of <em>all</em> quarterly re-selections, future ones included; per-stock features read from the last day of the entire study on every backtest date; and a cointegration "p-value" taken as <code>min(p₁,p₂)</code> across two Engle-Granger directions, which is not a p-value. With all six fixed the out-of-sample result is <span class="neg">−0.28%/qtr</span> over 10 selection-clean windows (1 of 10 positive, pooled Sharpe <span class="neg">−1.23</span>, per-window p=0.085), and the main backtest is <span class="neg">−0.31%</span> at Sharpe <span class="neg">−0.31</span> on just 14 trades. Deflated Sharpe is 0.9% (main) and 0.0% (OOS). Of 36,524 pairs with usable p-values, ~1,826 of the 3,725 significant at raw p&lt;0.05 are expected false positives, and <span class="neg">zero survive BH-FDR at q&lt;0.05</span>. <em>The comparison claim reversed too:</em> the Gatev (2006) baseline had been formed once over ~42 months and then traded ~30 months without re-forming, while this strategy re-selected quarterly. Run properly — the paper’s rolling 12-month formation / 6-month trading — the textbook baseline returns +2.78% at Sharpe +0.26 and <strong>beats this pipeline</strong> (−0.31). It still beats a random-pair control (−1.74%), which is the one claim that survived. <em>Known limitations, all of which bias upward on an already-negative result:</em> the universe comes from ~current Russell 3000 membership (survivorship bias — of 36 names that delisted/failed/were acquired in 2020–2025, only 1 is present), and the price cache predates the fix to the full-sample penny-stock filter, so names that fell below $2 were retroactively removed from earlier periods and cannot be recovered without a refetch. 14 trades is also far too little breadth for the Fundamental Law to give a meaningful IR at any plausible IC. The value here is the audit trail — a framework disciplined enough to keep finding its own errors until the number stopped flattering it — not a deployable alpha. Every claim is derived from logged, reproducible runs (<code>logs/backtest_v31.log</code>).
     </div>
   </div>
 </section>
@@ -462,8 +477,8 @@ footer{padding:36px 0}
   <div class="grid2" style="margin-top:36px">
     <div class="g2-item">
       <div class="g2-lbl">Versions</div>
-      <div class="g2-val">v6 → v29</div>
-      <div class="g2-sub">29 iterations · every bug documented</div>
+      <div class="g2-val">v7 → v31</div>
+      <div class="g2-sub">19 documented entries · every bug logged</div>
     </div>
     <div class="g2-item">
       <div class="g2-lbl">Stack</div>
@@ -485,7 +500,7 @@ footer{padding:36px 0}
 <footer>
   <div class="f-in">
     <div class="f-left">MIT License · Research project · Not investment advice<br>
-      Results: v29.0.0 · study window Jul 2023–2025 (fixed) · page updated <span id="lastmod">—</span></div>
+      Results: v31.0.0 · study window Jul 2023–2025 (fixed) · page updated <span id="lastmod">—</span></div>
     <div class="f-right">
       <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">GitHub</a>
       <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">Engineering log</a>
@@ -501,7 +516,7 @@ footer{padding:36px 0}
   // Self-updating "page updated" stamp: document.lastModified reflects when this file
   // was last deployed (GitHub Pages sets it on each build), so this always shows the
   // true freshness with zero maintenance and no commit loop. The RESULTS themselves are
-  // a fixed, versioned study (v29.0.0) and deliberately do not auto-mutate.
+  // a fixed, versioned study (v31.0.0) and deliberately do not auto-mutate.
   try{
     var lm=document.getElementById('lastmod');
     if(lm){
