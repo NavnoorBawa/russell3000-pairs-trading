@@ -47,7 +47,7 @@ data (2,542 Russell 3000 symbols, 2020–2025, America/New_York)
   ├─ Signal rule
   │    Entry |z| > 1.8, exit |z| < 0.5, half-life-adaptive z lookback,
   │    dynamic max hold = clamp(2.5 × half-life, 10–25 trading days)
-  │    t+1 execution: signal on day-t close, fill at t+1 close (no same-bar look-ahead)
+  │    t+1 execution: signal on day-t close; entry AND exit fill at t+1 close (v31)
   │
   ├─ Learned signal-quality layer (v24, switchable)
   │    Transformer-encoder scorer (38 features) trained on entry-outcome labels,
@@ -59,7 +59,7 @@ data (2,542 Russell 3000 symbols, 2020–2025, America/New_York)
   │
   ├─ Risk manager + portfolio accounting
   │    $100M capital, 3–10% positions, 30% gross-exposure cap, vol/profit scaling,
-  │    walk-forward: 252-day train / 63-day test, 19 windows (2020–2025)
+  │    walk-forward: 252-day train / 63-day test, 19 slots (10 with an eligible universe)
   │
   └─ Rigor layer (v28–v29) — "is the edge real?"
        significance.py: Probabilistic & Deflated Sharpe, Newey-West Sharpe t-stat,
@@ -70,7 +70,7 @@ data (2,542 Russell 3000 symbols, 2020–2025, America/New_York)
 16 Python modules under [pairs_trading/](pairs_trading/) (incl. `significance.py` and
 `benchmark.py`, the v28–v29 rigor layer). Entry point: `python3 -m pairs_trading.main`.
 
-## Results (v29 — realistic t+1 execution, run of 2026-06-21)
+## Results (v31 — realistic t+1 execution on entry *and* exit, run of 2026-08-04)
 
 These figures use **t+1 execution**: the |z|>1.8 signal is decided on the day-t close,
 but the trade *fills at the next trading day's close*, removing the same-bar look-ahead
@@ -170,12 +170,14 @@ is at or below what is reported, and the negative conclusion is conservative, no
   that diverged permanently because a company failed (the catastrophic mean-reversion
   losses) are pre-filtered out. A leak-free fix needs a point-in-time, survivorship-free
   dataset (e.g. CRSP), which is not free; the limitation is disclosed rather than hidden.
-- **Walk-forward in-sample windows carry pair-selection look-ahead.** The pair universe is
-  chosen once on data through 2022-12-31, but windows W1–W9 test in 2020–2023, i.e. they
-  trade a universe selected with their own future. Their high numbers (Sharpe ~5) are
-  therefore *diagnostic only*, not a clean forward estimate. Only windows whose test period
-  starts after the selection cutoff (W10+) are leak-free — and those are the ~0 result the
-  conclusion rests on. Each window is now tagged `selection_clean` in the output.
+- **Walk-forward selection look-ahead (fixed in v31; kept here for the record).** Through
+  v30 the walk-forward traded a pair universe unioned from *all* quarterly re-selections —
+  future ones included — so an early window could trade pairs first identified as
+  cointegrated years later, and the Sharpe ~5 those windows once showed was an artifact.
+  v31 restricts each window to pairs whose re-selection date is already known by its
+  train-end; the nine earliest slots have no eligible universe and are skipped rather than
+  back-filled, leaving **10/10 traded windows `selection_clean`**. The published OOS
+  (−0.28%/qtr) is therefore leak-free on selection.
 - **The transformer scorer's labels are overlapping** (10-day forward, sampled every 2
   days), so its effective sample size is smaller than the raw count and its training is
   less informative than it looks. It does *not* leak across the train/test boundary (the
@@ -193,15 +195,18 @@ equity curve):
 
 | Profile (leverage) | Net return | Sharpe | Max DD |
 |---|---|---|---|
-| Quant HF (~5–7×) | +2.87% | 0.54 | −4.5% |
-| Multi-Strat pod (~4×) | +1.69% | 0.49 | −3.0% |
-| Fundamental L/S (~1.5–2×) | +0.45% | 0.33 | −1.7% |
-| Buy-side institutional (1×) | +0.81% | 0.80 | −0.7% |
-| Retail (1×) | −0.17% | 0.01 | −1.1% |
+| Quant HF (~5–7×) | −1.46% | −0.53 | −2.5% |
+| Multi-Strat pod (~4×) | −1.03% | −0.56 | −1.7% |
+| Fundamental L/S (~1.5–2×) | −0.61% | −0.66 | −1.0% |
+| Buy-side institutional (1×) | −0.12% | −0.27 | −0.3% |
+| Retail (1×) | −0.44% | −0.90 | −0.6% |
 
-Four of five are net-positive (retail goes slightly negative after costs). But these run
-on the main backtest — the optimistic bound — and the binding constraint is the
-insignificant OOS above.
+All five are net-negative as of v31. The earlier "four of five positive" table was an
+artifact: the fund replay booked **2× gross P&L** (the full notional instead of the per-leg
+half) against a 1× cost basis, and it inherited the same-bar exit fill and the discarded
+non-reverting trades. Corrected, every profile loses — and the more leverage, the larger the
+loss. These run on the main backtest, the optimistic bound; the binding constraint is the
+negative OOS above.
 
 ### What is honestly claimable — and what is not
 
@@ -231,12 +236,13 @@ insignificant OOS above.
 ## What this project is not
 
 - **Not an "AI-enhanced" strategy.** The transformer is real, trained, wired in — and
-  contributes ≈0, confirmed by a four-seed robustness check (one lucky seed suggested
+  contributes **exactly 0** — the v31 ablation is bit-identical on every reported metric (an
+  earlier four-seed check had already placed it within noise; one lucky seed suggested
   otherwise). v10–v23 carried it as dead code; v24 wired it in; v26 a label bug stopped
   it training; v26.1 fixed that and the seed check settled it.
 - **Not reinforcement learning.** No DDPG/SAC/policy network exists in this codebase.
-- **Not a validated deployable edge** — under realistic t+1 execution the OOS edge is
-  statistically indistinguishable from zero (see above).
+- **Not a validated deployable edge** — under realistic t+1 execution the OOS result is
+  negative (−0.28%/qtr) and not distinguishable from zero (see above).
 - The encoder runs on a single feature vector (sequence length 1), so it is
   architecturally an MLP head; described as a "learned signal-quality scorer."
 
@@ -306,7 +312,7 @@ pytest -q --cov=pairs_trading            # 107 tests + coverage
 ├── pairs_trading/   # source (16 modules; main.py is the entry point)
 ├── tests/           # pytest suite (107 hermetic tests; no data files / network)
 ├── data/            # price + macro caches
-├── docs/            # PROGRESS.md — complete version history v6→v29, every bug documented
+├── docs/            # PROGRESS.md — complete version history v6→v31, every bug documented
 ├── logs/            # one log per backtest version
 ├── outputs/         # charts + JSON exports
 ├── scripts/         # diagnostics

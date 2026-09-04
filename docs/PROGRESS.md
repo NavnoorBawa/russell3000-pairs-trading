@@ -1,5 +1,5 @@
 # Pairs Trading System — Progress Reference Document
-Last updated: 2026-06-21 (v29 — rigor layer: significance, benchmarks, t+1 execution, FDR)
+Last updated: 2026-09-05 (v31.1 — finalization after the v31 pre-launch audit)
 
 ---
 
@@ -2563,7 +2563,7 @@ deserialization/IO/network, web frontend, trading core ×2, selection/risk, stat
 export/ML, launch hygiene). **101 findings, 4 refuted, 97 surviving.** Each dimension's
 findings were passed to a separate verifier prompted to refute them.
 
-### Result-changing bugs found (published v29 numbers are INVALID pending a re-run)
+### Result-changing bugs found (the published v29 numbers are superseded by the v31 re-run)
 
 1. **Stop-loss sign inverted** (`trading_system.py`). §v20 above specifies a 1.5σ *adverse*
    stop: `current_z < entry_z - 1.5` (long) / `current_z > entry_z + 1.5` (short). The

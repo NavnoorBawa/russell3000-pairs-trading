@@ -8,10 +8,16 @@ updates:
     commit-message:
       prefix: "ci"
 
-  # Surface security/maintenance updates for the Python dependencies.
+  # Python dependencies: requirements.txt is the pinned set that produced the published
+  # results (see SECURITY.md), so routine version bumps would silently break the
+  # reproducibility claim without a re-run. Version-update PRs are therefore disabled
+  # (limit 0); Dependabot *security* updates are unaffected and still open PRs for any
+  # pinned package with a known advisory, and CI's "latest" matrix leg already gates
+  # forward-compatibility with current releases on every push.
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "monthly"
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "deps"
