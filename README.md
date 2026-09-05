@@ -97,17 +97,17 @@ straddles zero either way — under neither convention is there a positive, sign
 
 | Out-of-sample | t+1 close (headline) | t+1 open |
 |---|---|---|
-| Return / qtr | **−0.28%** | _re-running_ |
-| Pooled Sharpe | −1.23 | _re-running_ |
-| Newey-West t-stat (p) | −1.86 (p=0.06) | _re-running_ |
-| Deflated Sharpe | 0.0% | _re-running_ |
-| Windows positive | 1/10 | _re-running_ |
+| Return / qtr | **−0.28%** | −0.28% |
+| Pooled Sharpe | −1.23 | −1.13 |
+| Newey-West t-stat (p) | −1.86 (p=0.06) | −1.69 (p=0.09) |
+| Deflated Sharpe | 0.0% | 0.0% |
+| Windows positive | 1/10 | 2/10 |
 
-> **v31 note.** The `PAIRS_FILL=open` sensitivity arm has not yet been re-run against the
-> corrected code, so its column is deliberately blank rather than carrying v29 numbers that
-> no longer describe this system. The t+1-close column above is the current, complete result.
-> Under v29 the open-fill arm was slightly *worse* than close-fill, so the conclusion is not
-> expected to improve — but that will be stated from a logged run, not assumed.
+> **v31.1 note.** The open-fill column is a logged re-run on the corrected v31 code (seed 42,
+> `logs/backtest_v31_open.log`; main backtest under t+1-open: −0.17% / Sharpe −0.18 / 14
+> trades). Capturing the overnight gap makes the loss slightly *smaller* but changes nothing
+> that matters: under neither convention is there a positive, significant out-of-sample edge,
+> so the conclusion is robust to the choice of next-bar fill.
 
 ### Is the edge real? — statistical significance (the headline)
 

@@ -2683,3 +2683,89 @@ teeth for that bug.
 the old full-sample filter, so symbols it excluded are simply absent and cannot be recovered
 without a refetch. This compounds the survivorship bias already documented in §v30 (only
 1 of 36 names delisted 2020–2025 is present in the cache).
+
+---
+
+## v31.1 — Finalization (2026-09-05)
+
+**Context.** The project sat untouched from the v31 merge (2026-08-04) until a finalization
+audit on 2026-09-05. The code was green throughout — 107 tests, ruff, the pinned + latest CI
+legs, CodeQL — but the *published text* still partly described v29, the dependency bot had
+opened seven PRs, and the v31 note had left the t+1-open sensitivity column blank. This
+entry closes all of it. **The headline v31 numbers are unchanged.**
+
+### Published-artifact drift (no engine change; `scripts/check_published_numbers.py` passes)
+
+- **README** — results header said "v29 … run of 2026-06-21"; the fund-profile table still
+  carried v29's "four of five positive" values (Quant +2.87% … Retail −0.17%) next to a v31
+  headline that had already reversed. Replaced with the v31 profiles — all five negative
+  (Quant −1.46%/−0.53, Multi-Strat −1.03%/−0.56, Fundamental −0.61%/−0.66, Buy-side
+  −0.12%/−0.27, Retail −0.44%/−0.90) — and the reason (the replay booked 2× gross P&L
+  against a 1× cost basis). The limitations bullet on walk-forward selection look-ahead was
+  still written as an open caveat (W1–W9, Sharpe ~5); rewritten as fixed-in-v31 (10/10
+  selection-clean, nine earliest slots skipped). "What this project is not" now says the ML
+  contribution is *exactly* 0 (bit-identical ablation) and the OOS result is negative.
+  Architecture box: exit fills t+1 too; 19 slots / 10 with an eligible universe; history
+  v6→v31.
+- **index.html** — the significance table was v29 (PSR 78%/58%, CI [−0.96,+1.93] /
+  [−1.09,+1.59], DSR 11%/3.6%, "every t-stat is below 1") under a v31 hero → v31 values
+  (32.5%/2.2%, [−1.70,+0.80] / [−2.41,+0.06], 0.9%/0.0%, negative point estimate).
+  Roadmap breadth "~40 near-sequential bets" → ~14 (v31 trade count). "PyTorch 2.7" →
+  2.13 (the pinned, pip-audit-clean version).
+- **CITATION.cff** — `date-released` 2026-06-21 → 2026-09-05 (the v31.0.0 release date).
+- **PROGRESS** — header; the §v31 sub-heading "v29 numbers INVALID pending a re-run" →
+  superseded by the v31 re-run.
+
+### Dependencies
+
+- **CodeQL**: Dependabot #14 and #15 each bumped *one half* of `codeql-action`
+  (init vs analyze) to 4.37.9, which left the pair on different versions and failed CodeQL on
+  both PRs. Bumped both together on main (cdf488f, `# v4.37.9`) and closed the PRs as
+  superseded.
+- **pip**: Dependabot #3–#7 (numpy 2.4, scikit-learn 1.9, yfinance 1.4, matplotlib 3.11,
+  pandas 3.0) were green only because they pre-dated the pinned CI leg. `requirements.txt`
+  is the pinned set that produced the published results (SECURITY.md); bumping it without a
+  logged re-run breaks the reproducibility claim, and the CI "latest" leg already gates
+  forward-compatibility on every push. Closed all five with that rationale and set
+  `open-pull-requests-limit: 0` for pip *version* updates. Security updates are unaffected.
+
+### t+1-open sensitivity arm — now stated from a logged run
+
+The v31 note deliberately left this column blank rather than carry v29 numbers. An earlier
+attempt (2026-08-04) died silently during Window 10 agent training (no traceback; the
+process was killed with the session). Re-run on v31 code, seed 42, `PAIRS_FILL=open`,
+`logs/backtest_v31_open.log`:
+
+| Out-of-sample | t+1 close (headline) | t+1 open |
+|---|---|---|
+| Return / qtr | −0.28% | −0.28% |
+| Pooled Sharpe | −1.23 | −1.13 |
+| Newey-West t-stat (p) | −1.86 (p=0.06) | −1.69 (p=0.09) |
+| Deflated Sharpe | 0.0% | 0.0% |
+| Windows positive | 1/10 | 2/10 |
+
+Main backtest under t+1-open: −0.17% / Sharpe −0.18 / 14 trades / WR 28.6%. Capturing the
+overnight gap makes the loss slightly *smaller* than under t+1-close (pooled −1.13 vs −1.23)
+and changes nothing that matters: under neither convention is there a positive, significant
+out-of-sample edge, so the conclusion is robust to the choice of next-bar fill.
+
+The canonical `outputs/*.json` (t+1-close, the headline convention) were backed up before
+the run and restored after the numbers were extracted, so the exported JSON always matches
+the README headline.
+
+### Release
+
+- Tag + GitHub release **v31.0.0** — notes drafted; the last release marker is still
+  v29.0.0 (2026-06-21), so the reversal is not yet reflected in the release list. Blocked on
+  re-authentication: the `gh` OAuth token used by the credential helper
+  (`credential.https://github.com.helper = !gh auth git-credential`) went invalid partway
+  through this pass, and there is no SSH key or `GH_TOKEN` fallback configured. Run
+  `gh auth login -h github.com`, then push and cut the tag.
+
+### What this changes / does not change
+
+- Changes: every published artifact now says the same thing as `logs/backtest_v31.log`;
+  the open-fill column is a logged number; dependency automation can no longer silently
+  drift the pinned set.
+- Does not change: the v31 result (main −0.31%/−0.31; OOS −0.28%/qtr, pooled −1.23,
+  1/10; Gatev beats the pipeline; 0 pairs survive BH; transformer exactly 0).
