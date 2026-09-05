@@ -100,7 +100,7 @@ jobs:
 
       - name: Run test suite (with coverage)
         # Per-module report in the log; fail-under is a regression floor set just under the
-        # current total (28%). Total is held down by the data-dependent pipeline modules
+        # current total (29%). Total is held down by the data-dependent pipeline modules
         # (run_comprehensive_backtest needs the full price cache), while the deterministic
         # core (transaction_costs, fund_profiles, benchmark, significance, position_sizer)
         # is 73-97% covered.

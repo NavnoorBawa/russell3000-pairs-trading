@@ -2,16 +2,18 @@
 # CI installs this file directly (see .github/workflows/ci.yml, job "test (pinned)") so the
 # reproducibility claim is actually gated rather than assumed.
 #
-# Security posture for these pins is documented in SECURITY.md. Summary: `requests` is kept
-# current with all known advisories fixed; `torch` is held at the version that produced the
-# results because its outstanding advisories are unreachable from this codebase (no torch.load,
-# no load_state_dict, no distributed/RPC) and one of them has no fixed version at all.
+# Security posture for these pins is documented in SECURITY.md. Summary: this pinned set is
+# currently `pip-audit` clean (0 known advisories), and CI enforces that on every push with no
+# ignore-list, so a newly disclosed advisory in any pinned package turns CI red rather than
+# being silently waived. Most `torch` advisories would also be unreachable from this codebase
+# (no torch.load, no load_state_dict, no distributed/RPC), but that is a secondary defence —
+# the pin is clean on its own terms.
 numpy==1.26.4
 pandas==2.2.3
 scipy==1.15.2
 scikit-learn==1.6.1
 statsmodels==0.14.4
-torch==2.13.0      # clears 13 of the 14 advisories that affected 2.7.0; see SECURITY.md
+torch==2.13.0      # clears all 14 advisories that affected 2.7.0; see SECURITY.md
 matplotlib==3.10.1
 seaborn==0.13.2
 tqdm==4.67.1

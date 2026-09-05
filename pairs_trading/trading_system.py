@@ -5,6 +5,7 @@ Complete Fixed Russell 3000 Trading System with balanced improvements.
 DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
 """
 
+import bisect
 import os
 from pairs_trading.config import (
     pd, np, logging, tqdm, Dict, Tuple
@@ -20,6 +21,16 @@ from pairs_trading.json_export import export_testing_results_to_json, export_fun
 from pairs_trading.plotting import plot_results, plot_fund_comparison
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_fill_column(value: str) -> str:
+    """Map the PAIRS_FILL env value to the OHLCV column the t+1 fill reads.
+
+    Only 'open' (any case) selects the next bar's open; everything else — including an
+    unset or malformed value — falls back to 'Close', the conservative headline
+    convention. Module-level so tests exercise this rule rather than a copy of it.
+    """
+    return 'Open' if str(value).lower() == 'open' else 'Close'
 
 
 class CompleteFixedRussell3000TradingSystem:
@@ -288,7 +299,7 @@ class CompleteFixedRussell3000TradingSystem:
         # convention that captures the overnight gap — used to report the execution-realism
         # sensitivity (does the conclusion hold under both fill conventions?). Signal/exit
         # logic is unchanged (still close-based z-score); only the fill PRICE changes.
-        _fill_col = 'Open' if os.environ.get('PAIRS_FILL', 'close').lower() == 'open' else 'Close'
+        _fill_col = resolve_fill_column(os.environ.get('PAIRS_FILL', 'close'))
 
         # Build master date list from ALL windows if re-selection is active
         all_dates = set()
@@ -1371,7 +1382,11 @@ class CompleteFixedRussell3000TradingSystem:
             'profitable_windows': profitable_windows,
             'profitable_window_pct': round(profitable_windows / len(wf_results) * 100, 1),
             'avg_window_return_pct': round(float(sum(returns)) / len(returns) * 100, 4),
-            'median_window_return_pct': round(sorted(returns)[len(returns)//2] * 100, 4),
+            # v31.1 (audit): sorted(...)[n//2] is the UPPER-middle element, not the median,
+            # whenever the window count is even (it is: 10). With returns
+            # [-0.995,-0.737,-0.648,-0.463,-0.448,-0.093,0,0,0,+0.568] that reported
+            # -0.0931% instead of the true -0.2708% — the flattering half of the pair.
+            'median_window_return_pct': round(float(np.median(returns)) * 100, 4),
             # v31 (audit): this is the MEAN OF PER-WINDOW ANNUALISED SHARPES, not a
             # portfolio Sharpe. Each window annualises its own 63 daily observations by
             # sqrt(252), then those 19 numbers are averaged — which discards the
@@ -1809,10 +1824,33 @@ class CompleteFixedRussell3000TradingSystem:
                 # P&L by calendar-date string so the lookup matches regardless of
                 # tz/time-of-day. (total_return + max_drawdown are unaffected — they
                 # come from the exit-date equity loop above.)
+                #
+                # v31.1 (audit): the exit bucket is dated entry + holding_days CALENDAR
+                # days (see the pending_pnl write above), so it can land on a weekend or
+                # market holiday. main_daily_dates only contains trading days, so such a
+                # bucket would be looked up, missed, and its P&L silently dropped from the
+                # Sharpe series (total_return/max_drawdown come from the exit-date equity
+                # loop and would still include it — an inconsistency between the two).
+                # No trade in the v31 run is affected (0 of 14 buckets fall off-calendar),
+                # so this changes no published number; it removes the latent failure.
+                # Snap any off-calendar bucket forward to the next trading day.
+                _cal_days = sorted({str(pd.Timestamp(d).date()) for d in main_daily_dates})
+                _cal_set = set(_cal_days)
                 pending_by_day: Dict = {}
+                _snapped = 0
                 for _xdt, _val in pending_pnl.items():
                     _k = str(pd.Timestamp(_xdt).date())
+                    if _k not in _cal_set:
+                        _pos = bisect.bisect_left(_cal_days, _k)
+                        if _pos < len(_cal_days):
+                            _k = _cal_days[_pos]
+                            _snapped += 1
+                        else:
+                            continue  # exits after the last trading day: nowhere to book it
                     pending_by_day[_k] = pending_by_day.get(_k, 0.0) + _val
+                if _snapped:
+                    logger.debug(f"  fund replay: snapped {_snapped} off-calendar exit "
+                                 f"bucket(s) forward to the next trading day")
                 _stop_day = (str(pd.Timestamp(stopped_date).date())
                              if stopped_early and stopped_date is not None else None)
                 full_returns = []
@@ -2214,7 +2252,13 @@ class CompleteFixedRussell3000TradingSystem:
         results['regime_diagnosis'] = regime_diag
 
         # --- ADDED: JSON Export ---
-        export_testing_results_to_json(results, self.processed_data)
+        # v31.1 (audit): json_export reads 'total_symbols_processed'/'pairs_selected' off
+        # this dict. self.processed_data is keyed by SYMBOL, so both .get() calls missed and
+        # every published export carried total_symbols=0, pairs_selected=0.
+        export_testing_results_to_json(results, {
+            'total_symbols_processed': len(self.processed_data),
+            'pairs_selected': len(self.selected_pairs),
+        })
 
         # --- ADDED: Plotting ---
         plot_results(results['daily_returns'], results)

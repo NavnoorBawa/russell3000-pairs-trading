@@ -317,7 +317,7 @@ footer{padding:36px 0}
   <div class="pipeline">
     <div class="p-row">
       <div class="p-key">pair selection</div>
-      <div class="p-val">Engle-Granger cointegration on all <strong>47,586 pairs</strong> (36,524 return usable p-values; 539 survive every filter). ADF on OLS residuals, both directions, p &lt; 0.05. Half-life filter 4–25 days. PCA strips 5 systematic factors (~58% variance); idiosyncratic residual cointegration adds a quality bonus. CUSUM and Hurst pre-filters. Quarterly re-selection.</div>
+      <div class="p-val">Engle-Granger cointegration on all <strong>47,586 pairs</strong> (36,524 return usable p-values; 539 survive every filter). ADF on OLS residuals, both directions, p &lt; 0.05. Half-life filter 4–25 days. PCA strips 5 systematic factors (56.5% variance in the v31 run); idiosyncratic residual cointegration adds a quality bonus. CUSUM and Hurst pre-filters. Quarterly re-selection.</div>
     </div>
     <div class="p-row">
       <div class="p-key">spread construction</div>
@@ -386,7 +386,7 @@ footer{padding:36px 0}
 <section class="section" id="ablation">
   <div class="sec-label">04 — Controlled ablation</div>
   <h2>ML contribution: ≈ 0, confirmed by a seed-robustness check</h2>
-  <p class="desc">A transformer-based signal-quality scorer is trained (leak-free, per window) on whether an entry reaches its exit band, and used for opportunity ranking. It trains correctly — BCE falls below the coin-flip entropy, so it genuinely discriminates. Yet the main backtest and all five cost profiles do <strong>not depend on it</strong> by construction: the score only reorders same-day opportunities, and the sparse main backtest never has enough competing pairs on one day for the ordering to matter. The definitive ML-contribution test is the four-seed robustness check below (run on the v26.1 codebase): one training seed showed an OOS gain (+0.74%/qtr), but across seeds {42,1,2,7} it dissolved into noise — the OOS spread (0.30–0.74%/qtr) is larger than the mean effect, with one seed below the classical baseline. The v31 audit changed the trade population substantially (14 trades, down from 41), so the ablation was re-run against the corrected code rather than assumed. The two arms come back <strong>bit-identical on every metric</strong> — return, Sharpe, trade count, win rate, walk-forward pooled Sharpe, and all five cost profiles. The measured ML contribution is exactly 0, not approximately 0.</p>
+  <p class="desc">A transformer-based signal-quality scorer is trained (leak-free, per window) on whether an entry reaches its exit band, and used for opportunity ranking. It trains, but it barely discriminates: across the 27 logged training epochs the BCE never falls below coin-flip entropy (minimum 0.7700 vs ln 2 = 0.6931) and only dips modestly under the class-weighted base-rate loss (≈0.88 at a 36.6% base rate with pos_weight 1.73). Yet the main backtest and all five cost profiles do <strong>not depend on it</strong> by construction: the score only reorders same-day opportunities, and the sparse main backtest never has enough competing pairs on one day for the ordering to matter. The definitive ML-contribution test is the four-seed robustness check below (run on the v26.1 codebase): one training seed showed an OOS gain (+0.74%/qtr), but across seeds {42,1,2,7} it dissolved into noise — the OOS spread (0.30–0.74%/qtr) is larger than the mean effect, with one seed below the classical baseline. The v31 audit changed the trade population substantially (14 trades, down from 41), so the ablation was re-run against the corrected code rather than assumed. The two arms come back <strong>bit-identical on every metric</strong> — return, Sharpe, trade count, win rate, walk-forward pooled Sharpe, and all five cost profiles. The measured ML contribution is exactly 0, not approximately 0.</p>
   <div class="tw"><table>
     <thead>
       <tr><th>Metric</th><th>Classical only</th><th>+ Transformer</th><th>Δ</th></tr>
@@ -408,7 +408,7 @@ footer{padding:36px 0}
   <p class="desc">The engineering log records every version, bug, and failed hypothesis from v7 to v31. Selected research notes below.</p>
   <div class="pubs">
     <a class="pub" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">
-      <div class="pub-meta">Engineering log · v7 → v31</div>
+      <div class="pub-meta">Engineering log · v6 → v31.1</div>
       <div class="pub-title">Progress reference: nineteen versioned entries of bias hunts, fixes, and verification</div>
       <div class="pub-abs">Complete chronological record — survivorship bias (v9), Kalman spread differencing (v16), the dead-code audit (v24), the Sharpe correction (v25), the v26 sign-bug that reversed the all-negative fund result, and the v27 audit (9 bugs: feature skew, cross-symbol concentration, fund Sharpe inflation, stat shadowing, deprecated API, dead code). Kept deliberately unflattering — bugs in both directions.</div>
       <div class="pub-tags"><span class="tag">methodology</span><span class="tag">validation</span></div>
@@ -422,7 +422,7 @@ footer{padding:36px 0}
     <a class="pub" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/transaction_costs_and_portfolio_exposure.md">
       <div class="pub-meta">Research note</div>
       <div class="pub-title">Transaction costs and portfolio exposure across institutional profiles</div>
-      <div class="pub-abs">Five cost structures — quant HF, pod shop, fundamental L/S, unlevered institutional, retail — applied to identical signals. Under realistic t+1 execution four of five are net-positive on the main backtest (retail slightly negative); but the rigorous walk-forward OOS is the binding constraint and is not statistically significant.</div>
+      <div class="pub-abs">Five cost structures — quant HF, pod shop, fundamental L/S, unlevered institutional, retail — applied to identical signals. Under realistic t+1 execution <strong>all five are net-negative</strong> on the main backtest — from −1.46% at Sharpe −0.53 (quant HF) to −0.12% at Sharpe −0.27 (unlevered institutional) — and the more leverage a profile runs, the larger its loss. The earlier "four of five positive" reading came from a fund replay that booked 2× gross P&amp;L against a 1× cost basis, corrected in v31. The walk-forward OOS remains the binding constraint and is negative and not statistically significant.</div>
       <div class="pub-tags"><span class="tag">cost modeling</span><span class="tag">disclosure</span></div>
     </a>
     <a class="pub" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/deep_analysis_v9_issues.md">
@@ -477,8 +477,8 @@ footer{padding:36px 0}
   <div class="grid2" style="margin-top:36px">
     <div class="g2-item">
       <div class="g2-lbl">Versions</div>
-      <div class="g2-val">v7 → v31</div>
-      <div class="g2-sub">19 documented entries · every bug logged</div>
+      <div class="g2-val">v6 → v31.1</div>
+      <div class="g2-sub">25 documented entries · every bug logged</div>
     </div>
     <div class="g2-item">
       <div class="g2-lbl">Stack</div>

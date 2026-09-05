@@ -35,18 +35,21 @@ to prove to itself that the edge isn't significant — not a deployable alpha.
 ```
 data (2,542 Russell 3000 symbols, 2020–2025, America/New_York)
   │
-  ├─ Pair selection (quarterly re-selection)
+  ├─ Pair selection (re-selected every 90 trading days, ~4 months)
   │    Engle-Granger cointegration (rolling ADF, both directions, p<0.05)
-  │    PCA factor decomposition: 5 systematic factors (~58% variance) stripped;
+  │    PCA factor decomposition: 5 systematic factors (56.5% variance) stripped;
   │    pairs also cointegrating on idiosyncratic residuals get a quality bonus
-  │    Half-life filter (4–25 days), Hurst exponent, CUSUM structural-break check
+  │    Half-life filter (4–25 days) — Hurst and CUSUM are entry-time gates, not
   │
   ├─ Spread construction
   │    1-D Kalman filter → time-varying hedge ratio β_t; β locked at entry for
   │    exit/P&L so β drift can't be booked as profit (v12 fix)
   │
+  │    selection filters (they run per-entry in trading_system.py, not here)
+  │
   ├─ Signal rule
   │    Entry |z| > 1.8, exit |z| < 0.5, half-life-adaptive z lookback,
+  │    per-entry gates on the locked-β spread: Hurst exponent, CUSUM structural break,
   │    dynamic max hold = clamp(2.5 × half-life, 10–25 trading days)
   │    t+1 execution: signal on day-t close; entry AND exit fill at t+1 close (v31)
   │
@@ -149,7 +152,7 @@ that pair selection is not obviously worse than picking at random. It is **not**
 the textbook. The earlier claim that it won on risk-adjusted return
 (Sharpe 0.50 vs 0.16) was an artifact of how the baseline was run: Gatev was formed **once**
 over ~42 months and then traded ~30 months with no re-formation, while this strategy
-re-selected quarterly. Given the paper's own rolling 12-month formation / 6-month trading
+re-selected every 90 trading days (~4 months). Given the paper's own rolling 12-month formation / 6-month trading
 scheme, the distance method wins on both raw and risk-adjusted return.
 
 ### Multiple-testing reality check — FDR
@@ -165,7 +168,7 @@ insignificant out-of-sample result above.
 
 ### Known limitations (every one biases *upward* on an already-null result)
 
-A skeptical-reviewer pass surfaced three caveats. Crucially, all of them inflate apparent
+A skeptical-reviewer pass and a later verification sweep surfaced four caveats. Crucially, all of them inflate apparent
 performance, and the headline is already statistically insignificant — so the *true* edge
 is at or below what is reported, and the negative conclusion is conservative, not at risk.
 
@@ -188,7 +191,13 @@ is at or below what is reported, and the negative conclusion is conservative, no
   days), so its effective sample size is smaller than the raw count and its training is
   less informative than it looks. It does *not* leak across the train/test boundary (the
   forward horizon is capped inside the training window — verified, with a regression test
-  in [`tests/test_leakage.py`](tests/test_leakage.py)) and it contributes ≈0 regardless.
+  in [`tests/test_leakage.py`](tests/test_leakage.py)) and it contributes exactly 0 regardless.
+- **The shipped price cache predates the penny-stock-filter fix.** `data/enhanced_russell_3000_data.pkl`
+  was built when the sub-$2 screen was applied over the *full* sample, so a name that fell
+  below $2 at any point was removed retroactively from the earlier periods in which it
+  still traded normally. That is the same direction of bias as survivorship — the worst
+  outcomes are pre-filtered — and it cannot be undone without refetching the universe.
+  The screen itself is fixed in code; the cache carries the old behaviour.
 
 This negative result is also consistent with the published literature: Do & Faff (2010,
 *FAJ*; 2012, *J. Financial Research*) document that simple distance/cointegration pairs
@@ -303,7 +312,7 @@ the pair-selection statistics (correlation, half-life), the JSON analytics helpe
 data-validation/RSI helpers, and an import/instantiation smoke test.
 
 The deterministic **core-logic modules are 73–97% covered** (transaction costs 97%,
-benchmark 77%, significance 75%, position sizer 73%); overall line coverage is lower only
+benchmark 80%, significance 75%, position sizer 73%); overall line coverage is lower only
 because the data-dependent pipeline (`run_comprehensive_backtest` needs the full price
 cache) is validated by the full reproducible runs rather than unit tests. CI runs `ruff`
 lint, a compile gate, the suite with coverage, and CodeQL security analysis on every push.
@@ -318,7 +327,7 @@ pytest -q --cov=pairs_trading            # 107 tests + coverage
 ├── pairs_trading/   # source (16 modules; main.py is the entry point)
 ├── tests/           # pytest suite (107 hermetic tests; no data files / network)
 ├── data/            # price + macro caches
-├── docs/            # PROGRESS.md — complete version history v6→v31, every bug documented
+├── docs/            # PROGRESS.md — complete version history v6→v31.1 (25 entries), every bug documented
 ├── logs/            # one log per backtest version
 ├── outputs/         # charts + JSON exports
 ├── scripts/         # diagnostics

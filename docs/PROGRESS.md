@@ -35,7 +35,7 @@ A modular, research-grade statistical arbitrage system for Russell 3000 stocks.
 | `json_export.py` | JSON export of all results |
 | `main.py` | Entry point, final console output |
 
-> Plus a `tests/` pytest suite (74 hermetic tests) and `pyproject.toml` / `.github/`
+> Plus a `tests/` pytest suite (107 hermetic tests as of v31.1) and `pyproject.toml` / `.github/`
 > tooling (ruff lint + CI). Position sizer floor is 3% (v18); the "min 2%" note above
 > is historical.
 
@@ -2665,7 +2665,7 @@ never more than one candidate competing on a given day.
 
 None of the 25 bugs above was caught by the existing 94-test suite, because those tests
 checked that functions *ran*, not that they were *causal*. `tests/test_v31_audit.py` adds
-11 tests built around prefix invariance — computing a function on the first k bars must
+13 tests (9 functions, one parametrized over 5 seeds) built around prefix invariance — computing a function on the first k bars must
 match computing it on the full series and taking the first k. A full-sample variance, a
 `.bfill()`, or a terminal-date lookup fails that immediately, without needing to know the
 correct output value.
@@ -2772,6 +2772,73 @@ comparison. The five random draws also span −12.8% to +23.4% (Sharpe −0.45 t
 dispersion that cannot settle the question in either direction. README and the site now say
 what the numbers support: cointegration-based selection is not obviously *worse* than
 picking at random, which is a much weaker statement than beating it.
+
+### Independent verification sweep (108 agents, 8 dimensions)
+
+Because a finalization pass is exactly where a stale claim survives unnoticed, the finished
+repo was re-audited by an independent sweep: eight read-only dimensions (README-vs-log,
+site-vs-README, code-vs-claims, CI/security, tests, numbers-recomputed-from-outputs,
+PROGRESS/hygiene, honesty), with every finding then handed to two adversarial verifiers —
+one instructed to refute it, one to defend the text — and kept only if neither could. 25
+findings survived. All are fixed here.
+
+**Published claims that contradicted the logs**
+
+- *The site still told visitors the strategy made money.* The research-note card said "under
+  realistic t+1 execution four of five are net-positive on the main backtest (retail slightly
+  negative)" — pre-v31 text that the v31.1 drift sweep had corrected in the README fund table
+  and the significance table but missed here. It was the only fund-profile figure on the
+  site, and it was the reversed one. All five are negative (−1.46% to −0.12%).
+- *"BCE falls below the coin-flip entropy, so it genuinely discriminates"* — it does not. The
+  minimum BCE across all 27 logged training epochs is 0.7700; coin-flip entropy is
+  ln 2 = 0.6931. The loss only dips modestly below the class-weighted base-rate loss (≈0.88
+  at a 36.6% base rate with pos_weight 1.73). The scorer barely discriminates, which is
+  consistent with an ablation contribution of exactly 0.
+- PCA factors explain **56.5%** of cross-sectional variance in the v31 run, not the ~58%
+  published (that was the v19-era figure on a 299-symbol universe).
+- Hurst and CUSUM were listed under *pair selection*; neither appears in `pair_selector.py`.
+  They are per-entry gates in `trading_system.py` and are now documented there.
+- "Quarterly re-selection" is `reselect_every=90` **trading** days (~4 months), not a quarter
+  (~63). Relabelled rather than changed, since changing it would invalidate the run.
+- `benchmark.py` coverage is 80%, not the 77% published; CI's comment said the total was 28%,
+  measured 29%; PROGRESS still said "74 hermetic tests" (107) and "adds 11 tests" (13).
+- `requirements.txt` still carried the pre-upgrade rationale ("one advisory has no fixed
+  version at all") after torch 2.13.0 made the set `pip-audit` clean, and undercounted the
+  cleared advisories (13 of 14, vs SECURITY.md's 14).
+- The site disclosed a limitation the README did not: the shipped price cache predates the
+  penny-stock-filter fix, so names that fell below $2 were retroactively removed from earlier
+  periods. Added as a fourth README limitation — same upward direction as survivorship bias.
+
+**Two tests that could not fail**
+
+`tests/test_leakage.py` contained two tautologies. `test_engine_t_plus_1_fill_default`
+defined its own local copy of the fill rule and asserted on the copy; it would have passed
+with the engine's fill selection deleted. `test_outcome_horizon_cap_holds` was arithmetic on
+literals re-implementing `range(60, len(spread) - horizon, 2)`; it would have passed with the
+cap removed. Both now exercise the real code — the fill test calls the engine's own
+`resolve_fill_column` (newly extracted to module level) and asserts the backtest still routes
+through it; the horizon test counts the labels `_build_outcome_dataset` actually emits. Both
+were mutation-tested: each fails when its guarded code is broken, and passes when it is not.
+
+**Code defects fixed (none change a published number)**
+
+- `median_window_return_pct` used `sorted(returns)[n//2]` — the upper-middle element, not the
+  median, for an even window count. With 10 windows it reported **−0.0931%** where the true
+  median is **−0.2708%**: the flattering half of the central pair. Now `np.median`.
+- The fund replay dates its exit bucket `entry + holding_days` **calendar** days, so a bucket
+  can land on a weekend or holiday, be missed when looking up the trading calendar, and have
+  its P&L silently dropped from the Sharpe series while still counting in total return. A
+  reviewer reported this as live (an exit on Sunday 2023-12-10); that was **wrong** — all 14
+  buckets in the v31 run fall on trading days, so no published number is affected. The latent
+  failure is real, so off-calendar buckets now snap forward to the next trading day.
+- Every published JSON export carried `total_symbols: 0, pairs_selected: 0`: the export reads
+  those keys off a dict that is keyed by ticker symbol, so both lookups missed. Now passed
+  explicitly.
+
+**Re-run.** Because the code changed, the canonical configuration was re-run end to end
+(seed 42, t+1 close) to `logs/backtest_v31_1.log` and checked against `logs/backtest_v31.log`:
+every headline metric reproduces, the median corrects to −0.2708%, and the export metadata is
+populated. Determinism verified rather than assumed.
 
 ### What this changes / does not change
 
