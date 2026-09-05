@@ -8,7 +8,7 @@ damaging defect class in a research repo — they are wrong in public, they look
 authoritative, and no test suite touches them.
 
 Usage:
-    python3.12 scripts/check_published_numbers.py [--log logs/backtest_v31.log]
+    python3.12 scripts/check_published_numbers.py [--log logs/backtest_v31_2.log]
 
 Exit code 0 if every checked figure appears in the published files, 1 otherwise.
 This is a *drift detector*, not a full parser: it asserts that the specific headline
@@ -75,7 +75,7 @@ def _variants(value, decimals):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--log', default='logs/backtest_v31.log')
+    ap.add_argument('--log', default='logs/backtest_v31_2.log')
     args = ap.parse_args()
 
     log_path = ROOT / args.log

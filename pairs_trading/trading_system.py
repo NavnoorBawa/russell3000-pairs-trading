@@ -1724,8 +1724,20 @@ class CompleteFixedRussell3000TradingSystem:
 
                 net_fraction = gross_fraction - cost_fraction
 
-                # Book on EXIT date (entry + holding_days calendar days)
-                exit_date = entry_date + pd.Timedelta(days=holding_days)
+                # Book on EXIT date (entry + holding_days calendar days).
+                #
+                # v31.1 (audit): this used pd.Timedelta(days=...), which adds ABSOLUTE
+                # time. entry_date is tz-aware (America/New_York), so a hold spanning the
+                # November fall-back lands at 23:00 on the PREVIOUS calendar day. The v31
+                # trade entered 2023-11-02 and held 39 days: Timedelta produced
+                # 2023-12-10 23:00 EST -> booked on Sunday 2023-12-10 instead of Monday
+                # 2023-12-11. main_daily_dates holds only trading days, so that bucket was
+                # never read back and the trade's P&L was silently dropped from every fund
+                # Sharpe series — while still counting in total_return and max_drawdown,
+                # which come from the exit-date equity loop. All five published fund
+                # Sharpes were flattered as a result. DateOffset does calendar-day
+                # arithmetic, which is what "holding_days" means.
+                exit_date = entry_date + pd.DateOffset(days=holding_days)
 
                 pending_pnl[exit_date]  = pending_pnl.get(exit_date, 0.0)  + net_fraction
                 # Accumulate cost components for breakdown

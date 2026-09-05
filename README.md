@@ -74,7 +74,7 @@ data (2,542 Russell 3000 symbols, 2020–2025, America/New_York)
 16 Python modules under [pairs_trading/](pairs_trading/) (incl. `significance.py` and
 `benchmark.py`, the v28–v29 rigor layer). Entry point: `python3 -m pairs_trading.main`.
 
-## Results (v31 — realistic t+1 execution on entry *and* exit, run of 2026-08-04)
+## Results (v31.1 — realistic t+1 execution on entry *and* exit, run of 2026-09-05)
 
 These figures use **t+1 execution**: the |z|>1.8 signal is decided on the day-t close,
 but the trade *fills at the next trading day's close*, removing the same-bar look-ahead
@@ -210,11 +210,11 @@ equity curve):
 
 | Profile (leverage) | Net return | Sharpe | Max DD |
 |---|---|---|---|
-| Quant HF (~5–7×) | −1.46% | −0.53 | −2.5% |
-| Multi-Strat pod (~4×) | −1.03% | −0.56 | −1.7% |
-| Fundamental L/S (~1.5–2×) | −0.61% | −0.66 | −1.0% |
-| Buy-side institutional (1×) | −0.12% | −0.27 | −0.3% |
-| Retail (1×) | −0.44% | −0.90 | −0.6% |
+| Quant HF (~5–7×) | −1.46% | −0.57 | −2.5% |
+| Multi-Strat pod (~4×) | −1.03% | −0.60 | −1.7% |
+| Fundamental L/S (~1.5–2×) | −0.61% | −0.70 | −1.0% |
+| Buy-side institutional (1×) | −0.12% | −0.28 | −0.3% |
+| Retail (1×) | −0.44% | −0.96 | −0.6% |
 
 All five are net-negative as of v31. The earlier "four of five positive" table was an
 artifact: the fund replay booked **2× gross P&L** (the full notional instead of the per-leg
@@ -302,7 +302,7 @@ so they do not exist in a fresh clone and are created on the first run.
 
 ## Testing
 
-A hermetic [`pytest`](tests/) suite (107 tests, ~6s, no data files or network) guards the
+A hermetic [`pytest`](tests/) suite (109 tests, ~6s, no data files or network) guards the
 core math and the fixes from the audits — the engine internals (Kalman spread, max
 drawdown, Hurst exponent, CUSUM break), the trade-gating logic (position-size clamps,
 risk-validation rejections, drawdown/loss kill-switches), the significance estimators
@@ -320,12 +320,12 @@ lint, a compile gate, the suite with coverage, and CodeQL security analysis on e
 ```bash
 pip install pytest pytest-cov ruff       # or: pip install -e ".[dev]"
 ruff check .                             # lint (clean)
-pytest -q --cov=pairs_trading            # 107 tests + coverage
+pytest -q --cov=pairs_trading            # 109 tests + coverage
 ```
 
 ```
 ├── pairs_trading/   # source (16 modules; main.py is the entry point)
-├── tests/           # pytest suite (107 hermetic tests; no data files / network)
+├── tests/           # pytest suite (109 hermetic tests; no data files / network)
 ├── data/            # price + macro caches
 ├── docs/            # PROGRESS.md — complete version history v6→v31.1 (25 entries), every bug documented
 ├── logs/            # one log per backtest version

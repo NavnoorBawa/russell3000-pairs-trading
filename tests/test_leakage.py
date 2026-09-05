@@ -90,3 +90,40 @@ def test_engine_t_plus_1_fill_default():
         "the backtest no longer routes its fill column through resolve_fill_column, so this "
         "test would be asserting on a function the engine does not use"
     )
+
+
+def test_fund_exit_date_survives_dst_crossing():
+    """A hold spanning the November fall-back must land on its true calendar date.
+
+    v31.1 (audit): the fund replay dated its exit bucket with `pd.Timedelta(days=n)` on a
+    tz-aware entry. Timedelta adds absolute time, so a hold crossing the DST boundary landed
+    at 23:00 on the PREVIOUS calendar day — the v31 trade entered 2023-11-02 and held 39
+    days was booked on Sunday 2023-12-10 instead of Monday 2023-12-11. `main_daily_dates`
+    holds only trading days, so that bucket was never read back and the trade's P&L vanished
+    from every fund Sharpe series while still counting in total return. Guard the arithmetic
+    that fixed it, and the exact case that exposed it.
+    """
+    entry = pd.Timestamp("2023-11-02", tz="America/New_York")
+
+    assert (entry + pd.Timedelta(days=39)).date().isoformat() == "2023-12-10", (
+        "the DST-shifting behaviour this test guards against no longer reproduces; "
+        "re-derive the guard before trusting it"
+    )
+    assert (entry + pd.DateOffset(days=39)).date().isoformat() == "2023-12-11"
+
+    src = inspect.getsource(CompleteFixedRussell3000TradingSystem.run_fund_type_comparison)
+    assert "pd.DateOffset(days=holding_days)" in src, (
+        "the fund replay no longer dates its exit bucket with calendar-day arithmetic — a "
+        "DST-crossing hold can again be booked a day early and dropped from the Sharpe series"
+    )
+    assert "pd.Timedelta(days=holding_days)" not in src
+
+
+def test_fund_offcalendar_pnl_is_not_dropped():
+    """Any exit bucket that still lands off the trading calendar must be snapped forward,
+    never silently discarded — total_return counts it, so the Sharpe series must too."""
+    src = inspect.getsource(CompleteFixedRussell3000TradingSystem.run_fund_type_comparison)
+    assert "bisect.bisect_left(_cal_days, _k)" in src, (
+        "the off-calendar snap-forward guard is gone; a weekend/holiday exit bucket would be "
+        "dropped from the fund Sharpe series again"
+    )

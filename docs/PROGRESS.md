@@ -35,7 +35,7 @@ A modular, research-grade statistical arbitrage system for Russell 3000 stocks.
 | `json_export.py` | JSON export of all results |
 | `main.py` | Entry point, final console output |
 
-> Plus a `tests/` pytest suite (107 hermetic tests as of v31.1) and `pyproject.toml` / `.github/`
+> Plus a `tests/` pytest suite (109 hermetic tests as of v31.1) and `pyproject.toml` / `.github/`
 > tooling (ruff lint + CI). Position sizer floor is 3% (v18); the "min 2%" note above
 > is historical.
 
@@ -2689,7 +2689,7 @@ without a refetch. This compounds the survivorship bias already documented in §
 ## v31.1 — Finalization (2026-09-05)
 
 **Context.** The project sat untouched from the v31 merge (2026-08-04) until a finalization
-audit on 2026-09-05. The code was green throughout — 107 tests, ruff, the pinned + latest CI
+audit on 2026-09-05. The code was green throughout — 107 tests at that point, ruff, the pinned + latest CI
 legs, CodeQL — but the *published text* still partly described v29, the dependency bot had
 opened seven PRs, and the v31 note had left the t+1-open sensitivity column blank. This
 entry closes all of it. **The headline v31 numbers are unchanged.**
@@ -2820,30 +2820,74 @@ cap removed. Both now exercise the real code — the fill test calls the engine'
 through it; the horizon test counts the labels `_build_outcome_dataset` actually emits. Both
 were mutation-tested: each fails when its guarded code is broken, and passes when it is not.
 
-**Code defects fixed (none change a published number)**
+**Code defects fixed — one of which DID change published numbers**
 
+- **The fund replay dropped a losing trade from every Sharpe series (published numbers were
+  flattered).** The exit bucket was dated `entry_date + pd.Timedelta(days=holding_days)`.
+  `entry_date` is tz-aware (America/New_York) and `Timedelta` adds **absolute** time, so a
+  hold spanning the November fall-back lands at 23:00 on the *previous* calendar day. The v31
+  trade entered 2023-11-02 and held 39 days: it was booked on **Sunday 2023-12-10** instead
+  of Monday 2023-12-11. `main_daily_dates` contains only trading days, so that bucket was
+  never read back and the trade's P&L vanished from the zero-padded daily series every fund
+  Sharpe is computed on — while still counting in `total_return` and `max_drawdown`, which
+  come from the exit-date equity loop. The dropped trade was a loss, so **all five published
+  fund Sharpes were too high**:
+
+  | Profile | Published (v31) | Corrected (v31.1) |
+  |---|---|---|
+  | Quant HF | −0.53 | **−0.57** |
+  | Multi-Strat pod | −0.56 | **−0.60** |
+  | Fundamental L/S | −0.66 | **−0.70** |
+  | Buy-side institutional | −0.27 | **−0.28** |
+  | Retail | −0.90 | **−0.96** |
+
+  Returns, drawdowns, win rates and cost breakdowns are unchanged; only the Sharpe row moves.
+  Fixed at the root — `pd.DateOffset(days=...)` does calendar-day arithmetic, which is what
+  "holding days" means — with an off-calendar snap-forward kept as a second line of defence
+  so a genuine weekend/holiday landing can never be discarded either. Both are pinned by
+  mutation-tested regression tests (109 tests now).
+
+  *Process note, recorded because it matters more than the number.* The verification sweep
+  reported this defect and it was initially **dismissed as refuted**: a check of all 14 exit
+  buckets showed every one landing on a trading day. That check was wrong — it recomputed the
+  dates from the exported trade records instead of reproducing the engine's tz-aware
+  arithmetic, so it could not see the DST shift. The reviewer was right and the refutation was
+  wrong. What caught it was re-running rather than reasoning: the fund Sharpes moved, and the
+  only code that could move them was the "no-op" fix. A verifier that can only re-derive the
+  claim the same way the author did is not an independent check.
 - `median_window_return_pct` used `sorted(returns)[n//2]` — the upper-middle element, not the
   median, for an even window count. With 10 windows it reported **−0.0931%** where the true
-  median is **−0.2708%**: the flattering half of the central pair. Now `np.median`.
-- The fund replay dates its exit bucket `entry + holding_days` **calendar** days, so a bucket
-  can land on a weekend or holiday, be missed when looking up the trading calendar, and have
-  its P&L silently dropped from the Sharpe series while still counting in total return. A
-  reviewer reported this as live (an exit on Sunday 2023-12-10); that was **wrong** — all 14
-  buckets in the v31 run fall on trading days, so no published number is affected. The latent
-  failure is real, so off-calendar buckets now snap forward to the next trading day.
+  median is **−0.2707%**: again the flattering half of the central pair. Now `np.median`.
 - Every published JSON export carried `total_symbols: 0, pairs_selected: 0`: the export reads
   those keys off a dict that is keyed by ticker symbol, so both lookups missed. Now passed
-  explicitly.
+  explicitly (2,542 symbols, 539 pairs).
 
-**Re-run.** Because the code changed, the canonical configuration was re-run end to end
-(seed 42, t+1 close) to `logs/backtest_v31_1.log` and checked against `logs/backtest_v31.log`:
-every headline metric reproduces, the median corrects to −0.2708%, and the export metadata is
-populated. Determinism verified rather than assumed.
+**The shipped "canonical" log was not the log of the shipped code.** While reconciling the
+above, `logs/backtest_v31.log` was found to predate the final v31 build: it prints the
+per-window CI in a format the merged code replaced (`95% CI [-0.547%, -0.014%]` vs
+`95% CI (t) [-0.611%, +0.047%]`). The README's published CI matched the *newer* format, so
+different published figures traced to different builds. Logs are untracked, so this was
+invisible to git. **`logs/backtest_v31_2.log` is now the single canonical run** — produced by
+the current code, and the source `scripts/check_published_numbers.py` checks against by
+default.
+
+**Re-runs.** The canonical configuration was run end to end twice (seed 42, t+1 close): once
+with the snap-forward fix (`logs/backtest_v31_1.log`) and once with the DST root-cause fix
+(`logs/backtest_v31_2.log`). Their fund tables are md5-identical, confirming the root-cause
+fix is numerically equivalent to the guard. Against the old canonical log, every headline
+metric reproduces exactly — main −0.31% / Sharpe −0.31 / 14 trades / WR 28.57% / DD −0.81%,
+OOS −0.2818%/qtr, pooled Sharpe −1.228, 1/10 windows, HAC t −0.49 (p=0.627) and −1.86
+(p=0.063), PSR 32.5% / 2.2%, DSR 0.9% / 0.0%, Gatev +2.775%/+0.26, random −1.744%/−0.02 —
+with only the median, the fund Sharpe row and the export metadata changing, each for a
+documented reason above. Determinism verified rather than assumed.
 
 ### What this changes / does not change
 
-- Changes: every published artifact now says the same thing as `logs/backtest_v31.log`;
+- Changes: every published artifact now says the same thing as `logs/backtest_v31_2.log`;
   the open-fill column is a logged number; dependency automation can no longer silently
   drift the pinned set.
+- Also changes: the five fund-profile Sharpes, which were flattered by a dropped losing
+  trade (see above), and the median window return.
 - Does not change: the v31 result (main −0.31%/−0.31; OOS −0.28%/qtr, pooled −1.23,
-  1/10; Gatev beats the pipeline; 0 pairs survive BH; transformer exactly 0).
+  1/10; Gatev beats the pipeline; 0 pairs survive BH; transformer exactly 0). Every headline
+  figure reproduced exactly on a fresh run of the corrected code.
