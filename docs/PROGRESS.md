@@ -2762,6 +2762,17 @@ the README headline.
   through this pass, and there is no SSH key or `GH_TOKEN` fallback configured. Run
   `gh auth login -h github.com`, then push and cut the tag.
 
+### One overstatement corrected
+
+The v31 text said the pipeline "still beats a random-pair control, which is the one
+comparative claim that survived." True on cumulative return (−0.31% vs −1.74%) — but the
+pipeline **loses to random on Sharpe** (−0.31 vs −0.02), and this project judges everything
+else on risk-adjusted terms, so it does not get to switch measures for its one favourable
+comparison. The five random draws also span −12.8% to +23.4% (Sharpe −0.45 to +1.08), a
+dispersion that cannot settle the question in either direction. README and the site now say
+what the numbers support: cointegration-based selection is not obviously *worse* than
+picking at random, which is a much weaker statement than beating it.
+
 ### What this changes / does not change
 
 - Changes: every published artifact now says the same thing as `logs/backtest_v31.log`;

@@ -23,8 +23,9 @@ universe built from the union of *all* quarterly re-selections including future 
 those fixed the out-of-sample result is **−0.28%/qtr (pooled Sharpe −1.23, 1 of 10 windows
 positive)**, every bootstrap CI still includes zero, and zero pairs survive a
 Benjamini-Hochberg correction. Run with its own paper's rolling re-formation, the textbook
-Gatev distance method **beats this pipeline** (+0.26 vs −0.31 Sharpe). It still beats a
-random-pair control, which is the one comparative claim that survived. The deliverable is a rigorously validated research framework — and the discipline
+Gatev distance method **beats this pipeline** (+0.26 vs −0.31 Sharpe). Against a random-pair
+control the pipeline wins on cumulative return (−0.31% vs −1.74%) but **loses on Sharpe**
+(−0.31 vs −0.02), so even that comparison is not a clean win. The deliverable is a rigorously validated research framework — and the discipline
 to prove to itself that the edge isn't significant — not a deployable alpha.
 
 ---
@@ -139,8 +140,13 @@ method and a random-pair control on the **same universe and OOS period**:
 | Distance method (Gatev 2006), rolling 12m/6m | +2.78% | **+0.26** |
 | Random-pair control (avg of 5 draws) | −1.74% | −0.02 |
 
-The pipeline still beats random pair selection, so the selection method does something.
-It does **not** beat the textbook. The earlier claim that it won on risk-adjusted return
+Read carefully, the random-pair row is not the consolation it looks like. The pipeline wins
+on cumulative return (−0.31% vs −1.74%) but **loses on Sharpe** (−0.31 vs −0.02) — and this
+project judges everything else on risk-adjusted terms, so it does not get to switch measures
+here. The five random draws also range from −12.8% to +23.4% (Sharpe −0.45 to +1.08); a
+5-draw mean that wide cannot settle the question either way. The defensible statement is
+that pair selection is not obviously worse than picking at random. It is **not** better than
+the textbook. The earlier claim that it won on risk-adjusted return
 (Sharpe 0.50 vs 0.16) was an artifact of how the baseline was run: Gatev was formed **once**
 over ~42 months and then traded ~30 months with no re-formation, while this strategy
 re-selected quarterly. Given the paper's own rolling 12-month formation / 6-month trading
