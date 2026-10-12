@@ -1789,10 +1789,8 @@ class CompleteFixedRussell3000TradingSystem:
     # Orchestration
     # ════════════════════════════════════════════════════════════════════════════
 
-    def run_complete_system(self):
-        """Run the full study: selection, backtest, walk-forward, diagnostics, exports."""
-        logger.info("Starting Russell 3000 pairs-trading study")
-
+    def load_study_data(self) -> None:
+        """Universe, price cache and macro data, then the run's provenance block."""
         symbols = self.data_processor.load_symbols()
         self.processed_data = self.data_processor.load_or_fetch_data(symbols)
         self.macro_data = self.data_processor.load_macro_data()
@@ -1801,6 +1799,15 @@ class CompleteFixedRussell3000TradingSystem:
         log_run_config(build_run_config(system_info={'total_symbols_processed': len(self.processed_data),
                                                      'initial_capital': self.initial_capital}))
 
+    def prepare_study(self):
+        """Everything before the backtests, on the loaded data.
+
+        Pair selection on formation data (to PAIR_SELECTION_CUTOFF), the main ranking
+        model (outcomes complete by MAIN_MODEL_TRAIN_END; skipped when
+        PAIRS_USE_TRANSFORMER=0) and the quarterly re-selection schedule. Returns
+        (test_spreads, pair_windows, last_test_date). Shared by run_complete_system and
+        scripts/parameter_sensitivity.py, so both trade exactly the same universe.
+        """
         # Pair selection on data up to the cutoff only (selecting on 2020-2025 data would
         # pick pairs because they cointegrated during the test period).
         train_only_data = {}
@@ -1836,6 +1843,13 @@ class CompleteFixedRussell3000TradingSystem:
             pair_windows[last_train_day] = dict(self.spread_data)
             pair_windows = dict(sorted(pair_windows.items(), key=lambda kv: _naive(kv[0])))
         last_test = str(pd.Timestamp(all_test_dates[-1]).date())
+        return test_spreads, pair_windows, last_test
+
+    def run_complete_system(self):
+        """Run the full study: selection, backtest, walk-forward, diagnostics, exports."""
+        logger.info("Starting Russell 3000 pairs-trading study")
+        self.load_study_data()
+        test_spreads, pair_windows, last_test = self.prepare_study()
 
         logger.info(f"Main backtest {MAIN_BACKTEST_START} -> {last_test}")
         results = self.run_comprehensive_backtest(

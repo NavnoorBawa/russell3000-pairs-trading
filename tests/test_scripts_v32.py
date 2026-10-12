@@ -370,3 +370,68 @@ def test_obsolete_scripts_are_gone():
                'decide_v11_fixes.sh', 'extract_v10_results.sh', 'check_stop_reason.py', 'find_actual_stop.py',
                'quick_diagnosis.py', 'diagnose_date_issue.py', 'trace_single_pair.py', 'run_trading_system.py']
     assert not [s for s in removed if os.path.exists(os.path.join(SCRIPTS, s))]
+
+
+# ── check_published_numbers --write ───────────────────────────────────────────
+
+def test_write_refreshes_every_marker_in_place(site, capsys):
+    js, readme, page = site
+    data = _headline()
+    data['oos']['pooled_sharpe'] = -0.976
+    data['main']['total_return_pct'] = 1.234
+    data['main']['trades'] = 1234
+    data['fdr']['pairs_tested'] = 40000
+    data['benchmarks']['gatev']['sharpe'] = -0.1
+    data['benchmarks']['gatev']['total_return_pct'] = 3.5
+    data['oos']['window_returns_pct'][0] = 0.5
+    js.write_text(json.dumps(data), encoding='utf-8')
+    assert run(site) == 1                                   # stale before writing
+    assert run(site, '--write') == 0                        # refreshed, then checked
+    md, html_text = readme.read_text(encoding='utf-8'), page.read_text(encoding='utf-8')
+    assert m('oos.pooled_sharpe', MINUS + '0.98') in md
+    assert m('main.total_return_pct', '1.23%') in md
+    assert m('main.trades', '1234') in md
+    assert m('fdr.pairs_tested', '40,000') in md            # thousands separator kept
+    assert m('benchmarks.gatev.sharpe', MINUS + '0.10') in md
+    assert m('benchmarks.gatev.total_return_pct', '+3.500%') in md   # '+' and precision kept
+    assert m('oos.window_returns_pct.0', '0.50%') in md
+    assert '<!--m:KEY-->1.0<!--/m-->' in md                 # code blocks are not touched
+    assert '<td data-metric="main.total_return_pct"><strong>1.23</strong>%</td>' in html_text
+    assert '<span data-metric="oos.pooled_sharpe">&minus;0.98</span>' in html_text
+    assert run(site) == 0
+    # idempotent: a second write changes nothing
+    before = (readme.read_text(encoding='utf-8'), page.read_text(encoding='utf-8'))
+    assert run(site, '--write') == 0
+    assert (readme.read_text(encoding='utf-8'), page.read_text(encoding='utf-8')) == before
+
+
+def test_write_fills_placeholders_and_reports_nulls(tmp_path, capsys):
+    js = tmp_path / 'h.json'
+    data = _headline()
+    data['main']['sharpe'] = None
+    js.write_text(json.dumps(data), encoding='utf-8')
+    doc = tmp_path / 'README.md'
+    doc.write_text(f"{m('oos.avg_window_return_pct', '—')} {m('main.trades', 'tbd')} "
+                   f"{m('main.sharpe', '—')}", encoding='utf-8')
+    rc = chk.main(['--json', str(js), '--files', str(doc), '--write', '--allow-missing-markers'])
+    out = capsys.readouterr().out
+    text = doc.read_text(encoding='utf-8')
+    assert m('oos.avg_window_return_pct', MINUS + '0.28%') in text
+    assert m('main.trades', '14') in text
+    assert m('main.sharpe', '—') in text and 'main.sharpe' in out   # null: left as is, reported
+    assert rc == 1                                                  # and the check still fails on it
+
+
+# ── parameter_sensitivity.py ───────────────────────────────────────────────────
+
+def test_parameter_sensitivity_runs_the_grid_and_reports_pbo(tmp_path, capsys):
+    ps = _load('parameter_sensitivity')
+    out = tmp_path / 'ps.json'
+    assert ps.main(['--synthetic', '--grid', 'quick', '--out', str(out)]) == 0
+    rep = json.loads(out.read_text())
+    assert rep['n_configurations'] == 4 and len(rep['configurations']) == 4
+    assert rep['shipped'] == 'ENTRY_Z=1.8 EXIT_Z=0.5 STOP_Z=1.5' and 1 <= rep['shipped_rank_by_sharpe'] <= 4
+    assert 0.0 <= rep['pbo']['pbo'] <= 1.0 and rep['pbo']['n_combinations'] == 252
+    assert len({c['trades'] for c in rep['configurations']}) > 1, "the grid must change the rule"
+    from pairs_trading.trading_system import CompleteFixedRussell3000TradingSystem as S
+    assert (S.ENTRY_Z, S.EXIT_Z, S.STOP_Z) == (1.8, 0.5, 1.5), "class defaults must be untouched"

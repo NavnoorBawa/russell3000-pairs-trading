@@ -22,6 +22,10 @@ Every file must also carry a marker for each key in REQUIRED_KEYS (disable with
 --allow-missing-markers while the docs are being re-marked). Markers inside Markdown
 code spans / fenced code blocks are ignored, so the docs can show the syntax itself.
 
+--write refreshes every marked value from the JSON first (each marker keeps its
+precision, minus style, '+' and '%'), so updating the published numbers after a run is
+one command; the check then runs on the rewritten files.
+
 Exit codes: 0 every compared value matches; 1 at least one failure (mismatch, unknown
 or non-numeric key, unparseable or unterminated marker, missing required marker); 2 the
 JSON is missing (unless --allow-missing), unreadable or of an unsupported schema, or a
@@ -116,9 +120,17 @@ def mask_markdown_code(text):
 class _MetricParser(HTMLParser):
     """Collects (key, text content, line) for every element carrying data-metric."""
 
-    def __init__(self):
+    def __init__(self, line_offsets=None):
         super().__init__(convert_charrefs=True)
         self.open, self.found, self.errors = [], [], []
+        self.spans = []                      # (key, raw content start, raw content end)
+        self._line_offsets = line_offsets
+
+    def _offset(self):
+        if self._line_offsets is None:
+            return None
+        line, col = self.getpos()
+        return self._line_offsets[line - 1] + col
 
     def handle_starttag(self, tag, attrs):
         for m in self.open:
@@ -131,7 +143,11 @@ class _MetricParser(HTMLParser):
         if tag in _VOID_TAGS:
             self.found.append((key, '', line))
         else:
-            self.open.append({'key': key, 'tag': tag, 'depth': 1, 'text': [], 'line': line})
+            start = self._offset()
+            if start is not None:
+                start += len(self.get_starttag_text() or '')
+            self.open.append({'key': key, 'tag': tag, 'depth': 1, 'text': [], 'line': line,
+                              'start': start})
 
     def handle_endtag(self, tag):
         still = []
@@ -140,6 +156,8 @@ class _MetricParser(HTMLParser):
                 m['depth'] -= 1
                 if m['depth'] == 0:
                     self.found.append((m['key'], ''.join(m['text']), m['line']))
+                    if m['start'] is not None:
+                        self.spans.append((m['key'], m['start'], self._offset()))
                     continue
             still.append(m)
         self.open = still
@@ -174,6 +192,70 @@ def extract_markers(text, is_markdown=False):
     markers.extend(parser.found)
     errors.extend(parser.errors)
     return sorted(markers, key=lambda x: x[2]), errors
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Writing (--write): refresh every marked value from the JSON
+# ──────────────────────────────────────────────────────────────────────────────
+
+_RAW_NUMBER = re.compile(r'(?P<sign>&minus;|−|-|\+)?(?P<int>\d{1,3}(?:,\d{3})+|\d+)(?:\.(?P<frac>\d+))?')
+
+
+def format_like(value, template, key=''):
+    """`value` rendered in the style of the marker's current raw text.
+
+    The first number in `template` fixes the precision, the minus style (Unicode '−',
+    '&minus;' or ASCII '-'), an explicit '+' and thousands separators; everything around
+    it (a '%' suffix, inline tags) is kept. A template without a number (a placeholder
+    such as '—') is replaced whole: integers without decimals, other values with two,
+    and a '%' for keys ending in _pct.
+    """
+    m = _RAW_NUMBER.search(template)
+    if m is None:
+        decimals = 0 if isinstance(value, int) else 2
+        body = f'{abs(value):.{decimals}f}'
+        sign = '−' if value < 0 and float(body) != 0 else ''
+        return sign + body + ('%' if key.endswith('_pct') else '')
+    decimals = len(m['frac'] or '')
+    body = f'{abs(value):,.{decimals}f}' if ',' in m['int'] else f'{abs(value):.{decimals}f}'
+    minus = m['sign'] if m['sign'] in ('&minus;', '−', '-') else '−'
+    if value < 0 and float(body.replace(',', '')) != 0:
+        sign = minus
+    elif m['sign'] == '+' and value > 0:
+        sign = '+'
+    else:
+        sign = ''
+    return template[:m.start()] + sign + body + template[m.end():]
+
+
+def write_text(data, text, is_markdown=False):
+    """Return (new_text, n_written, problems) with every marker's value refreshed."""
+    scan = mask_markdown_code(text) if is_markdown else text
+    spans = [(mm['key'], mm.start('body'), mm.end('body')) for mm in _COMMENT_MARKER.finditer(scan)]
+    offsets = [0] + [i + 1 for i, ch in enumerate(scan) if ch == '\n']   # HTMLParser counts '\n' only
+    parser = _MetricParser(line_offsets=offsets)
+    parser.feed(scan)
+    parser.close()
+    spans += parser.spans
+    edits, problems = [], []
+    for key, start, end in spans:
+        line = text.count('\n', 0, start) + 1
+        try:
+            value = resolve_key(data, key)
+        except KeyError:
+            problems.append(f'{line}: {key}: unknown key (not in the headline JSON)')
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            problems.append(f'{line}: {key}: the JSON value is {value!r}; marker left unchanged')
+            continue
+        raw = text[start:end]
+        if _RAW_NUMBER.search(raw) is None and '<' in raw:
+            problems.append(f'{line}: {key}: no number to replace inside nested markup')
+            continue
+        edits.append((start, end, format_like(value, raw, key)))
+    for start, end, new in sorted(edits, reverse=True):
+        text = text[:start] + new + text[end:]
+    return text, len(edits), problems
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -240,6 +322,9 @@ def main(argv=None):
                     help='exit 0 instead of 2 when the headline JSON does not exist yet')
     ap.add_argument('--allow-missing-markers', action='store_true',
                     help='report required keys without a marker as warnings, not failures')
+    ap.add_argument('--write', action='store_true',
+                    help='rewrite every marked value from the JSON (keeping each marker\'s '
+                         'precision and sign style), then check')
     ap.add_argument('-v', '--verbose', action='store_true', help='list every marker found')
     args = ap.parse_args(argv)
 
@@ -277,6 +362,16 @@ def main(argv=None):
             return 2
         name = _display(path)
         text = path.read_text(encoding='utf-8', errors='replace')
+        if args.write:
+            new_text, n_written, problems = write_text(data, text, is_markdown=_is_markdown(path))
+            for problem in problems:
+                print(f'WRITE: {name}:{problem}')
+            if new_text != text:
+                tmp = path.with_name(path.name + '.tmp')
+                tmp.write_text(new_text, encoding='utf-8')
+                tmp.replace(path)
+            print(f'Wrote {n_written} value(s) into {name}')
+            text = new_text
         n, f, w, _ = check_text(data, text, name, allow_missing_markers=args.allow_missing_markers,
                                 is_markdown=_is_markdown(path))
         if args.verbose:

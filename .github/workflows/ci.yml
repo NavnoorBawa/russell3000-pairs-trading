@@ -101,6 +101,13 @@ jobs:
         # the previous step compiled only pairs_trading/ despite being named "all modules".
         run: python -m compileall -q pairs_trading tests scripts
 
+      - name: Synthetic known-answer validation
+        # The engine must find a planted edge, find none in independent random walks
+        # (a positive gross mean there would be look-ahead), recover the true hedge
+        # ratio, and select the planted pairs. Two seeds keep this to ~90 s.
+        if: matrix.install == 'requirements'
+        run: python scripts/synthetic_validation.py --seeds 2 --out synthetic_validation.json
+
       - name: Run test suite (with coverage)
         # Per-module report in the log; fail-under is a regression floor set just under the
         # current total (89% in v32). v32 added a synthetic market with known answers, so the
