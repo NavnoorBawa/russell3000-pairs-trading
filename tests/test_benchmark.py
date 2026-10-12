@@ -7,7 +7,7 @@ import pandas as pd
 
 from pairs_trading.benchmark import (
     _aligned_closes, _normalize, select_distance_pairs,
-    _portfolio_stats, run_benchmarks,
+    _series_stats, run_benchmarks, log_benchmark_vs_strategy,
 )
 
 RNG = np.random.default_rng(0)
@@ -56,13 +56,13 @@ def test_select_distance_pairs_excludes_degenerates():
     assert len(pairs) > 0
 
 
-def test_portfolio_stats_sign_and_keys():
-    idx = pd.date_range("2023-01-02", periods=100, freq="B")
-    up = pd.Series(np.full(100, 0.001), index=idx)
-    st = _portfolio_stats([up, up])
+def test_series_stats_sign_and_keys():
+    dates = [str(d.date()) for d in pd.date_range("2023-01-02", periods=100, freq="B")]
+    st = _series_stats(np.full(100, 0.001), dates)
     assert st['total_return_pct'] > 0
-    assert st['n_pairs'] == 2
-    assert set(['total_return_pct', 'sharpe_ratio', 'daily_returns']).issubset(st)
+    assert st['max_drawdown_pct'] == 0.0
+    assert st['daily_dates'] == dates and len(st['daily_returns']) == 100
+    assert set(['total_return_pct', 'sharpe_ratio', 'daily_returns', 'daily_dates']).issubset(st)
 
 
 def test_run_benchmarks_smoke():
@@ -70,9 +70,13 @@ def test_run_benchmarks_smoke():
     out = run_benchmarks(
         data, list(data.keys()),
         formation_end="2022-12-30", trade_start="2023-01-02",
-        n_pairs=4, max_symbols=12,
+        n_pairs=4, max_symbols=12, n_random_draws=10,
     )
     assert 'distance_method' in out
     assert 'random_control' in out
     assert 'config' in out
     assert out['distance_method']['n_pairs'] >= 1
+    # v32: formation_end is accepted for old call sites but no longer reported — the
+    # scheme is rolling, so a single "formation end" date was misleading
+    assert 'formation_end' not in out['config']
+    log_benchmark_vs_strategy(out, strategy_return_pct=-0.3, strategy_sharpe=-0.3)

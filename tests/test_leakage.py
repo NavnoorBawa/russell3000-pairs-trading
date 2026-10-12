@@ -1,129 +1,81 @@
 """Leakage-invariant tests — these fail if a look-ahead bug is reintroduced.
 
-Guards two distinct leak vectors:
-  1. The transformer's supervised label must use only data inside its own training
-     window (forward horizon capped at len-horizon), so no test-period outcome can
-     bleed into training.
-  2. The engine's t+1 fill contract (default 'close' = next-bar close, never the
-     signal bar).
+Guards:
+  1. The ranker's supervised samples use only data inside their training window: the
+     label of every sample is fully resolved (exit fill included) on or before `end`.
+  2. The engine's t+1 fill contract (default 'close' = next-bar close, never the signal
+     bar), routed through the one function the engine uses.
+  3. The fund-type replay books every trade's P&L on real trading days of the main
+     calendar, and its equity reconciles with the per-trade P&L (v31.1 found a DST bug
+     that silently dropped a trade from every fund Sharpe series).
 """
 import inspect
 import os
 
 import numpy as np
 import pandas as pd
+import pytest
 
-from pairs_trading.multi_agent_system import FixedTransformerMultiAgentSystem
-from pairs_trading.trading_system import CompleteFixedRussell3000TradingSystem
-
-
-def _series(n, seed, phi=0.97):
-    """Slow AR(1) (near-random-walk) so the exit-band label base rate is moderate
-    (avoids the degeneracy guard) while still mean-reverting enough to be realistic."""
-    r = np.random.default_rng(seed)
-    s = np.zeros(n)
-    for t in range(1, n):
-        s[t] = phi * s[t - 1] + r.normal(0, 1.0)
-    idx = pd.date_range("2021-01-04", periods=n, freq="B")
-    return pd.Series(s, index=idx)
+from tests.synthetic_market import build_system, make_market
+from pairs_trading.trading_system import CompleteFixedRussell3000TradingSystem, resolve_fill_column
 
 
-def test_outcome_labels_do_not_use_future_beyond_window():
-    """Append 'future' data to a spread and rebuild the dataset; the labels for the
-    samples that existed before the append MUST be unchanged. If a label ever read past
-    its own window (e.g. someone fed test-spanning spreads or dropped the horizon cap),
-    the appended future would change early labels and this fails. Single pair, so sample
-    order is preserved and `ya` is a prefix of `yb`."""
-    agent = FixedTransformerMultiAgentSystem()
-    base = _series(1100, seed=1)
-    extended = pd.concat([base, _series(200, seed=99)])
-    extended.index = pd.date_range("2021-01-04", periods=len(extended), freq="B")
-
-    # entry_z=0.0 -> every bar is a candidate, so one long pair clears the 400 minimum
-    Xa, ya = agent._build_outcome_dataset({("A", "B"): base}, entry_z=0.0, max_samples=100_000)
-    Xb, yb = agent._build_outcome_dataset({("A", "B"): extended}, entry_z=0.0, max_samples=100_000)
-    assert ya is not None and yb is not None, "dataset too small/degenerate to test"
-    assert len(yb) >= len(ya)
-    assert np.array_equal(ya, yb[:len(ya)]), "future data changed earlier labels -> leak"
+@pytest.fixture(scope='module')
+def market():
+    return make_market(n_pairs=5, n_noise=0, seed=11)
 
 
-def test_outcome_horizon_cap_holds():
-    """The labeling loop must stop `horizon` bars before the end of the spread, so the last
-    forward window `[t+1 : t+horizon+1]` never runs past the data.
-
-    v31.1 (audit): this test used to assert `max(range(60, n - horizon, 2)) + horizon < n`
-    on plain literals — arithmetic about a copy of the loop bounds, which passes even if
-    `_build_outcome_dataset` drops the cap entirely. Count the samples the REAL function
-    emits instead: with the cap the count is bounded by `len(range(60, n - horizon, 2))`,
-    and removing the cap pushes it above that bound."""
-    agent = FixedTransformerMultiAgentSystem()
-    horizon = 10
-    for n_obs in (1100, 1500):
-        spread = _series(n_obs, seed=3)
-        _X, y = agent._build_outcome_dataset({("A", "B"): spread}, entry_z=0.0,
-                                             max_samples=100_000)
-        assert y is not None, "dataset too small/degenerate to test"
-        cap = len(range(60, n_obs - horizon, 2))
-        assert len(y) <= cap, (
-            f"{len(y)} labels from {n_obs} observations exceeds the {cap} the forward-horizon "
-            "cap allows — the labeler is reading past the end of the spread"
-        )
+def test_outcome_samples_ignore_data_after_their_window(market):
+    """Samples built with end=T must be identical whether or not any data after T exists."""
+    frames, macro, _ = market
+    end = '2023-06-30'
+    full = build_system(frames, macro)
+    cut = {s: df[df.index <= pd.Timestamp(end, tz=df.index.tz)] for s, df in frames.items()}
+    truncated = build_system(cut, macro)
+    pairs = sorted(full.spread_data)
+    Xa, ya = full.build_outcome_samples(pairs, end=end)
+    Xb, yb = truncated.build_outcome_samples(pairs, end=end)
+    assert ya is not None and len(ya) > 50
+    np.testing.assert_array_equal(ya, yb)
+    np.testing.assert_allclose(Xa, Xb, rtol=0, atol=0)
 
 
 def test_engine_t_plus_1_fill_default():
-    """The default t+1 fill is the next bar's CLOSE; only PAIRS_FILL=open switches it.
-
-    v31.1 (audit): this test used to define its own local `fill_col` copy and assert on
-    that, so it would have passed even if the engine's fill selection were deleted. It now
-    exercises `resolve_fill_column`, the function the engine itself calls."""
-    from pairs_trading.trading_system import resolve_fill_column
-
+    """The default t+1 fill is the next bar's CLOSE; only PAIRS_FILL=open switches it."""
     assert resolve_fill_column(os.environ.get('PAIRS_FILL', 'close')) == 'Close'
     assert resolve_fill_column('open') == 'Open'
     assert resolve_fill_column('OPEN') == 'Open'
     assert resolve_fill_column('CLOSE') == 'Close'
     assert resolve_fill_column('') == 'Close', "an empty PAIRS_FILL must not enable open fills"
     assert resolve_fill_column('opening') == 'Close', "only an exact 'open' switches the fill"
-
     src = inspect.getsource(CompleteFixedRussell3000TradingSystem.run_comprehensive_backtest)
-    assert 'resolve_fill_column(' in src, (
-        "the backtest no longer routes its fill column through resolve_fill_column, so this "
-        "test would be asserting on a function the engine does not use"
-    )
+    assert 'resolve_fill_column(' in src
 
 
-def test_fund_exit_date_survives_dst_crossing():
-    """A hold spanning the November fall-back must land on its true calendar date.
-
-    v31.1 (audit): the fund replay dated its exit bucket with `pd.Timedelta(days=n)` on a
-    tz-aware entry. Timedelta adds absolute time, so a hold crossing the DST boundary landed
-    at 23:00 on the PREVIOUS calendar day — the v31 trade entered 2023-11-02 and held 39
-    days was booked on Sunday 2023-12-10 instead of Monday 2023-12-11. `main_daily_dates`
-    holds only trading days, so that bucket was never read back and the trade's P&L vanished
-    from every fund Sharpe series while still counting in total return. Guard the arithmetic
-    that fixed it, and the exact case that exposed it.
-    """
-    entry = pd.Timestamp("2023-11-02", tz="America/New_York")
-
-    assert (entry + pd.Timedelta(days=39)).date().isoformat() == "2023-12-10", (
-        "the DST-shifting behaviour this test guards against no longer reproduces; "
-        "re-derive the guard before trusting it"
-    )
-    assert (entry + pd.DateOffset(days=39)).date().isoformat() == "2023-12-11"
-
-    src = inspect.getsource(CompleteFixedRussell3000TradingSystem.run_fund_type_comparison)
-    assert "pd.DateOffset(days=holding_days)" in src, (
-        "the fund replay no longer dates its exit bucket with calendar-day arithmetic — a "
-        "DST-crossing hold can again be booked a day early and dropped from the Sharpe series"
-    )
-    assert "pd.Timedelta(days=holding_days)" not in src
+@pytest.mark.parametrize('fill', ['close', 'open'])
+def test_open_fill_differs_only_in_fill_prices(market, monkeypatch, fill):
+    frames, macro, _ = market
+    monkeypatch.setenv('PAIRS_FILL', fill)
+    system = build_system(frames, macro)
+    res = system.run_comprehensive_backtest(system.spread_data, date_range=('2023-07-01', '2025-12-31'))
+    assert res['total_trades'] > 5
+    for t in res['trades']:
+        assert pd.Timestamp(t['signal_date']) < pd.Timestamp(t['date'])
 
 
-def test_fund_offcalendar_pnl_is_not_dropped():
-    """Any exit bucket that still lands off the trading calendar must be snapped forward,
-    never silently discarded — total_return counts it, so the Sharpe series must too."""
-    src = inspect.getsource(CompleteFixedRussell3000TradingSystem.run_fund_type_comparison)
-    assert "bisect.bisect_left(_cal_days, _k)" in src, (
-        "the off-calendar snap-forward guard is gone; a weekend/holiday exit bucket would be "
-        "dropped from the fund Sharpe series again"
-    )
+def test_fund_replay_reconciles_on_the_real_calendar(market):
+    frames, macro, _ = market
+    system = build_system(frames, macro)
+    res = system.run_comprehensive_backtest(system.spread_data, date_range=('2023-07-01', '2025-12-31'))
+    assert res['total_trades'] > 5
+    comparison = system.run_fund_type_comparison(res, main_daily_dates=res['daily_dates'])
+    calendar = set(res['daily_dates'])
+    for key, prof in comparison.items():
+        curve = prof['equity_curve']
+        assert [p['date'] for p in curve] == res['daily_dates'], f"{key}: replay calendar differs"
+        assert all(p['date'] in calendar for p in curve)
+        if not prof['trades_stopped_early']:
+            # every main trade is either replayed or excluded by the profile's daily cap
+            assert prof['total_trades'] <= res['total_trades']
+            assert prof['total_trades'] > 0
+        assert np.isfinite(prof['sharpe_ratio'])

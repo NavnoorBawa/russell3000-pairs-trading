@@ -7,6 +7,7 @@ import importlib
 import pytest
 
 MODULES = [
+    "pairs_trading",
     "pairs_trading.config",
     "pairs_trading.data_processor",
     "pairs_trading.pair_selector",
@@ -31,6 +32,23 @@ def test_module_imports(mod):
     importlib.import_module(mod)
 
 
+def test_package_exports_resolve():
+    pkg = importlib.import_module("pairs_trading")
+    for name in pkg.__all__:
+        assert getattr(pkg, name) is not None, name
+    # v32: the ranker plot and the headline export are public; the RL-era plot is not
+    assert "plot_ranker_training" in pkg.__all__
+    assert "export_headline_metrics" in pkg.__all__
+    assert "plot_training_results" not in pkg.__all__
+    # ...but stays importable so old callers do not break
+    from pairs_trading import plot_training_results  # noqa: F401
+
+
+def test_dead_duplicate_metrics_helper_removed():
+    plotting = importlib.import_module("pairs_trading.plotting")
+    assert not hasattr(plotting, "calculate_performance_metrics")
+
+
 def test_core_classes_instantiate():
     from pairs_trading.pair_selector import FixedPrimeFundPairSelector
     from pairs_trading.position_sizer import FixedPrimeFundPositionSizer
@@ -43,7 +61,9 @@ def test_core_classes_instantiate():
     assert FixedPrimeFundRiskManager() is not None
     assert EnhancedPrimeFundTransactionCostModel() is not None
     agent = FixedTransformerMultiAgentSystem()
-    assert agent.state_dim == 38                 # documented feature count
+    # the feature vector length is owned by the class (it changed in v32); the default
+    # model width must follow it rather than a number copied into this test
+    assert agent.state_dim == FixedTransformerMultiAgentSystem.N_FEATURES
 
 
 def test_fund_profiles_well_formed():

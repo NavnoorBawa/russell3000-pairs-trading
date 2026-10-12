@@ -1,8 +1,9 @@
 """
-TRANSFORMER ENCODER FOR PAIRS TRADING - TRANSFORMER ARCHITECTURE
-=================================================================
-Positional Encoding, Transformer Encoder Layer, and Financial Transformer Encoder.
-DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
+PAIRS TRADING - TRANSFORMER ARCHITECTURE
+========================================
+Positional encoding, encoder layer and the encoder network. Inputs are single feature
+vectors (sequence length 1), so attention is trivial and the network is functionally an
+MLP head — described as a "learned signal-quality scorer", not a sequence model.
 """
 
 from pairs_trading.config import (

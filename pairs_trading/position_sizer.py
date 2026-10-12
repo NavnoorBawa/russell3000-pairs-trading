@@ -1,8 +1,7 @@
 """
-TRANSFORMER ENCODER FOR PAIRS TRADING - POSITION SIZER
-=======================================================
-Fixed Prime Fund Position Sizer with balanced sizing.
-DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
+PAIRS TRADING - POSITION SIZER
+==============================
+Gross position size per trade as a fraction of equity.
 """
 
 from pairs_trading.config import (
@@ -13,7 +12,14 @@ logger = logging.getLogger(__name__)
 
 
 class FixedPrimeFundPositionSizer:
-    """ADAPTIVE: Position sizing with risk scaling"""
+    """Signal/quality/performance-scaled position sizing, clamped to [3%, 10%] of equity.
+
+    The performance multiplier reads the last 5 CLOSED trades' outcomes (the engine records
+    an outcome only when the position has closed — v32). The volatility multiplier (0.8x
+    when the 10-day std of the locked spread's daily changes exceeds 0.08) is effectively
+    inactive: that std is ~0.01-0.05 for tradeable pairs. `pair_performance` is recorded
+    for diagnostics only; sizing does not read it.
+    """
 
     def __init__(self):
         self.base_position_size = 0.04
@@ -29,8 +35,15 @@ class FixedPrimeFundPositionSizer:
     def calculate_optimal_position_size(self, pair_key: str, signal_strength: float,
                                       pair_quality: float, current_capital: float,
                                       spread_returns: pd.Series = None,
-                                      risk_scaling_factor: float = 1.0) -> float:
-        """ADAPTIVE: Position calculation with risk manager scaling"""
+                                      risk_scaling_factor: float = 1.0,
+                                      z_multiplier: float = 1.0) -> float:
+        """Gross position size in dollars.
+
+        fraction = clamp(base x signal x quality x recent-performance x vol x z_multiplier,
+                         3%, 10%) x risk_scaling_factor
+        The [min, max] clamp applies to the signal-driven size; risk/regime scaling is
+        applied last so a stress regime can take a position below the 3% floor.
+        """
         try:
             base_size = self.base_position_size
 
@@ -61,7 +74,7 @@ class FixedPrimeFundPositionSizer:
             # push a position below the 3% floor — the gate's deep reductions were
             # silently defeated. Now regime/vol/profit scaling genuinely bites.
             pre_scale_fraction = (base_size * signal_multiplier * quality_multiplier *
-                                  performance_multiplier * vol_multiplier)
+                                  performance_multiplier * vol_multiplier * z_multiplier)
             pre_scale_fraction = max(self.min_position_size,
                                      min(self.max_position_size, pre_scale_fraction))
 

@@ -25,14 +25,17 @@ def test_kalman_spread_length_and_finite(sys):
     p2 = pd.Series(100 * np.exp(np.cumsum(RNG.normal(0, 0.01, 300))), index=idx)
     spread = sys.calculate_kalman_spread(p1, p2)
     assert len(spread) == 300
-    assert np.isfinite(spread.values).all()
+    # v32: the first 29 rows are the OLS burn-in (NaN by design: no future data is used
+    # to seed the state); every row after it is finite.
+    assert spread.iloc[:29].isna().all()
+    assert np.isfinite(spread.iloc[29:].values).all()
 
 
 def test_kalman_spread_near_zero_for_identical_series(sys):
     idx = pd.date_range("2022-01-03", periods=200, freq="B")
     p = pd.Series(100 * np.exp(np.cumsum(RNG.normal(0, 0.01, 200))), index=idx)
     spread = sys.calculate_kalman_spread(p, p)        # beta -> 1, spread -> 0
-    assert np.abs(spread.values).max() < 1e-6
+    assert np.nanmax(np.abs(spread.values)) < 1e-6
 
 
 # ── Max drawdown ────────────────────────────────────────────────────────────

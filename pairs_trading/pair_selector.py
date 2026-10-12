@@ -1,8 +1,9 @@
 """
-TRANSFORMER ENCODER FOR PAIRS TRADING - PAIR SELECTOR
-======================================================
-Fixed Prime Fund Pair Selector with balanced quality criteria.
-DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
+PAIRS TRADING - PAIR SELECTION
+==============================
+Symbol screens, correlation filter, two-direction Engle-Granger cointegration
+(Bonferroni), half-life of the cointegrating spread, PCA idiosyncratic check, quality
+score, and the Benjamini-Hochberg FDR diagnostic.
 """
 
 from pairs_trading.config import (
@@ -69,85 +70,76 @@ class FixedPrimeFundPairSelector:
         except Exception:
             return 0.0
 
+    @staticmethod
+    def cointegration_pvalue(log_prices1: np.ndarray, log_prices2: np.ndarray) -> float:
+        """Two-direction Engle-Granger p-value, Bonferroni-combined: min(1, 2*min(p12, p21)).
+
+        v31 (audit): min() of the two Engle-Granger directions is NOT a p-value — the two
+        regressions are separate (correlated) tests, and taking the smaller inflates the
+        false-positive rate (~1.5-2x effective size at alpha=0.05). Bonferroni over the 2
+        tests restores a valid, conservative p-value while keeping the "test both
+        directions" intent. v32: factored out so every caller (initial selection, the
+        quarterly re-test and its recent-window check) uses the same definition.
+        """
+        try:
+            _, p12, _ = coint(log_prices1, log_prices2)
+            _, p21, _ = coint(log_prices2, log_prices1)
+        except Exception:
+            return 1.0
+        if not (np.isfinite(p12) and np.isfinite(p21)):
+            return 1.0
+        return float(min(1.0, 2.0 * min(p12, p21)))
+
+    @staticmethod
+    def _aligned_log_prices(data1: pd.DataFrame, data2: pd.DataFrame):
+        """Log closes of both legs on their common dates with real, positive prices."""
+        common = data1.index.intersection(data2.index)
+        p1 = data1.loc[common, 'Close'].to_numpy(dtype=float)
+        p2 = data2.loc[common, 'Close'].to_numpy(dtype=float)
+        ok = np.isfinite(p1) & np.isfinite(p2) & (p1 > 0) & (p2 > 0)
+        return np.log(p1[ok]), np.log(p2[ok])
+
     def test_cointegration(self, data1: pd.DataFrame, data2: pd.DataFrame) -> Tuple[bool, float]:
-        """Test cointegration with more lenient criteria"""
+        """Engle-Granger cointegration of log prices on common dates (Bonferroni p, see above)."""
         try:
             common_dates = data1.index.intersection(data2.index)
             if len(common_dates) < self.min_common_days:
                 return False, 1.0
-
-            prices1 = data1.loc[common_dates, 'Close'].values
-            prices2 = data2.loc[common_dates, 'Close'].values
-
-            valid_mask = ~(np.isnan(prices1) | np.isnan(prices2) | (prices1 <= 0) | (prices2 <= 0))
-            prices1 = prices1[valid_mask]
-            prices2 = prices2[valid_mask]
-
-            if len(prices1) < self.min_common_days:
+            log_prices1, log_prices2 = self._aligned_log_prices(data1, data2)
+            if len(log_prices1) < self.min_common_days:
                 return False, 1.0
-
-            if np.std(prices1) < prices1.mean() * 0.01 or np.std(prices2) < prices2.mean() * 0.01:
+            p1, p2 = np.exp(log_prices1), np.exp(log_prices2)
+            if np.std(p1) < p1.mean() * 0.01 or np.std(p2) < p2.mean() * 0.01:
                 return False, 1.0
-
-            log_prices1 = np.log(prices1)
-            log_prices2 = np.log(prices2)
-
-            try:
-                _, pvalue1, _ = coint(log_prices1, log_prices2)
-                _, pvalue2, _ = coint(log_prices2, log_prices1)
-
-                # v31 (audit): min() of two Engle-Granger directions is NOT a p-value.
-                # The two regressions are separate (correlated) tests, so taking the
-                # smaller and comparing it to alpha inflates the false-positive rate —
-                # roughly a 1.5-2x effective size at alpha=0.05. That matters twice over
-                # here: it corrupts pair selection, AND these p-values are the input to
-                # the published Benjamini-Hochberg FDR analysis.
-                # Bonferroni over the 2 tests restores a valid (conservative) p-value
-                # while keeping the existing "test both directions" intent.
-                pvalue = min(1.0, 2.0 * min(pvalue1, pvalue2))
-                is_cointegrated = pvalue < self.cointegration_threshold
-                return is_cointegrated, pvalue
-            except Exception:
-                return False, 1.0
-
+            pvalue = self.cointegration_pvalue(log_prices1, log_prices2)
+            return pvalue < self.cointegration_threshold, pvalue
         except Exception:
             return False, 1.0
 
     def calculate_half_life(self, data1: pd.DataFrame, data2: pd.DataFrame) -> float:
-        """Calculate half-life with better error handling"""
+        """Mean-reversion half-life (days) of the cointegrating spread.
+
+        Step 1 (as in Engle-Granger): OLS hedge regression log p1 = a + b log p2 on the
+        pair's common dates. Step 2: AR(1) with intercept on that residual spread,
+        s_t = c + phi s_{t-1} + e_t; half-life = -ln 2 / ln phi for 0 < phi < 1.
+
+        v32: through v31 this used the beta = 1 spread log p1 - log p2 — not the spread
+        that was tested for cointegration nor the one traded — so a genuinely
+        cointegrated pair with hedge ratio far from 1 got a meaningless (often 999)
+        half-life; and NaNs were dropped AFTER aligning, so lags could straddle gaps.
+        """
         try:
-            common_dates = data1.index.intersection(data2.index)
-            if len(common_dates) < 50:
+            lp1, lp2 = self._aligned_log_prices(data1, data2)
+            if len(lp1) < 50 or np.std(lp2) < 1e-12:
                 return 999.0
-
-            prices1 = data1.loc[common_dates, 'Close']
-            prices2 = data2.loc[common_dates, 'Close']
-
-            spread = np.log(prices1.values + 1e-8) - np.log(prices2.values + 1e-8)
-            spread = spread[~np.isnan(spread)]
-
-            if len(spread) < 50:
-                return 999.0
-
-            y = spread[1:]
-            x = spread[:-1]
-
-            if len(y) < 30:
-                return 999.0
-
+            b, a = np.polyfit(lp2, lp1, 1)
+            spread = lp1 - (a + b * lp2)
+            y, x = spread[1:], spread[:-1]
             X = np.column_stack([np.ones(len(x)), x])
-            try:
-                beta = np.linalg.lstsq(X, y, rcond=None)[0]
-                beta_coef = beta[1]
-
-                if 0 < beta_coef < 1:
-                    half_life = -np.log(2) / np.log(beta_coef)
-                    return max(1, min(999, half_life))
-                else:
-                    return 999.0
-            except Exception:
-                return 999.0
-
+            phi = float(np.linalg.lstsq(X, y, rcond=None)[0][1])
+            if 0.0 < phi < 1.0:
+                return float(max(1.0, min(999.0, -np.log(2.0) / np.log(phi))))
+            return 999.0
         except Exception:
             return 999.0
 
@@ -206,7 +198,11 @@ class FixedPrimeFundPairSelector:
             factors   = pca.fit_transform(ret_df.values)     # (T, k)
             loadings  = pca.components_                       # (k, n_symbols)
             projection = factors @ loadings                   # (T, n_symbols) — systematic part
-            residuals  = ret_df.values - projection           # idiosyncratic returns
+            # v32: sklearn centres the data before projecting, so X - projection still
+            # contains each symbol's mean return; cumulating it put a deterministic drift
+            # into every residual "price" that a constant-only Engle-Granger test cannot
+            # absorb. Remove the column means: residuals are the idiosyncratic part only.
+            residuals  = ret_df.values - pca.mean_ - projection
 
             residual_data = {}
             cols = list(ret_df.columns)
@@ -226,8 +222,15 @@ class FixedPrimeFundPairSelector:
             logger.debug(f"PCA residual computation failed: {e}")
             return {}
 
-    def find_quality_pairs(self, processed_data: Dict[str, pd.DataFrame], max_pairs: int = 30) -> List[Tuple[str, str]]:
-        """FIXED: Find quality pairs with more balanced filtering - UPDATED to test ALL pairs"""
+    def find_quality_pairs(self, processed_data: Dict[str, pd.DataFrame]) -> List[Tuple[str, str]]:
+        """Screen symbols, then test every pair of screened symbols; return all that pass.
+
+        Symbol screen (formation data): >= 300 bars, mean point-in-time share volume >=
+        min_trade_volume, mean point-in-time price >= $5, annualised volatility 5-80%,
+        < 10% missing. Pair tests: |return correlation| >= 0.25, two-direction
+        Engle-Granger p < 0.05 (Bonferroni), half-life 4-25 days, quality score > 0.4.
+        All passing pairs are returned, ranked by quality score.
+        """
 
         symbols = list(processed_data.keys())
         logger.info(f"FIXED: Finding quality pairs from {len(symbols)} symbols (Testing ALL combinations)")
@@ -236,9 +239,14 @@ class FixedPrimeFundPairSelector:
         for symbol in symbols:
             data = processed_data[symbol]
             if len(data) >= 300:
-                avg_volume = data.get('Volume_MA', pd.Series([0])).mean()
+                # v32: point-in-time (split-unadjusted) share volume and price. The adjusted
+                # series divide pre-split prices (and multiply pre-split volumes) by LATER
+                # split ratios, so these level screens used to depend on future corporate
+                # actions (e.g. a 2024 10:1 split made a 2020-22 stock look 10x as liquid).
+                vol_col = 'Volume_PIT' if 'Volume_PIT' in data.columns else 'Volume_MA'
+                avg_volume = data[vol_col].mean() if vol_col in data.columns else 0.0
                 if avg_volume >= self.min_trade_volume:
-                    avg_price = data['Close'].mean()
+                    avg_price = (data['Close_PIT'] if 'Close_PIT' in data.columns else data['Close']).mean()
                     if avg_price >= 5.0:
                         volatility = data['Returns'].std() * np.sqrt(252)
                         if 0.05 < volatility < 0.8:

@@ -1,8 +1,8 @@
 """
-TRANSFORMER ENCODER FOR PAIRS TRADING - TRANSFORMER AGENT
-==========================================================
-Transformer Enhanced Trading Agent for Financial Signal Prediction.
-DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
+PAIRS TRADING - TRANSFORMER SCORER
+==================================
+Wraps the transformer encoder as a binary classifier (P(trade profitable)) with a
+BCE training step and single-vector inference. Used for ranking only.
 """
 
 from pairs_trading.config import (

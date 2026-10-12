@@ -1,237 +1,266 @@
 """
-TRANSFORMER ENCODER FOR PAIRS TRADING - TRANSACTION COSTS
-==========================================================
-Enhanced Prime Fund Transaction Cost Model with institutional rates.
-Also contains profile-aware cost functions for the fund-type comparison.
-DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
+PAIRS TRADING - TRANSACTION COST MODEL
+======================================
+Per-execution cost model for the backtest, plus the profile-aware variant used by the
+fund-type replay.
+
+Cost of one execution of one leg (dollars):
+    commission    cents-per-share x shares (with a per-order minimum)
+    half-spread   the stock's typical half-spread, from its own 20-day dollar ADV bucket
+    market impact square-root law: Y x sigma_daily x sqrt(shares / ADV_shares) x notional
+Holding costs of a position:
+    stock borrow  general-collateral fee on the short leg, per calendar day
+    carry         prime-broker spread on the short side of the book, per calendar day
+
+v32 (audit): through v31 the model charged a flat 0.8 bp spread and ~0.09 bp commission
+on every stock (the class docstring described them as "ultra-low institutional rates for
+profitability"), used a hardcoded 5M-share ADV and 2% volatility for impact, set the
+borrow fee from the LENGTH of the ticker symbol (GOOGL paid 2%/yr as "very hard to
+borrow"), and charged SOFR + spread on 10% of gross as financing — although in a
+dollar-neutral book the short proceeds fund the long and SOFR nets out. Levels are now
+taken from the stock's own liquidity and published cost research (see each constant).
+Hard-to-borrow specials and SEC Section 31 / FINRA TAF fees (<= 0.3 bp on sells) are not
+modelled — disclosed limitations.
 """
 
-from pairs_trading.config import (
-    np, logging, Dict
-)
+from pairs_trading.config import np, logging, Dict
 
 logger = logging.getLogger(__name__)
 
+# Typical quoted FULL spread (bps) by 20-day average dollar volume — liquid US equities.
+# Large caps trade at 1-2 bp, mid caps at 3-10 bp and small caps at 50 bp or more
+# (docs/transaction_costs_and_portfolio_exposure.md; Frazzini, Israel & Moskowitz 2018,
+# "Trading Costs"). The model charges HALF of the full spread per execution.
+SPREAD_BUCKETS_BPS = (
+    (500e6, 1.5),     # ADV >= $500M
+    (100e6, 4.0),     # $100M - $500M
+    (20e6, 10.0),     # $20M - $100M
+    (5e6, 30.0),      # $5M - $20M
+    (0.0, 80.0),      # < $5M
+)
+
+
+def half_spread_bps(adv_dollars: float = None) -> float:
+    """Half of the typical quoted spread (bps) for a stock with this dollar ADV."""
+    if adv_dollars is None or not np.isfinite(adv_dollars) or adv_dollars <= 0:
+        adv_dollars = 100e6              # unknown liquidity -> mid-cap assumption
+    for floor, full_bps in SPREAD_BUCKETS_BPS:
+        if adv_dollars >= floor:
+            return full_bps / 2.0
+    return SPREAD_BUCKETS_BPS[-1][1] / 2.0
+
+
+def sqrt_impact_bps(participation: float, daily_volatility: float, coefficient: float,
+                    cap_bps: float) -> float:
+    """Square-root market impact in bps: Y x sigma_daily x sqrt(Q / ADV), capped."""
+    p = max(float(participation), 0.0)
+    vol = float(daily_volatility) if daily_volatility is not None and np.isfinite(daily_volatility) \
+        and daily_volatility > 0 else 0.02
+    return float(min(coefficient * vol * np.sqrt(p) * 1e4, cap_bps))
+
 
 class EnhancedPrimeFundTransactionCostModel:
-    """ENHANCED: Ultra-low institutional rates for profitability"""
+    """Per-execution costs for the main backtest (a $100M institutional book)."""
+
+    # Defaults used when a stock's own liquidity/volatility is unavailable.
+    DEFAULT_DAILY_VOLUME_SHARES = 5e6
+    DEFAULT_DAILY_VOLATILITY = 0.02
 
     def __init__(self):
-        self.base_commission_rate = 0.15
+        # Electronic institutional execution: ~0.2 cents/share all-in (0.1-0.5 cps is the
+        # quoted range for algorithmic agency execution; IBKR Pro tiered is 0.35 cps).
+        self.commission_per_share = 0.002
         self.min_commission_per_trade = 0.50
-        self.typical_bid_ask_spread = 0.8
+        # Square-root impact coefficient Y (patient algorithmic execution ~0.3-0.5;
+        # Almgren et al. 2005 estimate ~0.3 for liquid US stocks) and a safety rail.
         self.market_impact_coefficient = 0.3
-        # v31 (audit): explicit, and set to a realistic institutional ceiling. Was an
-        # inline `min(bps, 2)` inside calculate_market_impact_cost, which bound on every
-        # trade. 50 bps is a safety rail for pathological participation rates, not the
-        # operating point — see the note in calculate_market_impact_cost.
         self.market_impact_cap_bps = 50.0
-
-        self.volume_tiers = {
-            'tier_1': {'min_volume': 0, 'max_volume': 10e6, 'discount': 0.80},
-            'tier_2': {'min_volume': 10e6, 'max_volume': 100e6, 'discount': 0.60},
-            'tier_3': {'min_volume': 100e6, 'max_volume': 1e9, 'discount': 0.40},
-            'tier_4': {'min_volume': 1e9, 'max_volume': float('inf'), 'discount': 0.20}
-        }
-
-        self.stock_borrow_rates = {
-            'easy_to_borrow': 0.0005,
-            'general_collateral': 0.0010,
-            'hard_to_borrow': 0.0050,
-            'very_hard_to_borrow': 0.0200
-        }
+        # General-collateral stock-borrow fee: D'Avolio (2002) reports ~25 bp/yr value-
+        # weighted for GC loans; S3 Partners quotes ~30 bp. Specials are not modelled.
+        self.gc_borrow_rate = 0.0025
+        # Prime-broker spread on the short side of a dollar-neutral book (the haircut on
+        # the short rebate); SOFR itself nets between the long debit and the short credit.
         self.pb_financing_spread = 0.005
+        self.sofr_rate = 0.05                 # reference only (nets out; see module doc)
+        logger.info("Transaction cost model: per-share commission, ADV-bucket spread, "
+                    "per-stock sqrt impact, GC borrow, PB carry")
 
-        self.sofr_rate = 0.05
-        self.margin_rate = self.sofr_rate + self.pb_financing_spread
-
-        logger.info("Prime Fund Transaction Cost Model - Professional Grade")
-
-    def get_volume_discount(self, monthly_volume: float) -> float:
-        for tier_name, tier_info in self.volume_tiers.items():
-            if tier_info['min_volume'] <= monthly_volume < tier_info['max_volume']:
-                return tier_info['discount']
-        return 1.0
-
+    # ── one-way execution components ─────────────────────────────────────────────
     def calculate_commission_costs(self, position_size: float, price: float,
-                                 monthly_volume: float = 50e6) -> float:
-        trade_value = position_size * price
-        volume_discount = self.get_volume_discount(monthly_volume)
-        effective_rate = self.base_commission_rate * volume_discount
-        commission = trade_value * (effective_rate / 10000)
-        return max(commission, self.min_commission_per_trade)
+                                   monthly_volume: float = None) -> float:
+        """Commission for `position_size` shares: cents-per-share with a per-order minimum.
+
+        `monthly_volume` is accepted for backward compatibility and ignored (the old
+        volume-tier discount applied the same 0.6x to every trade).
+        """
+        shares = abs(float(position_size))
+        if shares <= 0:
+            return 0.0
+        return max(shares * self.commission_per_share, self.min_commission_per_trade)
 
     def calculate_market_impact_cost(self, position_size: float, price: float,
                                      daily_volume: float,
                                      daily_volatility: float = 0.02) -> float:
-        """Almgren-style square-root market impact.
+        """Square-root market impact in dollars.
 
-        impact_fraction = coefficient x daily_volatility x sqrt(participation_rate)
+        impact_fraction = coefficient x daily_volatility x sqrt(participation_rate), with
+        participation = shares / ADV shares (both in the same split-adjusted units).
+        v31 (audit) restored the volatility factor that had been missing.
         """
-        trade_value = position_size * price
+        shares = abs(float(position_size))
+        trade_value = shares * float(price)
+        participation = shares / daily_volume if daily_volume and daily_volume > 0 else 0.0005
+        bps = sqrt_impact_bps(participation, daily_volatility, self.market_impact_coefficient,
+                              self.market_impact_cap_bps)
+        return trade_value * bps / 1e4
 
-        if daily_volume > 0:
-            participation_rate = trade_value / (daily_volume * price)
-        else:
-            participation_rate = 0.0005
+    def calculate_bid_ask_cost(self, position_size: float, price: float,
+                               adv_dollars: float = None) -> float:
+        """Half-spread paid on one execution, from the stock's dollar-ADV bucket."""
+        trade_value = abs(float(position_size)) * float(price)
+        return trade_value * half_spread_bps(adv_dollars) / 1e4
 
-        # v31 (audit): the square-root term was missing its VOLATILITY factor, so this
-        # returned a fraction ~2 orders of magnitude too large:
-        #     0.3 * sqrt(0.02) * 10000  ~=  424 bps
-        # against a hardcoded `min(..., 2)` cap. The cap therefore bound on every
-        # realistic trade and market impact was a flat 2 bps constant — the sqrt model
-        # was dead code, and 2 bps is itself inconsistent with this project's own fund
-        # profiles, which cap impact at 4-80 bps. Restoring sigma puts the model in the
-        # right range (0.3 x 0.02 x sqrt(0.02) ~= 8.5 bps at 2% participation) so the
-        # cap becomes a genuine safety rail rather than the whole model.
-        market_impact_bps = (self.market_impact_coefficient
-                             * max(daily_volatility, 1e-6)
-                             * np.sqrt(max(participation_rate, 0.0)) * 10000)
-        market_impact_bps = min(market_impact_bps, self.market_impact_cap_bps)
+    def calculate_leg_cost(self, shares: float, price: float,
+                           daily_volume_shares: float = None,
+                           daily_volatility: float = None,
+                           monthly_volume: float = None,
+                           point_in_time_price: float = None) -> Dict[str, float]:
+        """One-way cost of trading one leg: commission + half-spread + market impact.
 
-        return trade_value * (market_impact_bps / 10000)
+        `shares`/`price` are in the data's split-adjusted units; `daily_volume_shares` must
+        be in the same units. The backtest passes the stock's own 20-day average share
+        volume and daily volatility as of the trade date, and the point-in-time
+        (split-unadjusted) price, so the per-share commission is charged on the number
+        of shares that would really have traded.
+        """
+        shares = abs(float(shares))
+        price = float(price)
+        zero = {'commission': 0.0, 'bid_ask': 0.0, 'market_impact': 0.0, 'total': 0.0}
+        if not (shares > 0 and np.isfinite(price) and price > 0):
+            return zero
+        dv = daily_volume_shares
+        if dv is None or not np.isfinite(dv) or dv <= 0:
+            dv = self.DEFAULT_DAILY_VOLUME_SHARES
+        vol = daily_volatility
+        if vol is None or not np.isfinite(vol) or vol <= 0:
+            vol = self.DEFAULT_DAILY_VOLATILITY
+        pit = point_in_time_price
+        real_shares = shares * price / pit if pit is not None and np.isfinite(pit) and pit > 0 else shares
+        commission = self.calculate_commission_costs(real_shares, price)
+        bid_ask = self.calculate_bid_ask_cost(shares, price, adv_dollars=dv * price)
+        impact = self.calculate_market_impact_cost(shares, price, dv, vol)
+        return {'commission': commission, 'bid_ask': bid_ask, 'market_impact': impact,
+                'total': commission + bid_ask + impact}
 
-    def calculate_bid_ask_cost(self, position_size: float, price: float) -> float:
-        trade_value = position_size * price
-        return trade_value * (self.typical_bid_ask_spread / 10000)
-
+    # ── holding costs ────────────────────────────────────────────────────────────
     def get_borrow_category(self, symbol: str) -> str:
-        if len(symbol) <= 3 and symbol.isalpha():
-            return 'easy_to_borrow'
-        elif len(symbol) == 4 and symbol.isalpha():
-            return 'general_collateral'
-        elif len(symbol) >= 5:
-            return 'very_hard_to_borrow'
-        else:
-            return 'hard_to_borrow'
+        """Every name is charged the general-collateral fee (specials are not modelled).
 
+        v32: the category used to be inferred from the ticker's length — a baseless rule
+        that charged e.g. GOOGL 2%/yr as "very hard to borrow".
+        """
+        return 'general_collateral'
+
+    def calculate_borrow_cost(self, short_notional: float, symbol: str, calendar_days: int) -> float:
+        """Stock-borrow fee on the short leg over the holding period (calendar days)."""
+        return abs(float(short_notional)) * self.gc_borrow_rate * (max(int(calendar_days), 0) / 365.0)
+
+    def calculate_financing_cost(self, gross_notional: float, calendar_days: int) -> float:
+        """Carry of a dollar-neutral position: PB spread on its short half, per calendar day."""
+        return abs(float(gross_notional)) / 2.0 * self.pb_financing_spread * \
+            (max(int(calendar_days), 0) / 365.0)
+
+    # ── round trip (kept for callers that want one number) ───────────────────────
     def calculate_total_trade_costs(self, long_position: float, short_position: float,
-                                  long_price: float, short_price: float,
-                                  long_symbol: str, short_symbol: str,
-                                  holding_days: int = 1, monthly_volume: float = 50e6) -> Dict[str, float]:
-        costs = {}
+                                    long_price: float, short_price: float,
+                                    long_symbol: str, short_symbol: str,
+                                    holding_days: int = 1, monthly_volume: float = None,
+                                    long_adv_shares: float = None, short_adv_shares: float = None,
+                                    long_daily_vol: float = None,
+                                    short_daily_vol: float = None) -> Dict[str, float]:
+        """Round-trip cost of a pair position held `holding_days` calendar days.
 
-        if long_position > 0:
-            costs['long_commission'] = self.calculate_commission_costs(long_position, long_price, monthly_volume)
-            costs['long_market_impact'] = self.calculate_market_impact_cost(long_position, long_price, 5e6)
-            costs['long_bid_ask'] = self.calculate_bid_ask_cost(long_position, long_price)
-        else:
-            costs['long_commission'] = costs['long_market_impact'] = costs['long_bid_ask'] = 0
-
-        if short_position > 0:
-            costs['short_commission'] = self.calculate_commission_costs(short_position, short_price, monthly_volume)
-            costs['short_market_impact'] = self.calculate_market_impact_cost(short_position, short_price, 5e6)
-            costs['short_bid_ask'] = self.calculate_bid_ask_cost(short_position, short_price)
-
-            short_value = short_position * short_price
-            borrow_category = self.get_borrow_category(short_symbol)
-            borrow_rate = self.stock_borrow_rates[borrow_category]
-            costs['short_borrow'] = short_value * borrow_rate * (holding_days / 365)
-        else:
-            costs['short_commission'] = costs['short_market_impact'] = 0
-            costs['short_bid_ask'] = costs['short_borrow'] = 0
-
-        costs['exit_commission'] = costs['long_commission'] + costs['short_commission']
-        costs['exit_market_impact'] = costs['long_market_impact'] + costs['short_market_impact']
-        costs['exit_bid_ask'] = costs['long_bid_ask'] + costs['short_bid_ask']
-
-        margin_used = (long_position * long_price + short_position * short_price) * 0.10
-        costs['financing_cost'] = margin_used * self.margin_rate * (holding_days / 365)
-
-        costs['total_entry_cost'] = (costs['long_commission'] + costs['short_commission'] +
-                                   costs['long_market_impact'] + costs['short_market_impact'] +
-                                   costs['long_bid_ask'] + costs['short_bid_ask'])
-
-        costs['total_exit_cost'] = costs['exit_commission'] + costs['exit_market_impact'] + costs['exit_bid_ask']
-        costs['total_borrow_cost'] = costs['short_borrow']
-
+        Entry and exit are costed at the same prices (the engine itself costs each
+        execution at its own price via calculate_leg_cost). Positions are share counts.
+        """
+        lc = self.calculate_leg_cost(long_position, long_price, long_adv_shares, long_daily_vol)
+        sc = self.calculate_leg_cost(short_position, short_price, short_adv_shares, short_daily_vol)
+        short_value = abs(float(short_position)) * float(short_price)
+        long_value = abs(float(long_position)) * float(long_price)
+        borrow = self.calculate_borrow_cost(short_value, short_symbol, holding_days) \
+            if short_position > 0 else 0.0
+        financing = self.calculate_financing_cost(long_value + short_value, holding_days)
+        costs = {
+            'long_commission': lc['commission'], 'long_market_impact': lc['market_impact'],
+            'long_bid_ask': lc['bid_ask'],
+            'short_commission': sc['commission'], 'short_market_impact': sc['market_impact'],
+            'short_bid_ask': sc['bid_ask'], 'short_borrow': borrow,
+        }
+        costs['total_entry_cost'] = lc['total'] + sc['total']
+        costs['exit_commission'] = lc['commission'] + sc['commission']
+        costs['exit_market_impact'] = lc['market_impact'] + sc['market_impact']
+        costs['exit_bid_ask'] = lc['bid_ask'] + sc['bid_ask']
+        costs['total_exit_cost'] = costs['total_entry_cost']
+        costs['total_borrow_cost'] = borrow
+        costs['financing_cost'] = financing
         costs['total_cost'] = (costs['total_entry_cost'] + costs['total_exit_cost'] +
-                             costs['total_borrow_cost'] + costs['financing_cost'])
-
+                               borrow + financing)
         return costs
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Profile-aware cost calculator  (used by fund-type comparison)
+# Profile-aware cost calculator (used by the fund-type replay)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def calculate_profile_trade_costs(
-    position_value: float,       # total gross notional (long leg + short leg combined)
+    position_value: float,       # gross notional (long leg + short leg)
     profile,                     # FundProfile instance
     holding_days: int,
     sofr: float = 0.050,
     long_symbol: str = 'AAPL',
     short_symbol: str = 'MSFT',
+    long_value: float = None,
+    short_value: float = None,
+    daily_volatility: float = None,
+    adv_dollars: float = None,
 ) -> Dict[str, float]:
+    """Round-trip cost of a pair trade under a FundProfile (dollars).
+
+    Per execution (4 = 2 legs x entry + exit): commission (profile bps), half-spread
+    (profile bps), and square-root impact profile.market_impact_coeff x sigma_daily x
+    sqrt(leg notional / ADV$), capped at the profile cap. Holding: the profile's GC borrow
+    rate on the short leg and its financing spread on the short side (the rebate
+    haircut), per calendar day. `daily_volatility`/`adv_dollars` are the traded stocks'
+    own values when known (the replay passes them), else 2% and the profile's ADV.
+
+    v32 (audit): impact had no volatility factor (the bug v31 fixed only in the main
+    model), so every profile paid its flat cap; it was charged on entry only ("temporary
+    impact reverses" — but every execution pays it); borrow came from ticker length;
+    financing charged SOFR + spread on a heuristic "implied leverage" that was 0 for three
+    profiles. `sofr` is accepted for backward compatibility and unused (it nets out).
     """
-    Compute realistic round-trip transaction costs for a pairs trade under
-    a given FundProfile.
-
-    Model:
-      ─ Commission   : commission_bps per leg, both entry and exit  → 4 leg-trades total
-      ─ Bid-ask      : bid_ask_bps per leg, both entry and exit     → 4 leg-trades total
-      ─ Market impact: sqrt(participation) model, capped at profile cap, entry only (temporary)
-      ─ Stock borrow : borrow_rate × short_value × holding_days/365
-      ─ Financing    : leveraged portion × (sofr + financing_spread) × days/365
-                       For a market-neutral pair, at 1x leverage the short proceeds fund
-                       the long — net financing ≈ 0.  Extra borrowing kicks in only when
-                       the portfolio gross leverage exceeds 1x.
-
-    Returns a dict with cost breakdown (all in dollar amounts) plus 'total_cost'.
-    """
-    from pairs_trading.fund_profiles import get_profile_borrow_rate
-
-    half = position_value / 2.0          # per-leg notional
-    long_value  = half
-    short_value = half
-
-    # ── Commission (4 leg-trades: entry long, entry short, exit long, exit short) ──
-    commission = 4 * half * (profile.commission_bps / 10_000)
-
-    # ── Bid-ask (same 4 leg-trades) ──
-    bid_ask = 4 * half * (profile.bid_ask_bps / 10_000)
-
-    # ── Market impact (entry only — temporary, reverses post-trade) ──
-    # Participation rate = trade_value / avg_daily_dollar_volume
-    participation_long  = long_value  / max(profile.daily_volume_dollars, 1.0)
-    participation_short = short_value / max(profile.daily_volume_dollars, 1.0)
-
-    impact_long_bps  = profile.market_impact_coeff * np.sqrt(participation_long)  * 10_000
-    impact_short_bps = profile.market_impact_coeff * np.sqrt(participation_short) * 10_000
-    impact_long_bps  = min(impact_long_bps,  profile.market_impact_cap_bps)
-    impact_short_bps = min(impact_short_bps, profile.market_impact_cap_bps)
-
-    market_impact = long_value  * (impact_long_bps  / 10_000) + \
-                    short_value * (impact_short_bps / 10_000)
-
-    # ── Stock borrow (short leg) ──
-    borrow_rate = get_profile_borrow_rate(profile, short_symbol)
-    borrow_cost = short_value * borrow_rate * (holding_days / 365.0)
-
-    # ── Financing on leveraged cash ──
-    # For a perfectly market-neutral book at 1x gross leverage, short proceeds
-    # fully fund the long — zero net cash borrowing.  At leverage > 1x, the fund
-    # borrows extra cash proportional to (1 − 1/leverage).
-    # We approximate: leverage ≈ implied by position as share of avg concurrent book.
-    # Here we use a simpler formula: financing = position × max(0, 1 − 1/leverage_factor)
-    # where leverage_factor is derived from the profile's base_position_pct and daily trades.
-    #   implied_leverage = base_pos_pct × max_daily_trades × avg_holding(5d)
-    implied_leverage = profile.base_position_pct * profile.max_daily_trades * 5.0
-    implied_leverage = max(implied_leverage, 1.0)     # never below 1x
-    leverage_factor = max(0.0, 1.0 - 1.0 / implied_leverage)
-
-    financing_rate = sofr + profile.financing_spread
-    financing_cost = position_value * leverage_factor * financing_rate * (holding_days / 365.0)
-
-    total = commission + bid_ask + market_impact + borrow_cost + financing_cost
-
+    half = position_value / 2.0
+    if long_value is None or short_value is None:
+        long_value, short_value = half, half
+    days = max(int(holding_days), 0)
+    commission = 2 * (long_value + short_value) * (profile.commission_bps / 10_000)
+    bid_ask = 2 * (long_value + short_value) * (profile.bid_ask_bps / 10_000)
+    adv = adv_dollars if adv_dollars is not None and np.isfinite(adv_dollars) and adv_dollars > 0 \
+        else profile.daily_volume_dollars
+    impact = 0.0
+    for leg in (long_value, short_value):
+        bps = sqrt_impact_bps(leg / max(adv, 1.0), daily_volatility,
+                              profile.market_impact_coeff, profile.market_impact_cap_bps)
+        impact += 2 * leg * bps / 1e4                    # entry and exit executions
+    borrow_cost = short_value * profile.borrow_rate_general * (days / 365.0)
+    financing_cost = short_value * profile.financing_spread * (days / 365.0)
+    total = commission + bid_ask + impact + borrow_cost + financing_cost
     return {
-        'commission':      commission,
-        'bid_ask':         bid_ask,
-        'market_impact':   market_impact,
-        'borrow':          borrow_cost,
-        'financing':       financing_cost,
-        'total_cost':      total,
-        # bps of notional for diagnostics
-        'total_bps':       total / max(position_value, 1.0) * 10_000,
+        'commission': commission,
+        'bid_ask': bid_ask,
+        'market_impact': impact,
+        'borrow': borrow_cost,
+        'financing': financing_cost,
+        'total_cost': total,
+        'total_bps': total / max(position_value, 1.0) * 10_000,
     }

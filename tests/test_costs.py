@@ -35,10 +35,33 @@ def test_borrow_only_charged_on_short_leg(model):
     assert costs['short_borrow'] == 0
 
 
-def test_borrow_category_by_ticker_length(model):
-    assert model.get_borrow_category("AB") == "easy_to_borrow"      # <=3 alpha
-    assert model.get_borrow_category("ABCD") == "general_collateral"  # 4 alpha
-    assert model.get_borrow_category("ABCDE") == "very_hard_to_borrow"  # >=5
+def test_borrow_fee_does_not_depend_on_ticker_length(model):
+    """v32: the borrow tier used to come from the ticker's LENGTH (GOOGL paid 2%/yr)."""
+    fees = {sym: model.calculate_borrow_cost(1_000_000, sym, 365) for sym in ("T", "AAPL", "GOOGL", "BRK-B")}
+    assert len(set(fees.values())) == 1
+    assert fees["GOOGL"] == pytest.approx(1_000_000 * model.gc_borrow_rate)
+
+
+def test_spread_cost_falls_with_liquidity(model):
+    illiquid = model.calculate_leg_cost(10_000, 50.0, daily_volume_shares=50_000)['bid_ask']
+    liquid = model.calculate_leg_cost(10_000, 50.0, daily_volume_shares=50_000_000)['bid_ask']
+    assert illiquid > liquid > 0
+
+
+def test_commission_uses_point_in_time_shares(model):
+    adjusted = model.calculate_leg_cost(100_000, 10.0, point_in_time_price=100.0)['commission']
+    real = model.calculate_leg_cost(10_000, 100.0)['commission']
+    assert adjusted == pytest.approx(real)
+
+
+def test_profile_impact_charged_on_entry_and_exit():
+    from pairs_trading.transaction_costs import sqrt_impact_bps
+    profile = FUND_PROFILES['quant_hf']
+    out = calculate_profile_trade_costs(2_000_000, profile, 10, daily_volatility=0.02, adv_dollars=1e8)
+    one_way = sqrt_impact_bps(1_000_000 / 1e8, 0.02, profile.market_impact_coeff,
+                              profile.market_impact_cap_bps)
+    assert out['market_impact'] == pytest.approx(2 * 2 * 1_000_000 * one_way / 1e4)
+    assert one_way < profile.market_impact_cap_bps, "impact must not be pinned to the cap"
 
 
 def test_longer_hold_costs_more_borrow(model):

@@ -1,8 +1,7 @@
 """
-TRANSFORMER ENCODER FOR PAIRS TRADING - RISK MANAGER
-=====================================================
-Fixed Prime Fund Risk Manager with balanced controls.
-DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
+PAIRS TRADING - RISK MANAGER
+============================
+Pre-trade checks, adaptive position scaling and portfolio kill switches.
 """
 
 from pairs_trading.config import (
@@ -13,9 +12,14 @@ logger = logging.getLogger(__name__)
 
 
 class FixedPrimeFundRiskManager:
-    """ADAPTIVE Risk Manager - Volatility & Profit Protection"""
+    """Portfolio risk controls: pre-trade checks, position scaling and kill switches.
 
-    def __init__(self):
+    Scaling: realised-volatility scaling (annualised portfolio vol vs a 2% baseline) and
+    profit-protection scaling (above +40% return). Kill switches (checked on each day's
+    mark-to-market P&L): 15% drawdown, 5% single-day loss, gross exposure above the cap.
+    """
+
+    def __init__(self, initial_capital: float = 100000000):
         self.max_position_size = 0.10
         self.max_total_exposure = 0.30
         self.max_daily_trades = 8
@@ -33,16 +37,21 @@ class FixedPrimeFundRiskManager:
         self.daily_trade_count = 0
         self.current_exposure = 0
         self.current_drawdown = 0.0
-        self.peak_portfolio_value = 100000000
-        self.initial_capital = 100000000
+        # v32: the system's capital is passed in. Both were hardcoded to $100M, so any other
+        # capital made the profit-protection scaling and the drawdown peak wrong.
+        self.peak_portfolio_value = float(initial_capital)
+        self.initial_capital = float(initial_capital)
         self.risk_alerts = []
         self.last_trade_dates = {}
 
         # Volatility-based scaling
         self.daily_returns_history: List[float] = []
         self.volatility_lookback = 20  # 20-day rolling vol
-        self.baseline_volatility = 0.02  # 2% baseline daily vol
-        self.high_vol_threshold = 1.5  # Scale down if vol > 1.5x baseline
+        # v32 (label fix): the comparison below is against ANNUALISED portfolio volatility
+        # (std of daily returns x sqrt(252)), so this is a 2% ANNUALISED baseline. It was
+        # documented as "2% baseline daily vol"; the behaviour is unchanged.
+        self.baseline_volatility = 0.02  # 2% annualised portfolio volatility
+        self.high_vol_threshold = 1.5  # scale down if vol > 1.5x baseline
 
         # Profit-based scaling
         self.profit_scale_threshold = 0.40  # Start scaling at 40% profit
@@ -54,11 +63,34 @@ class FixedPrimeFundRiskManager:
 
         logger.info("ADAPTIVE Risk Manager - Volatility & Profit Protection")
 
+    def reset_state(self, initial_capital: float = None):
+        """Clear all path-dependent state before an independent backtest."""
+        if initial_capital is not None:
+            self.initial_capital = float(initial_capital)
+        self.peak_portfolio_value = self.initial_capital
+        self.current_drawdown = 0.0
+        self.current_exposure = 0.0
+        self.daily_trade_count = 0
+        self.current_daily_pnl = 0.0
+        self.trading_paused = False
+        self.daily_returns_history = []
+        self.last_trade_dates = {}
+        self.risk_alerts = []
+
     def validate_signal(self, pair_key: Tuple[str, str], action: int, signal_strength: float,
                        market_data: Dict, position_size: float = 0,
                        current_portfolio_value: float = 100000000,
                        current_date: pd.Timestamp = None) -> Tuple[bool, str]:
-        """ADAPTIVE: Signal validation with volatility & profit protection"""
+        """Pre-trade checks for one candidate; returns (passed, reason).
+
+        Binding in practice: trading pause after a -3% day, pair quality >= 0.55, position
+        <= 10% of equity (a safety rail — the sizer already caps at 10%), the 30% gross
+        exposure cap, the $1M dollar-volume floor (the engine passes the smaller leg's real
+        20-day dollar ADV) and the locked-spread volatility ceiling. Kept as redundant rails
+        (the engine already guarantees them): action in {0, 2}, signal strength >= 0.5 and
+        |z| >= 1.5 (entries need |z| >= 1.8, i.e. strength >= 0.72), and the daily trade
+        count (validation runs before the day's executions).
+        """
         try:
             # Check if trading is paused due to daily losses
             if self.trading_paused:

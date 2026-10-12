@@ -1,7 +1,11 @@
 """
-TRANSFORMER ENCODER FOR PAIRS TRADING - FUND PROFILES
-======================================================
-Defines realistic institutional fund profiles for the fund-type comparison.
+PAIRS TRADING - FUND PROFILES
+=============================
+Institutional fund profiles for the fund-type replay (trading_system.run_fund_type_comparison).
+
+The leverage labels are descriptive: the replay scales each main-backtest trade by the
+profile's position size, caps new trades per day, and reports the REALISED peak gross
+leverage ('max_gross_leverage'); it does not size the book up to the labelled leverage.
 
 Each profile encodes:
   - Transaction cost parameters (commission, bid-ask, market impact, borrow, financing)
@@ -28,13 +32,13 @@ class FundProfile:
     # ── Transaction cost parameters (all in bps unless noted) ─────────────────
     commission_bps: float        # per leg, one-way (electronic algo execution)
     bid_ask_bps: float           # half-spread per leg, one-way
-    market_impact_coeff: float   # coefficient in sqrt model: I = coeff * sqrt(Q/V) * 10000
+    market_impact_coeff: float   # Y in the sqrt model: I = Y * sigma_daily * sqrt(Q/ADV) (fraction)
     market_impact_cap_bps: float # hard cap on per-leg market impact
     borrow_rate_easy: float      # annual rate, easy-to-borrow stocks (decimal)
     borrow_rate_general: float   # annual rate, general collateral (decimal)
     borrow_rate_hard: float      # annual rate, hard-to-borrow (decimal)
     financing_spread: float      # annual spread over SOFR paid on leveraged cash (decimal)
-    daily_volume_dollars: float  # assumed average daily dollar volume of traded stocks
+    daily_volume_dollars: float  # fallback ADV ($) when a trade's own ADV is unknown
 
     # ── Position sizing ───────────────────────────────────────────────────────
     base_position_pct: float     # base fraction of equity per trade (before z-score scaling)
@@ -152,8 +156,13 @@ FUND_PROFILES: Dict[str, FundProfile] = {
         description='Pension / sovereign wealth fund (Norges Bank, CalSTRS, CPPIB)',
         example_firms='Norges Bank GPFG ($1.8T), CalSTRS, CPPIB, GIC Singapore',
 
-        commission_bps=0.42,        # Norges Bank actual 2024 direct cost
-        bid_ask_bps=1.19,           # Norges Bank actual 2024 indirect cost
+        # v32: these were 0.42 / 1.19 bps, taken from Norges Bank's 2024 ANNUAL direct /
+        # indirect costs as a share of AUM — a 10x decimal slip ($500M and $1.43B on a
+        # ~$1.2T book are 4.2 and 11.9 bps) and the wrong unit (cost per AUM per year, not
+        # per traded dollar; NBIM's "indirect" cost is market impact, charged separately
+        # below). Per-execution values for a patient large-cap algorithmic trader:
+        commission_bps=1.0,
+        bid_ask_bps=1.5,
         market_impact_coeff=0.15,   # low — they execute very patiently via algorithms
         market_impact_cap_bps=4.0,
         borrow_rate_easy=0.0005,    # 5 bps/yr (they are preferred counterparties)
@@ -172,7 +181,7 @@ FUND_PROFILES: Dict[str, FundProfile] = {
 
     # ── 5. Retail / Small Prop Trader ─────────────────────────────────────────
     # Interactive Brokers retail, small family office, boutique prop desk
-    # Commission: ~$0.005/share (IB tiered) ≈ 5 bps at $100/share → higher for cheap stocks
+    # Commission: IBKR Pro tiered $0.0035/share ≈ 0.7 bps on a $50 stock
     # No leverage beyond standard 2:1 (1x for this comparison — no portfolio margin)
     'retail': FundProfile(
         key='retail',
@@ -180,7 +189,9 @@ FUND_PROFILES: Dict[str, FundProfile] = {
         description='Retail algo or small family office (Interactive Brokers, small prop)',
         example_firms='IB retail account, small family office, boutique prop desk',
 
-        commission_bps=7.0,         # IB retail at volume tier 1 ($0.35/100 shares ≈ 7 bps)
+        # v32: was 7.0 bps, 10x the IBKR Pro tiered rate it cited ($0.0035/share is
+        # 0.7 bps on a $50 stock; 7 bps only at $5).
+        commission_bps=0.7,
         bid_ask_bps=15.0,           # wider spread — smaller, less liquid names
         market_impact_coeff=2.50,
         market_impact_cap_bps=80.0,
@@ -201,15 +212,14 @@ FUND_PROFILES: Dict[str, FundProfile] = {
 
 
 def get_profile_borrow_rate(profile: FundProfile, symbol: str) -> float:
-    """Return the annual borrow rate for a symbol based on its likely liquidity tier."""
-    # Simple heuristic matching the original get_borrow_category logic
-    sym = symbol.upper()
-    if len(sym) <= 3 and sym.isalpha():
-        return profile.borrow_rate_easy
-    elif len(sym) == 4 and sym.isalpha():
-        return profile.borrow_rate_general
-    else:
-        return profile.borrow_rate_hard
+    """Annual borrow fee charged on the short leg: the profile's general-collateral rate.
+
+    v32: the tier used to be inferred from the LENGTH of the ticker (<= 3 letters "easy",
+    4 letters "general", anything else "hard"), which has no relation to borrow
+    availability. Specials/hard-to-borrow names are not modelled (disclosed limitation);
+    borrow_rate_easy / borrow_rate_hard are kept for reference only.
+    """
+    return profile.borrow_rate_general
 
 
 def get_profile_summary_table() -> str:

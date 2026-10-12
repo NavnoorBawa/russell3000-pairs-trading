@@ -1,45 +1,62 @@
 """
-TRANSFORMER ENCODER FOR PAIRS TRADING - CONFIGURATION
-======================================================
-All imports, logging setup, and shared constants.
-DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
+PAIRS TRADING - CONFIGURATION
+=============================
+Shared imports, runtime setup and constants (sector map, macro tickers).
+
+Light, always-needed modules are imported eagerly. Heavy optional stacks (torch,
+yfinance, matplotlib/seaborn, scikit-learn, statsmodels, tqdm) are imported LAZILY on
+first access through a module-level __getattr__ (PEP 562), so `from pairs_trading.config
+import pd, np` in e.g. the cost model no longer pulls in torch and matplotlib. v32: through
+v31 every import of any module loaded all of them.
 """
 
-import pandas as pd
-import numpy as np
-import yfinance as yf
-import warnings
-import time
+import importlib
 import logging
-import random
-import pickle
 import os
-import gc
+import pickle
+import random
+import time
 import json
-from typing import Dict, List, Tuple, Optional, Union
-from datetime import datetime, timedelta
-from scipy.stats import zscore, skew, kurtosis
-from scipy import optimize, stats
-from sklearn.preprocessing import StandardScaler, RobustScaler
-from sklearn.decomposition import PCA
-import concurrent.futures
-from threading import Lock
-import sys
-from requests.exceptions import HTTPError
-from statsmodels.tsa.stattools import coint, adfuller
-from statsmodels.tsa.api import VAR
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-# Deep Learning and RL imports
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
-from collections import deque, namedtuple
 import math
 import itertools
+import warnings
+import concurrent.futures
+from collections import deque
+from datetime import datetime, timedelta
+from typing import Dict, List, Tuple, Optional, Union
+
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+# name -> (module, attribute or None for the module itself)
+_LAZY = {
+    'yf': ('yfinance', None),
+    'tqdm': ('tqdm', 'tqdm'),
+    'plt': ('matplotlib.pyplot', None),
+    'sns': ('seaborn', None),
+    'torch': ('torch', None),
+    'nn': ('torch.nn', None),
+    'optim': ('torch.optim', None),
+    'F': ('torch.nn.functional', None),
+    'PCA': ('sklearn.decomposition', 'PCA'),
+    'RobustScaler': ('sklearn.preprocessing', 'RobustScaler'),
+    'StandardScaler': ('sklearn.preprocessing', 'StandardScaler'),
+    'coint': ('statsmodels.tsa.stattools', 'coint'),
+    'adfuller': ('statsmodels.tsa.stattools', 'adfuller'),
+}
+
+
+def __getattr__(name):
+    """Import heavy dependencies on first use (PEP 562)."""
+    target = _LAZY.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = importlib.import_module(target[0])
+    value = module if target[1] is None else getattr(module, target[1])
+    globals()[name] = value
+    return value
+
 
 # v31 (audit): do NOT mutate global interpreter state at import time.
 # This module previously ran `warnings.filterwarnings('ignore')` and

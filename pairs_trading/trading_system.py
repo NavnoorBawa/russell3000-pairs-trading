@@ -1,16 +1,41 @@
 """
-TRANSFORMER ENCODER FOR PAIRS TRADING - TRADING SYSTEM
-=======================================================
-Complete Fixed Russell 3000 Trading System with balanced improvements.
-DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
+RUSSELL 3000 PAIRS TRADING - BACKTEST ENGINE
+============================================
+Pair universe -> Kalman hedge ratios -> beta-locked z-score signal -> t+1 execution ->
+daily mark-to-market portfolio accounting -> walk-forward validation -> fund-cost replay.
+
+Engine contract (v32). Each rule is exercised by the test suite (tests/test_engine_*.py):
+
+  * Causality. A decision taken at the close of day t uses only data dated <= t: the
+    Kalman state is a forward filter, the pair universe is the latest quarterly
+    re-selection dated <= t, a trade's outcome reaches the position sizer and the
+    cool-off logic only once the position has actually closed, and the ex-ante cost
+    gate uses the maximum holding period rather than the realised one.
+  * One signal definition. Entry, profit target, stop-loss and time stop are all
+    evaluated on the SAME beta-locked spread, log p1 - beta * log p2, normalised by
+    reference statistics frozen at the signal date. (Through v31 the entry used an
+    expanding-window z of the Kalman residual while the exit used the locked spread,
+    i.e. two different scales.)
+  * The traded book is the modelled spread. Legs are hedge-ratio weighted ($1 of leg 1
+    against $beta of leg 2), so P&L is the change of the spread the signal is computed
+    on. beta comes from a two-state (slope + intercept) Kalman filter.
+  * t+1 execution on both sides: signal on the day-t close, fill at the next bar's close
+    (PAIRS_FILL=open -> next bar's open). Share counts are fixed from the signal-day
+    close; the next bar's price is used only as the fill price.
+  * Daily mark-to-market. Open positions are revalued every day from real prices; entry
+    costs are booked at the entry fill and exit costs + borrow + financing at the exit
+    fill. Sharpe, volatility, drawdown, the significance tests and the risk manager's
+    kill switches therefore see intra-trade moves.
+  * No fabricated prices and no silently dropped trades. An entry needs a real bar on
+    the fill date for both legs; a leg without a bar on a valuation/exit date is valued
+    at its last real price; a position still open when the data ends is closed at the
+    last available bar (exit_reason='end_of_data') instead of being discarded.
 """
 
-import bisect
 import os
-from pairs_trading.config import (
-    pd, np, logging, tqdm, Dict, Tuple
-)
-from statsmodels.tsa.stattools import coint as _coint
+from typing import Dict, List, Optional, Tuple
+
+from pairs_trading.config import pd, np, logging
 from pairs_trading.data_processor import EnhancedRussell3000DataProcessor
 from pairs_trading.pair_selector import FixedPrimeFundPairSelector
 from pairs_trading.multi_agent_system import FixedTransformerMultiAgentSystem
@@ -21,6 +46,13 @@ from pairs_trading.json_export import export_testing_results_to_json, export_fun
 from pairs_trading.plotting import plot_results, plot_fund_comparison
 
 logger = logging.getLogger(__name__)
+
+TRADING_DAYS_PER_YEAR = 252
+
+# Study calendar (fixed by design; see README "Architecture").
+PAIR_SELECTION_CUTOFF = '2022-12-31'   # initial pair universe uses data <= this date
+MAIN_MODEL_TRAIN_END = '2023-06-30'    # ranking model for the main backtest
+MAIN_BACKTEST_START = '2023-07-01'
 
 
 def resolve_fill_column(value: str) -> str:
@@ -33,8 +65,83 @@ def resolve_fill_column(value: str) -> str:
     return 'Open' if str(value).lower() == 'open' else 'Close'
 
 
+def _naive(ts) -> pd.Timestamp:
+    """Timestamp -> tz-naive Timestamp with the wall-clock date kept."""
+    ts = pd.Timestamp(ts)
+    return ts.tz_localize(None) if ts.tzinfo is not None else ts
+
+
+def _align_ts(ts, like) -> pd.Timestamp:
+    """Localise or strip `ts` so it compares with timestamps shaped like `like`."""
+    ts = pd.Timestamp(ts)
+    tz = getattr(like, 'tzinfo', None)
+    if tz is not None and ts.tzinfo is None:
+        return ts.tz_localize(tz)
+    if tz is None and ts.tzinfo is not None:
+        return ts.tz_localize(None)
+    return ts
+
+
+def annualised_sharpe(daily_returns, periods: int = TRADING_DAYS_PER_YEAR) -> float:
+    """Sharpe of a daily return series (sample std, ddof=1 — used consistently)."""
+    r = np.asarray(daily_returns, dtype=float)
+    r = r[np.isfinite(r)]
+    if r.size < 2:
+        return 0.0
+    sd = r.std(ddof=1)
+    return float(r.mean() / sd * np.sqrt(periods)) if sd > 0 else 0.0
+
+
+def max_drawdown_from_returns(daily_returns) -> float:
+    """Most negative peak-to-trough move of the compounded equity curve (<= 0).
+
+    The starting capital counts as the first peak, so a loss on day one is a drawdown.
+    """
+    r = np.asarray(daily_returns, dtype=float)
+    if r.size == 0:
+        return 0.0
+    equity = np.cumprod(1.0 + r)
+    peak = np.maximum.accumulate(np.concatenate([[1.0], equity]))[1:]
+    return float(np.min(equity / peak - 1.0))
+
+
+def geometric_annualised_return(total_return: float, n_days: int,
+                                periods: int = TRADING_DAYS_PER_YEAR) -> float:
+    """(1 + R)^(periods / n) - 1."""
+    if n_days <= 0:
+        return 0.0
+    if total_return <= -1.0:
+        return -1.0
+    return float((1.0 + total_return) ** (periods / n_days) - 1.0)
+
+
 class CompleteFixedRussell3000TradingSystem:
-    """FIXED: Complete system with balanced improvements + JSON EXPORT"""
+    """End-to-end research pipeline: selection, backtest, walk-forward, diagnostics."""
+
+    # ── Signal / trade-management parameters (values unchanged since v22-v31) ──────
+    ENTRY_Z = 1.8                 # |z| on the beta-locked spread to open
+    EXIT_Z = 0.5                  # profit target: z back inside +-EXIT_Z
+    STOP_Z = 1.5                  # stop-loss: z moves STOP_Z further against the entry
+    MIN_HOLD_DAYS, MAX_HOLD_DAYS, HOLD_HL_MULT = 10, 25, 2.5   # time stop, trading days
+    REF_MIN, REF_MAX, REF_HL_MULT = 30, 90, 3                    # z reference window, bars
+    REF_STATS_BARS = 60           # trailing bars of the reference window used for mean/std
+    HURST_MAX = 0.55              # skip trending locked spreads
+    MIN_ROLLING_CORR = 0.20       # 20-day return-correlation floor (decoupled pairs)
+    # v32: the risk manager has always rejected quality < 0.55, so the engine's former
+    # 0.40 pre-filter was dead; one threshold, stated once, at its effective value.
+    MIN_PAIR_QUALITY = 0.55
+    MIN_SPREAD_HISTORY = 50       # bars of pair history before a pair can trade
+    # v32: hedge ratios outside this band mean one leg is >4x the other — not a hedged
+    # pair. Such signals are skipped rather than clamped: a clamped hedge is a different,
+    # partly unhedged position from the spread the signal was computed on.
+    BETA_MIN, BETA_MAX = 0.25, 4.0
+    COOLOFF_LOSSES, COOLOFF_CAL_DAYS = 3, 30
+    MAX_COST_PCT_OF_EQUITY = 0.01
+    REGIME_LOOKBACK, REGIME_MAX_REDUCED_FRAC = 63, 0.20
+    # Quarterly re-selection, recent-window check (Bonferroni-scale p-values).
+    RESEL_RECENT_MAX_P, RESEL_MAX_P_GAP = 0.30, 0.20
+    # Ranking-model training samples (see build_outcome_samples).
+    LABEL_STEP, LABEL_MAX_SAMPLES = 2, 15000
 
     def __init__(self, initial_capital: float = 100000000):
         self.initial_capital = initial_capital
@@ -42,143 +149,207 @@ class CompleteFixedRussell3000TradingSystem:
 
         self.data_processor = EnhancedRussell3000DataProcessor()
         self.pair_selector = FixedPrimeFundPairSelector()
-        # v24: the dead standalone transformer_agent (state_dim=20, never called) was
-        # removed. The live transformer is rl_agent.signal_transformer — trained inside
-        # train_agent() on entry-signal outcomes, used to rank opportunities.
+        # The one learned component: a transformer that scores signal quality and is used
+        # for opportunity RANKING only (multi_agent_system.py). The attribute keeps its
+        # historical name for API compatibility; this is not reinforcement learning.
         self.rl_agent = FixedTransformerMultiAgentSystem()
         self.position_sizer = FixedPrimeFundPositionSizer()
-        self.risk_manager = FixedPrimeFundRiskManager()
+        self.risk_manager = FixedPrimeFundRiskManager(initial_capital=initial_capital)
         self.cost_model = EnhancedPrimeFundTransactionCostModel()
 
         self.processed_data = {}
         self.selected_pairs = []
         self.spread_data = {}
         self.macro_data = {}
+        # v32: per-pair Kalman state (lp1, lp2, beta, alpha, spread) on the pair's common
+        # trading dates. It is a deterministic function of the two price series, so it is
+        # computed once and shared by re-selection, both backtests and the label builder
+        # (through v31 every quarterly re-selection recomputed every spread from scratch).
+        self._pair_state_cache: Dict[Tuple[str, str], pd.DataFrame] = {}
+        # v32: pair statistics re-estimated at every quarterly re-selection
+        # ({reselection_date: {"A-B": stats}}); see build_rolling_pair_schedule.
+        self.pair_window_stats: Dict = {}
+        self._window_stats_index = None
 
         self.trade_history = []
         self.daily_returns = []
         self.portfolio_metrics = {}
 
-        logger.info("COMPLETE FIXED Russell 3000 Trading System initialized with JSON EXPORT")
+        logger.info("Russell 3000 pairs-trading system initialised")
+
+    # ════════════════════════════════════════════════════════════════════════════
+    # Spread model
+    # ════════════════════════════════════════════════════════════════════════════
+
+    def calculate_kalman_state(self, prices1: pd.Series, prices2: pd.Series,
+                               delta: float = 1e-5, R: float = 0.001,
+                               init_n: int = 30) -> pd.DataFrame:
+        """Causal two-state Kalman filter for a time-varying hedge ratio (v32).
+
+        Observation:  log p1_t = beta_t * log p2_t + alpha_t + e_t,   e_t ~ N(0, R)
+        State:        (beta_t, alpha_t) = (beta_{t-1}, alpha_{t-1}) + w_t,
+                      w_t ~ N(0, delta / (1 - delta) * I)      (Chan 2013, ch. 3)
+
+        v32: through v31 the model had NO INTERCEPT (log p1 = beta * log p2), so beta
+        absorbed the ratio of log-price LEVELS instead of the co-movement slope: on
+        synthetic pairs with known hedge ratios 0.90 and 1.15 it returned 1.27 and 0.79.
+        That number then defined the spread every signal was computed on.
+
+        The state is seeded by OLS on the first `init_n` observations and the recursion
+        starts after that burn-in, so row t uses data <= t only; earlier rows are NaN.
+
+        Returns a DataFrame indexed like the inputs with columns lp1, lp2 (raw log
+        prices), beta, alpha (intercept in burn-in-centred coordinates) and spread
+        (posterior residual of the centred observation).
+        """
+        idx = prices1.index
+        p1 = np.asarray(prices1, dtype=float)
+        p2 = np.asarray(prices2, dtype=float)
+        n = len(p1)
+        out = np.full((n, 3), np.nan)
+        lp1 = np.log(np.maximum(p1, 1e-8))
+        lp2 = np.log(np.maximum(p2, 1e-8))
+        k0 = min(init_n, n)
+        if k0 >= 3:
+            # v32: filter log prices CENTRED on their burn-in means. Back-adjusted prices
+            # (yfinance auto_adjust) carry a constant log offset from splits/dividends that
+            # happen AFTER the sample; centring removes it exactly, so beta, the residual and
+            # every z-score are invariant to how the vendor later rescaled either history.
+            m1, m2 = float(lp1[:k0].mean()), float(lp2[:k0].mean())
+            cy, cx = lp1 - m1, lp2 - m2
+            x0, y0 = cx[:k0], cy[:k0]
+            xm, ym = float(x0.mean()), float(y0.mean())
+            sxx = float(((x0 - xm) ** 2).sum())
+            b = float(((x0 - xm) * (y0 - ym)).sum() / sxx) if sxx > 1e-12 else 1.0
+            a = ym - b * xm
+            resid = y0 - (a + b * x0)
+            s2 = max(float((resid ** 2).sum() / (k0 - 2)), R)
+            if sxx > 1e-12:     # OLS parameter covariance as the prior
+                p_bb, p_ab, p_aa = s2 / sxx, -s2 * xm / sxx, s2 * (1.0 / k0 + xm * xm / sxx)
+            else:
+                p_bb, p_ab, p_aa = 1.0, 0.0, 1.0
+            q = delta / (1.0 - delta)
+            out[k0 - 1] = (b, a, cy[k0 - 1] - (b * cx[k0 - 1] + a))
+            for t in range(k0, n):
+                x, y = cx[t], cy[t]
+                p_bb += q                          # predict: P <- P + Q
+                p_aa += q
+                ph_b = p_bb * x + p_ab             # (P H')_beta   with H = [x, 1]
+                ph_a = p_ab * x + p_aa             # (P H')_alpha
+                s = x * ph_b + ph_a + R            # innovation variance
+                e = y - (b * x + a)                # innovation
+                kb, ka = ph_b / s, ph_a / s        # Kalman gain
+                b += kb * e
+                a += ka * e
+                p_bb -= kb * ph_b                  # P <- P - K H P
+                p_ab -= kb * ph_a
+                p_aa -= ka * ph_a
+                out[t] = (b, a, y - (b * x + a))
+        return pd.DataFrame({'lp1': lp1, 'lp2': lp2, 'beta': out[:, 0],
+                             'alpha': out[:, 1], 'spread': out[:, 2]}, index=idx)
 
     def calculate_kalman_spread(self, prices1: pd.Series, prices2: pd.Series,
                                 delta: float = 1e-5, R: float = 0.001) -> pd.Series:
-        """v12: Kalman filter dynamic hedge ratio.
+        """Posterior Kalman residual (NaN during the burn-in). See calculate_kalman_state."""
+        return self.calculate_kalman_state(prices1, prices2, delta=delta, R=R)['spread']
 
-        Models: log(p1)_t = β_t * log(p2)_t + ε_t
-                β_t = β_{t-1} + η_t   (random walk — β drifts slowly)
+    def _compute_pair_state(self, data1: pd.DataFrame, data2: pd.DataFrame) -> pd.DataFrame:
+        """Kalman state on the dates where BOTH legs have a real, positive close.
 
-        delta controls drift speed (smaller = more stable β).
-        R is measurement noise variance.
-        Returns residual spread: log(p1) - β_t * log(p2).
+        v32: no forward/back-filling. Through v31 missing closes were `.ffill().bfill()`ed
+        — the back-fill copied a leg's first real price backwards over dates before it
+        traded (look-ahead) — and a full-sample "more than 10% missing" rule decided
+        whether a pair existed at all. Dates without two real prices are simply not part
+        of the pair's history.
         """
-        lp1 = np.log(prices1.values + 1e-8)
-        lp2 = np.log(prices2.values + 1e-8)
-        n = len(lp1)
+        try:
+            c1, c2 = data1['Close'], data2['Close']
+        except (KeyError, TypeError):
+            return pd.DataFrame()
+        common = c1.index.intersection(c2.index)
+        if len(common) < 100:
+            return pd.DataFrame()
+        p1, p2 = c1.loc[common], c2.loc[common]
+        ok = p1.notna() & p2.notna() & (p1 > 0) & (p2 > 0)
+        p1, p2 = p1[ok], p2[ok]
+        if len(p1) < 100:
+            return pd.DataFrame()
+        return self.calculate_kalman_state(p1, p2).dropna()
 
-        # Initialise β with OLS on first 30 points to avoid burn-in drift
-        init_n = min(30, n)
-        if init_n >= 2:
-            beta = float(np.polyfit(lp2[:init_n], lp1[:init_n], 1)[0])
-        else:
-            beta = 1.0
-        P = 1.0
+    def get_pair_state(self, sym1: str, sym2: str) -> pd.DataFrame:
+        """Cached Kalman state of a pair (empty DataFrame if it has too little data)."""
+        key = (sym1, sym2)
+        state = self._pair_state_cache.get(key)
+        if state is None:
+            d1, d2 = self.processed_data.get(sym1), self.processed_data.get(sym2)
+            state = self._compute_pair_state(d1, d2) if d1 is not None and d2 is not None \
+                else pd.DataFrame()
+            self._pair_state_cache[key] = state
+        return state
 
-        # v31 (audit): CAUSAL PROCESS NOISE. This was
-        #     Q = delta / (1.0 - delta) * np.var(lp2)
-        # — a single constant scaled by the variance of the ENTIRE log-price series,
-        # test period included. The filter's recursion is otherwise strictly causal, so
-        # this was the one channel by which full-sample information entered every
-        # spread value, and that spread drives entry, exit and P&L on every date.
-        # Q is now recomputed from an expanding window (data up to t only). The warm-up
-        # region reuses the variance measured over the initialisation window — the same
-        # burn-in already used to seed β above, so no future data is consulted.
-        _ratio = delta / (1.0 - delta)
-        _var_exp = pd.Series(lp2).expanding(min_periods=max(2, init_n)).var()
-        if n:
-            _seed_var = _var_exp.iloc[min(init_n, n) - 1]
-            if not np.isfinite(_seed_var):
-                _seed_var = float(np.var(lp2[:init_n])) if init_n else 0.0
-            _var_exp = _var_exp.fillna(_seed_var)
-        _q_series = (_ratio * _var_exp.to_numpy()) if n else np.zeros(0)
-
-        spread = np.empty(n)
-        for t in range(n):
-            x = lp2[t]
-            y = lp1[t]
-            Q = _q_series[t] if np.isfinite(_q_series[t]) else 0.0
-            P_pred = P + Q
-            denom = x * P_pred * x + R
-            K = P_pred * x / denom if abs(denom) > 1e-12 else 0.0
-            beta = beta + K * (y - x * beta)
-            P = (1.0 - K * x) * P_pred
-            spread[t] = y - beta * x
-
-        return pd.Series(spread, index=prices1.index)
+    def _pair_stats_asof(self, pair_string: str, date) -> Dict:
+        """Pair statistics in force on `date`: those of the latest re-selection dated
+        <= date that re-estimated the pair, else the formation-period statistics."""
+        stats_by_date = getattr(self, '_window_stats_index', None)
+        if stats_by_date:
+            d = _naive(date)
+            pos = int(np.searchsorted(stats_by_date[0], np.datetime64(d), side='right')) - 1
+            while pos >= 0:
+                st = stats_by_date[1][pos].get(pair_string)
+                if st is not None:
+                    return st
+                pos -= 1
+        return self.pair_selector.pair_statistics.get(pair_string, {})
 
     def calculate_spread(self, data1: pd.DataFrame, data2: pd.DataFrame) -> pd.Series:
-        """v12: Kalman filter dynamic hedge ratio spread."""
-        try:
-            common_dates = data1.index.intersection(data2.index)
-            if len(common_dates) < 100:
-                return pd.Series(dtype=float)
+        """Kalman residual spread of a pair (empty Series if the pair has too little data)."""
+        state = self._compute_pair_state(data1, data2)
+        return state['spread'] if not state.empty else pd.Series(dtype=float)
 
-            prices1 = data1.loc[common_dates, 'Close']
-            prices2 = data2.loc[common_dates, 'Close']
+    def _pair_spread(self, sym1: str, sym2: str) -> pd.Series:
+        state = self.get_pair_state(sym1, sym2)
+        return state['spread'] if not state.empty else pd.Series(dtype=float)
 
-            if prices1.isnull().sum() > len(prices1) * 0.1 or prices2.isnull().sum() > len(prices2) * 0.1:
-                return pd.Series(dtype=float)
+    # ════════════════════════════════════════════════════════════════════════════
+    # Entry-time statistical gates and the trading rule
+    # ════════════════════════════════════════════════════════════════════════════
 
-            prices1 = prices1.ffill().bfill()
-            prices2 = prices2.ffill().bfill()
+    def _cusum_break(self, spread_window, threshold: float = 5.0, k: float = 0.5) -> bool:
+        """Two-sided Page CUSUM on standardised first differences of the spread window.
 
-            # v12: Kalman filter replaces fixed log-price difference (β=1)
-            spread = self.calculate_kalman_spread(prices1, prices2)
-            return spread.dropna()
-
-        except Exception as e:
-            logger.debug(f"Spread calculation error: {str(e)}")
-            return pd.Series(dtype=float)
-
-    def _cusum_break(self, spread_window: pd.Series, threshold: float = 5.0, k: float = 0.5) -> bool:
-        """v12: CUSUM structural break detection on recent spread history.
-        Returns True if a structural break is detected (signal to skip this pair today).
-        Uses two-sided CUSUM on standardised first differences.
-        threshold=5.0, k=0.5 are standard Page-CUSUM values (equivalent to ~5σ sustained shift).
+        Returns True if a structural break is detected (skip this pair today).
+        threshold=5.0, k=0.5 are standard Page-CUSUM values.
         """
-        if len(spread_window) < 20:
+        s = pd.Series(np.asarray(spread_window, dtype=float))
+        if len(s) < 20:
             return False
-        r = spread_window.diff().dropna()
+        r = s.diff().dropna()
         mu = r.mean()
         sigma = r.std()
-        if sigma < 1e-8:
+        if not np.isfinite(sigma) or sigma < 1e-8:
             return False
-        S_pos = S_neg = 0.0
-        for val in (r - mu) / sigma:
-            S_pos = max(0.0, S_pos + val - k)
-            S_neg = max(0.0, S_neg - val - k)
-            if S_pos > threshold or S_neg > threshold:
+        s_pos = s_neg = 0.0
+        for val in ((r - mu) / sigma).to_numpy():
+            s_pos = max(0.0, s_pos + val - k)
+            s_neg = max(0.0, s_neg - val - k)
+            if s_pos > threshold or s_neg > threshold:
                 return True
         return False
 
     def _hurst_exponent(self, spread_values: np.ndarray) -> float:
-        """v14: Hurst exponent via variance-of-increments (log-variance regression).
-        H < 0.5: mean-reverting (sub-diffusive) — valid entry.
-        H = 0.5: random walk — neutral.
-        H > 0.5: trending (super-diffusive) — skip entry.
-        Uses lags [1,2,4,8,16]; minimum 3 valid lags required for a stable estimate.
-        Research: MDPI 2024, Physica A 2021 — H < 0.45 reliably anticipates mean reversion.
+        """Hurst exponent via variance of increments (log-variance regression).
+
+        H < 0.5 mean-reverting, H = 0.5 random walk, H > 0.5 trending. Uses lags
+        [1, 2, 4, 8, 16] (those < n/2); needs >= 3 valid lags, else neutral 0.5.
         """
+        spread_values = np.asarray(spread_values, dtype=float)
         n = len(spread_values)
         if n < 20:
-            return 0.5  # insufficient data → neutral (pass through)
-
+            return 0.5
         lags = [lag for lag in [1, 2, 4, 8, 16] if lag < n // 2]
         if len(lags) < 3:
             return 0.5
-
-        log_lags = []
-        log_vars = []
+        log_lags, log_vars = [], []
         for lag in lags:
             diff = spread_values[lag:] - spread_values[:-lag]
             var = np.var(diff)
@@ -186,2106 +357,1495 @@ class CompleteFixedRussell3000TradingSystem:
                 continue
             log_lags.append(np.log(lag))
             log_vars.append(np.log(var))
-
         if len(log_lags) < 3:
             return 0.5
-
-        log_lags_arr = np.array(log_lags)
-        log_vars_arr = np.array(log_vars)
-
-        # OLS: log(var) = 2H * log(lag) + const  →  H = slope / 2
-        X = np.column_stack([np.ones(len(log_lags_arr)), log_lags_arr])
+        X = np.column_stack([np.ones(len(log_lags)), np.array(log_lags)])
         try:
-            beta = np.linalg.lstsq(X, log_vars_arr, rcond=None)[0]
-            H = beta[1] / 2.0
-            return float(np.clip(H, 0.0, 1.0))
+            coef = np.linalg.lstsq(X, np.array(log_vars), rcond=None)[0]
+            return float(np.clip(coef[1] / 2.0, 0.0, 1.0))
         except Exception:
             return 0.5
 
+    def _max_hold_days(self, pair_stats: Dict) -> int:
+        """Time stop in trading days: clamp(2.5 x half-life, 10, 25)."""
+        hl = float(pair_stats.get('half_life', 10.0))
+        return int(max(self.MIN_HOLD_DAYS, min(int(self.HOLD_HL_MULT * hl), self.MAX_HOLD_DAYS)))
+
+    def _locked_signal(self, state: pd.DataFrame, i: int, pair_stats: Dict) -> Tuple[Optional[Dict], str]:
+        """Beta-locked z-score of a pair at row `i` of its Kalman state (data <= row i).
+
+        The hedge ratio is locked at beta_i, and the locked spread over the trailing,
+        half-life-adaptive reference window (3 x half-life, 30-90 bars) is
+        lp1 - beta_i * lp2 — the intercept is a constant shift and cancels in the z-score.
+        Its mean/std over the last REF_STATS_BARS bars are frozen here and reused,
+        unchanged, by every exit test of a trade opened on this signal. The CUSUM and
+        Hurst gates run on the same window.
+        """
+        beta = float(state['beta'].iat[i])
+        if not np.isfinite(beta):
+            return None, 'beta_nan'
+        hl = float(pair_stats.get('half_life', 21.0))
+        window = max(self.REF_MIN, min(int(hl * self.REF_HL_MULT), self.REF_MAX))
+        lo = max(0, i - window + 1)
+        lk = state['lp1'].to_numpy()[lo:i + 1] - beta * state['lp2'].to_numpy()[lo:i + 1]
+        if len(lk) < 20:
+            return None, 'history'
+        if self._cusum_break(lk):
+            return None, 'cusum'
+        if self._hurst_exponent(lk) > self.HURST_MAX:
+            return None, 'hurst'
+        ref = lk[-min(self.REF_STATS_BARS, len(lk)):]
+        mu = float(ref.mean())
+        sd = max(float(ref.std()), 1e-8)
+        return {'beta': beta, 'mean': mu, 'std': sd, 'z': (float(lk[-1]) - mu) / sd,
+                'lk_diffs': np.diff(lk)}, ''
+
+    def _rolling_corr_ok(self, state: pd.DataFrame, i: int, n: int = 21) -> bool:
+        """20-day log-return correlation floor on the pair's common dates (data <= row i)."""
+        if i + 1 < n:
+            return True
+        r1 = np.diff(state['lp1'].to_numpy()[i + 1 - n:i + 1])
+        r2 = np.diff(state['lp2'].to_numpy()[i + 1 - n:i + 1])
+        if r1.std() < 1e-12 or r2.std() < 1e-12:
+            return False
+        c = np.corrcoef(r1, r2)[0, 1]
+        return bool(np.isfinite(c) and c >= self.MIN_ROLLING_CORR)
+
+    def _scan_exit(self, lp1: np.ndarray, lp2: np.ndarray, rows: List[int], sig: Dict,
+                   action: int, max_hold: int) -> Tuple[Optional[int], str]:
+        """Index j into `rows` of the first close that triggers an exit, and why.
+
+        rows[j] are the pair-history rows on which the exit rule is evaluated, in date
+        order; rows[0] is the first bar AFTER the entry fill, so rows[j] is j + 1 trading
+        days after the entry and the time stop fires at j + 1 == max_hold. The profit
+        target, stop-loss and time stop all use the z-score frozen in `sig`.
+        """
+        beta, mu, sd, z0 = sig['beta'], sig['mean'], sig['std'], sig['z']
+        for j, r in enumerate(rows):
+            z = (lp1[r] - beta * lp2[r] - mu) / sd
+            if action == 0:          # long spread, entered at z < -ENTRY_Z: reversion = z rising
+                if z > -self.EXIT_Z:
+                    return j, 'target'
+                if z < z0 - self.STOP_Z:
+                    return j, 'stop'
+            else:                    # short spread, entered at z > +ENTRY_Z: reversion = z falling
+                if z < self.EXIT_Z:
+                    return j, 'target'
+                if z > z0 + self.STOP_Z:
+                    return j, 'stop'
+            if j + 1 >= max_hold:
+                return j, 'time'
+        return None, ''
+
+    # ════════════════════════════════════════════════════════════════════════════
+    # Calendar-aligned price access and trade construction
+    # ════════════════════════════════════════════════════════════════════════════
+
+    def _aligned(self, cache: Dict, sym: str, calendar: pd.DatetimeIndex) -> Optional[Dict[str, np.ndarray]]:
+        """Per-symbol arrays aligned to a run's calendar (built once per run).
+
+        close_ff : last real close at or before each date (NaN before the first bar)
+        open     : the real open on that date (NaN if no bar)
+        has_bar  : a real, positive close exists on that date
+        adv      : 20-day average share volume as of that date (causal)
+        dvol     : 20-day daily return volatility as of that date (causal)
+        """
+        if sym in cache:
+            return cache[sym]
+        df = self.processed_data.get(sym)
+        a = None
+        if df is not None and 'Close' in df.columns:
+            close = df['Close'].where(df['Close'] > 0)
+            has_bar = close.reindex(calendar).notna().to_numpy()
+            close_ff = close.dropna().reindex(calendar, method='ffill').to_numpy(dtype=float)
+            if 'Open' in df.columns:
+                op = df['Open'].where(df['Open'] > 0).reindex(calendar).to_numpy(dtype=float)
+            else:
+                op = np.where(has_bar, close_ff, np.nan)
+            adv = (df['Volume_MA'].reindex(calendar, method='ffill').to_numpy(dtype=float)
+                   if 'Volume_MA' in df.columns else np.full(len(calendar), np.nan))
+            dvol = ((df['Volatility_20'] / np.sqrt(TRADING_DAYS_PER_YEAR))
+                    .reindex(calendar, method='ffill').to_numpy(dtype=float)
+                    if 'Volatility_20' in df.columns else np.full(len(calendar), np.nan))
+            # point-in-time / adjusted price ratio (1.0 unless a later split is in the data)
+            pit_ratio = ((df['Close_PIT'] / df['Close']).reindex(calendar, method='ffill')
+                         .to_numpy(dtype=float) if 'Close_PIT' in df.columns
+                         else np.ones(len(calendar)))
+            a = {'close_ff': close_ff, 'open': op, 'has_bar': has_bar, 'adv': adv, 'dvol': dvol,
+                 'pit_ratio': pit_ratio}
+        cache[sym] = a
+        return a
+
+    @staticmethod
+    def _fill_price(a: Dict, k: int, fill_col: str) -> float:
+        """Real fill price on calendar day k (NaN if the leg has no bar that day)."""
+        if not a['has_bar'][k]:
+            return float('nan')
+        if fill_col == 'Open':
+            p = a['open'][k]
+            if np.isfinite(p) and p > 0:
+                return float(p)
+        return float(a['close_ff'][k])
+
+    def _exit_price(self, a: Dict, k: int, fill_col: str) -> Tuple[float, bool]:
+        """Exit fill on day k; a leg without a bar that day is valued at its last real close."""
+        p = self._fill_price(a, k, fill_col)
+        if np.isfinite(p):
+            return p, True
+        return float(a['close_ff'][k]), False
+
+    def _leg_costs(self, shares: float, price: float, a: Optional[Dict], k: int) -> Dict[str, float]:
+        """One-way execution cost of one leg on calendar day k (the stock's own ADV/vol)."""
+        adv = float(a['adv'][k]) if a is not None else None
+        dvol = float(a['dvol'][k]) if a is not None else None
+        ratio = float(a['pit_ratio'][k]) if a is not None and np.isfinite(a['pit_ratio'][k]) else 1.0
+        return self.cost_model.calculate_leg_cost(shares, price, daily_volume_shares=adv,
+                                                  daily_volatility=dvol,
+                                                  point_in_time_price=price * ratio)
+
+    @staticmethod
+    def _build_trade_path(a1: Dict, a2: Dict, q1: float, q2: float, entry_k: int, exit_k: int,
+                          e1: float, e2: float, x1: float, x2: float) -> Dict[int, float]:
+        """Daily mark-to-market dollar P&L of a two-leg position (costs excluded).
+
+        q1/q2 are signed share counts (positive = long). Valuation uses the last real
+        close; the entry day marks fill -> close and the exit day marks previous close ->
+        exit fill, so the path telescopes to  q1*(x1 - e1) + q2*(x2 - e2)  exactly.
+        """
+        c1, c2 = a1['close_ff'], a2['close_ff']
+        if exit_k <= entry_k:
+            return {entry_k: q1 * (x1 - e1) + q2 * (x2 - e2)}
+        path = {entry_k: q1 * (c1[entry_k] - e1) + q2 * (c2[entry_k] - e2)}
+        for k in range(entry_k + 1, exit_k):
+            path[k] = q1 * (c1[k] - c1[k - 1]) + q2 * (c2[k] - c2[k - 1])
+        path[exit_k] = q1 * (x1 - c1[exit_k - 1]) + q2 * (x2 - c2[exit_k - 1])
+        return path
+
+    def _finalise_trade(self, t: Dict, exit_signal_k: int, exit_k: int, reason: str,
+                        full_dates: List, aligned: Dict, fill_col: str) -> None:
+        """(Re)compute a trade's exit, MTM path and costs for a given exit-fill day."""
+        a1, a2 = aligned[t['symbol1']], aligned[t['symbol2']]
+        x1, real1 = self._exit_price(a1, exit_k, fill_col)
+        x2, real2 = self._exit_price(a2, exit_k, fill_col)
+        path = self._build_trade_path(a1, a2, t['q1'], t['q2'], t['entry_k'], exit_k,
+                                      t['e1'], t['e2'], x1, x2)
+        exit_c1 = self._leg_costs(t['q1'], x1, a1, exit_k)
+        exit_c2 = self._leg_costs(t['q2'], x2, a2, exit_k)
+        cal_days = max(1, (_naive(full_dates[exit_k]) - _naive(full_dates[t['entry_k']])).days)
+        if t['q1'] > 0:
+            short_sym, short_notional = t['symbol2'], abs(t['q2']) * t['e2']
+        else:
+            short_sym, short_notional = t['symbol1'], abs(t['q1']) * t['e1']
+        borrow = self.cost_model.calculate_borrow_cost(short_notional, short_sym, cal_days)
+        financing = self.cost_model.calculate_financing_cost(t['gross_notional'], cal_days)
+        exit_cost = exit_c1['total'] + exit_c2['total'] + borrow + financing
+        costs_by_k = {t['entry_k']: t['entry_cost']}
+        costs_by_k[exit_k] = costs_by_k.get(exit_k, 0.0) + exit_cost
+        gross = float(sum(path.values()))
+        total_cost = t['entry_cost'] + exit_cost
+        eb = t['entry_breakdown']
+        t.update({
+            'exit_signal_k': exit_signal_k, 'exit_k': exit_k, 'exit_reason': reason,
+            'x1': x1, 'x2': x2, 'exit_prices_real': bool(real1 and real2),
+            'path': path, 'costs_by_k': costs_by_k,
+            'gross_pnl_dollars': gross, 'total_cost': total_cost,
+            'net_pnl_dollars': gross - total_cost, 'calendar_days': cal_days,
+            'cost_breakdown': {
+                'commission': eb['commission'] + exit_c1['commission'] + exit_c2['commission'],
+                'bid_ask': eb['bid_ask'] + exit_c1['bid_ask'] + exit_c2['bid_ask'],
+                'market_impact': eb['market_impact'] + exit_c1['market_impact'] + exit_c2['market_impact'],
+                'borrow': borrow, 'financing': financing, 'total_cost': total_cost,
+            },
+        })
+
+    # ════════════════════════════════════════════════════════════════════════════
+    # Train/test split of the initial universe
+    # ════════════════════════════════════════════════════════════════════════════
+
     def prepare_time_split_data(self) -> Tuple[Dict, Dict]:
-        """FIXED: More robust time-based data splitting"""
-        logger.info("FIXED: Time-based split with improved validation")
-
-        train_spreads = {}
-        test_spreads = {}
-
-        train_end_date = pd.Timestamp('2022-12-31')
-        test_start_date = pd.Timestamp('2023-01-01')
-
+        """Split the initial pairs' spreads at the pair-selection cutoff."""
+        train_spreads, test_spreads = {}, {}
         for pair_key, spread in self.spread_data.items():
-            if len(spread) < 200:
+            if len(spread) == 0:
                 continue
-
-            try:
-                if hasattr(spread.index, 'tz') and spread.index.tz is not None:
-                    train_end_tz = train_end_date.tz_localize(spread.index.tz)
-                    test_start_tz = test_start_date.tz_localize(spread.index.tz)
-
-                    train_mask = spread.index <= train_end_tz
-                    test_mask = spread.index >= test_start_tz
-                else:
-                    train_mask = spread.index <= train_end_date
-                    test_mask = spread.index >= test_start_date
-
-                train_spread = spread[train_mask]
-                test_spread = spread[test_mask]
-
-                if len(train_spread) >= 100 and len(test_spread) >= 50:
-                    train_spreads[pair_key] = train_spread
-                    test_spreads[pair_key] = test_spread
-
-            except Exception as e:
-                logger.debug(f"Error processing pair {pair_key}: {str(e)}")
-                continue
-
-        logger.info(f"FIXED SPLIT: {len(train_spreads)} pairs for training")
-        logger.info(f"FIXED SPLIT: {len(test_spreads)} pairs for testing")
-
+            # v32: eligibility uses only data known at the cutoff (>= 100 training days);
+            # a full-sample ">= 200 bars" rule used to require post-cutoff observations.
+            like = spread.index[0]
+            cutoff = _align_ts(PAIR_SELECTION_CUTOFF, like)
+            train = spread[spread.index <= cutoff]
+            test = spread[spread.index > cutoff]
+            if len(train) >= 100 and len(test) >= 1:
+                train_spreads[pair_key] = train
+                test_spreads[pair_key] = test
+        logger.info(f"Time split: {len(train_spreads)} pairs with >= 100 training days")
         return train_spreads, test_spreads
 
-    def run_comprehensive_backtest(self, test_spreads: Dict, pair_windows: Dict = None,
-                                   date_range: tuple = None) -> Dict:
-        """FIXED: Backtest with look-ahead bias corrected + optional quarterly pair re-selection.
+    # ════════════════════════════════════════════════════════════════════════════
+    # Backtest
+    # ════════════════════════════════════════════════════════════════════════════
 
-        date_range: optional (start, end) tuple to restrict which dates are traded.
-        Used by walk-forward validation so full-history spreads can be passed for
-        feature context while only the out-of-sample test period is actually traded.
+    def _regime_scales(self, full_dates: List) -> np.ndarray:
+        """Per-date regime scale from VIX bands and 63-day cumulative sector dispersion.
+
+        VIX > 40 -> 0.25x, > 30 -> 0.50x; dispersion z > 2 -> 0.50x; VIX < 20 with
+        dispersion z > 0.8 ("walking on ice") -> 0.40x; the minimum applies. Dispersion
+        is the cross-sectional std of 63-day cumulative sector log-returns, z-scored
+        against its own trailing 252 days — trailing data only.
         """
-        logger.info("Running CORRECTED backtest - PnL booked on exit date")
-        if pair_windows:
-            logger.info(f"QUARTERLY RE-SELECTION active: {len(pair_windows)} windows")
+        vix = self.macro_data.get('VIX', pd.Series(dtype=float))
+        sectors = self.macro_data.get('sectors', {})
+        sector_rets = pd.DataFrame({k: v.pct_change() for k, v in sectors.items() if len(v) > 10})
+        sector_rets = sector_rets.dropna(how='all')
+        disp_z = pd.Series(dtype=float)
+        if not sector_rets.empty:
+            cum63 = np.log1p(sector_rets.fillna(0)).rolling(63, min_periods=30).sum()
+            disp = cum63.std(axis=1).dropna()
+            disp_z = ((disp - disp.rolling(252, min_periods=60).mean())
+                      / (disp.rolling(252, min_periods=60).std() + 1e-10)).dropna()
+        vix_lookup = {str(pd.Timestamp(d).date()): float(v) for d, v in vix.items()}
+        disp_lookup = {str(pd.Timestamp(d).date()): float(z) for d, z in disp_z.items()}
+        scales = np.ones(len(full_dates))
+        for k, d in enumerate(full_dates):
+            key = str(pd.Timestamp(d).date())
+            v = vix_lookup.get(key, 18.0)        # neutral default when VIX is missing
+            z = disp_lookup.get(key, 0.0)
+            vix_scale = 0.25 if v > 40 else (0.50 if v > 30 else 1.0)
+            if z > 2.0:
+                disp_scale = 0.50
+            elif v < 20 and z > 0.8:
+                disp_scale = 0.40
+            else:
+                disp_scale = 1.0
+            scales[k] = min(vix_scale, disp_scale)
+        logger.info(f"Regime gate: {len(vix_lookup)} VIX days, {len(disp_lookup)} dispersion days")
+        return scales
 
-        # Reset risk manager peak/drawdown state so a fresh backtest (e.g. each
-        # walk-forward window) is not killed immediately by stale peak_portfolio_value
-        # accumulated from a prior longer run.
-        self.risk_manager.peak_portfolio_value = self.initial_capital
-        self.risk_manager.current_drawdown = 0.0
-        self.risk_manager.trading_paused = False
-        self.risk_manager.daily_returns_history = []
-        self.risk_manager.last_trade_dates = {}
+    def run_comprehensive_backtest(self, test_spreads: Dict, pair_windows: Dict = None,
+                                   date_range: tuple = None,
+                                   model_schedule: List[Tuple] = None) -> Dict:
+        """Event-driven daily backtest with t+1 fills and mark-to-market accounting.
 
-        # v31 (audit): reset the position sizer too. It accumulates `trade_history` and
-        # per-pair win/loss stats via record_trade() and feeds them back into sizing, but
-        # it was constructed once in __init__ and never cleared. The main 2023-2025
-        # backtest and all 19 walk-forward windows therefore shared one adaptive state:
-        # trades from one period sized positions in another, including earlier ones.
+        test_spreads   : {pair: spread} used when no re-selection schedule is given.
+        pair_windows   : {reselection_date: {pair: spread}}; on each day the pairs of the
+                         latest re-selection dated <= that day are tradeable.
+        date_range     : (start, end); new positions are opened only on these dates.
+                         Positions still open at `end` run off under their own exit rules
+                         on the real bars that follow (no new entries); if the data ends
+                         first they are closed at the last available bar.
+        model_schedule : [(start_date, agent), ...]; the ranking model in force on a day
+                         is the latest one whose start_date <= that day (walk-forward).
+        """
+        self.risk_manager.reset_state(self.initial_capital)
         self.position_sizer = FixedPrimeFundPositionSizer()
+        fill_col = resolve_fill_column(os.environ.get('PAIRS_FILL', 'close'))
 
-        portfolio_value = self.initial_capital
-        trades = []
-        daily_pnl = []
-        total_costs = 0
+        universe = pair_windows if pair_windows else {None: test_spreads}
+        cal = set()
+        for window_spreads in universe.values():
+            for pair_key in window_spreads:
+                cal.update(self.get_pair_state(*pair_key).index)
+        full_dates = sorted(cal)
+        if not full_dates:
+            logger.warning("Backtest: empty calendar")
+            return self._summarise_backtest([], [], [], [], 0.0, 0, 0, 0)
+        calendar = pd.DatetimeIndex(full_dates)
+        like = full_dates[0]
+        n_cal = len(full_dates)
 
-        # FIX: Pending PnL keyed by exit date - eliminates look-ahead bias
-        pending_pnl: Dict = {}
+        start = _align_ts(date_range[0], like) if date_range is not None else full_dates[0]
+        end = _align_ts(date_range[1], like) if date_range is not None else full_dates[-1]
+        first_k = int(calendar.searchsorted(start, side='left'))
+        last_trade_k = int(calendar.searchsorted(end, side='right')) - 1
+        if first_k >= n_cal or last_trade_k < first_k:
+            logger.warning("Backtest: date range outside the calendar")
+            return self._summarise_backtest([], [], [], [], 0.0, 0, 0, 0)
+        logger.info(f"Backtest: {last_trade_k - first_k + 1} tradeable days "
+                    f"({pd.Timestamp(full_dates[first_k]).date()} -> "
+                    f"{pd.Timestamp(full_dates[last_trade_k]).date()}), fill={fill_col}")
 
-        # v26: track real concurrent gross exposure. Previously update_daily_stats
-        # was called with exposure=0, so current_exposure reset to 0 every day and
-        # the 30% total-exposure cap + exposure kill-switch never fired. open_exposure
-        # = sum of open position fractions; each entry schedules release on its exit.
-        open_exposure = 0.0
-        exposure_release: Dict = {}
+        resel_keys = sorted(k for k in universe if k is not None)
+        resel_index = pd.DatetimeIndex([_align_ts(k, like) for k in resel_keys])
+        schedule = sorted(((_align_ts(s, like), m) for s, m in (model_schedule or [])),
+                          key=lambda x: x[0])
 
-        # v13: Per-pair consecutive loss tracking for cooling-off after 3 losses
-        pair_loss_streak: Dict = {}    # pair_string -> consecutive loss count
-        pair_cooloff_until: Dict = {}  # pair_string -> date cooloff triggered (reset after 30 cal days)
+        scales = self._regime_scales(full_dates)
+        reduced_cum = np.concatenate([[0], np.cumsum(scales < 1.0)])
+        regime_counts: Dict[float, int] = {}
 
-        # v22: Cross-symbol exposure limit — prevent same stock in 2+ simultaneous open pairs.
-        # Reduces hidden directional concentration (e.g. AAPL-MSFT + AAPL-GOOG open = net AAPL bet).
-        _active_symbols: Dict = {}    # symbol -> scheduled exit_date
-
-        # v29 (sensitivity): fill column for t+1 execution. Default 'Close' (the conservative
-        # headline). PAIRS_FILL=open fills at the next bar's OPEN — the standard next-bar
-        # convention that captures the overnight gap — used to report the execution-realism
-        # sensitivity (does the conclusion hold under both fill conventions?). Signal/exit
-        # logic is unchanged (still close-based z-score); only the fill PRICE changes.
-        _fill_col = resolve_fill_column(os.environ.get('PAIRS_FILL', 'close'))
-
-        # Build master date list from ALL windows if re-selection is active
-        all_dates = set()
-        if pair_windows:
-            for window_spreads in pair_windows.values():
-                for spread in window_spreads.values():
-                    all_dates.update(spread.index)
-        else:
-            for spread in test_spreads.values():
-                all_dates.update(spread.index)
-        all_dates = sorted(list(all_dates))
-
-        # v31 (audit): keep the UNTRUNCATED calendar for position RESOLUTION.
-        # `all_dates` below is restricted to the tradeable window (date_range), but a
-        # position opened near the end of that window must still be allowed to close on
-        # real subsequent bars. Previously the exit search ran over the truncated list,
-        # so any trade that could not find an exit inside the window hit
-        # `next_date is None -> continue` and was silently dropped. Because the profit
-        # target fires early and the time stop fires late, the dropped trades were
-        # disproportionately the NON-reverting ones — i.e. a forward-looking winner
-        # filter over the last <=25 days of every 63-day walk-forward window.
-        full_dates = list(all_dates)
-        _full_pos = {d: i for i, d in enumerate(full_dates)}
-
-        # If a date range is specified, restrict trading to that window only.
-        # Normalise timezone so the comparison works whether the dates are
-        # tz-aware (UTC from yfinance) or tz-naive.
-        if date_range is not None:
-            dr_start, dr_end = pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])
-            if all_dates:
-                sample = all_dates[0]
-                if getattr(sample, 'tzinfo', None) is not None and dr_start.tzinfo is None:
-                    dr_start = dr_start.tz_localize(sample.tzinfo)
-                    dr_end   = dr_end.tz_localize(sample.tzinfo)
-                elif getattr(sample, 'tzinfo', None) is None and dr_start.tzinfo is not None:
-                    dr_start = dr_start.tz_localize(None)
-                    dr_end   = dr_end.tz_localize(None)
-            all_dates = [d for d in all_dates if dr_start <= d <= dr_end]
-
-        logger.info(f"CORRECTED Backtest: {len(all_dates)} days")
-
-        # ── Regime Gate Precomputation ─────────────────────────────────────────
-        # Build fast date-string lookup for VIX and cross-sector dispersion.
-        # Catches "Walking on Ice" regime (Q2 2023): VIX ~13-15 looked SAFE but
-        # sector dispersion spiked as Mag 7 decoupled from everything else.
-        # VIX alone misses this — BIS (March 2024) proved 0DTE + dealer hedging
-        # mechanically suppressed VIX below true risk level during Q2 2023.
-        _vix_series  = self.macro_data.get('VIX', pd.Series(dtype=float))
-        _sector_data = self.macro_data.get('sectors', {})
-
-        _sector_rets = pd.DataFrame(
-            {k: v.pct_change() for k, v in _sector_data.items() if len(v) > 10}
-        ).dropna(how='all')
-
-        # 63-day cumulative log-return dispersion (v8 Fix: replaces daily cross-section std)
-        # WHY: Daily std of sector returns was -0.47σ during Q2 2023 (W10) because NVDA's
-        # +0.5%/day gain vs +0.0%/day for other sectors looks small daily but compounds to
-        # +37% vs +0% over 63 days. Cumulative log-return dispersion captures this slow-burn
-        # structural divergence (Mag 7 effect) that daily metrics completely miss.
-        # 2022 comparison: all sectors fell together (-30% across sectors) → low cumulative
-        # dispersion → NO false gate firing. Q2 2023: XLK +20%+, rest flat → HIGH dispersion.
-        _sector_cum_disp = pd.Series(dtype=float)
-        if not _sector_rets.empty:
-            _sector_log = np.log(1 + _sector_rets.fillna(0))
-            _sector_cum63 = _sector_log.rolling(63, min_periods=30).sum()   # cumulative log returns
-            _sector_cum_disp = _sector_cum63.std(axis=1).dropna()            # cross-sectional std
-
-        # Rolling z-score vs 252-day trailing baseline
-        _disp_mean = _sector_cum_disp.rolling(252, min_periods=60).mean()
-        _disp_std  = _sector_cum_disp.rolling(252, min_periods=60).std()
-        _disp_z    = ((_sector_cum_disp - _disp_mean) / (_disp_std + 1e-10)).dropna()
-
-        # Build tz-naive date-string lookup dicts for O(1) per-day access
-        _vix_lookup: Dict = {
-            str(pd.Timestamp(dt).date()): float(v)
-            for dt, v in _vix_series.items()
-        }
-        _disp_z_lookup: Dict = {
-            str(pd.Timestamp(dt).date()): float(z)
-            for dt, z in _disp_z.items()
-        }
-        _regime_scale_counts: Dict = {}
-        logger.info(f"Regime gate: loaded {len(_vix_lookup)} VIX days, "
-                    f"{len(_disp_z_lookup)} cum-dispersion days (63-day rolling)")
-        # ── End Regime Gate Precomputation ────────────────────────────────────
-
-        max_daily_trades = 0
+        aligned: Dict[str, Optional[Dict]] = {}
+        equity = float(self.initial_capital)
+        open_trades: List[Dict] = []
+        all_trades: List[Dict] = []
+        daily_returns: List[float] = []
+        daily_dates: List = []
+        daily_equity: List[float] = []
+        daily_gross: List[float] = []            # gross exposure / equity, positions held
+        pair_loss_streak: Dict[str, int] = {}
+        pair_cooloff_from: Dict[str, pd.Timestamp] = {}
         quality_opportunities = 0
-
-        # Sorted re-selection dates for fast lookup
-        resel_dates_sorted = sorted(pair_windows.keys()) if pair_windows else []
-
-        daily_dates = []   # v26: real calendar date per daily_pnl entry (for export)
-
-        for date_idx, date in enumerate(tqdm(all_dates, desc="CORRECTED Backtesting")):
-            # v31 (audit): position of this day on the FULL calendar. `date_idx` is an
-            # index into the truncated window, so anything that needs real history or
-            # real future bars must go through `_day_pos` instead.
-            _day_pos = _full_pos.get(date, date_idx)
-            daily_trades = 0
-            # FIX: Start day PnL with any trades that closed today
-            day_pnl = pending_pnl.pop(date, 0.0)
-            day_costs = 0
-            day_trade_details = []
-
-            # v26: release exposure from positions exiting today and expose the
-            # running gross total to the risk manager (enforces the 30% cap).
-            open_exposure = max(0.0, open_exposure - exposure_release.pop(date, 0.0))
-            self.risk_manager.current_exposure = open_exposure
-
-            # Reset daily counters and get adaptive scaling
-            self.risk_manager.reset_daily_counters()
-            risk_scaling_factor = self.risk_manager.get_combined_scaling_factor(portfolio_value)
-
-            # ── Regime gate (VIX + sector dispersion) ─────────────────────────
-            # Walking on Ice detection: LOW VIX + HIGH dispersion = the Q2 2023
-            # pattern where the model looks safe but pair correlations break.
-            _date_key  = str(date.date()) if hasattr(date, 'date') else str(date)
-            _cur_vix   = _vix_lookup.get(_date_key, 18.0)   # neutral default
-            _cur_dispz = _disp_z_lookup.get(_date_key, 0.0)
-
-            # VIX scaling — crisis-only gate (v8 Fix: raised from 25/35 to 30/40)
-            # Rationale: 2022 avg VIX 25-28 fired the old gate but pairs were profitable.
-            # High VIX with macro stress (Fed hikes) ≠ correlation collapse.
-            # New thresholds: 30+ is genuine stress; 40+ is crisis (COVID 82, GFC 70).
-            if _cur_vix > 40:
-                _vix_scale = 0.25
-            elif _cur_vix > 30:
-                _vix_scale = 0.50
-            else:
-                _vix_scale = 1.00
-
-            # Dispersion scaling — catches "Walking on Ice" using 63-day cumulative metric
-            # (v8 Fix: VIX threshold widened to <20; cum-dispersion z threshold lowered to 1.2)
-            # The cumulative metric amplifies slow-burn divergence (NVDA +0.5%/day * 63 days)
-            # that daily std misses. With higher sensitivity, 1.2σ threshold is appropriate.
-            if _cur_dispz > 2.0:
-                _disp_scale = 0.50
-            elif _cur_vix < 20 and _cur_dispz > 0.8:  # v11 Fix #3: Lower from 1.2 → earlier detection
-                # Low VIX + elevated CUMULATIVE sector divergence = Walking on Ice
-                _disp_scale = 0.40
-            else:
-                _disp_scale = 1.00
-
-            regime_scale = min(_vix_scale, _disp_scale)
-
-            # ── v11 Fix #2: HARD STOP when regime is persistently broken ──────────
-            # If >20% of last 63 days are reduced-scale, the regime is genuinely
-            # broken (not just transient stress). Suspend trading entirely.
-            # Example: v10 W16 had 34/63 reduced days (54%) → lost -6.52%
-            # v31 (audit): indexed off the FULL calendar, not the truncated window.
-            # Previously `date_idx >= 62` could never be true inside a 63-day
-            # walk-forward window until its very last day, so the hard stop was
-            # effectively unreachable out-of-sample — it only ever fired in the
-            # long main backtest.
-            if _day_pos >= 62:  # Need 63 days of history
-                _recent_63_dates = full_dates[max(0, _day_pos-62):_day_pos+1]
-                _recent_reduced = 0
-                for _d in _recent_63_dates:
-                    _dk = str(_d.date()) if hasattr(_d, 'date') else str(_d)
-                    _d_vix = _vix_lookup.get(_dk, 18.0)
-                    _d_disp = _disp_z_lookup.get(_dk, 0.0)
-
-                    # Recalculate scale for this date (matches gate logic)
-                    if _d_vix > 40:
-                        _d_scale = 0.25
-                    elif _d_vix > 30:
-                        _d_scale = 0.50
-                    elif _d_disp > 2.0:
-                        _d_scale = 0.50
-                    elif _d_vix < 20 and _d_disp > 0.8:  # v11: lowered from 1.2
-                        _d_scale = 0.40
-                    else:
-                        _d_scale = 1.0
-
-                    if _d_scale < 1.0:
-                        _recent_reduced += 1
-
-                # If >20% of last quarter is reduced, SKIP NEW ENTRIES this day.
-                # v26: still book any P&L from positions exiting today and record the
-                # day — the prior code `continue`d before daily_pnl.append/portfolio
-                # update, silently discarding realized exit P&L that landed on a
-                # hard-stop day (those trades were still counted in win-rate/stats).
-                if _recent_reduced / len(_recent_63_dates) > 0.20:
-                    logger.debug(f"v11 hard stop: {_recent_reduced}/{len(_recent_63_dates)} days reduced → no new entries {date.date()}")
-                    daily_pnl.append(day_pnl)
-                    daily_dates.append(date)
-                    portfolio_value *= (1 + day_pnl)
-                    self.risk_manager.update_daily_stats(0, open_exposure, day_pnl, portfolio_value)
-                    should_stop, stop_reason = self.risk_manager.should_stop_trading(day_pnl)
-                    if should_stop:
-                        logger.warning(f"LOGICAL Risk Management: {stop_reason}")
-                        break
-                    continue  # Skip new entries today
-
-            risk_scaling_factor *= regime_scale
-            _regime_scale_counts[regime_scale] = _regime_scale_counts.get(regime_scale, 0) + 1
-            # ── End v11 regime protection ──────────────────────────────────────────
-
-            # v22: clean up expired symbol locks from _active_symbols
-            _expired_syms = [s for s, exp in _active_symbols.items() if exp <= date]
-            for _s in _expired_syms:
-                del _active_symbols[_s]
-
-            # QUARTERLY RE-SELECTION: pick the spread set for this date
-            if pair_windows and resel_dates_sorted:
-                active_resel_date = resel_dates_sorted[0]
-                for rd in resel_dates_sorted:
-                    if rd <= date:
-                        active_resel_date = rd
-                    else:
-                        break
-                active_spreads = pair_windows[active_resel_date]
-            else:
-                active_spreads = test_spreads
-
-            pair_opportunities = []
-
-            for pair_key, spread in active_spreads.items():
-                if date not in spread.index:
-                    continue
-
-                try:
-                    symbol1, symbol2 = pair_key
-                    pair_string = f"{symbol1}-{symbol2}"
-
-                    # v27: cross-symbol concentration check (v22 intent, now enforced).
-                    # If either leg is already in an open position, skip — otherwise we
-                    # accumulate a hidden directional bet on a single name across pairs.
-                    if symbol1 in _active_symbols or symbol2 in _active_symbols:
-                        continue
-
-                    historical_spread = spread.loc[:date]
-                    if len(historical_spread) < 50:
-                        continue
-
-                    # v13: Rolling 20-day correlation check — skip if pair has recently decoupled.
-                    # Threshold 0.20: below static selection floor (0.25) to allow short-term fluctuation,
-                    # but above zero — genuinely broken pairs (corr < 0.20) are still blocked.
-                    # NOTE: 0.30 was too strict — blocked entries even for quarterly-reselected pairs
-                    # in 2023-2025 low-vol regime (Mag7 sector divergence compresses short-term corr).
-                    if symbol1 in self.processed_data and symbol2 in self.processed_data:
-                        _c1w = self.processed_data[symbol1]['Close'].loc[:date].iloc[-21:]
-                        _c2w = self.processed_data[symbol2]['Close'].loc[:date].iloc[-21:]
-                        if len(_c1w) >= 21 and len(_c2w) >= 21:
-                            _r1 = np.log(_c1w / _c1w.shift(1)).dropna()
-                            _r2 = np.log(_c2w / _c2w.shift(1)).dropna()
-                            _cidx = _r1.index.intersection(_r2.index)
-                            if len(_cidx) >= 15:
-                                _rcorr = np.corrcoef(_r1.loc[_cidx].values, _r2.loc[_cidx].values)[0, 1]
-                                if np.isnan(_rcorr) or _rcorr < 0.20:
-                                    continue
-
-                    # v13: Pair cooling-off — skip pair for 30 calendar days after 3 consecutive losses.
-                    # Prevents re-entering pairs in broken regimes until next quarterly re-selection.
-                    if pair_string in pair_cooloff_until:
-                        _cooloff_start = pair_cooloff_until[pair_string]
-                        if (date - _cooloff_start).days < 30:
-                            continue
-                        else:
-                            # Cooloff expired — clear state
-                            pair_loss_streak.pop(pair_string, None)
-                            pair_cooloff_until.pop(pair_string, None)
-
-                    # v14 (corrected): Locked-β spread filters — CUSUM, Hurst, and reference stats.
-                    # The Kalman spread is stationary by construction (H ≈ 0.5, CUSUM rarely fires).
-                    # Locked-β spread = log(p1) - β_f × log(p2) with β_f = Kalman β at current date.
-                    # This IS the spread of the position we'll hold — it reflects true market dynamics.
-                    # At entry date, locked_spread_entry = Kalman_spread_entry (identical by construction).
-                    _locked_mean_entry = None
-                    _locked_std_entry = None
-                    _entry_locked_zscore = None
-                    _lk_spread_returns = None   # v18: locked-β daily diffs for position sizer
-                    try:
-                        _p1c = self.processed_data[symbol1].loc[date, 'Close'] \
-                            if date in self.processed_data[symbol1].index else None
-                        _p2c = self.processed_data[symbol2].loc[date, 'Close'] \
-                            if date in self.processed_data[symbol2].index else None
-                        if _p1c is not None and _p2c is not None and _p1c > 0 and _p2c > 0:
-                            _lp1c = np.log(_p1c)
-                            _lp2c = np.log(_p2c)
-                            if date in spread.index and abs(_lp2c) > 1e-4:
-                                _beta_f = (_lp1c - spread.loc[date]) / _lp2c
-                                # v22: half-life adaptive lookback — pairs with longer HL need
-                                # a wider window to get a stable mean/std estimate for z-score.
-                                # Use 3× half-life (min 30, max 90 bars).
-                                _ps_tmp = self.pair_selector.pair_statistics.get(f"{symbol1}-{symbol2}", {})
-                                _hl_tmp = float(_ps_tmp.get('half_life', 21.0))
-                                _ref_window = max(30, min(int(_hl_tmp * 3), 90))
-                                _p1h = self.processed_data[symbol1]['Close'].loc[:date].iloc[-_ref_window:]
-                                _p2h = self.processed_data[symbol2]['Close'].loc[:date].iloc[-_ref_window:]
-                                _lk_idx = _p1h.index.intersection(_p2h.index)
-                                if len(_lk_idx) >= 20:
-                                    _lp1h = np.log(np.maximum(_p1h.loc[_lk_idx].values, 1e-8))
-                                    _lp2h = np.log(np.maximum(_p2h.loc[_lk_idx].values, 1e-8))
-                                    _lk_hist = _lp1h - _beta_f * _lp2h
-                                    # CUSUM on locked-β (structural break detection)
-                                    if self._cusum_break(pd.Series(_lk_hist)):
-                                        continue
-                                    # Hurst on locked-β (trend detection)
-                                    if self._hurst_exponent(_lk_hist) > 0.55:
-                                        continue
-                                    # Reference stats for consistent exit z-score
-                                    _n_ref = min(60, len(_lk_hist))
-                                    _locked_mean_entry = float(np.mean(_lk_hist[-_n_ref:]))
-                                    _locked_std_entry = max(float(np.std(_lk_hist[-_n_ref:])), 1e-8)
-                                    _entry_locked_zscore = (spread.loc[date] - _locked_mean_entry) / _locked_std_entry
-                                    # v18: daily diffs of locked-β spread for position sizer vol check.
-                                    # Kalman diff std (~0.002) never triggers the 0.08 threshold.
-                                    # Locked-β diff std (~0.01-0.05) gives a real volatility signal.
-                                    _lk_spread_returns = pd.Series(np.diff(_lk_hist))
-                    except Exception:
-                        pass
-
-                    pair_stats = self.pair_selector.pair_statistics.get(pair_string, {})
-
-                    pair_quality = pair_stats.get('quality_score', 0)
-                    if pair_quality < 0.4:
-                        continue
-
-                    features = self.rl_agent.extract_advanced_features(
-                        historical_spread, pair_stats,
-                        self.processed_data.get(symbol1, pd.DataFrame()),
-                        self.processed_data.get(symbol2, pd.DataFrame()),
-                        macro_data=self.macro_data,
-                        symbol1=symbol1, symbol2=symbol2
-                    )
-
-                    if self.rl_agent.scaler_fitted:
-                        features_scaled = self.rl_agent.scaler.transform(features.reshape(1, -1)).flatten()
-                    else:
-                        features_scaled = features
-
-                    # v26: the entry decision is governed by the RAW z-score (the
-                    # documented |z|>1.8 rule). The prior code also gated on
-                    # get_action(), which compared the RobustScaler-SCALED state[0]
-                    # to 2.0 — a unit mismatch that silently raised the effective
-                    # entry threshold to ~2.7σ and could reject valid 1.8σ signals.
-                    zscore = features[0] if len(features) > 0 else 0
-                    signal_strength = min(abs(zscore) / 2.5, 1.0)
-
-                    # v18: entry z-score threshold (raw z)
-                    if abs(zscore) < 1.8:
-                        continue
-
-                    if zscore > 1.8:
-                        action = 2
-                    elif zscore < -1.8:
-                        action = 0
-                    else:
-                        continue
-
-                    # v26: transformer quality score (RANKING only) computed directly,
-                    # defined for every raw-z entry — no longer tied to get_action's
-                    # scaled-z neutral short-circuit. Returns 1.0 if no transformer.
-                    feature_quality = self.rl_agent.score_signal_quality(features_scaled)
-
-                    quality_opportunities += 1
-
-                    # v16: diff() not pct_change() — Kalman spread is a signed residual that
-                    # crosses zero; pct_change() divides by near-zero values and blows up.
-                    spread_returns = historical_spread.diff().dropna()
-
-                    # v18: feed locked-β daily diffs to position sizer so its vol check
-                    # (volatility > 0.08 → 0.8× multiplier) fires on real pair volatility,
-                    # not Kalman residuals (~0.002 std, never triggering the threshold).
-                    _sizer_vol_series = _lk_spread_returns if _lk_spread_returns is not None else spread_returns
-                    position_size = self.position_sizer.calculate_optimal_position_size(
-                        pair_string, signal_strength, pair_quality, portfolio_value, _sizer_vol_series,
-                        risk_scaling_factor=risk_scaling_factor
-                    )
-
-                    z_multiplier = min(abs(zscore) / 2.3, 2.0)
-                    position_size *= z_multiplier
-
-                    # v16: removed duplicate global win-rate boost (was: position_size *= 1.3
-                    # when last 5 trades had WR > 55%). The position sizer already has an
-                    # internal performance_multiplier from its own trade_history. The manual
-                    # boost applied cross-pair performance (all pairs' last 5 trades) to the
-                    # current pair's size — logically incorrect.
-
-                    # v16: use locked-β spread std for volatility when available.
-                    # Kalman spread diff has near-zero std by construction (Kalman removes
-                    # variance). The risk manager was seeing ~0.005 vol for every pair and
-                    # never flagging high-risk environments. locked_std_entry is the actual
-                    # log-price spread std — the true measure of position risk.
-                    if _locked_std_entry is not None:
-                        recent_vol = _locked_std_entry
-                    else:
-                        recent_vol = spread_returns.rolling(10, min_periods=5).std().iloc[-1] if len(spread_returns) >= 10 else 0.02
-                    market_data = {
-                        'volatility': min(recent_vol, 0.25),
-                        'volume': 2e6,
-                        'zscore': zscore,
-                        'pair_quality': pair_quality,
-                        'market_regime': 0
-                    }
-
-                    risk_passed, risk_reason = self.risk_manager.validate_signal(
-                        pair_key, action, signal_strength, market_data, position_size, portfolio_value, date
-                    )
-
-                    if not risk_passed:
-                        continue
-
-                    pair_opportunities.append({
-                        'pair_key': pair_key,
-                        'pair_string': pair_string,
-                        'action': action,
-                        'signal_strength': signal_strength,
-                        'zscore': zscore,
-                        'pair_quality': pair_quality,
-                        'position_size': position_size,
-                        'spread': spread,
-                        'historical_spread': historical_spread,
-                        'spread_returns': spread_returns,
-                        'market_data': market_data,
-                        'feature_quality': feature_quality,
-                        'pair_stats': pair_stats,   # v19: for dynamic hold time
-                        # v14: locked-β reference stats for self-consistent exit z-score
-                        'locked_mean_entry': _locked_mean_entry,
-                        'locked_std_entry': _locked_std_entry,
-                        'entry_locked_zscore': _entry_locked_zscore,
-                    })
-
-                except Exception:
-                    continue
-
-            if date_idx % 50 == 0:
-                logger.info(f"Day {date_idx}: {len(pair_opportunities)} quality opportunities (total: {quality_opportunities})")
-
-            pair_opportunities.sort(
-                key=lambda x: x['signal_strength'] * x['pair_quality'] * x['feature_quality'],
-                reverse=True
-            )
-
-            # v27 (audit cont.): use a distinct local for the per-day selection cap.
-            # Previously this reused `max_daily_trades` — the SAME name as the
-            # running peak-trades-per-day statistic (init 0, updated below at
-            # `max_daily_trades = max(max_daily_trades, daily_trades)`). Overwriting
-            # it here each day clobbered the cross-day max, so the reported
-            # 'max_daily_trades' stat only ever reflected the final day.
-            n_select = min(self.risk_manager.max_daily_trades, len(pair_opportunities))
-            selected_opportunities = pair_opportunities[:n_select]
-
-            for opportunity in selected_opportunities:
-                if daily_trades >= self.risk_manager.max_daily_trades:
-                    break
-
-                try:
-                    pair_key = opportunity['pair_key']
-                    symbol1, symbol2 = pair_key
-                    pair_string = opportunity['pair_string']
-
-                    # v27 (audit cont.): enforce cross-symbol concentration WITHIN the
-                    # day too. The gathering loop only checks _active_symbols against
-                    # prior days' locks (it runs before any of today's trades book), so
-                    # two same-day top-ranked opportunities sharing a leg would BOTH
-                    # execute — putting one stock in two concurrent pairs (the exact
-                    # hidden net-directional bet the v27 lock was meant to prevent).
-                    # _active_symbols is populated as trades book below, so this
-                    # re-check blocks the second same-day collision.
-                    if symbol1 in _active_symbols or symbol2 in _active_symbols:
-                        continue
-
-                    action = opportunity['action']
-                    signal_strength = opportunity['signal_strength']
-                    zscore = opportunity['zscore']
-                    pair_quality = opportunity['pair_quality']
-                    position_size = opportunity['position_size']
-                    spread = opportunity['spread']
-
-                    next_date = None
-                    # v14: use locked-β entry z-score for consistent exit comparison.
-                    # At entry, locked_spread = Kalman_spread (identical by construction of beta_entry).
-                    _locked_mean_entry = opportunity.get('locked_mean_entry')
-                    _locked_std_entry = opportunity.get('locked_std_entry')
-                    _ent_lz = opportunity.get('entry_locked_zscore')
-                    entry_spread_zscore = _ent_lz if _ent_lz is not None else zscore
-
-                    # v12 fix: lock β at the SIGNAL day (decision-time info). β comes from
-                    # the day-t close + the day-t Kalman spread and feeds the exit z-score,
-                    # so β drift can't be booked as profit.
-                    signal_price1 = self.processed_data[symbol1].loc[date, 'Close'] if date in self.processed_data[symbol1].index else 100
-                    signal_price2 = self.processed_data[symbol2].loc[date, 'Close'] if date in self.processed_data[symbol2].index else 100
-                    current_spread = spread.loc[date]
-                    _lp2e = np.log(max(signal_price2, 1e-8))
-                    beta_entry = (np.log(max(signal_price1, 1e-8)) - current_spread) / _lp2e \
-                                 if abs(_lp2e) > 1e-4 else 1.0
-
-                    # v29: t+1 EXECUTION — the signal is decided on the day-t close, but the
-                    # trade FILLS at the NEXT trading day's close. This removes the same-bar
-                    # look-ahead of entering at the very close that produced the signal (you
-                    # cannot trade at a price whose information you just used). If there is no
-                    # next bar (end of data), the trade can't be executed → skip.
-                    # v31 (audit): indexed on the FULL calendar so a signal on the last
-                    # day of a walk-forward window still fills on the real next bar.
-                    entry_idx = _day_pos + 1
-                    if entry_idx >= len(full_dates):
-                        continue
-                    entry_date = full_dates[entry_idx]
-                    current_price1 = self.processed_data[symbol1].loc[entry_date, _fill_col] \
-                        if entry_date in self.processed_data[symbol1].index else signal_price1
-                    current_price2 = self.processed_data[symbol2].loc[entry_date, _fill_col] \
-                        if entry_date in self.processed_data[symbol2].index else signal_price2
-
-                    # v19: beta-weighted position sizing — clamp beta to a sane range
-                    # v21: tightened clamp [0.5, 2.0] (was [0.1, 10.0]).
-                    # Kalman β in regime-transition periods (e.g., W10 Apr-Jul 2023) can spike
-                    # to extreme values (β≈8-10) creating 90:10 position ratios — degenerate.
-                    # β=2.0 gives max 2:1 short/long ratio (67%/33%), still meaningfully hedged.
-                    _safe_beta = max(0.5, min(abs(beta_entry), 2.0))
-                    _beta_denom = 1.0 + _safe_beta
-
-                    # v19: dynamic hold time — 2.5× half-life, capped at 25 trading days.
-                    # Rationale: OU theory — expected reversion at t = 1 - exp(-t/HL).
-                    # Fixed 10-day cap leaves HL=25 pairs only 33% expected reversion; they
-                    # almost always time out before reaching z=0.5. 2.5× HL gives ≥85%
-                    # expected reversion for every pair in our allowed HL=[4,25] range.
-                    _pair_stats_ex = opportunity.get('pair_stats', {})
-                    _pair_hl = float(_pair_stats_ex.get('half_life', 10.0))
-                    _max_hold_days = max(10, min(int(2.5 * _pair_hl), 25))
-
-                    # v29: hold window runs from the t+1 entry fill, not the signal day,
-                    # so the earliest possible exit is the day after entry.
-                    exit_signal_idx = None
-                    for future_idx in range(entry_idx + 1, min(entry_idx + _max_hold_days + 1, len(full_dates))):
-                        candidate_date = full_dates[future_idx]
-                        if candidate_date not in spread.index:
-                            continue
-
-                        # v14: exit z-score uses locked-β spread normalized by locked-β reference stats.
-                        # Consistent: same β (beta_entry), same reference mean/std as the entry filter.
-                        # Old approach divided locked_spread_cand by Kalman rolling mean/std — mixed scales.
-                        p1_cand = self.processed_data[symbol1].loc[candidate_date, 'Close'] \
-                                  if candidate_date in self.processed_data[symbol1].index else current_price1
-                        p2_cand = self.processed_data[symbol2].loc[candidate_date, 'Close'] \
-                                  if candidate_date in self.processed_data[symbol2].index else current_price2
-                        locked_spread_cand = np.log(max(p1_cand, 1e-8)) - beta_entry * np.log(max(p2_cand, 1e-8))
-                        if _locked_mean_entry is not None and _locked_std_entry is not None:
-                            current_zscore = (locked_spread_cand - _locked_mean_entry) / _locked_std_entry
-                        else:
-                            # Fallback: Kalman rolling stats (pre-v14 behavior, for rare cases where
-                            # locked stats could not be computed in the gathering loop)
-                            _hist_fb = spread.loc[:candidate_date]
-                            if len(_hist_fb) < 30:
-                                continue
-                            _m_fb = _hist_fb.rolling(60, min_periods=30).mean().iloc[-1]
-                            _s_fb = _hist_fb.rolling(60, min_periods=30).std().iloc[-1]
-                            if _s_fb < 1e-8:
-                                continue
-                            current_zscore = (locked_spread_cand - _m_fb) / _s_fb
-
-                        # v26: time-stop counts TRADING days, not calendar days.
-                        # _max_hold_days is a trading-day cap (the loop iterates
-                        # trading-day indices); the prior `(candidate_date-date).days`
-                        # was calendar, firing ~30% early (a 25-trading-day cap hit at
-                        # ~25 calendar ≈ 17 trading days).
-                        trading_days_held = future_idx - entry_idx
-
-                        # v31 (audit): STOP-LOSS SIGN FIX.
-                        # docs/PROGRESS.md §v20 specifies a per-trade stop at 1.5σ ADVERSE
-                        # from entry: action==0 exits if `current_z < entry_z - 1.5`,
-                        # action==1 exits if `current_z > entry_z + 1.5`. The shipped code
-                        # had both comparisons INVERTED and the threshold at 1.0, so the
-                        # rule fired on 1σ of FAVOURABLE movement — it cut winners short and
-                        # left adverse moves completely unbounded. There was no stop-loss
-                        # anywhere in the system. Restored to the documented v20 design.
-                        if action == 0:
-                            # Long the spread, entered at a negative z; reversion is z rising.
-                            _hit_target = current_zscore > -0.5
-                            _hit_stop   = current_zscore < entry_spread_zscore - 1.5
-                        else:
-                            # Short the spread, entered at a positive z; reversion is z falling.
-                            _hit_target = current_zscore < 0.5
-                            _hit_stop   = current_zscore > entry_spread_zscore + 1.5
-
-                        if _hit_target or _hit_stop or trading_days_held >= _max_hold_days:
-                            exit_signal_idx = future_idx
-                            break
-
-                    if exit_signal_idx is None:
-                        continue
-
-                    # v31 (audit): t+1 EXIT FILL, symmetric with the t+1 entry fill.
-                    # The exit z-score is computed from the candidate day's CLOSE, so filling
-                    # at that same close is the exact same-bar look-ahead that v29 removed on
-                    # the entry side. The signal is decided on the exit bar; the fill happens
-                    # on the next bar. If there is no next bar, the position cannot be closed
-                    # on real data, so the trade is not booked.
-                    if exit_signal_idx + 1 >= len(full_dates):
-                        continue
-                    exit_signal_date = full_dates[exit_signal_idx]
-                    next_date = full_dates[exit_signal_idx + 1]
-
-                    total_position_value = position_size
-
-                    # v26: enforce the gross-exposure cap against real concurrent
-                    # open exposure (the risk manager's 30% limit). Previously
-                    # exposure was hardcoded to 0 so this never bound.
-                    _pos_pct = total_position_value / portfolio_value
-                    if open_exposure + _pos_pct > self.risk_manager.max_total_exposure:
-                        continue
-
-                    # v22: equal-dollar position sizing (reverted from v19 beta-weighted).
-                    # Empirical evidence across v19-v21: beta-weighted P&L with noisy Kalman β
-                    # amplified losses in OOS regime-transition periods (W10 -3.85%, W18 halved).
-                    # Equal-dollar is simpler and was v18's formula — the best OOS performer.
-                    # The Kalman spread is still used for entry/exit signal generation.
-                    if action == 0:   # long p1, short p2
-                        long_position_size  = total_position_value / 2.0 / current_price1
-                        short_position_size = total_position_value / 2.0 / current_price2
-                        long_symbol, short_symbol = symbol1, symbol2
-                        long_price, short_price = current_price1, current_price2
-                    else:             # short p1, long p2
-                        long_position_size  = total_position_value / 2.0 / current_price2
-                        short_position_size = total_position_value / 2.0 / current_price1
-                        long_symbol, short_symbol = symbol2, symbol1
-                        long_price, short_price = current_price2, current_price1
-
-                    holding_days = max(1, (next_date - entry_date).days)
-
-                    trade_costs = self.cost_model.calculate_total_trade_costs(
-                        long_position_size, short_position_size,
-                        long_price, short_price,
-                        long_symbol, short_symbol,
-                        holding_days=holding_days
-                    )
-
-                    total_trade_cost = trade_costs['total_cost']
-                    cost_pct = total_trade_cost / portfolio_value
-
-                    if cost_pct > 0.01:
-                        continue
-
-                    # v22: equal-dollar P&L (reverted from v19 beta-weighted).
-                    price1_exit = self.processed_data[symbol1].loc[next_date, _fill_col] \
-                                  if next_date in self.processed_data[symbol1].index else current_price1
-                    price2_exit = self.processed_data[symbol2].loc[next_date, _fill_col] \
-                                  if next_date in self.processed_data[symbol2].index else current_price2
-                    log_ret1 = np.log(max(price1_exit, 1e-8) / max(current_price1, 1e-8))
-                    log_ret2 = np.log(max(price2_exit, 1e-8) / max(current_price2, 1e-8))
-                    if action == 0:   # long p1, short p2
-                        spread_return = log_ret1 - log_ret2
-                    else:             # short p1, long p2
-                        spread_return = log_ret2 - log_ret1
-                    gross_pnl_pct = spread_return * (total_position_value / 2.0) / portfolio_value
-
-                    net_pnl_pct = gross_pnl_pct - cost_pct
-
-                    trade_record = {
-                        'date': entry_date,        # v29: actual t+1 fill date (not the signal day)
-                        'signal_date': date,       # day the |z|>1.8 signal fired
-                        'exit_signal_date': exit_signal_date,  # v31: day the exit rule fired
-                        'exit_date': next_date,                # v31: t+1 fill of that exit
-                        'pair': pair_string,
-                        'action': 'LONG' if action == 0 else 'SHORT',
-                        'position_size': total_position_value,
-                        'position_pct': total_position_value / portfolio_value,
-                        'signal_strength': signal_strength,
-                        'zscore': zscore,
-                        'pair_quality': pair_quality,
-                        'feature_quality': opportunity['feature_quality'],
-                        'spread_return': spread_return,
-                        'gross_pnl_pct': gross_pnl_pct,
-                        'transaction_costs': total_trade_cost,
-                        'transaction_cost_pct': cost_pct,
-                        'net_pnl_pct': net_pnl_pct,
-                        'pnl_dollar': net_pnl_pct * portfolio_value,
-                        'holding_days': holding_days,
-                        'cost_breakdown': trade_costs
-                    }
-
-                    trades.append(trade_record)
-                    day_trade_details.append(trade_record)
-
-                    # v13: Update per-pair consecutive loss streak for cooling-off logic
-                    _t_pair = trade_record['pair']
-                    if trade_record['net_pnl_pct'] < 0:
-                        pair_loss_streak[_t_pair] = pair_loss_streak.get(_t_pair, 0) + 1
-                        if pair_loss_streak[_t_pair] >= 3:
-                            pair_cooloff_until[_t_pair] = date  # trigger 30-cal-day cooloff
-                    else:
-                        pair_loss_streak[_t_pair] = 0
-                        pair_cooloff_until.pop(_t_pair, None)   # win resets cooloff
-
-                    # FIX: Book PnL on exit date, not entry date
-                    pending_pnl[next_date] = pending_pnl.get(next_date, 0.0) + net_pnl_pct
-                    day_costs += total_trade_cost
-                    daily_trades += 1
-                    total_costs += total_trade_cost
-
-                    # v26: add to live gross exposure; release it on the exit date.
-                    open_exposure += _pos_pct
-                    exposure_release[next_date] = exposure_release.get(next_date, 0.0) + _pos_pct
-                    # v26: stamp last-trade date on actual EXECUTION (moved out of
-                    # validate_signal, which fired for ranked-out candidates too).
-                    self.risk_manager.last_trade_dates[pair_string] = date
-                    # v27: lock both legs until exit so neither stock can appear in a
-                    # concurrent pair (v22 cross-symbol intent, was declared but never populated).
-                    _active_symbols[symbol1] = next_date
-                    _active_symbols[symbol2] = next_date
-
-                    self.position_sizer.record_trade(pair_string, net_pnl_pct)
-                    self.risk_manager.daily_trade_count = daily_trades
-
-                    if len(trades) <= 5:
-                        logger.info(f"TRADE {len(trades)}: {pair_string} {trade_record['action']} "
-                                   f"zscore={zscore:.2f} quality={pair_quality:.2f} cost={cost_pct:.3%}")
-
-                except Exception:
-                    continue
-
-            daily_pnl.append(day_pnl)
-            daily_dates.append(date)   # v26: real date per daily_pnl entry
-            portfolio_value *= (1 + day_pnl)
-            max_daily_trades = max(max_daily_trades, daily_trades)
-
-            # Update risk manager with current portfolio state (v26: real exposure)
-            self.risk_manager.update_daily_stats(daily_trades, open_exposure, day_pnl, portfolio_value)
-
-            # Check logical risk controls
-            should_stop, stop_reason = self.risk_manager.should_stop_trading(day_pnl)
-            if should_stop:
-                logger.warning(f"LOGICAL Risk Management: {stop_reason}")
+        max_daily_trades_seen = 0
+        halted_on, halt_reason = None, ''
+        rejects: Dict[str, int] = {}
+
+        def _reject(key):
+            rejects[key] = rejects.get(key, 0) + 1
+
+        k = first_k
+        while k < n_cal:
+            date = full_dates[k]
+            in_range = k <= last_trade_k
+            if not in_range and not open_trades:
                 break
 
-        # v31 (audit): settle PnL for positions that close AFTER the last traded day.
-        # `pending_pnl` is keyed by exit-fill date and collected by the daily loop, so any
-        # trade resolving past the window end (now possible, and correct — see the
-        # full_dates note above) would never reach portfolio_value. The same leak occurred
-        # when the risk manager broke out of the loop early. Trade-level stats counted
-        # this PnL; the portfolio did not. Book the remainder as one final settlement so
-        # the two agree.
-        if pending_pnl:
-            _residual = sum(pending_pnl.values())
-            _n_resid = len(pending_pnl)
-            pending_pnl.clear()
-            daily_pnl.append(_residual)
-            daily_dates.append(all_dates[-1] if all_dates else None)
-            portfolio_value *= (1 + _residual)
-            logger.info(f"Settled {_n_resid} post-window exit date(s): {_residual:+.4%} residual PnL")
+            # 1) Mark open positions to market and book today's costs.
+            equity_prev = equity
+            day_pnl = 0.0
+            for t in open_trades:
+                day_pnl += t['path'].get(k, 0.0) - t['costs_by_k'].get(k, 0.0)
+            equity += day_pnl
+            r_day = day_pnl / equity_prev if equity_prev > 0 else 0.0
+            daily_returns.append(r_day)
+            daily_dates.append(date)
+            daily_equity.append(equity)
+            daily_gross.append(sum(t['gross_notional'] for t in open_trades
+                                   if t['entry_k'] <= k < t['exit_k']) / equity_prev
+                               if equity_prev > 0 else 0.0)
 
-        # Log regime gate activation summary
-        if _regime_scale_counts:
-            full_days = _regime_scale_counts.get(1.0, 0)
-            reduced_days = sum(cnt for scale, cnt in _regime_scale_counts.items() if scale < 1.0)
-            logger.info(f"Regime gate summary: {full_days} full-scale days, "
-                        f"{reduced_days} reduced-scale days | "
-                        f"breakdown: {dict(sorted(_regime_scale_counts.items(), reverse=True))}")
+            # 2) Positions whose exit filled today close; their outcome is known only now.
+            still_open = []
+            for t in open_trades:
+                if t['exit_k'] != k:
+                    still_open.append(t)
+                    continue
+                net_frac = t['net_pnl_dollars'] / t['equity_at_entry']
+                self.position_sizer.record_trade(t['pair'], net_frac)
+                if net_frac < 0:
+                    pair_loss_streak[t['pair']] = pair_loss_streak.get(t['pair'], 0) + 1
+                    if pair_loss_streak[t['pair']] >= self.COOLOFF_LOSSES:
+                        pair_cooloff_from[t['pair']] = date
+                else:
+                    pair_loss_streak[t['pair']] = 0
+                    pair_cooloff_from.pop(t['pair'], None)
+            open_trades = still_open
+            open_exposure = sum(t['exposure_frac'] for t in open_trades)
 
-        total_return = (portfolio_value - self.initial_capital) / self.initial_capital
-        total_cost_impact = total_costs / self.initial_capital
+            # 3) The risk manager sees today's MTM P&L before any new decision.
+            self.risk_manager.reset_daily_counters()
+            self.risk_manager.update_daily_stats(0, open_exposure, r_day, equity)
+            if halted_on is None:
+                should_stop, stop_reason = self.risk_manager.should_stop_trading(r_day)
+                if should_stop:
+                    halted_on, halt_reason = date, stop_reason
+                    flat_k = min(k + 1, n_cal - 1)
+                    logger.warning(f"Risk halt on {pd.Timestamp(date).date()}: {stop_reason}; "
+                                   f"flattening {len(open_trades)} open position(s) at the next bar")
+                    kept = []
+                    for t in open_trades:
+                        if t['entry_k'] > k:            # signalled, not yet filled: cancel
+                            all_trades.remove(t)
+                            continue
+                        if t['exit_k'] > flat_k:
+                            self._finalise_trade(t, k, flat_k, 'risk_halt', full_dates, aligned, fill_col)
+                        kept.append(t)
+                    open_trades = kept
+                    open_exposure = sum(t['exposure_frac'] for t in open_trades)
 
-        if len(trades) > 0:
-            winning_trades = [t for t in trades if t['net_pnl_pct'] > 0]
-            losing_trades = [t for t in trades if t['net_pnl_pct'] < 0]
+            if not in_range or halted_on is not None or k + 1 >= n_cal - 1:
+                k += 1
+                continue
 
-            win_rate = len(winning_trades) / len(trades)
-            avg_win = np.mean([t['net_pnl_pct'] for t in winning_trades]) if winning_trades else 0
-            avg_loss = np.mean([abs(t['net_pnl_pct']) for t in losing_trades]) if losing_trades else 0
-            profit_factor = (avg_win * len(winning_trades)) / (avg_loss * len(losing_trades)) if avg_loss > 0 and losing_trades else 0
+            # 4) Regime gate. Persistent stress (> 20% of the last 63 days at reduced
+            # scale) blocks new entries; otherwise the scale multiplies position size.
+            lo = max(0, k - self.REGIME_LOOKBACK + 1)
+            if k >= self.REGIME_LOOKBACK - 1 and \
+                    (reduced_cum[k + 1] - reduced_cum[lo]) / (k - lo + 1) > self.REGIME_MAX_REDUCED_FRAC:
+                _reject('regime_hard_stop_day')
+                k += 1
+                continue
+            regime_scale = float(scales[k])
+            regime_counts[regime_scale] = regime_counts.get(regime_scale, 0) + 1
+            risk_scaling = self.risk_manager.get_combined_scaling_factor(equity) * regime_scale
 
-            avg_cost_per_trade = total_costs / len(trades)
-            avg_cost_pct = np.mean([t['transaction_cost_pct'] for t in trades])
+            if resel_keys:
+                pos = int(resel_index.searchsorted(date, side='right')) - 1
+                active = universe[resel_keys[pos]] if pos >= 0 else {}
+            else:
+                active = universe[None]
+            agent = self.rl_agent
+            for s_start, s_agent in schedule:
+                if s_start <= date:
+                    agent = s_agent
+                else:
+                    break
 
-            avg_signal_strength = np.mean([t['signal_strength'] for t in trades])
-            avg_pair_quality = np.mean([t['pair_quality'] for t in trades])
-            high_quality_trades = len([t for t in trades if t.get('feature_quality', 0) > 0.7])
+            locked = set()
+            for t in open_trades:
+                locked.update((t['symbol1'], t['symbol2']))
+
+            # 5) Gather today's signals.
+            candidates = []
+            for pair_key in active:
+                s1, s2 = pair_key
+                if s1 in locked or s2 in locked:
+                    continue
+                state = self.get_pair_state(s1, s2)
+                if state.empty:
+                    continue
+                i = int(state.index.searchsorted(date))
+                if i >= len(state) or state.index[i] != date or i + 1 < self.MIN_SPREAD_HISTORY:
+                    continue
+                if not self._rolling_corr_ok(state, i):
+                    _reject('rolling_corr')
+                    continue
+                pair_string = f"{s1}-{s2}"
+                cool_from = pair_cooloff_from.get(pair_string)
+                if cool_from is not None:
+                    if (_naive(date) - _naive(cool_from)).days < self.COOLOFF_CAL_DAYS:
+                        _reject('cooloff')
+                        continue
+                    pair_cooloff_from.pop(pair_string, None)
+                    pair_loss_streak.pop(pair_string, None)
+                pair_stats = self._pair_stats_asof(pair_string, date)
+                pair_quality = float(pair_stats.get('quality_score', 0.0))
+                if pair_quality < self.MIN_PAIR_QUALITY:
+                    _reject('pair_quality')
+                    continue
+                beta = float(state['beta'].iat[i])
+                if not (self.BETA_MIN <= beta <= self.BETA_MAX):
+                    _reject('beta_out_of_band')
+                    continue
+                sig, why = self._locked_signal(state, i, pair_stats)
+                if sig is None:
+                    _reject(why)
+                    continue
+                zscore = sig['z']
+                _reject('evaluated')                     # funnel denominator: pair-days tested
+                if abs(zscore) < self.ENTRY_Z:
+                    continue
+                action = 0 if zscore < 0 else 2          # 0: long spread, 2: short spread
+                quality_opportunities += 1
+                a1 = self._aligned(aligned, s1, calendar)
+                a2 = self._aligned(aligned, s2, calendar)
+                if a1 is None or a2 is None:
+                    continue
+                feature_quality = 1.0
+                if getattr(agent, 'signal_transformer', None) is not None:
+                    features = agent.extract_advanced_features(
+                        state['spread'].iloc[:i + 1], pair_stats,
+                        self.processed_data.get(s1, pd.DataFrame()),
+                        self.processed_data.get(s2, pd.DataFrame()),
+                        macro_data=self.macro_data, symbol1=s1, symbol2=s2)
+                    if agent.scaler_fitted:
+                        features = agent.scaler.transform(features.reshape(1, -1)).flatten()
+                    feature_quality = agent.score_signal_quality(features)
+                signal_strength = min(abs(zscore) / 2.5, 1.0)
+                # v32: the z multiplier is applied INSIDE the sizer, before its [3%, 10%]
+                # clamp. It used to multiply the clamped size afterwards, so the strongest
+                # signals (size > 10%) were vetoed outright by the risk manager's 10% limit
+                # and weak ones fell below the 3% floor.
+                position_size = self.position_sizer.calculate_optimal_position_size(
+                    pair_string, signal_strength, pair_quality, equity,
+                    pd.Series(sig['lk_diffs']), risk_scaling_factor=risk_scaling,
+                    z_multiplier=min(abs(zscore) / 2.3, 2.0))
+                # Liquidity: the smaller leg's 20-day average DOLLAR volume as of today.
+                adv_dollars = min(a1['adv'][k] * a1['close_ff'][k], a2['adv'][k] * a2['close_ff'][k])
+                market_data = {
+                    # locked-spread std (log units); v31 clipped it at 0.25, below the
+                    # risk manager's 0.30 limit, so that check could never fire
+                    'volatility': float(sig['std']),
+                    'volume': float(adv_dollars) if np.isfinite(adv_dollars) else 0.0,
+                    'zscore': zscore,
+                    'pair_quality': pair_quality,
+                    'market_regime': 0,
+                }
+                ok, why = self.risk_manager.validate_signal(
+                    pair_key, action, signal_strength, market_data, position_size, equity, date)
+                if not ok:
+                    _reject('risk: ' + why.split(':')[0].split(' ')[0].lower())
+                    continue
+                candidates.append({
+                    'pair_key': pair_key, 'pair_string': pair_string, 'action': action,
+                    'zscore': zscore, 'signal_strength': signal_strength,
+                    'pair_quality': pair_quality, 'feature_quality': feature_quality,
+                    'position_size': position_size, 'sig': sig, 'state': state, 'i': i,
+                    'pair_stats': pair_stats,
+                })
+
+            if k % 50 == 0:
+                logger.info(f"Day {pd.Timestamp(date).date()}: {len(candidates)} candidates "
+                            f"(signals so far: {quality_opportunities})")
+
+            candidates.sort(key=lambda c: c['signal_strength'] * c['pair_quality'] * c['feature_quality'],
+                            reverse=True)
+
+            # 6) Execute the best candidates at the next bar.
+            daily_trades = 0
+            entry_k = k + 1
+            for c in candidates:
+                if daily_trades >= self.risk_manager.max_daily_trades:
+                    break
+                s1, s2 = c['pair_key']
+                if s1 in locked or s2 in locked:
+                    continue                             # same-day leg collision
+                a1, a2 = aligned[s1], aligned[s2]
+                e1 = self._fill_price(a1, entry_k, fill_col)
+                e2 = self._fill_price(a2, entry_k, fill_col)
+                if not (np.isfinite(e1) and np.isfinite(e2)):
+                    _reject('no_fill_bar')
+                    continue                             # a leg did not trade: no fill
+                beta = c['sig']['beta']
+                gross = float(c['position_size'])
+                exposure_frac = gross / equity
+                if open_exposure + exposure_frac > self.risk_manager.max_total_exposure:
+                    _reject('gross_exposure_cap')
+                    continue
+                # Share counts are fixed from the SIGNAL-day close: $1 of leg 1 : $beta of leg 2.
+                p1_sig, p2_sig = a1['close_ff'][k], a2['close_ff'][k]
+                n1 = gross / (1.0 + beta)
+                n2 = gross - n1
+                adv_min = min(a1['adv'][k] * p1_sig, a2['adv'][k] * p2_sig)
+                sign = 1.0 if c['action'] == 0 else -1.0     # long spread = long leg 1
+                q1 = sign * n1 / p1_sig
+                q2 = -sign * n2 / p2_sig
+                # Ex-ante cost gate: round trip at signal prices plus borrow/financing over
+                # the MAXIMUM hold (calendar days) — never the realised holding period.
+                max_hold = self._max_hold_days(c['pair_stats'])
+                max_cal_days = int(np.ceil(max_hold * 7 / 5)) + 1
+                short_sym, short_notional = (s2, n2) if sign > 0 else (s1, n1)
+                est = 2.0 * (self._leg_costs(q1, p1_sig, a1, k)['total'] +
+                             self._leg_costs(q2, p2_sig, a2, k)['total'])
+                est += self.cost_model.calculate_borrow_cost(short_notional, short_sym, max_cal_days)
+                est += self.cost_model.calculate_financing_cost(gross, max_cal_days)
+                if est / equity > self.MAX_COST_PCT_OF_EQUITY:
+                    _reject('cost_gate')
+                    continue
+
+                # Exit: evaluated from the first pair bar after the entry fill.
+                state = c['state']
+                entry_date = full_dates[entry_k]
+                # The first exit test is the first close AFTER the entry-fill date, in both
+                # fill modes: PAIRS_FILL=open is a pure fill-PRICE sensitivity (identical
+                # signal and exit schedule), so the two runs differ only in execution prices.
+                r0 = int(state.index.searchsorted(entry_date, side='right'))
+                rows = list(range(r0, min(r0 + max_hold, len(state))))
+                j, reason = self._scan_exit(state['lp1'].to_numpy(), state['lp2'].to_numpy(),
+                                            rows, c['sig'], c['action'], max_hold)
+                if j is not None:
+                    exit_signal_k = int(calendar.searchsorted(state.index[rows[j]]))
+                    exit_k = exit_signal_k + 1
+                    if exit_k > n_cal - 1:
+                        exit_k, reason = n_cal - 1, 'end_of_data'
+                else:
+                    # The pair's history ended before any rule fired (a leg stopped trading or
+                    # the data ended): decide on the pair's last bar, fill on the next one.
+                    last_row_k = int(calendar.searchsorted(state.index[-1]))
+                    exit_signal_k = max(last_row_k, entry_k)
+                    exit_k = min(exit_signal_k + 1, n_cal - 1)
+                    reason = 'end_of_data'
+                if exit_k <= entry_k:
+                    continue
+                entry_c1 = self._leg_costs(q1, e1, a1, entry_k)
+                entry_c2 = self._leg_costs(q2, e2, a2, entry_k)
+                t = {
+                    'pair': c['pair_string'], 'symbol1': s1, 'symbol2': s2,
+                    'q1': q1, 'q2': q2, 'e1': e1, 'e2': e2, 'entry_k': entry_k, 'signal_k': k,
+                    'gross_notional': gross, 'exposure_frac': exposure_frac,
+                    'equity_at_entry': equity,
+                    'entry_cost': entry_c1['total'] + entry_c2['total'],
+                    'entry_breakdown': {key: entry_c1[key] + entry_c2[key]
+                                        for key in ('commission', 'bid_ask', 'market_impact')},
+                    'regime_scale': regime_scale,
+                    'leg_daily_vol': float(np.nanmean([a1['dvol'][k], a2['dvol'][k]])),
+                    'leg_adv_dollars': float(adv_min) if np.isfinite(adv_min) else None,
+                    'action': c['action'], 'beta': beta, 'zscore': c['zscore'],
+                    'signal_strength': c['signal_strength'], 'pair_quality': c['pair_quality'],
+                    'feature_quality': c['feature_quality'],
+                }
+                self._finalise_trade(t, exit_signal_k, exit_k, reason, full_dates, aligned, fill_col)
+                open_trades.append(t)
+                all_trades.append(t)
+                open_exposure += exposure_frac
+                locked.update((s1, s2))
+                daily_trades += 1
+                self.risk_manager.last_trade_dates[c['pair_string']] = date
+                self.risk_manager.daily_trade_count = daily_trades
+                if len(all_trades) <= 5:
+                    logger.info(f"TRADE {len(all_trades)}: {c['pair_string']} "
+                                f"{'LONG' if c['action'] == 0 else 'SHORT'} spread  z={c['zscore']:+.2f} "
+                                f"beta={beta:.2f} quality={c['pair_quality']:.2f} exit={t['exit_reason']}")
+            max_daily_trades_seen = max(max_daily_trades_seen, daily_trades)
+            k += 1
+
+        records = [self._trade_record(t, full_dates) for t in all_trades]
+        total_costs = float(sum(t['total_cost'] for t in all_trades))
+        if regime_counts:
+            logger.info(f"Regime gate: {regime_counts.get(1.0, 0)} full-scale days, "
+                        f"{sum(c for s, c in regime_counts.items() if s < 1.0)} reduced-scale days, "
+                        f"{rejects.get('regime_hard_stop_day', 0)} no-entry (hard-stop) days")
+        if rejects:
+            logger.info(f"Signal rejections: {dict(sorted(rejects.items()))}")
+        out = self._summarise_backtest(records, daily_returns, daily_dates, daily_equity,
+                                       total_costs, quality_opportunities, max_daily_trades_seen,
+                                       last_trade_k - first_k + 1, halted_on=halted_on,
+                                       halt_reason=halt_reason, rejects=rejects)
+        out.update(self._utilisation_metrics(records, daily_returns, daily_gross, daily_equity))
+        return out
+
+    def _utilisation_metrics(self, trades, daily_returns, daily_gross, daily_equity) -> Dict:
+        """Capital utilisation: returns on committed capital hide how little is deployed.
+
+        avg/max gross exposure (fraction of equity), annual turnover (traded notional /
+        average equity, entry and exit both count), return on average gross exposure
+        (total P&L / (initial capital x average gross)), mean holding period and the
+        mean ADV participation of a leg.
+        """
+        n = len(daily_returns)
+        if n == 0:
+            return {'avg_gross_exposure': 0.0, 'max_gross_exposure': 0.0, 'annual_turnover': 0.0,
+                    'return_on_gross_exposure': None, 'avg_trading_days_held': 0.0,
+                    'avg_leg_adv_participation': None}
+        g = np.asarray(daily_gross, dtype=float)
+        avg_g = float(g.mean())
+        traded = 2.0 * sum(t['position_size'] for t in trades)
+        avg_eq = float(np.mean(daily_equity)) if daily_equity else float(self.initial_capital)
+        total_pnl = (daily_equity[-1] - self.initial_capital) if daily_equity else 0.0
+        parts = [t['short_notional'] / t['leg_adv_dollars'] for t in trades
+                 if t.get('leg_adv_dollars')]
+        return {
+            'avg_gross_exposure': avg_g,
+            'max_gross_exposure': float(g.max()),
+            'annual_turnover': traded / avg_eq * TRADING_DAYS_PER_YEAR / n,
+            'return_on_gross_exposure': (total_pnl / (self.initial_capital * avg_g)) if avg_g > 0 else None,
+            'avg_trading_days_held': float(np.mean([t['trading_days_held'] for t in trades])) if trades else 0.0,
+            'avg_leg_adv_participation': float(np.mean(parts)) if parts else None,
+            'daily_gross_exposure': list(g),
+        }
+
+    def _trade_record(self, t: Dict, full_dates: List) -> Dict:
+        """Public trade record (exported / replayed) built from an internal trade."""
+        eq0 = t['equity_at_entry']
+        long_is_1 = t['q1'] > 0
+        n1 = abs(t['q1']) * t['e1']
+        n2 = abs(t['q2']) * t['e2']
+        return {
+            'date': full_dates[t['entry_k']],                 # t+1 entry fill date
+            'signal_date': full_dates[t['signal_k']],
+            'exit_signal_date': full_dates[t['exit_signal_k']] if t['exit_signal_k'] >= 0 else None,
+            'exit_date': full_dates[t['exit_k']],             # exit fill date
+            'exit_reason': t['exit_reason'],
+            'exit_prices_real': t['exit_prices_real'],
+            'pair': t['pair'],
+            'action': 'LONG' if t['action'] == 0 else 'SHORT',
+            'long_symbol': t['symbol1'] if long_is_1 else t['symbol2'],
+            'short_symbol': t['symbol2'] if long_is_1 else t['symbol1'],
+            'long_notional': n1 if long_is_1 else n2,
+            'short_notional': n2 if long_is_1 else n1,
+            'hedge_ratio': t['beta'],
+            'regime_scale': t['regime_scale'],
+            'leg_daily_vol': t['leg_daily_vol'],
+            'leg_adv_dollars': t['leg_adv_dollars'],
+            'position_size': t['gross_notional'],
+            'position_pct': t['exposure_frac'],
+            'signal_strength': t['signal_strength'],
+            'zscore': t['zscore'],
+            'pair_quality': t['pair_quality'],
+            'feature_quality': t['feature_quality'],
+            'spread_return': t['gross_pnl_dollars'] / t['gross_notional'],
+            'gross_pnl_pct': t['gross_pnl_dollars'] / eq0,
+            'transaction_costs': t['total_cost'],
+            'transaction_cost_pct': t['total_cost'] / eq0,
+            'net_pnl_pct': t['net_pnl_dollars'] / eq0,
+            'pnl_dollar': t['net_pnl_dollars'],
+            'holding_days': t['calendar_days'],
+            'trading_days_held': t['exit_k'] - t['entry_k'],
+            'cost_breakdown': t['cost_breakdown'],
+            # Daily MTM path per $1 of gross notional (costs excluded), for the fund replay.
+            'unit_path': [(str(pd.Timestamp(full_dates[kk]).date()), v / t['gross_notional'])
+                          for kk, v in sorted(t['path'].items())],
+        }
+
+    def _summarise_backtest(self, trades, daily_returns, daily_dates, daily_equity, total_costs,
+                            quality_opportunities, max_daily_trades, n_trade_days,
+                            halted_on=None, halt_reason='', rejects=None) -> Dict:
+        r = np.asarray(daily_returns, dtype=float)
+        final_equity = daily_equity[-1] if daily_equity else float(self.initial_capital)
+        total_return = final_equity / self.initial_capital - 1.0
+        n_trades = len(trades)
+        exit_reasons: Dict[str, int] = {}
+        if n_trades:
+            nets = np.array([t['net_pnl_pct'] for t in trades], dtype=float)
+            wins, losses = nets[nets > 0], nets[nets < 0]
+            win_rate = len(wins) / n_trades
+            avg_win = float(wins.mean()) if len(wins) else 0.0
+            avg_loss = float(np.abs(losses).mean()) if len(losses) else 0.0
+            # sum of wins / sum of losses; +inf with no losing trade (exported as null)
+            profit_factor = float(wins.sum() / np.abs(losses).sum()) if len(losses) else float('inf')
+            avg_cost_pct = float(np.mean([t['transaction_cost_pct'] for t in trades]))
+            for t in trades:
+                exit_reasons[t['exit_reason']] = exit_reasons.get(t['exit_reason'], 0) + 1
         else:
-            win_rate = avg_win = avg_loss = profit_factor = 0
-            avg_cost_per_trade = avg_cost_pct = 0
-            avg_signal_strength = avg_pair_quality = 0
-            high_quality_trades = 0
-
-        if len(daily_pnl) > 1:
-            # v25: Sharpe/vol on ALL calendar days, flat days included. Dropping
-            # zero-PnL days deflated the std and inflated per-window Sharpes
-            # (9-20+ in v23 logs); it also zeroed max_drawdown for sparse windows.
-            daily_returns = np.array(daily_pnl)
-            sharpe_ratio = np.mean(daily_returns) / (np.std(daily_returns) + 1e-8) * np.sqrt(252)
-            max_drawdown = self._calculate_max_drawdown(daily_returns)
-            volatility = np.std(daily_returns) * np.sqrt(252)
-        else:
-            sharpe_ratio = max_drawdown = volatility = 0
-
-        results = {
+            win_rate = avg_win = avg_loss = profit_factor = avg_cost_pct = 0.0
+        n_days = len(daily_returns)
+        return {
             'total_return': total_return,
-            'annualized_return': total_return * 252 / len(all_dates) if len(all_dates) > 0 else 0,
-            'final_portfolio_value': portfolio_value,
-            'total_trades': len(trades),
-            'trade_count': len(trades),
-            'trades_per_day': len(trades) / len(all_dates) if len(all_dates) > 0 else 0,
+            'annualized_return': geometric_annualised_return(total_return, n_days),
+            'final_portfolio_value': final_equity,
+            'total_trades': n_trades,
+            'trade_count': n_trades,
+            'trades_per_day': n_trades / n_trade_days if n_trade_days else 0.0,
             'max_daily_trades': max_daily_trades,
             'win_rate': win_rate,
             'avg_win': avg_win,
             'avg_loss': avg_loss,
             'profit_factor': profit_factor,
-            'sharpe_ratio': sharpe_ratio,
-            'max_drawdown': max_drawdown,
-            'volatility': volatility,
-
+            'sharpe_ratio': annualised_sharpe(r),
+            'max_drawdown': max_drawdown_from_returns(r),
+            'volatility': float(r.std(ddof=1) * np.sqrt(TRADING_DAYS_PER_YEAR)) if r.size > 1 else 0.0,
             'total_transaction_costs': total_costs,
-            'total_cost_impact_pct': total_cost_impact,
-            'avg_cost_per_trade': avg_cost_per_trade,
+            'total_cost_impact_pct': total_costs / self.initial_capital,
+            'avg_cost_per_trade': total_costs / n_trades if n_trades else 0.0,
             'avg_cost_pct_per_trade': avg_cost_pct,
-
             'quality_opportunities': quality_opportunities,
-            'avg_signal_strength': avg_signal_strength,
-            'avg_pair_quality': avg_pair_quality,
-            'high_quality_trades': high_quality_trades,
-            'avg_trade_return': np.mean([t['net_pnl_pct'] for t in trades]) if trades else 0,
-
+            'avg_signal_strength': float(np.mean([t['signal_strength'] for t in trades])) if trades else 0.0,
+            'avg_pair_quality': float(np.mean([t['pair_quality'] for t in trades])) if trades else 0.0,
+            'high_quality_trades': sum(1 for t in trades if t.get('feature_quality', 0) > 0.7),
+            'avg_trade_return': float(np.mean([t['net_pnl_pct'] for t in trades])) if trades else 0.0,
+            'exit_reasons': exit_reasons,
             'trades': trades,
-            'daily_pnl': daily_pnl,
-            'daily_returns': daily_pnl,
-            # v26: real calendar date per daily_pnl entry (stringified) so the JSON
-            # export dates the equity curve correctly instead of synthesizing one.
-            'daily_dates': [str(d.date()) if hasattr(d, 'date') else str(d) for d in daily_dates],
-            'test_period_days': len(all_dates)
+            'daily_pnl': list(daily_returns),
+            'daily_returns': list(daily_returns),
+            'daily_dates': [str(pd.Timestamp(d).date()) for d in daily_dates],
+            'equity_curve': list(daily_equity),
+            'test_period_days': n_trade_days,
+            'halted_on': str(pd.Timestamp(halted_on).date()) if halted_on is not None else None,
+            'halt_reason': halt_reason,
+            'signal_rejections': dict(sorted((rejects or {}).items())),
         }
 
-        logger.info("FIXED BACKTEST COMPLETED")
-
-        return results
-
     def _calculate_max_drawdown(self, returns: np.ndarray) -> float:
-        """Calculate maximum drawdown"""
-        cumulative = np.cumprod(1 + returns)
-        peak = np.maximum.accumulate(cumulative)
-        drawdown = (cumulative - peak) / peak
-        return np.min(drawdown) if len(drawdown) > 0 else 0.0
+        """Maximum drawdown of a daily return series (<= 0)."""
+        return max_drawdown_from_returns(returns)
+
+    # ════════════════════════════════════════════════════════════════════════════
+    # Ranking-model training samples (labels = the actual trading rule)
+    # ════════════════════════════════════════════════════════════════════════════
+
+    def build_outcome_samples(self, pairs: List[Tuple[str, str]], end, start=None,
+                              agent: FixedTransformerMultiAgentSystem = None,
+                              step: int = None, max_samples: int = None, seed: int = 0):
+        """Feature/label samples for the signal-quality ranker from data in [start, end].
+
+        A sample is a pair-day on which the ACTUAL entry rule fires (beta-locked
+        |z| >= ENTRY_Z after the CUSUM/Hurst gates). Its label is 1 if the trade the
+        engine would open — hedge-ratio-weighted legs, filled at the next close, exited by
+        the same target/stop/time rule and filled at the close after that — has a positive
+        gross return, else 0. Only samples whose whole outcome (exit fill included) lies
+        on or before `end` are kept, so no label reads past the training window.
+
+        v32: through v31 the ranker learned a different target (an expanding-window z of
+        the Kalman residual reaching |z| < 0.5 within 10 days) from features extracted
+        with EMPTY stock frames and no macro data — constant values at training time for
+        14 of the 38 inputs that are live at inference.
+
+        Returns (X_raw, y) with X_raw the unscaled 38-feature matrix, or (None, None).
+        """
+        agent = agent or self.rl_agent
+        step = step or self.LABEL_STEP
+        max_samples = max_samples or self.LABEL_MAX_SAMPLES
+        points = []
+        for s1, s2 in pairs:
+            state = self.get_pair_state(s1, s2)
+            if state.empty:
+                continue
+            like = state.index[0]
+            end_ts = _align_ts(end, like)
+            last = int(state.index.searchsorted(end_ts, side='right')) - 1
+            first = self.MIN_SPREAD_HISTORY - 1
+            if start is not None:
+                first = max(first, int(state.index.searchsorted(_align_ts(start, like), side='left')))
+            lp1, lp2 = state['lp1'].to_numpy(), state['lp2'].to_numpy()
+            for i in range(first, last - 2, step):
+                pair_stats = self._pair_stats_asof(f"{s1}-{s2}", state.index[i])
+                max_hold = self._max_hold_days(pair_stats)
+                beta = state['beta'].iat[i]
+                if not (self.BETA_MIN <= beta <= self.BETA_MAX):
+                    continue
+                sig, _ = self._locked_signal(state, i, pair_stats)
+                if sig is None or abs(sig['z']) < self.ENTRY_Z:
+                    continue
+                action = 0 if sig['z'] < 0 else 2
+                entry = i + 1
+                rows = list(range(entry + 1, min(entry + 1 + max_hold, last + 1)))
+                j, _ = self._scan_exit(lp1, lp2, rows, sig, action, max_hold)
+                if j is None or rows[j] + 1 > last:
+                    continue                          # outcome not complete inside the window
+                x = rows[j] + 1                       # exit fill: the next bar's close
+                n1 = 1.0 / (1.0 + beta)
+                n2 = 1.0 - n1
+                sign = 1.0 if action == 0 else -1.0
+                ret = sign * (n1 * (np.exp(lp1[x] - lp1[entry]) - 1.0)
+                              - n2 * (np.exp(lp2[x] - lp2[entry]) - 1.0))
+                points.append((s1, s2, i, 1.0 if ret > 0 else 0.0))
+        if not points:
+            return None, None
+        if len(points) > max_samples:                  # uniform, deterministic subsample
+            rng = np.random.default_rng(seed)
+            keep = np.sort(rng.choice(len(points), size=max_samples, replace=False))
+            points = [points[p] for p in keep]
+        X, y = [], []
+        for s1, s2, i, label in points:
+            state = self.get_pair_state(s1, s2)
+            X.append(agent.extract_advanced_features(
+                state['spread'].iloc[:i + 1], self._pair_stats_asof(f"{s1}-{s2}", state.index[i]),
+                self.processed_data.get(s1, pd.DataFrame()), self.processed_data.get(s2, pd.DataFrame()),
+                macro_data=self.macro_data, symbol1=s1, symbol2=s2))
+            y.append(label)
+        return np.asarray(X, dtype=np.float32), np.asarray(y, dtype=np.float32)
+
+    def _train_ranker(self, agent: FixedTransformerMultiAgentSystem, pairs, end, start=None) -> None:
+        agent.pair_statistics = self.pair_selector.pair_statistics
+        if not agent.use_signal_transformer:
+            logger.info("Ranker: PAIRS_USE_TRANSFORMER=0 — classical-only ranking (quality = 1.0)")
+            return
+        X, y = self.build_outcome_samples(pairs, end=end, start=start, agent=agent)
+        agent.train_on_samples(X, y)
+
+    # ════════════════════════════════════════════════════════════════════════════
+    # Walk-forward validation
+    # ════════════════════════════════════════════════════════════════════════════
 
     def run_walk_forward_validation(self, train_window_days: int = 252, test_window_days: int = 63,
-                                    episodes_per_window: int = 200, pair_windows: Dict = None,
-                                    pair_selection_cutoff: str = '2022-12-31') -> Dict:
-        """Walk-forward validation with rolling train/test windows.
+                                    episodes_per_window: int = None, pair_windows: Dict = None,
+                                    pair_selection_cutoff: str = PAIR_SELECTION_CUTOFF) -> Dict:
+        """Walk-forward validation as ONE continuous out-of-sample simulation.
 
-        LEAKAGE NOTE (v30): the pair UNIVERSE is selected once on data up to
-        `pair_selection_cutoff` (2022-12-31). Any window whose TEST period starts at or
-        before that cutoff is therefore trading a universe chosen with look-ahead (its
-        own future), so its performance is contaminated by selection bias and is
-        diagnostic only — not a clean forward estimate. Each window is tagged
-        `selection_clean` accordingly; only selection-clean windows (test_start after the
-        cutoff) are a leak-free test, and those are the binding result.
+        The calendar is cut into 252-day train / 63-day test windows. For every window
+        whose train period ends on or after the first quarterly re-selection (earlier
+        slots have no pair universe known at that time and are skipped), a fresh ranking
+        model is trained on that window's train period only. The strategy is then run
+        continuously from the first eligible test day to the last: the ranking model in
+        force is the one trained for the current window, the tradeable pairs are the
+        latest re-selection dated <= each day (exactly as in the main backtest), and
+        positions carry across window boundaries, as they would in a live book.
+        Per-window statistics are calendar slices of that single daily series.
 
-        Each window:
-          - train_window_days (252 = 1 year) of spread data used for model training
-          - test_window_days  (63 = 1 quarter) immediately after, out-of-sample
-          - Agent retrained from scratch each window (200 episodes, fast)
+        v32: through v31 each window was an independent 63-day backtest on spreads
+        truncated at the window end, so a position opened in a window's last ~25 days
+        that had not reverted by the window end had no bar to exit on and was silently
+        discarded (a forward-looking winner filter), and each window traded the union of
+        every re-selection so far — including pairs later re-tested and dropped.
 
-        pair_windows: quarterly re-selection output. If provided, the union of all
-        pairs across all windows is used as the spread universe (much richer than
-        the small initial self.spread_data set).
-
-        Returns aggregated results dict including per-window breakdown.
+        `episodes_per_window` is accepted for backward compatibility and ignored.
         """
         logger.info("=" * 60)
-        logger.info("WALK-FORWARD VALIDATION")
+        logger.info("WALK-FORWARD VALIDATION (continuous OOS simulation, per-window refits)")
         logger.info(f"  Train window: {train_window_days} days | Test window: {test_window_days} days")
-        logger.info(f"  Episodes/window: {episodes_per_window}")
         logger.info("=" * 60)
 
-        # Build merged spread dict from all quarterly windows so walk-forward
-        # has the same rich pair universe as the main backtest.
-        # self.spread_data alone only has the initial ~30 pairs (too sparse for
-        # short 63-day windows to generate any trades).
-        if pair_windows:
-            merged_spreads = {}
-            for window_spreads in pair_windows.values():
-                for pair_key, spread in window_spreads.items():
-                    if pair_key not in merged_spreads:
-                        merged_spreads[pair_key] = spread
-                    else:
-                        # Keep the longest spread series for each pair
-                        if len(spread) > len(merged_spreads[pair_key]):
-                            merged_spreads[pair_key] = spread
-            logger.info(f"  Walk-forward spread universe: {len(merged_spreads)} unique pairs "
-                        f"(merged from {len(pair_windows)} quarterly windows)")
-            spread_source = merged_spreads
-        else:
-            spread_source = self.spread_data
-            logger.info(f"  Walk-forward spread universe: {len(spread_source)} pairs (initial selection)")
-
-        # Collect all available dates across merged spread universe
-        all_dates = sorted(set(
-            date for spread in spread_source.values() for date in spread.index
-        ))
+        universe = pair_windows if pair_windows else {None: self.spread_data}
+        all_pairs = sorted({pk for ws in universe.values() for pk in ws})
+        cal = set()
+        for pk in all_pairs:
+            cal.update(self.get_pair_state(*pk).index)
+        all_dates = sorted(cal)
         if len(all_dates) < train_window_days + test_window_days:
             logger.warning("Insufficient data for walk-forward validation")
             return {}
 
-        # Build non-overlapping windows
         windows = []
         idx = 0
         while idx + train_window_days + test_window_days <= len(all_dates):
-            train_start = all_dates[idx]
-            train_end   = all_dates[idx + train_window_days - 1]
-            test_start  = all_dates[idx + train_window_days]
-            test_end    = all_dates[min(idx + train_window_days + test_window_days - 1, len(all_dates) - 1)]
-            windows.append((train_start, train_end, test_start, test_end))
-            idx += test_window_days  # step by one test window (non-overlapping test periods)
+            windows.append((all_dates[idx], all_dates[idx + train_window_days - 1],
+                            all_dates[idx + train_window_days],
+                            all_dates[idx + train_window_days + test_window_days - 1]))
+            idx += test_window_days
+        logger.info(f"Walk-forward grid: {len(windows)} windows")
 
-        logger.info(f"Walk-forward: {len(windows)} windows")
-
-        wf_results = []
-        cumulative_equity = [self.initial_capital]
-
-        for w_idx, (train_start, train_end, test_start, test_end) in enumerate(windows):
-            logger.info(f"\nWindow {w_idx+1}/{len(windows)}: "
-                        f"Train {train_start.date()}→{train_end.date()} | "
-                        f"Test {test_start.date()}→{test_end.date()}")
-
-            # Resolve test date range with proper timezone (use first spread as ref)
-            test_date_range = (test_start, test_end)
-            for _, ref_spread in spread_source.items():
-                try:
-                    if hasattr(ref_spread.index, 'tz') and ref_spread.index.tz is not None:
-                        tz = ref_spread.index.tz
-                        _ts2 = test_start.tz_localize(tz) if test_start.tzinfo is None else test_start
-                        _te2 = test_end.tz_localize(tz) if test_end.tzinfo is None else test_end
-                        test_date_range = (_ts2, _te2)
-                    else:
-                        _ts2 = test_start if test_start.tzinfo is None else test_start.tz_localize(None)
-                        _te2 = test_end if test_end.tzinfo is None else test_end.tz_localize(None)
-                        test_date_range = (_ts2, _te2)
-                except Exception:
-                    pass
-                break  # only need one reference spread
-
-            # Slice spreads for this window
-            window_train = {}
-            # window_test uses full-history spreads (up to test_end) so that
-            # run_comprehensive_backtest has ≥50 days of context for feature
-            # extraction. Trading is restricted to test dates via date_range.
-            window_test  = {}
-
-            # v31 (audit): SELECTION LOOK-AHEAD FIX. `spread_source` is the union of
-            # EVERY quarterly re-selection, including re-selections dated AFTER this
-            # window's test period, so window 1 (testing 2020-12) could trade pairs that
-            # were only identified as cointegrated in 2024. That is a look-ahead in the
-            # universe itself, and it is not addressed by the v30 `selection_clean`
-            # tagging — a window can be selection_clean and still inherit the future
-            # union. Restrict each window to pairs whose re-selection date is known by
-            # train_end.
-            if pair_windows:
-                _visible = {}
-                for _resel_date, _window_spreads in pair_windows.items():
-                    _rd = pd.Timestamp(_resel_date)
-                    _te_naive = pd.Timestamp(train_end)
-                    _rd = _rd.tz_localize(None) if _rd.tzinfo else _rd
-                    _te_naive = _te_naive.tz_localize(None) if _te_naive.tzinfo else _te_naive
-                    if _rd > _te_naive:
-                        continue                      # not yet selected at decision time
-                    for _pk, _sp in _window_spreads.items():
-                        if _pk not in _visible or len(_sp) > len(_visible[_pk]):
-                            _visible[_pk] = _sp
-                _window_universe = _visible
-                if not _window_universe:
-                    logger.warning(f"  Window {w_idx+1}: no pairs selected on or before "
-                                   f"{pd.Timestamp(train_end).date()}, skipping")
-                    continue
-            else:
-                _window_universe = spread_source
-
-            for pair_key, spread in _window_universe.items():
-                try:
-                    if hasattr(spread.index, 'tz') and spread.index.tz is not None:
-                        ts  = train_start.tz_localize(spread.index.tz) if train_start.tzinfo is None else train_start
-                        te  = train_end.tz_localize(spread.index.tz) if train_end.tzinfo is None else train_end
-                        ts2 = test_start.tz_localize(spread.index.tz) if test_start.tzinfo is None else test_start
-                        te2 = test_end.tz_localize(spread.index.tz) if test_end.tzinfo is None else test_end
-                    else:
-                        ts  = train_start if train_start.tzinfo is None else train_start.tz_localize(None)
-                        te  = train_end  if train_end.tzinfo  is None else train_end.tz_localize(None)
-                        ts2 = test_start if test_start.tzinfo is None else test_start.tz_localize(None)
-                        te2 = test_end   if test_end.tzinfo   is None else test_end.tz_localize(None)
-
-                    tr = spread[(spread.index >= ts) & (spread.index <= te)]
-                    # Full history up to test_end for context; date_range will
-                    # limit which days actually generate trades.
-                    tst_check = spread[(spread.index >= ts2) & (spread.index <= te2)]
-                    tst_full  = spread[spread.index <= te2]
-                    if len(tr) >= 50:
-                        window_train[pair_key] = tr
-                    if len(tst_check) >= 10:
-                        window_test[pair_key] = tst_full
-                except Exception:
-                    continue
-
-            if not window_train or not window_test:
-                logger.warning(f"  Window {w_idx+1}: insufficient spread data, skipping")
+        resel_sorted = sorted(k for k in universe if k is not None)
+        first_resel = _naive(resel_sorted[0]) if resel_sorted else None
+        schedule, eligible = [], []
+        for w_idx, (tr_s, tr_e, te_s, te_e) in enumerate(windows):
+            if first_resel is not None and _naive(tr_e) < first_resel:
+                logger.info(f"  Window {w_idx + 1}: no pair universe selected by "
+                            f"{pd.Timestamp(tr_e).date()} — skipped")
                 continue
+            visible = sorted({pk for key, ws in universe.items()
+                              if key is None or _naive(key) <= _naive(tr_e) for pk in ws})
+            agent = FixedTransformerMultiAgentSystem()
+            self._train_ranker(agent, visible, end=tr_e, start=tr_s)
+            schedule.append((te_s, agent))
+            eligible.append((w_idx, tr_s, tr_e, te_s, te_e))
 
-            # v30 LEAK GUARD: the per-window agent must train ONLY on data strictly
-            # before the test period. This fails loudly if a future refactor ever
-            # assigns full-history spreads (tst_full) to window_train instead of the
-            # train slice. (The transformer's forward labels are additionally capped at
-            # horizon < len(train) inside _build_outcome_dataset, so no test-period label
-            # can bleed into training.)
-            _te_cmp = pd.Timestamp(train_end)
-            _te_cmp = _te_cmp.tz_localize(None) if _te_cmp.tzinfo else _te_cmp
-            for _k, _tr in window_train.items():
-                if len(_tr):
-                    _mx = pd.Timestamp(_tr.index.max())
-                    _mx = _mx.tz_localize(None) if _mx.tzinfo else _mx
-                    # v31 (audit): raise explicitly rather than `assert`. A bare assert is
-                    # removed entirely under `python -O` / PYTHONOPTIMIZE=1, so the v30
-                    # "fails loudly" leak guarantee silently evaporated in exactly the
-                    # optimized runs a long backtest is most likely to use.
-                    if _mx > _te_cmp:
-                        raise RuntimeError(
-                            f"Walk-forward leak: window {w_idx+1} training data reaches "
-                            f"{_mx.date()} > train_end {_te_cmp.date()}")
-
-            # Retrain agent on this window's training data
-            window_agent = FixedTransformerMultiAgentSystem()
-            window_agent.pair_statistics = self.pair_selector.pair_statistics  # v27: real stats
-            window_agent.train_agent(window_train, episodes=episodes_per_window)
-
-            # Swap in the window agent temporarily
-            original_agent = self.rl_agent
-            self.rl_agent = window_agent
-
-            # Run backtest on this window's test period only (full spreads for
-            # feature context, date_range restricts trading to test dates)
-            window_result = self.run_comprehensive_backtest(
-                window_test, date_range=test_date_range
-            )
-
-            # Restore original agent
-            self.rl_agent = original_agent
-
-            window_return = window_result.get('total_return', 0)
-            window_sharpe = window_result.get('sharpe_ratio', 0)
-            window_trades = window_result.get('total_trades', 0)
-            window_wr     = window_result.get('win_rate', 0)
-            window_dd     = window_result.get('max_drawdown', 0)
-
-            cumulative_equity.append(cumulative_equity[-1] * (1 + window_return))
-
-            wf_results.append({
-                'window': w_idx + 1,
-                'train_start': str(train_start.date()),
-                'train_end':   str(train_end.date()),
-                'test_start':  str(test_start.date()),
-                'test_end':    str(test_end.date()),
-                # v30: window is leak-free on pair selection only if its test period
-                # starts AFTER the pair-selection cutoff; otherwise the universe was
-                # chosen with look-ahead and the window is diagnostic only.
-                'selection_clean': str(test_start.date()) > pair_selection_cutoff,
-                'total_return_pct': round(window_return * 100, 4),
-                'sharpe_ratio': round(window_sharpe, 3),
-                'max_drawdown_pct': round(window_dd * 100, 4),
-                'total_trades': window_trades,
-                'win_rate_pct': round(window_wr * 100, 2),
-                # significance: keep this window's daily return series + its test_start
-                # so the OOS daily series can be stitched for autocorrelation-aware tests
-                '_daily_returns': list(window_result.get('daily_returns', [])),
-            })
-
-            logger.info(f"  → Return: {window_return:.2%} | Sharpe: {window_sharpe:.2f} | "
-                        f"Trades: {window_trades} | WR: {window_wr:.1%} | DD: {window_dd:.2%}")
-
-        # Aggregate
-        if not wf_results:
+        if not eligible:
+            logger.warning("Walk-forward: no eligible windows")
             return {}
 
-        returns = [w['total_return_pct'] / 100 for w in wf_results]
-        profitable_windows = sum(1 for r in returns if r > 0)
-        stitched_return = cumulative_equity[-1] / self.initial_capital - 1
+        result = self.run_comprehensive_backtest(
+            self.spread_data, pair_windows=pair_windows,
+            date_range=(eligible[0][3], eligible[-1][4]), model_schedule=schedule)
+        dates = [pd.Timestamp(d) for d in result['daily_dates']]
+        rets = np.asarray(result['daily_returns'], dtype=float)
+        trades = result['trades']
 
-        _n_clean = sum(1 for w in wf_results if w.get('selection_clean'))
+        wf_results = []
+        for n_w, (w_idx, tr_s, tr_e, te_s, te_e) in enumerate(eligible):
+            lo_d, hi_d = _naive(te_s), _naive(te_e)
+            is_last = n_w == len(eligible) - 1
+            mask = np.array([(d >= lo_d) and (is_last or d <= hi_d) for d in dates], dtype=bool)
+            w_r = rets[mask]
+            w_trades = [t for t in trades if lo_d <= _naive(t['signal_date']) <= hi_d]
+            w_ret = float(np.prod(1.0 + w_r) - 1.0) if w_r.size else 0.0
+            wf_results.append({
+                'window': w_idx + 1,
+                'train_start': str(pd.Timestamp(tr_s).date()),
+                'train_end': str(pd.Timestamp(tr_e).date()),
+                'test_start': str(pd.Timestamp(te_s).date()),
+                'test_end': str(pd.Timestamp(te_e).date()),
+                'selection_clean': str(pd.Timestamp(te_s).date()) > pair_selection_cutoff,
+                'n_days': int(w_r.size),
+                'total_return_pct': round(w_ret * 100, 4),
+                'sharpe_ratio': round(annualised_sharpe(w_r), 3),
+                'max_drawdown_pct': round(max_drawdown_from_returns(w_r) * 100, 4),
+                'total_trades': len(w_trades),
+                'win_rate_pct': round(100.0 * sum(1 for t in w_trades if t['net_pnl_pct'] > 0)
+                                      / len(w_trades), 2) if w_trades else 0.0,
+            })
+            logger.info(f"  Window {w_idx + 1}: test {pd.Timestamp(te_s).date()} -> "
+                        f"{pd.Timestamp(te_e).date()} | return {w_ret:+.2%} | "
+                        f"Sharpe {annualised_sharpe(w_r):+.2f} | trades {len(w_trades)}")
+
+        window_returns = [w['total_return_pct'] / 100.0 for w in wf_results]
+        n_clean = sum(1 for w in wf_results if w['selection_clean'])
         summary = {
             'windows': wf_results,
             'total_windows': len(wf_results),
-            # v30: count of windows free of pair-selection look-ahead (test after cutoff)
-            'selection_clean_windows': _n_clean,
+            'skipped_windows': len(windows) - len(eligible),
+            'selection_clean_windows': n_clean,
             'pair_selection_cutoff': pair_selection_cutoff,
-            'profitable_windows': profitable_windows,
-            'profitable_window_pct': round(profitable_windows / len(wf_results) * 100, 1),
-            'avg_window_return_pct': round(float(sum(returns)) / len(returns) * 100, 4),
-            # v31.1 (audit): sorted(...)[n//2] is the UPPER-middle element, not the median,
-            # whenever the window count is even (it is: 10). With returns
-            # [-0.995,-0.737,-0.648,-0.463,-0.448,-0.093,0,0,0,+0.568] that reported
-            # -0.0931% instead of the true -0.2708% — the flattering half of the pair.
-            'median_window_return_pct': round(float(np.median(returns)) * 100, 4),
-            # v31 (audit): this is the MEAN OF PER-WINDOW ANNUALISED SHARPES, not a
-            # portfolio Sharpe. Each window annualises its own 63 daily observations by
-            # sqrt(252), then those 19 numbers are averaged — which discards the
-            # between-window variance that a real portfolio would experience and is
-            # biased by the windows that traded least. Kept (downstream consumers read
-            # it) but renamed in the log and paired with `pooled_sharpe` below, which is
-            # computed once over the concatenated daily series and is the honest number.
-            'avg_sharpe': round(sum(w['sharpe_ratio'] for w in wf_results) / len(wf_results), 3),
-            'stitched_total_return_pct': round(stitched_return * 100, 4),
+            'profitable_windows': sum(1 for x in window_returns if x > 0),
+            'profitable_window_pct': round(100.0 * sum(1 for x in window_returns if x > 0)
+                                           / len(window_returns), 1),
+            'avg_window_return_pct': round(float(np.mean(window_returns)) * 100, 4),
+            'median_window_return_pct': round(float(np.median(window_returns)) * 100, 4),
+            # Mean of per-window annualised Sharpes — NOT a portfolio Sharpe (see pooled).
+            'avg_sharpe': round(float(np.mean([w['sharpe_ratio'] for w in wf_results])), 3),
+            'stitched_total_return_pct': round(result['total_return'] * 100, 4),
+            'pooled_sharpe': round(annualised_sharpe(rets), 3) if rets.size > 1 else None,
+            'oos_pooled_sharpe': round(annualised_sharpe(rets), 3) if rets.size > 1 else None,
+            'max_drawdown_pct': round(result['max_drawdown'] * 100, 4),
+            'total_trades': result['total_trades'],
+            'win_rate_pct': round(result['win_rate'] * 100, 2),
+            'exit_reasons': result.get('exit_reasons', {}),
+            'oos_window_sharpe_var': float(np.var([w['sharpe_ratio'] for w in wf_results], ddof=1))
+            if len(wf_results) > 1 else 0.0,
+            'oos_start': wf_results[0]['test_start'],
+            'oos_end': result['daily_dates'][-1] if result['daily_dates'] else None,
+            'halted_on': result.get('halted_on'),
+            # Continuous OOS daily series (popped before JSON export by the caller).
+            'oos_daily_returns': list(rets),
+            'oos_daily_dates': list(result['daily_dates']),
+            'all_window_daily_returns': list(rets),
         }
-
-        # ── Hard era split: IS (W1-W9) vs OOS (W10+) ─────────────────────────
-        # W10 test starts 2023-04-04 — the confirmed regime break date.
-        # Lopez de Prado's "purged cross-validation" principle: treat any window
-        # whose TEST period starts after the regime shift as true out-of-sample.
-        # IS windows trained and tested fully inside the ZIRP/transition era.
-        # OOS windows test in the post-hike, Mag-7-dominated regime.
-        _regime_break_date = pd.Timestamp('2023-04-04')
-
-        def _era_stats(windows):
-            if not windows:
-                return {'count': 0, 'profitable': 0, 'avg_return_pct': 0.0,
-                        'avg_sharpe': 0.0, 'avg_win_rate_pct': 0.0, 'avg_max_dd_pct': 0.0}
-            _rets = [w['total_return_pct'] / 100 for w in windows]
-            return {
-                'count':            len(windows),
-                'profitable':       sum(1 for r in _rets if r > 0),
-                'avg_return_pct':   round(float(np.mean(_rets)) * 100, 4),
-                'avg_sharpe':       round(float(np.mean([w['sharpe_ratio'] for w in windows])), 3),
-                'avg_win_rate_pct': round(float(np.mean([w['win_rate_pct'] for w in windows])), 2),
-                'avg_max_dd_pct':   round(float(np.mean([abs(w['max_drawdown_pct']) for w in windows])), 4),
-            }
-
-        is_windows  = [w for w in wf_results if pd.Timestamp(w['test_start']) < _regime_break_date]
-        oos_windows = [w for w in wf_results if pd.Timestamp(w['test_start']) >= _regime_break_date]
-        is_stats    = _era_stats(is_windows)
-        oos_stats   = _era_stats(oos_windows)
-
-        summary['in_sample_era']     = is_stats
-        summary['out_of_sample_era'] = oos_stats
-
-        # ── Stitch daily return series for significance testing ──────────────────
-        # OOS windows have non-overlapping test periods, so concatenating their daily
-        # returns gives one contiguous out-of-sample daily series — enough observations
-        # for an autocorrelation-aware Sharpe t-stat (the per-window n=10 is too small).
-        oos_daily, all_daily = [], []
-        for w in wf_results:
-            dr = w.get('_daily_returns', [])
-            all_daily.extend(dr)
-            if pd.Timestamp(w['test_start']) >= _regime_break_date:
-                oos_daily.extend(dr)
-        summary['oos_daily_returns']    = oos_daily
-        summary['all_window_daily_returns'] = all_daily
-
-        # v31 (audit): POOLED (portfolio) Sharpe — one annualisation over the whole
-        # concatenated daily series, rather than the mean of 19 separately-annualised
-        # 63-day Sharpes in `avg_sharpe`. This is the statistic that corresponds to
-        # actually having run the strategy across the period, and it is what the
-        # significance tests below already operate on.
-        def _pooled_sharpe(daily):
-            arr = np.asarray(daily, dtype=float)
-            arr = arr[np.isfinite(arr)]
-            if arr.size < 2 or arr.std(ddof=1) == 0:
-                return None
-            return round(float(arr.mean() / arr.std(ddof=1) * np.sqrt(252)), 3)
-
-        summary['pooled_sharpe']     = _pooled_sharpe(all_daily)
-        summary['oos_pooled_sharpe'] = _pooled_sharpe(oos_daily)
-        # per-window OOS Sharpe spread → trial-variance estimate for the Deflated Sharpe
-        _oos_sharpes = [w['sharpe_ratio'] for w in oos_windows]
-        summary['oos_window_sharpe_var'] = (
-            float(np.var(_oos_sharpes, ddof=1)) if len(_oos_sharpes) > 1 else 0.0
-        )
-        # drop the bulky per-window daily arrays from the public window records
-        for w in wf_results:
-            w.pop('_daily_returns', None)
-
-        logger.info("\n" + "=" * 60)
-        logger.info("WALK-FORWARD SUMMARY")
-        logger.info(f"  Windows: {summary['total_windows']} | Profitable: {summary['profitable_windows']} ({summary['profitable_window_pct']}%)")
-        logger.info(f"  Avg window return: {summary['avg_window_return_pct']:.4f}%")
-        # v31: label these honestly — the first is a mean of per-window annualised
-        # Sharpes, the second is the actual portfolio Sharpe over the pooled series.
-        logger.info(f"  Mean of per-window Sharpes: {summary['avg_sharpe']:.3f} "
-                    f"(NOT a portfolio Sharpe)")
-        _ps, _ops = summary.get('pooled_sharpe'), summary.get('oos_pooled_sharpe')
-        logger.info(f"  Pooled Sharpe (all windows): "
-                    f"{_ps if _ps is not None else 'n/a'}")
-        logger.info(f"  Pooled Sharpe (OOS only)   : "
-                    f"{_ops if _ops is not None else 'n/a'}")
-        logger.info(f"  Stitched total return: {summary['stitched_total_return_pct']:.4f}%")
-        logger.info("")
-        logger.info("  HARD ERA SPLIT (regime break boundary: 2023-04-04)")
-        logger.info(f"  In-sample  (W1-W9,  pre-regime) : {is_stats['count']:2d} windows | "
-                    f"avg {is_stats['avg_return_pct']:+7.2f}%/qtr | "
-                    f"Sharpe {is_stats['avg_sharpe']:5.3f} | "
-                    f"WR {is_stats['avg_win_rate_pct']:.1f}%")
-        logger.info(f"  OOS (W10-W19, post-regime break): {oos_stats['count']:2d} windows | "
-                    f"avg {oos_stats['avg_return_pct']:+7.2f}%/qtr | "
-                    f"Sharpe {oos_stats['avg_sharpe']:5.3f} | "
-                    f"WR {oos_stats['avg_win_rate_pct']:.1f}%")
-        if is_stats['count'] > 0 and oos_stats['count'] > 0:
-            _degradation = (is_stats['avg_return_pct'] - oos_stats['avg_return_pct']) / (abs(is_stats['avg_return_pct']) + 1e-8) * 100
-            logger.info(f"  IS→OOS degradation: {_degradation:.1f}% "
-                        f"[30-50% expected per QuantifiedStrategies research]")
-        # v30: the IS windows are not just pre-regime — their TEST periods predate the
-        # pair-selection cutoff ({cutoff}), so the universe was chosen with look-ahead.
-        # They are diagnostic only. The {n} selection-clean windows (test after cutoff)
-        # are the leak-free result.
-        logger.info(f"  SELECTION-LEAK NOTE: {_n_clean}/{len(wf_results)} windows are "
-                    f"selection-clean (test starts after cutoff {pair_selection_cutoff}); "
-                    f"the rest trade a look-ahead-selected universe and are diagnostic only.")
         logger.info("=" * 60)
-
+        logger.info("WALK-FORWARD SUMMARY")
+        logger.info(f"  Windows: {summary['total_windows']} traded, {summary['skipped_windows']} skipped "
+                    f"(no universe yet) | profitable: {summary['profitable_windows']} "
+                    f"({summary['profitable_window_pct']}%)")
+        logger.info(f"  Avg window return: {summary['avg_window_return_pct']:.4f}% | "
+                    f"median {summary['median_window_return_pct']:.4f}%")
+        logger.info(f"  Pooled OOS Sharpe: {summary['pooled_sharpe']} | mean of per-window "
+                    f"Sharpes: {summary['avg_sharpe']:.3f} (not a portfolio Sharpe)")
+        logger.info(f"  Continuous OOS return: {summary['stitched_total_return_pct']:.4f}% | "
+                    f"max DD {summary['max_drawdown_pct']:.2f}% | trades {summary['total_trades']}")
+        logger.info(f"  Selection-clean windows: {n_clean}/{len(wf_results)} "
+                    f"(test start after the pair-selection cutoff {pair_selection_cutoff})")
+        logger.info("=" * 60)
         return summary
 
+    # ════════════════════════════════════════════════════════════════════════════
+    # Quarterly pair re-selection
+    # ════════════════════════════════════════════════════════════════════════════
+
     def build_rolling_pair_schedule(self, all_test_dates: list, reselect_every: int = 90) -> Dict:
-        """Build a quarterly pair re-selection schedule.
+        """Quarterly re-selection of the initial candidate pool.
 
-        Every `reselect_every` trading days, re-test only the initial pair pool
-        (found on 2020-2022 data) against a rolling 2-year window ending on that
-        date. Pairs that are still cointegrated in the window are kept active.
-
-        This avoids repeating the full O(n²) pair search — which is slow and
-        memory-intensive — while still adapting the active universe over time.
-        No look-ahead bias: pairs were selected on 2020-2022 data only.
+        Every `reselect_every` trading days the candidate pairs (selected on data up to
+        the pair-selection cutoff) are re-tested on a rolling 2-year window ending on the
+        re-selection date, plus a recent-window check (126 calendar days, ~87 trading
+        days). Everything uses data dated <= the re-selection date.
         """
         logger.info(f"Building quarterly pair schedule (every {reselect_every} trading days)...")
-
         schedule_dates = [all_test_dates[i] for i in range(0, len(all_test_dates), reselect_every)]
-        if all_test_dates[0] not in schedule_dates:
-            schedule_dates = [all_test_dates[0]] + schedule_dates
-
-        # Candidate pool: initial pairs discovered on 2020-2022 training data
         candidate_pairs = list(self.spread_data.keys())
-        logger.info(f"  Candidate pool: {len(candidate_pairs)} initial pairs to re-test each window")
+        full_search = os.environ.get('PAIRS_RESELECT', 'pool').lower() == 'full'
+        if full_search:
+            logger.info("  PAIRS_RESELECT=full: the complete pair search is re-run on each trailing "
+                        "2-year window (new pairs can enter; runtime scales with the universe)")
+        else:
+            logger.info(f"  Candidate pool: {len(candidate_pairs)} pairs selected on data to "
+                        f"{PAIR_SELECTION_CUTOFF} (re-tested only; no new pairs can enter)")
 
         pair_windows = {}
-
         for resel_date in schedule_dates:
-            logger.info(f"QUARTERLY RE-SELECTION at {resel_date.date()} — re-testing {len(candidate_pairs)} candidate pairs")
-
-            # Build rolling 2-year window ending on resel_date (strictly no look-ahead)
-            window_data = {}
-            for sym, df in self.processed_data.items():
-                try:
-                    idx = df.index
-                    if hasattr(idx, 'tz') and idx.tz is not None:
-                        cutoff = resel_date.tz_localize(idx.tz) if resel_date.tzinfo is None else resel_date
-                        start_cutoff = (resel_date - pd.Timedelta(days=730)).tz_localize(idx.tz) if resel_date.tzinfo is None else (resel_date - pd.Timedelta(days=730))
-                    else:
-                        cutoff = resel_date if resel_date.tzinfo is None else resel_date.tz_localize(None)
-                        start_cutoff = cutoff - pd.Timedelta(days=730)
-                    filtered = df[(df.index >= start_cutoff) & (df.index <= cutoff)]
-                    if len(filtered) >= 100:
-                        window_data[sym] = filtered
-                except Exception:
-                    continue
-
-            # Re-test only the candidate pairs (not all O(n²) combinations)
-            window_spreads = {}
-            kept = 0
-            dropped_6m = 0
-            dropped_diverge = 0
+            if full_search:
+                pair_windows[resel_date] = self._full_reselection(resel_date)
+                continue
+            kept = dropped_recent = dropped_diverge = 0
+            window_spreads, window_stats = {}, {}
             for sym1, sym2 in candidate_pairs:
-                if sym1 not in window_data or sym2 not in window_data:
+                d1, d2 = self.processed_data.get(sym1), self.processed_data.get(sym2)
+                if d1 is None or d2 is None:
                     continue
-                is_coint, p2yr = self.pair_selector.test_cointegration(
-                    window_data[sym1], window_data[sym2]
-                )
+                cut = _align_ts(resel_date, d1.index[0])
+                w1 = d1[(d1.index > cut - pd.Timedelta(days=730)) & (d1.index <= cut)]
+                w2 = d2[(d2.index > cut - pd.Timedelta(days=730)) & (d2.index <= cut)]
+                if len(w1) < 100 or len(w2) < 100:
+                    continue
+                is_coint, p_long = self.pair_selector.test_cointegration(w1, w2)
                 if not is_coint:
                     continue
-
-                # ── Adaptive 6-month cointegration test ───────────────────────────────
-                # A pair that passes the 2-year ADF test but FAILS the recent 6-month
-                # test is anchoring on a dead regime (e.g. ZIRP 2020-2022 data dilutes
-                # post-hike 2023 signal).  Drop it to avoid trading stale relationships.
-                # Root cause of 28% → 8.8% pair survival collapse: pairs kept too long.
-                start_6m = resel_date - pd.Timedelta(days=126)  # ~6 calendar months
-                d6m_data = {}
-                for sym in (sym1, sym2):
-                    idx = window_data[sym].index
-                    if hasattr(idx, 'tz') and idx.tz is not None:
-                        s6m = start_6m.tz_localize(idx.tz) if start_6m.tzinfo is None else start_6m
-                    else:
-                        s6m = start_6m if start_6m.tzinfo is None else start_6m.tz_localize(None)
-                    sliced = window_data[sym][window_data[sym].index >= s6m]
-                    if len(sliced) >= 60:
-                        d6m_data[sym] = sliced
-
-                if sym1 in d6m_data and sym2 in d6m_data:
-                    try:
-                        log_p1 = np.log(d6m_data[sym1]['Close'].values + 1e-8)
-                        log_p2 = np.log(d6m_data[sym2]['Close'].values + 1e-8)
-                        min_len = min(len(log_p1), len(log_p2))
-                        if min_len >= 30:
-                            _, p6a, _ = _coint(log_p1[:min_len], log_p2[:min_len])
-                            _, p6b, _ = _coint(log_p2[:min_len], log_p1[:min_len])
-                            p6 = min(p6a, p6b)
-                            # v8 Fix: raised from 0.05 to 0.15 — ADF/EG test has ~45% power
-                            # at n=90 obs (6 calendar months). The old p<0.05 threshold caused
-                            # 88.5% false rejection: valid LIVE pairs dropped as "stale" due to
-                            # insufficient data, not actual relationship decay. p<0.15 is still
-                            # selective (rejects pairs where recent data is clearly non-cointegrated)
-                            # while keeping pairs with moderate but plausible recent evidence.
-                            if p6 > 0.15:
-                                dropped_6m += 1
-                                continue  # Recent 6-month test clearly failed → relationship decayed
-                            if abs(p6 - p2yr) > 0.10:
-                                dropped_diverge += 1
-                                continue  # 6m vs 2yr diverge → structural break underway
-                    except Exception:
-                        pass  # 6m test error → keep pair conservatively
-
-                spread = self.calculate_spread(
-                    self.processed_data[sym1], self.processed_data[sym2]
-                )
+                # Recent-window check (v8 design, 126 calendar days ~ 87 trading days; the
+                # comments through v31 called this "6 months / n=90"). v32: legs aligned on
+                # common DATES (was positional truncation) and the p-value is the same
+                # two-direction Bonferroni p as the 2-year test (was the invalid min-p).
+                recent_start = cut - pd.Timedelta(days=126)
+                c1 = w1.loc[w1.index >= recent_start, 'Close']
+                c2 = w2.loc[w2.index >= recent_start, 'Close']
+                common = c1.index.intersection(c2.index)
+                if len(common) >= 60:
+                    # Thresholds are the v8 calibration (min-p > 0.15, |min-p gap| > 0.10)
+                    # restated on the Bonferroni scale p = 2 * min-p: identical decisions,
+                    # one consistent p-value definition.
+                    p_recent = self.pair_selector.cointegration_pvalue(
+                        np.log(c1.loc[common].to_numpy(dtype=float)),
+                        np.log(c2.loc[common].to_numpy(dtype=float)))
+                    if p_recent > self.RESEL_RECENT_MAX_P:
+                        dropped_recent += 1
+                        continue           # recent evidence clearly absent: relationship decayed
+                    if abs(p_recent - p_long) > self.RESEL_MAX_P_GAP:
+                        dropped_diverge += 1
+                        continue           # recent vs 2-year evidence diverge: break underway
+                spread = self._pair_spread(sym1, sym2)
                 if not spread.empty:
                     window_spreads[(sym1, sym2)] = spread
                     kept += 1
-
-            logger.info(f"  Kept {kept}/{len(candidate_pairs)} pairs still cointegrated in rolling window")
-            logger.info(f"  Adaptive filter: dropped {dropped_6m} (6m test failed) + {dropped_diverge} (6m/2yr diverge)")
+                    # v32: re-estimate the statistics that drive the z window, time stop,
+                    # quality gate and ranking on the same trailing 2-year window (they were
+                    # frozen at their 2020-2022 values through 2025).
+                    pstr = f"{sym1}-{sym2}"
+                    base = self.pair_selector.pair_statistics.get(pstr, {})
+                    corr = self.pair_selector.calculate_correlation(w1, w2)
+                    hl = self.pair_selector.calculate_half_life(w1, w2)
+                    quality = self.pair_selector._calculate_balanced_quality_score(
+                        corr, p_long, hl, w1, w2, pca_cointegrated=bool(base.get('pca_cointegrated', False)))
+                    window_stats[pstr] = {'correlation': corr, 'cointegration_pvalue': p_long,
+                                          'half_life': hl, 'quality_score': quality,
+                                          'pca_cointegrated': bool(base.get('pca_cointegrated', False))}
+            logger.info(f"  {pd.Timestamp(resel_date).date()}: kept {kept}/{len(candidate_pairs)} "
+                        f"(recent-window test dropped {dropped_recent}, divergence dropped {dropped_diverge})")
             pair_windows[resel_date] = window_spreads
-
-        logger.info(f"Quarterly schedule built: {len(pair_windows)} windows")
+            self.pair_window_stats[resel_date] = window_stats
+        self._index_window_stats()
+        logger.info(f"Quarterly schedule built: {len(pair_windows)} re-selections")
         return pair_windows
 
-    def run_fund_type_comparison(self, main_results: Dict,
-                                 main_daily_dates: list = None) -> Dict:
-        """
-        Replay the SAME trade signals from the main backtest under five different
-        institutional fund profiles (costs + position sizing).
+    def _full_reselection(self, resel_date) -> Dict:
+        """Run the complete selection on the trailing 2-year window ending at resel_date."""
+        window_data = {}
+        for sym, df in self.processed_data.items():
+            if len(df.index) == 0:
+                continue
+            cut = _align_ts(resel_date, df.index[0])
+            w = df[(df.index > cut - pd.Timedelta(days=730)) & (df.index <= cut)]
+            if len(w) >= 100:
+                window_data[sym] = w
+        selector = FixedPrimeFundPairSelector()
+        pairs = selector.find_quality_pairs(window_data)
+        spreads = {p: self._pair_spread(*p) for p in pairs}
+        spreads = {p: sp for p, sp in spreads.items() if not sp.empty}
+        self.pair_window_stats[resel_date] = {f"{a}-{b}": selector.pair_statistics[f"{a}-{b}"]
+                                              for a, b in spreads}
+        logger.info(f"  {pd.Timestamp(resel_date).date()}: full search selected {len(spreads)} pairs")
+        return spreads
 
-        Why replay instead of re-running from scratch?
-        ─ Signals (z-score, entry/exit dates, spread returns) are market facts —
-          they don't change with fund type.
-        ─ Only the ECONOMICS differ: how large the position is and how much it costs.
-        ─ This isolates the effect of fund structure on strategy P&L.
-        ─ It is also fast (seconds, not hours).
+    def _index_window_stats(self) -> None:
+        keys = sorted(self.pair_window_stats, key=_naive)
+        self._window_stats_index = (np.array([np.datetime64(_naive(k)) for k in keys]),
+                                    [self.pair_window_stats[k] for k in keys]) if keys else None
 
-        Approach:
-          For each trade record from the main backtest we know:
-            trade['zscore'], trade['action'], trade['spread_return'], trade['holding_days']
-          We recalculate:
-            position size  = profile.base_position_pct × z_scaling, capped at max_position_pct
-            transaction costs = profile-specific rates via calculate_profile_trade_costs()
-            net PnL         = spread_return × position_fraction ± costs
-          Then track the equity curve chronologically, applying a drawdown kill-switch
-          when the profile's max_drawdown_limit is hit.
+    # ════════════════════════════════════════════════════════════════════════════
+    # Fund-type replay
+    # ════════════════════════════════════════════════════════════════════════════
+
+    def run_fund_type_comparison(self, main_results: Dict, main_daily_dates: list = None) -> Dict:
+        """Replay the main backtest's trades under five fund cost/sizing profiles.
+
+        Signals, entry/exit dates and each trade's daily mark-to-market path (per $1 of
+        gross notional) are taken from the main backtest; only the economics change:
+        position size = profile base % x min(|z|/2.3, 2), capped at the profile max, of
+        the profile's own equity at the previous close; at most the profile's
+        max_daily_trades new trades per day (main-backtest ranking order); and the
+        profile's cost schedule (execution costs split between entry and exit, borrow and
+        financing at exit), with market impact from each trade's own volatility and ADV. Each profile's equity is marked to market daily on the main
+        backtest calendar; a drawdown beyond the profile limit stops new trades and
+        flattens open ones at the next bar.
+
+        The replay does NOT model concurrency limits or margin: the leverage labels are
+        descriptive, and the realised peak gross leverage is reported per profile as
+        'max_gross_leverage' so the reader can see what was actually run.
         """
         from pairs_trading.fund_profiles import FUND_PROFILES, get_profile_summary_table
         from pairs_trading.transaction_costs import calculate_profile_trade_costs
 
         logger.info(get_profile_summary_table())
-
-        trades = main_results.get('trades', [])
+        trades = [t for t in main_results.get('trades', []) if t.get('unit_path')]
         if not trades:
             logger.warning("Fund comparison: no trades in main results, skipping.")
             return {}
+        calendar = list(main_daily_dates or main_results.get('daily_dates') or
+                        sorted({d for t in trades for d, _ in t['unit_path']}))
+        cal_pos = {d: i for i, d in enumerate(calendar)}
+        by_entry: Dict[str, List[Dict]] = {}
+        for t in trades:
+            by_entry.setdefault(t['unit_path'][0][0], []).append(t)
 
-        # Sort trades chronologically so per-date equity tracking is correct
-        sorted_trades = sorted(trades, key=lambda t: t['date'])
-
-        SOFR = 0.050        # current SOFR (2025)
+        SOFR = 0.050
         comparison = {}
-
         for profile_key, profile in FUND_PROFILES.items():
-            logger.info(f"\n{'─'*70}")
-            logger.info(f"Fund comparison — simulating: {profile.name}")
-            logger.info(f"  {profile.description}")
-            logger.info(f"  Base pos: {profile.base_position_pct:.0%} | "
-                        f"Max pos: {profile.max_position_pct:.0%} | "
-                        f"Max DD: {profile.max_drawdown_limit:.0%} | "
-                        f"Leverage: {profile.gross_leverage_label}")
-
-            equity         = float(self.initial_capital)
-            peak_equity    = equity
-            max_drawdown   = 0.0
-            stopped_early  = False
-
-            # Accumulate daily PnL: date → (gross_pnl, cost, net_pnl)
-            # We book PnL on the EXIT date (entry_date + holding_days calendar days).
-            # Using a pending-PnL dict keeps us look-ahead-bias free within the replay.
-            pending_pnl: Dict = {}   # exit_date → cumulative net_pnl_fraction
-            pending_costs: Dict = {} # exit_date → cumulative costs breakdown
-
-            trade_records = []
-
-            for trade in sorted_trades:
-                entry_date   = trade['date']
-                zscore       = abs(trade['zscore'])
-                action       = trade['action']               # 'LONG' or 'SHORT'
-                spread_ret   = trade['spread_return']        # signed spread change
-                holding_days = max(1, trade['holding_days'])
-                pair_str     = trade['pair']
-                long_sym     = pair_str.split('-')[0] if '-' in pair_str else 'AAPL'
-                short_sym    = pair_str.split('-')[1] if '-' in pair_str else 'MSFT'
-
-                # Skip entry if equity already below initial (deep loss) or stopped
-                if stopped_early:
-                    break
-
-                # ── Position sizing ─────────────────────────────────────────────
-                # z-score scaling (same logic as main backtest): stronger signal → larger pos
-                z_mult = min(zscore / 2.3, 2.0)
-                raw_fraction = profile.base_position_pct * z_mult
-                # Cap at profile max — this is the gross position fraction of equity
-                position_fraction = min(raw_fraction, profile.max_position_pct)
-                position_value    = position_fraction * equity
-
-                # ── Transaction costs for this profile ──────────────────────────
-                cost_dict = calculate_profile_trade_costs(
-                    position_value, profile, holding_days, SOFR,
-                    long_symbol=long_sym, short_symbol=short_sym
-                )
-                total_cost    = cost_dict['total_cost']
-                cost_fraction = total_cost / max(equity, 1.0)
-
-                # ── Gross PnL ────────────────────────────────────────────────────
-                # v26 FIX: trade['spread_return'] is ALREADY directional
-                # (profit-positive) — the main backtest stores log_ret1−log_ret2 for
-                # longs and log_ret2−log_ret1 for shorts, then books it with NO sign
-                # flip. The prior `-spread_ret` for SHORT double-negated every short
-                # trade's P&L, inverting winners and losers for ~half the book. Both
-                # directions use +spread_ret, matching the main backtest and this
-                # function's own docstring (net PnL = spread_return × fraction ± cost).
-                # v31 (audit): apply the return to the PER-LEG notional, matching the main
-                # backtest. `position_fraction` is the GROSS fraction (long leg + short leg),
-                # and calculate_profile_trade_costs() charges on that same gross notional,
-                # but the main backtest books PnL on total_position_value / 2.0 (see the
-                # gross_pnl_pct line). Using the full gross here booked 2x the P&L against a
-                # 1x cost basis, inflating every profile in the published fund-type table.
-                gross_fraction = spread_ret * (position_fraction / 2.0)
-
-                net_fraction = gross_fraction - cost_fraction
-
-                # Book on EXIT date (entry + holding_days calendar days).
-                #
-                # v31.1 (audit): this used pd.Timedelta(days=...), which adds ABSOLUTE
-                # time. entry_date is tz-aware (America/New_York), so a hold spanning the
-                # November fall-back lands at 23:00 on the PREVIOUS calendar day. The v31
-                # trade entered 2023-11-02 and held 39 days: Timedelta produced
-                # 2023-12-10 23:00 EST -> booked on Sunday 2023-12-10 instead of Monday
-                # 2023-12-11. main_daily_dates holds only trading days, so that bucket was
-                # never read back and the trade's P&L was silently dropped from every fund
-                # Sharpe series — while still counting in total_return and max_drawdown,
-                # which come from the exit-date equity loop. All five published fund
-                # Sharpes were flattered as a result. DateOffset does calendar-day
-                # arithmetic, which is what "holding_days" means.
-                exit_date = entry_date + pd.DateOffset(days=holding_days)
-
-                pending_pnl[exit_date]  = pending_pnl.get(exit_date, 0.0)  + net_fraction
-                # Accumulate cost components for breakdown
-                if exit_date not in pending_costs:
-                    pending_costs[exit_date] = {k: 0.0 for k in
-                                                ['commission','bid_ask','market_impact',
-                                                 'borrow','financing']}
-                for k in pending_costs[exit_date]:
-                    pending_costs[exit_date][k] += cost_dict.get(k, 0.0)
-
-                trade_records.append({
-                    'date':             entry_date,
-                    'exit_date':        exit_date,
-                    'pair':             pair_str,
-                    'action':           action,
-                    'position_fraction':position_fraction,
-                    'gross_fraction':   gross_fraction,
-                    'cost_fraction':    cost_fraction,
-                    'net_fraction':     net_fraction,
-                    'holding_days':     holding_days,
-                    'cost_breakdown':   cost_dict,
-                })
-
-            # ── Build equity curve by walking through sorted exit dates ──────────
-            all_exit_dates = sorted(pending_pnl.keys())
-            daily_equity_curve  = []   # (date, equity_value)
-            daily_return_series = []
-
-            equity         = float(self.initial_capital)
-            peak_equity    = equity
-            max_drawdown   = 0.0
-            stopped_early  = False
-            stopped_date   = None
-
-            for exit_date in all_exit_dates:
-                day_net = pending_pnl[exit_date]
-
-                equity = equity * (1.0 + day_net)
-
-                daily_return_series.append(day_net)
-                daily_equity_curve.append((exit_date, equity))
-
-                # Update peak and drawdown
-                if equity > peak_equity:
-                    peak_equity  = equity
-                current_dd = (peak_equity - equity) / max(peak_equity, 1.0)
-                if current_dd > max_drawdown:
-                    max_drawdown = current_dd
-
-                # Kill-switch
-                if current_dd >= profile.max_drawdown_limit:
-                    logger.warning(
-                        f"  {profile.name}: Kill-switch at {current_dd:.2%} drawdown "
-                        f"on {exit_date.date()} — stopping."
-                    )
-                    stopped_early = True
-                    stopped_date  = exit_date
-                    break
-
-            # ── Per-trade metrics — only count trades closed before kill-switch ──
-            if stopped_early:
-                active_trades = [t for t in trade_records if t['exit_date'] <= stopped_date]
-            else:
-                active_trades = trade_records
-
-            winning = [t for t in active_trades if t['net_fraction'] > 0]
-            losing  = [t for t in active_trades if t['net_fraction'] < 0]
-            n_trades = len(active_trades)
-            win_rate  = len(winning) / n_trades if n_trades else 0.0
-            avg_win   = float(np.mean([t['net_fraction'] for t in winning])) if winning else 0.0
-            avg_loss  = float(np.mean([abs(t['net_fraction']) for t in losing]))  if losing  else 0.0
-            profit_factor = (
-                (avg_win * len(winning)) / (avg_loss * len(losing))
-                if avg_loss > 0 and losing else 0.0
-            )
-
-            # ── Return / Sharpe ──────────────────────────────────────────────────
-            total_return = (equity - self.initial_capital) / self.initial_capital
-
-            # v27: Sharpe on ALL trading days, not just exit dates.
-            # Prior code only appended to daily_return_series on exit dates (when
-            # pending_pnl had an entry), so the std was understated and Sharpe
-            # was inflated — the same bug fixed for the main backtest in v25.
-            # Fix: build a zero-padded return series over the full backtest period
-            # using main_daily_dates if available; otherwise fall back to exit-only.
-            if main_daily_dates:
-                # v27 (audit cont.): build a zero-padded daily return series over the
-                # full backtest calendar (P&L lands on exit dates, 0 elsewhere). Only
-                # returns_arr and n_days are consumed downstream.
-                #
-                # v27 (audit cont., fix): pending_pnl is keyed by tz-AWARE exit
-                # Timestamps (main-backtest entry dates are America/New_York), while
-                # main_daily_dates are 'YYYY-MM-DD' strings. The first draft looked up
-                # with a tz-NAIVE pd.Timestamp(d) — every key missed, so the whole
-                # series was zeros and every fund Sharpe collapsed to 0.00. Bucket the
-                # P&L by calendar-date string so the lookup matches regardless of
-                # tz/time-of-day. (total_return + max_drawdown are unaffected — they
-                # come from the exit-date equity loop above.)
-                #
-                # v31.1 (audit): the exit bucket is dated entry + holding_days CALENDAR
-                # days (see the pending_pnl write above), so it can land on a weekend or
-                # market holiday. main_daily_dates only contains trading days, so such a
-                # bucket would be looked up, missed, and its P&L silently dropped from the
-                # Sharpe series (total_return/max_drawdown come from the exit-date equity
-                # loop and would still include it — an inconsistency between the two).
-                # No trade in the v31 run is affected (0 of 14 buckets fall off-calendar),
-                # so this changes no published number; it removes the latent failure.
-                # Snap any off-calendar bucket forward to the next trading day.
-                _cal_days = sorted({str(pd.Timestamp(d).date()) for d in main_daily_dates})
-                _cal_set = set(_cal_days)
-                pending_by_day: Dict = {}
-                _snapped = 0
-                for _xdt, _val in pending_pnl.items():
-                    _k = str(pd.Timestamp(_xdt).date())
-                    if _k not in _cal_set:
-                        _pos = bisect.bisect_left(_cal_days, _k)
-                        if _pos < len(_cal_days):
-                            _k = _cal_days[_pos]
-                            _snapped += 1
-                        else:
-                            continue  # exits after the last trading day: nowhere to book it
-                    pending_by_day[_k] = pending_by_day.get(_k, 0.0) + _val
-                if _snapped:
-                    logger.debug(f"  fund replay: snapped {_snapped} off-calendar exit "
-                                 f"bucket(s) forward to the next trading day")
-                _stop_day = (str(pd.Timestamp(stopped_date).date())
-                             if stopped_early and stopped_date is not None else None)
-                full_returns = []
-                for d in main_daily_dates:
-                    _day = str(pd.Timestamp(d).date())   # 'YYYY-MM-DD' sorts chronologically
-                    if _stop_day is not None and _day > _stop_day:
-                        break
-                    full_returns.append(pending_by_day.get(_day, 0.0))
-                returns_arr = np.array(full_returns)
-                n_days = len(full_returns)
-            else:
-                returns_arr = np.array(daily_return_series)
-                n_days = len(daily_return_series)
-
-            sharpe = (
-                float(np.mean(returns_arr) / (np.std(returns_arr) + 1e-10) * np.sqrt(252))
-                if len(returns_arr) > 1 else 0.0
-            )
-
-            # ── Cost breakdown totals (only active trades) ───────────────────────
-            cost_components = {k: 0.0 for k in
-                               ['commission','bid_ask','market_impact','borrow','financing']}
-            for t in active_trades:
-                for k in cost_components:
-                    cost_components[k] += t['cost_breakdown'].get(k, 0.0)
-            total_cost_dollars = sum(cost_components.values())
-            cost_pct_of_capital = total_cost_dollars / self.initial_capital * 100.0
-
-            # ── Annualised return ─────────────────────────────────────────────────
-            # v27: use actual trading-day count (len of all backtest dates) not
-            # exit-date count. Prior code used len(daily_return_series) = number
-            # of exit days (~71 trades), grossly overstating annualised return.
-            annualized_return = total_return * 252.0 / max(n_days, 1)
-
+            equity = float(self.initial_capital)
+            peak = equity
+            max_dd = 0.0
+            stopped_on = None
+            active: List[Dict] = []
+            done: List[Dict] = []
+            daily_r, curve = [], []
+            max_gross = 0.0
+            cost_totals = {k: 0.0 for k in ('commission', 'bid_ask', 'market_impact', 'borrow', 'financing')}
+            for d in calendar:
+                eq_prev = equity
+                pnl = 0.0
+                if stopped_on is None:
+                    # The profile's own daily entry limit (main-backtest ranking order).
+                    for t in by_entry.get(d, [])[:profile.max_daily_trades]:
+                        z_mult = min(abs(t['zscore']) / 2.3, 2.0)
+                        # the market-regime scale the main trade was taken at applies to every
+                        # profile (the book-specific vol/profit scaling does not)
+                        frac = min(profile.base_position_pct * z_mult, profile.max_position_pct) \
+                            * float(t.get('regime_scale', 1.0))
+                        G = frac * eq_prev
+                        g0 = t['long_notional'] + t['short_notional']
+                        lv = G * t['long_notional'] / g0 if g0 > 0 else G / 2
+                        c = calculate_profile_trade_costs(
+                            G, profile, max(1, int(t['holding_days'])), SOFR,
+                            long_symbol=t['long_symbol'], short_symbol=t['short_symbol'],
+                            long_value=lv, short_value=G - lv,
+                            daily_volatility=t.get('leg_daily_vol'), adv_dollars=t.get('leg_adv_dollars'))
+                        half_ex = 0.5 * (c['commission'] + c['bid_ask'] + c['market_impact'])
+                        a = {'G': G, 'path': dict(t['unit_path']), 'exit': t['unit_path'][-1][0],
+                             'entry_cost': half_ex,
+                             'exit_cost': half_ex + c['borrow'] + c['financing'],
+                             'gross': 0.0, 'costs': c}
+                        pnl -= a['entry_cost']
+                        active.append(a)
+                still = []
+                for a in active:
+                    move = a['path'].get(d, 0.0) * a['G']
+                    pnl += move
+                    a['gross'] += move
+                    if a['exit'] == d:
+                        pnl -= a['exit_cost']
+                        a['net'] = a['gross'] - a['entry_cost'] - a['exit_cost']
+                        for key in cost_totals:
+                            cost_totals[key] += a['costs'][key]
+                        done.append(a)
+                    else:
+                        still.append(a)
+                active = still
+                max_gross = max(max_gross, sum(a['G'] for a in active) / max(eq_prev, 1.0))
+                equity += pnl
+                daily_r.append(pnl / eq_prev if eq_prev > 0 else 0.0)
+                curve.append((d, equity))
+                peak = max(peak, equity)
+                dd = (peak - equity) / peak if peak > 0 else 0.0
+                max_dd = max(max_dd, dd)
+                if stopped_on is None and dd >= profile.max_drawdown_limit:
+                    stopped_on = d
+                    logger.warning(f"  {profile.name}: kill-switch at {dd:.2%} drawdown on {d} — "
+                                   f"no new trades; open positions closed at the next bar")
+                    nxt_i = cal_pos.get(d, len(calendar) - 1) + 1
+                    nxt = calendar[nxt_i] if nxt_i < len(calendar) else d
+                    for a in active:
+                        a['path'] = {day: v for day, v in a['path'].items()
+                                     if cal_pos.get(day, 0) <= cal_pos.get(nxt, 0)}
+                        a['exit'] = nxt
+            closed = done
+            n_trades = len(closed)
+            nets = np.array([a['net'] for a in closed], dtype=float)
+            wins, losses = nets[nets > 0], nets[nets < 0]
+            total_return = equity / self.initial_capital - 1.0
+            r = np.asarray(daily_r, dtype=float)
+            total_cost_dollars = float(sum(cost_totals.values()))
             comparison[profile_key] = {
-                'profile_key':         profile_key,
-                'profile_name':        profile.name,
-                'description':         profile.description,
-                'example_firms':       profile.example_firms,
-                'gross_leverage_label':profile.gross_leverage_label,
-
-                # Risk / cost parameters
-                'commission_bps':      profile.commission_bps,
-                'bid_ask_bps':         profile.bid_ask_bps,
+                'profile_key': profile_key,
+                'profile_name': profile.name,
+                'description': profile.description,
+                'example_firms': profile.example_firms,
+                'gross_leverage_label': profile.gross_leverage_label,
+                'max_gross_leverage': round(max_gross, 3),
+                'commission_bps': profile.commission_bps,
+                'bid_ask_bps': profile.bid_ask_bps,
                 'market_impact_cap_bps': profile.market_impact_cap_bps,
                 'borrow_rate_easy_pct': profile.borrow_rate_easy * 100,
                 'financing_spread_pct': profile.financing_spread * 100,
-                'base_position_pct':   profile.base_position_pct * 100,
-                'max_position_pct':    profile.max_position_pct * 100,
+                'base_position_pct': profile.base_position_pct * 100,
+                'max_position_pct': profile.max_position_pct * 100,
                 'max_drawdown_limit_pct': profile.max_drawdown_limit * 100,
-
-                # Performance
-                'total_return_pct':    round(total_return * 100, 4),
-                'annualized_return_pct': round(annualized_return * 100, 4),
-                'final_equity':        round(equity, 2),
-                'max_drawdown_pct':    round(-max_drawdown * 100, 4),
-                'sharpe_ratio':        round(sharpe, 3),
-                'win_rate_pct':        round(win_rate * 100, 2),
-                'profit_factor':       round(profit_factor, 3),
-                'total_trades':        n_trades,
-                'trades_stopped_early':stopped_early,
-
-                # Cost breakdown
-                'total_cost_dollars':        round(total_cost_dollars, 2),
-                'total_cost_pct_of_capital': round(cost_pct_of_capital, 4),
+                'total_return_pct': round(total_return * 100, 4),
+                'annualized_return_pct': round(geometric_annualised_return(total_return, len(r)) * 100, 4),
+                'final_equity': round(equity, 2),
+                'max_drawdown_pct': round(-max_dd * 100, 4),
+                'sharpe_ratio': round(annualised_sharpe(r), 3),
+                'win_rate_pct': round(100.0 * len(wins) / n_trades, 2) if n_trades else 0.0,
+                'profit_factor': round(float(wins.sum() / abs(losses.sum())), 3) if len(losses) else float('inf'),
+                'total_trades': n_trades,
+                'trades_stopped_early': stopped_on is not None,
+                'stopped_on': stopped_on,
+                'total_cost_dollars': round(total_cost_dollars, 2),
+                'total_cost_pct_of_capital': round(total_cost_dollars / self.initial_capital * 100, 4),
                 'cost_components': {
-                    'commission_dollars':    round(cost_components['commission'], 2),
-                    'bid_ask_dollars':       round(cost_components['bid_ask'], 2),
-                    'market_impact_dollars': round(cost_components['market_impact'], 2),
-                    'borrow_dollars':        round(cost_components['borrow'], 2),
-                    'financing_dollars':     round(cost_components['financing'], 2),
-                    # As % of initial capital
-                    'commission_pct':    round(cost_components['commission']    / self.initial_capital * 100, 4),
-                    'bid_ask_pct':       round(cost_components['bid_ask']       / self.initial_capital * 100, 4),
-                    'market_impact_pct': round(cost_components['market_impact'] / self.initial_capital * 100, 4),
-                    'borrow_pct':        round(cost_components['borrow']        / self.initial_capital * 100, 4),
-                    'financing_pct':     round(cost_components['financing']     / self.initial_capital * 100, 4),
+                    **{f'{k}_dollars': round(v, 2) for k, v in cost_totals.items()},
+                    **{f'{k}_pct': round(v / self.initial_capital * 100, 4) for k, v in cost_totals.items()},
                 },
-
-                # Daily equity curve for plotting
-                'equity_curve': [
-                    {'date': str(d.date()), 'value': round(v, 2)}
-                    for d, v in daily_equity_curve
-                ],
+                'equity_curve': [{'date': d, 'value': round(v, 2)} for d, v in curve],
             }
+            logger.info(f"  {profile.name}: return {total_return:+.2%} | Sharpe {annualised_sharpe(r):+.2f} | "
+                        f"max DD {-max_dd:.2%} | peak gross {max_gross:.2f}x | "
+                        f"costs {total_cost_dollars / self.initial_capital:.2%} of capital")
 
-            logger.info(
-                f"  → Return: {total_return*100:.2f}% | Sharpe: {sharpe:.2f} | "
-                f"MaxDD: {max_drawdown*100:.2f}% | Costs: {cost_pct_of_capital:.2f}% of capital | "
-                f"Stopped early: {stopped_early}"
-            )
-
-        # Summary log
         logger.info("\n" + "=" * 90)
         logger.info(f"{'FUND TYPE COMPARISON — SUMMARY':^90}")
         logger.info("=" * 90)
-        logger.info(
-            f"{'Fund Type':<30} {'Return%':>10} {'Sharpe':>8} {'MaxDD%':>8} "
-            f"{'WinRate%':>10} {'Cost%':>10} {'Leverage':>12}"
-        )
+        logger.info(f"{'Fund Type':<30} {'Return%':>10} {'Sharpe':>8} {'MaxDD%':>8} "
+                    f"{'WinRate%':>10} {'Cost%':>10} {'Peak gross':>11}")
         logger.info("-" * 90)
         for r in comparison.values():
-            logger.info(
-                f"{r['profile_name']:<30} {r['total_return_pct']:>9.2f}% "
-                f"{r['sharpe_ratio']:>8.2f} {r['max_drawdown_pct']:>8.2f}% "
-                f"{r['win_rate_pct']:>9.2f}% {r['total_cost_pct_of_capital']:>9.2f}% "
-                f"{r['gross_leverage_label']:>12}"
-            )
+            logger.info(f"{r['profile_name']:<30} {r['total_return_pct']:>9.2f}% "
+                        f"{r['sharpe_ratio']:>8.2f} {r['max_drawdown_pct']:>8.2f}% "
+                        f"{r['win_rate_pct']:>9.2f}% {r['total_cost_pct_of_capital']:>9.2f}% "
+                        f"{r['max_gross_leverage']:>10.2f}x")
         logger.info("=" * 90)
-
         return comparison
+
+    def _factor_attribution(self, results: Dict, oos_dates: List, oos_rets: List) -> Dict:
+        """Market beta/alpha of the strategy's daily returns (equal-weight sector-ETF proxy)."""
+        from pairs_trading.significance import align_return_series, factor_attribution
+        sectors = self.macro_data.get('sectors', {})
+        rets = pd.DataFrame({k: v.pct_change() for k, v in sectors.items() if len(v) > 10})
+        if rets.empty:
+            return {}
+        market = rets.mean(axis=1).dropna()
+        m_dates = [str(pd.Timestamp(d).date()) for d in market.index]
+        out = {'market_proxy': f'equal-weight daily return of {rets.shape[1]} sector SPDR ETFs'}
+        for label, (dates, r) in {'main_backtest': (results.get('daily_dates', []), results.get('daily_returns', [])),
+                                  'walk_forward_oos': (oos_dates, oos_rets)}.items():
+            if len(r) > 20 and len(dates) == len(r):
+                _, ra, rm = align_return_series(dates, r, m_dates, market.to_numpy())
+                out[label] = factor_attribution(ra, rm)
+        for label, fa in out.items():
+            if isinstance(fa, dict) and 'beta' in fa:
+                logger.info(f"Market attribution ({label}): beta {fa['beta']:+.3f} (t {fa['beta_tstat']:+.2f}), "
+                            f"alpha {fa['alpha_ann']:+.2%}/yr (t {fa['alpha_tstat']:+.2f}), R2 {fa['r2']:.3f}")
+        return out
+
+    # ════════════════════════════════════════════════════════════════════════════
+    # Regime diagnostic (descriptive only — no trading effect)
+    # ════════════════════════════════════════════════════════════════════════════
 
     def diagnose_regime_break(self, date_range_start: str = '2023-04-04',
                               date_range_end: str = '2023-07-05') -> Dict:
-        """Analyze macro conditions during a specific regime break window.
+        """Describe VIX and sector-dispersion conditions over a date range.
 
-        Default: W10 (Apr–Jul 2023) — the period where win rate dropped from
-        61% (W9) to 45% (W10) across 480 trades.
-
-        Reports VIX levels, sector ETF dispersion z-scores, and a structured
-        explanation of the root causes.  Data comes from already-loaded macro_data
-        so no extra network calls are needed.
+        Purely descriptive: it reports statistics computed from the loaded macro data and
+        does not feed any trading decision.
         """
         logger.info("\n" + "=" * 70)
-        logger.info("REGIME BREAK DIAGNOSIS")
-        logger.info(f"Period: {date_range_start} → {date_range_end}")
+        logger.info(f"REGIME DIAGNOSTIC  {date_range_start} -> {date_range_end}")
         logger.info("=" * 70)
-
-        start = pd.Timestamp(date_range_start)
-        end   = pd.Timestamp(date_range_end)
-
-        vix_series  = self.macro_data.get('VIX', pd.Series(dtype=float))
-        sector_data = self.macro_data.get('sectors', {})
-
+        start, end = pd.Timestamp(date_range_start), pd.Timestamp(date_range_end)
+        vix = self.macro_data.get('VIX', pd.Series(dtype=float))
+        sectors = self.macro_data.get('sectors', {})
         results: Dict = {}
 
-        # ── VIX Analysis ──────────────────────────────────────────────────────
-        if not vix_series.empty:
-            vix_in  = vix_series[(vix_series.index >= start) & (vix_series.index <= end)]
-            vix_pre = vix_series[vix_series.index < start].tail(252)
-            if len(vix_in) > 0:
-                results['vix_avg']            = round(float(vix_in.mean()), 2)
-                results['vix_min']            = round(float(vix_in.min()),  2)
-                results['vix_max']            = round(float(vix_in.max()),  2)
-                results['vix_pre_period_avg'] = round(float(vix_pre.mean()), 2) if len(vix_pre) > 0 else 20.0
-                logger.info(f"\nVIX during period: avg={results['vix_avg']:.1f}  "
-                            f"min={results['vix_min']:.1f}  max={results['vix_max']:.1f}")
-                logger.info(f"VIX prior 1yr avg: {results['vix_pre_period_avg']:.1f}  "
-                            f"[long-term historical avg ~20]")
-                if results['vix_avg'] < 20:
-                    logger.info("  → VIX BELOW 20: appeared SAFE — this is the false signal "
-                                "('Walking on Ice')")
-                else:
-                    logger.info("  → VIX elevated: regime stress visible")
+        if not vix.empty:
+            vix = vix.copy()
+            vix.index = pd.DatetimeIndex([_naive(d) for d in vix.index])
+            vin = vix[(vix.index >= start) & (vix.index <= end)]
+            vpre = vix[vix.index < start].tail(252)
+            if len(vin):
+                results.update({
+                    'vix_avg': round(float(vin.mean()), 2),
+                    'vix_min': round(float(vin.min()), 2),
+                    'vix_max': round(float(vin.max()), 2),
+                    'vix_pre_period_avg': round(float(vpre.mean()), 2) if len(vpre) else None,
+                })
+                logger.info(f"VIX: avg {results['vix_avg']:.1f} (min {results['vix_min']:.1f}, "
+                            f"max {results['vix_max']:.1f}); prior-year avg {results['vix_pre_period_avg']}")
 
-        # ── Sector Dispersion Analysis (daily + cumulative) ────────────────────
-        if sector_data:
-            _sec_rets = pd.DataFrame(
-                {k: v.pct_change() for k, v in sector_data.items() if len(v) > 10}
-            ).dropna(how='all')
-
-            if not _sec_rets.empty:
-                # --- Daily cross-section std (reference metric, NOT used in gate) ---
-                _sec_disp_daily = _sec_rets.std(axis=1).dropna()
-                _d_mean = _sec_disp_daily.rolling(252, min_periods=60).mean()
-                _d_std  = _sec_disp_daily.rolling(252, min_periods=60).std()
-                _disp_z_daily = ((_sec_disp_daily - _d_mean) / (_d_std + 1e-10)).dropna()
-                disp_in_daily = _disp_z_daily[(_disp_z_daily.index >= start) & (_disp_z_daily.index <= end)]
-
-                # --- 63-day cumulative log-return dispersion (v8 gate metric) ---
-                _sec_log = np.log(1 + _sec_rets.fillna(0))
-                _sec_cum63 = _sec_log.rolling(63, min_periods=30).sum()
-                _sec_cum_disp = _sec_cum63.std(axis=1).dropna()
-                _c_mean = _sec_cum_disp.rolling(252, min_periods=60).mean()
-                _c_std  = _sec_cum_disp.rolling(252, min_periods=60).std()
-                _disp_z_cum = ((_sec_cum_disp - _c_mean) / (_c_std + 1e-10)).dropna()
-                disp_in_cum = _disp_z_cum[(_disp_z_cum.index >= start) & (_disp_z_cum.index <= end)]
-
-                if len(disp_in_daily) > 0:
-                    results['sector_dispersion_avg_z']     = round(float(disp_in_daily.mean()), 3)
-                    results['sector_dispersion_max_z']     = round(float(disp_in_daily.max()),  3)
-                    results['days_above_1sigma']            = int((disp_in_daily > 1.0).sum())
-                    results['days_above_2sigma']            = int((disp_in_daily > 2.0).sum())
-                    results['total_days_in_period']         = len(disp_in_daily)
-
-                if len(disp_in_cum) > 0:
-                    results['cum_dispersion_avg_z']        = round(float(disp_in_cum.mean()), 3)
-                    results['cum_dispersion_max_z']        = round(float(disp_in_cum.max()),  3)
-                    results['days_cum_above_1p2sigma']     = int((disp_in_cum > 1.2).sum())
-                    results['days_cum_above_2sigma']       = int((disp_in_cum > 2.0).sum())
-
-                logger.info(f"\nDaily sector dispersion z-score (reference, NOT in gate): "
-                            f"avg={results.get('sector_dispersion_avg_z', 0):.2f}σ  "
-                            f"max={results.get('sector_dispersion_max_z', 0):.2f}σ")
-                logger.info(f"  Days above 1σ: {results.get('days_above_1sigma', 0)} / "
-                            f"{results.get('total_days_in_period', 0)}  |  "
-                            f"Days above 2σ: {results.get('days_above_2sigma', 0)}")
-
-                logger.info(f"63-day cumulative dispersion z-score (v8 gate metric): "
-                            f"avg={results.get('cum_dispersion_avg_z', 0):.2f}σ  "
-                            f"max={results.get('cum_dispersion_max_z', 0):.2f}σ")
-                logger.info(f"  Days above 1.2σ (WoI gate): {results.get('days_cum_above_1p2sigma', 0)} / "
-                            f"{results.get('total_days_in_period', 0)}  |  "
-                            f"Days above 2σ (50% scale): {results.get('days_cum_above_2sigma', 0)}")
-                cum_avg = results.get('cum_dispersion_avg_z', 0)
-                if cum_avg > 1.2:
-                    logger.info("  → Cumulative dispersion ELEVATED (>1.2σ): gate would have fired "
-                                "if VIX < 20 (Walking on Ice detected)")
-                else:
-                    logger.info(f"  → Cumulative dispersion below 1.2σ threshold "
-                                f"({cum_avg:.2f}σ): Walking on Ice NOT detected by this metric")
-
-        # ── Root Cause Summary ─────────────────────────────────────────────────
-        logger.info("\n" + "-" * 70)
-        logger.info("ROOT CAUSES — Q2 2023 'WALKING ON ICE' REGIME:")
-        logger.info("  A. Fed hit terminal rate 5.25-5.50% (July 2023, +525 bps in 16 months)")
-        logger.info("     → Re-priced all equity present values; ZIRP-era cointegration broke")
-        logger.info("  B. S&P 500 constituent correlation collapsed to ~8% (near historic low)")
-        logger.info("     → Stocks moved almost independently; pair spreads diverged")
-        logger.info("  C. VIX 13-15 = FALSE SAFETY SIGNAL (BIS March 2024 analysis)")
-        logger.info("     → 0DTE options + structured product dealer hedging")
-        logger.info("       mechanically suppressed VIX well below true risk level")
-        logger.info("  D. Magnificent 7 = ~80% of S&P 500 YTD return through June 2023")
-        logger.info("     → Extreme cross-sector dispersion; pairs trained on ZIRP broke")
-        logger.info("  E. 'Walking on Ice' regime (Two Sigma GMM classification)")
-        logger.info("     → Surface appears calm (low VIX) but structural foundation broken")
-        logger.info("     → RenTech Institutional Equities Fund lost ~15% in Oct 2023")
-        logger.info("       from same macro conditions — validates our model failure")
-        logger.info("-" * 70)
-        logger.info("FIXES APPLIED IN THIS SYSTEM (v8):")
-        logger.info("  Problem 3 — Regime gate: VIX + 63-day cumulative sector dispersion z-score")
-        logger.info("    cum_disp_z > 2.0 → positions scaled to 50%")
-        logger.info("    VIX < 20 AND cum_disp_z > 1.2 (Walking on Ice) → scaled to 60%")
-        logger.info("    VIX > 30 → scaled to 50%   |   VIX > 40 → scaled to 25%")
-        logger.info("    (v8: raised from 25/35 to 30/40 to remove 2022 false positives)")
-        logger.info("    (v8: daily→63d cumulative dispersion catches Mag7 slow-burn divergence)")
-        logger.info("  Problem 4 — Adaptive cointegration: 6-month window test")
-        logger.info("    Pairs that pass 2yr but fail 6m ADF test (p>0.15) are dropped")
-        logger.info("    (v8: raised from p>0.05 to p>0.15 — ADF has ~45% power at n=90 obs)")
-        logger.info("    Pairs where |p_6m - p_2yr| > 0.10 are dropped (structural break)")
+        if sectors:
+            rets = pd.DataFrame({k: v.pct_change() for k, v in sectors.items() if len(v) > 10}).dropna(how='all')
+            if not rets.empty:
+                rets.index = pd.DatetimeIndex([_naive(d) for d in rets.index])
+                daily = rets.std(axis=1).dropna()
+                daily_z = ((daily - daily.rolling(252, min_periods=60).mean())
+                           / (daily.rolling(252, min_periods=60).std() + 1e-10)).dropna()
+                cum = np.log1p(rets.fillna(0)).rolling(63, min_periods=30).sum().std(axis=1).dropna()
+                cum_z = ((cum - cum.rolling(252, min_periods=60).mean())
+                         / (cum.rolling(252, min_periods=60).std() + 1e-10)).dropna()
+                din = daily_z[(daily_z.index >= start) & (daily_z.index <= end)]
+                cin = cum_z[(cum_z.index >= start) & (cum_z.index <= end)]
+                if len(din):
+                    results.update({
+                        'sector_dispersion_avg_z': round(float(din.mean()), 3),
+                        'sector_dispersion_max_z': round(float(din.max()), 3),
+                        'days_above_1sigma': int((din > 1.0).sum()),
+                        'days_above_2sigma': int((din > 2.0).sum()),
+                        'total_days_in_period': int(len(din)),
+                    })
+                if len(cin):
+                    results.update({
+                        'cum_dispersion_avg_z': round(float(cin.mean()), 3),
+                        'cum_dispersion_max_z': round(float(cin.max()), 3),
+                        'days_cum_above_0p8sigma': int((cin > 0.8).sum()),
+                        'days_cum_above_2sigma': int((cin > 2.0).sum()),
+                    })
+                logger.info(f"Daily sector-dispersion z: avg {results.get('sector_dispersion_avg_z', 0):.2f}, "
+                            f"max {results.get('sector_dispersion_max_z', 0):.2f}")
+                logger.info(f"63-day cumulative dispersion z (gate input): avg "
+                            f"{results.get('cum_dispersion_avg_z', 0):.2f}, max "
+                            f"{results.get('cum_dispersion_max_z', 0):.2f}; days > 0.8 (gate, with VIX < 20): "
+                            f"{results.get('days_cum_above_0p8sigma', 0)}; days > 2.0: "
+                            f"{results.get('days_cum_above_2sigma', 0)}")
+        logger.info("Gate rules: VIX>40 -> 0.25x, VIX>30 -> 0.50x, dispersion z>2 -> 0.50x, "
+                    "VIX<20 and dispersion z>0.8 -> 0.40x; >20% reduced days in 63 -> no new entries")
         logger.info("=" * 70)
-
         return results
 
+    # ════════════════════════════════════════════════════════════════════════════
+    # Orchestration
+    # ════════════════════════════════════════════════════════════════════════════
+
     def run_complete_system(self):
-        """Run the complete system"""
-        logger.info("Starting COMPLETE FIXED Russell 3000 Trading System")
+        """Run the full study: selection, backtest, walk-forward, diagnostics, exports."""
+        logger.info("Starting Russell 3000 pairs-trading study")
 
         symbols = self.data_processor.load_symbols()
         self.processed_data = self.data_processor.load_or_fetch_data(symbols)
         self.macro_data = self.data_processor.load_macro_data()
+        self._pair_state_cache = {}
 
-        # BIAS FIX: Use only training-period data (2020-2022) for pair selection.
-        # Using full 2020-2025 data here is look-ahead bias — pairs are cherry-picked
-        # because they cointegrated well DURING the test period.
-        train_cutoff = pd.Timestamp('2022-12-31')
+        # Pair selection on data up to the cutoff only (selecting on 2020-2025 data would
+        # pick pairs because they cointegrated during the test period).
         train_only_data = {}
         for sym, df in self.processed_data.items():
-            try:
-                if hasattr(df.index, 'tz') and df.index.tz is not None:
-                    cutoff = train_cutoff.tz_localize(df.index.tz)
-                else:
-                    cutoff = train_cutoff
-                filtered = df[df.index <= cutoff]
-                if len(filtered) >= 100:
-                    train_only_data[sym] = filtered
-            except Exception:
+            if len(df.index) == 0:
                 continue
-        logger.info(f"UNBIASED PAIR SELECTION: using {len(train_only_data)} symbols with data up to 2022-12-31 only")
+            filtered = df[df.index <= _align_ts(PAIR_SELECTION_CUTOFF, df.index[0])]
+            if len(filtered) >= 100:
+                train_only_data[sym] = filtered
+        logger.info(f"Pair selection on {len(train_only_data)} symbols with data up to {PAIR_SELECTION_CUTOFF}")
         self.selected_pairs = self.pair_selector.find_quality_pairs(train_only_data)
 
-        logger.info("Calculating spreads for selected pairs...")
         for pair in self.selected_pairs:
-            symbol1, symbol2 = pair
-            if symbol1 in self.processed_data and symbol2 in self.processed_data:
-                spread = self.calculate_spread(self.processed_data[symbol1], self.processed_data[symbol2])
-                if not spread.empty:
-                    self.spread_data[pair] = spread
-
+            spread = self._pair_spread(*pair)
+            if not spread.empty:
+                self.spread_data[pair] = spread
         train_spreads, test_spreads = self.prepare_time_split_data()
 
-        # v10: Build extended training spreads through 2023-06-30 so the RL agent
-        # sees post-hike (2023 Q1-Q2) dynamics in addition to the ZIRP-era training data.
-        # The main backtest is then restricted to start 2023-07-01 to avoid look-ahead bias.
-        logger.info("v10: Extended RL training to 2023-06-30; main backtest starts 2023-07-01")
-        extended_train_spreads = {}
-        _ext_cutoff = pd.Timestamp('2023-06-30')
-        for pair, spread in self.spread_data.items():
-            try:
-                if hasattr(spread.index, 'tz') and spread.index.tz is not None:
-                    cutoff_tz = _ext_cutoff.tz_localize(spread.index.tz)
-                else:
-                    cutoff_tz = _ext_cutoff
-                sliced = spread[spread.index <= cutoff_tz]
-                if len(sliced) >= 100:
-                    extended_train_spreads[pair] = sliced
-            except Exception:
-                continue
-        logger.info(f"v10: Extended train set has {len(extended_train_spreads)} pairs (was {len(train_spreads)} in v9)")
-        # v27: inject real pair statistics into the agent before training so
-        # get_pair_stats() returns actual correlation/half_life/quality_score
-        # instead of hardcoded defaults, eliminating the training/serving skew
-        # on transformer features 17-19.
-        self.rl_agent.pair_statistics = self.pair_selector.pair_statistics
-        self.rl_agent.train_agent(extended_train_spreads, episodes=1000)
+        # Ranking model for the main backtest: trained on outcomes complete by 2023-06-30;
+        # the main backtest starts 2023-07-01.
+        logger.info(f"Training the ranking model on outcomes complete by {MAIN_MODEL_TRAIN_END}")
+        self._train_ranker(self.rl_agent, list(self.spread_data), end=MAIN_MODEL_TRAIN_END)
 
-        # Build quarterly re-selection schedule
-        all_test_dates = sorted(set(
-            date for spread in test_spreads.values() for date in spread.index
-        ))
+        all_test_dates = sorted({d for s in test_spreads.values() for d in s.index})
+        if not all_test_dates:
+            raise RuntimeError("No test-period data for the selected pairs — nothing to backtest.")
         pair_windows = self.build_rolling_pair_schedule(all_test_dates, reselect_every=90)
+        # The initial selection is itself a universe known at the cutoff: date it on the last
+        # trading day <= cutoff so the walk-forward window whose training ends there is
+        # eligible (it was skipped through v31). Later re-selections supersede it.
+        last_train_day = max(d for s in train_spreads.values() for d in s.index) if train_spreads else None
+        if last_train_day is not None and last_train_day not in pair_windows:
+            pair_windows[last_train_day] = dict(self.spread_data)
+            pair_windows = dict(sorted(pair_windows.items(), key=lambda kv: _naive(kv[0])))
+        last_test = str(pd.Timestamp(all_test_dates[-1]).date())
 
-        # SURVIVAL-BIAS FIX (v9): pair_windows contains spread histories going back to 2020.
-        # Without date_range, all_dates includes 2020-2022 dates which trade using the FIRST
-        # quarterly window (Q1 2023 pairs validated on 2021-2023 data) — backward look-ahead.
-        # Restricting to 2023-01-01+ ensures every date only uses pairs selected from
-        # data available AT THAT TIME, matching the walk-forward methodology.
-        # Pass as plain date strings so run_comprehensive_backtest's tz-handling normalises
-        # them uniformly — avoids tz_localize error when mixing tz-naive and tz-aware dates.
-        _max_test_date_raw = max(
-            (spread.index.max() for spread in test_spreads.values() if not spread.empty),
-            default=pd.Timestamp('2026-12-31')
-        )
-        _max_test_str = str(_max_test_date_raw.date()) if hasattr(_max_test_date_raw, 'date') else '2026-12-31'
-        logger.info(f"v10: restricting main backtest to 2023-07-01 → {_max_test_str} (after extended RL training period)")
+        logger.info(f"Main backtest {MAIN_BACKTEST_START} -> {last_test}")
         results = self.run_comprehensive_backtest(
-            test_spreads, pair_windows=pair_windows,
-            date_range=('2023-07-01', _max_test_str)
-        )
+            test_spreads, pair_windows=pair_windows, date_range=(MAIN_BACKTEST_START, last_test))
 
-        # Walk-forward validation — pass pair_windows so it uses the full
-        # quarterly pair universe instead of the sparse initial selection.
-        logger.info("Starting walk-forward validation...")
         wf_summary = self.run_walk_forward_validation(
-            train_window_days=252, test_window_days=63, episodes_per_window=200,
-            pair_windows=pair_windows
-        )
+            train_window_days=252, test_window_days=63, pair_windows=pair_windows)
         results['walk_forward'] = wf_summary
-        # multiple-testing (FDR) diagnostic computed during pair selection
         results['fdr_diagnostic'] = getattr(self.pair_selector, 'fdr_diagnostic', {})
 
-        # ── Statistical significance — is the edge real? ──────────────────────
-        # Pure measurement on the results already produced (no look-ahead, no trading
-        # change): PSR, Newey-West Sharpe t-stat, block-bootstrap CIs, OOS window test,
-        # and the multiple-testing-aware Deflated Sharpe. Answers the PM's first question.
+        oos_dates = list(wf_summary.get('oos_daily_dates', []))
+        oos_rets = list(wf_summary.get('oos_daily_returns', []))
         try:
             from pairs_trading.significance import significance_report, log_significance_report
-            _break = pd.Timestamp('2023-04-04')
-            _oos_win_rets = [w['total_return_pct'] / 100.0 for w in wf_summary.get('windows', [])
-                             if pd.Timestamp(w['test_start']) >= _break]
+            clean = [w for w in wf_summary.get('windows', []) if w.get('selection_clean')]
             sig = significance_report(
                 daily_returns=results.get('daily_returns', []),
-                oos_window_returns=_oos_win_rets,
+                oos_window_returns=[w['total_return_pct'] / 100.0 for w in clean],
                 oos_daily_returns=wf_summary.get('oos_daily_returns', []),
-                # n_trials: disclosed, conservative count of strategy iterations explored
-                # across development (the project has ~27 versioned configurations).
-                n_trials=27,
+                # disclosed count of strategy configurations explored across the project's
+                # versioned history (v1-v32, docs/PROGRESS.md); drives the Deflated Sharpe.
+                # A lower bound: configurations tried within a version are not counted.
+                n_trials=32,
             )
             log_significance_report(sig)
             results['significance'] = sig
         except Exception as e:
             logger.warning(f"Significance analysis failed (non-fatal): {e}")
         finally:
-            # drop the bulky stitched daily arrays so they don't bloat the JSON export
             wf_summary.pop('oos_daily_returns', None)
             wf_summary.pop('all_window_daily_returns', None)
+            wf_summary.pop('oos_daily_dates', None)
 
-        # ── Baseline benchmarks — does the pipeline beat the textbook? ─────────
-        # Gatev (2006) distance method + random-pair control on the SAME quality
-        # universe and OOS period. Context for the headline: is the cointegration +
-        # Kalman pair selection actually adding value over the naive baseline?
         try:
             from pairs_trading.benchmark import run_benchmarks, log_benchmark_vs_strategy
-            _universe = getattr(self.pair_selector, 'last_quality_symbols', None) or \
-                        list({s for pair in self.selected_pairs for s in pair})
+            universe = getattr(self.pair_selector, 'last_quality_symbols', None) or \
+                sorted({s for pair in self.selected_pairs for s in pair})
+            # The strategy's daily series are passed in so the baselines are compared on
+            # common dates with a Ledoit-Wolf Sharpe-difference test (first entry = headline).
+            strategy_series = {'main_backtest': (results.get('daily_dates', []),
+                                                 results.get('daily_returns', []))}
+            if len(oos_dates) == len(oos_rets) and len(oos_rets) > 20:
+                strategy_series['walk_forward_oos'] = (oos_dates, oos_rets)
             benchmarks = run_benchmarks(
-                self.processed_data, _universe,
-                formation_end='2023-06-30', trade_start='2023-07-01',
-                trade_end=_max_test_str, n_pairs=20, max_symbols=350,
-            )
+                self.processed_data, universe,
+                trade_start=MAIN_BACKTEST_START, trade_end=last_test, n_pairs=20,
+                strategy_series=strategy_series)
             if benchmarks:
-                log_benchmark_vs_strategy(
-                    benchmarks,
-                    strategy_return_pct=results.get('total_return', 0.0) * 100,
-                    strategy_sharpe=results.get('sharpe_ratio', 0.0),
-                )
+                log_benchmark_vs_strategy(benchmarks,
+                                          strategy_return_pct=results.get('total_return', 0.0) * 100,
+                                          strategy_sharpe=results.get('sharpe_ratio', 0.0))
                 results['benchmarks'] = benchmarks
         except Exception as e:
             logger.warning(f"Benchmark analysis failed (non-fatal): {e}")
 
-        # ── Regime Break Diagnosis ─────────────────────────────────────────────
-        # Analyze W10 (Apr-Jul 2023) — the known regime break window.
-        # This runs after walk-forward so the log context is clear.
-        logger.info("Running regime break diagnosis for W10 (2023-04-04 → 2023-07-05)...")
-        regime_diag = self.diagnose_regime_break(
-            date_range_start='2023-04-04',
-            date_range_end='2023-07-05'
-        )
-        results['regime_diagnosis'] = regime_diag
+        results['factor_attribution'] = self._factor_attribution(results, oos_dates, oos_rets)
+        results['regime_diagnosis'] = self.diagnose_regime_break('2023-04-04', '2023-07-05')
 
-        # --- ADDED: JSON Export ---
-        # v31.1 (audit): json_export reads 'total_symbols_processed'/'pairs_selected' off
-        # this dict. self.processed_data is keyed by SYMBOL, so both .get() calls missed and
-        # every published export carried total_symbols=0, pairs_selected=0.
         export_testing_results_to_json(results, {
             'total_symbols_processed': len(self.processed_data),
             'pairs_selected': len(self.selected_pairs),
         })
-
-        # --- ADDED: Plotting ---
         plot_results(results['daily_returns'], results)
 
-        # ── Fund-type comparison ──────────────────────────────────────────────
-        # Replay the same trade signals under 5 different fund economics so the
-        # results section can show how performance varies by institution type.
-        logger.info("Starting fund-type comparison analysis...")
-        fund_comparison = self.run_fund_type_comparison(
-            results, main_daily_dates=results.get('daily_dates', [])
-        )
+        logger.info("Starting fund-type comparison...")
+        fund_comparison = self.run_fund_type_comparison(results, main_daily_dates=results.get('daily_dates', []))
         results['fund_comparison'] = fund_comparison
-
         if fund_comparison:
             plot_fund_comparison(fund_comparison)
             export_fund_comparison_to_json(fund_comparison)
-
         return results

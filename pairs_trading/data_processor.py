@@ -1,8 +1,8 @@
 """
-TRANSFORMER ENCODER FOR PAIRS TRADING - DATA PROCESSOR
-=======================================================
-Enhanced Russell 3000 Data Processor with comprehensive stock loading.
-DO NOT MODIFY ANY PARAMETERS IN THIS FILE.
+PAIRS TRADING - DATA
+====================
+Universe loading, price/macro fetching and caching (yfinance), point-in-time price
+reconstruction, and causal technical indicators.
 """
 
 from pairs_trading.config import (
@@ -23,158 +23,145 @@ class EnhancedRussell3000DataProcessor:
         self.data_file = "data/enhanced_russell_3000_data.pkl"
         self.successful_count = 0
         self.failed_count = 0
+        self.fetch_manifest: Dict[str, str] = {}
 
         logger.info("ENHANCED Russell 3000 Data Processor initialized")
 
+    DEMO_UNIVERSE = [
+        # Deliberately short so every ticker can be verified as currently listed. NOT the
+        # study universe: it exercises the pipeline but does not reproduce the results.
+        'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'AVGO', 'ORCL',
+        'CRM', 'ADBE', 'INTC', 'AMD', 'QCOM', 'TXN', 'MU', 'AMAT',
+        'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'AXP', 'BLK', 'SCHW', 'PNC',
+        'UNH', 'JNJ', 'PFE', 'ABT', 'TMO', 'MRK', 'ABBV', 'LLY', 'BMY', 'AMGN',
+        'WMT', 'HD', 'COST', 'TGT', 'LOW', 'TJX', 'SBUX', 'MCD', 'NKE',
+        'XOM', 'CVX', 'COP', 'EOG', 'SLB', 'MPC', 'VLO', 'PSX',
+        'NEE', 'DUK', 'SO', 'AEP', 'CAT', 'BA', 'HON', 'UPS', 'RTX', 'LMT',
+        'LIN', 'APD', 'SHW', 'NEM', 'FCX', 'NUE',
+        'PLD', 'AMT', 'EQIX', 'PSA', 'SPG', 'O',
+        'VZ', 'T', 'TMUS', 'DIS', 'NFLX', 'CMCSA', 'V', 'MA', 'KO', 'PEP',
+    ]
+
     def load_symbols(self) -> List[str]:
-        """ENHANCED: Load and format Russell 3000 symbols properly"""
-        try:
-            if os.path.exists("data/marketcap.csv"):
-                marketcap_df = pd.read_csv("data/marketcap.csv")
-                logger.info(f"Successfully loaded Marketcap.csv with {len(marketcap_df)} rows")
-            elif os.environ.get('PAIRS_DEMO_UNIVERSE') == '1':
-                # v31 (audit): opt-in SMOKE-TEST universe. This is deliberately NOT the
-                # study universe and will NOT reproduce the published results.
-                logger.warning(
-                    "PAIRS_DEMO_UNIVERSE=1: using a ~60-symbol smoke-test universe. "
-                    "This does NOT reproduce the published Russell 3000 results."
-                )
-                symbols = [
-                    # Deliberately short so every ticker can be verified as currently
-                    # listed. The old 290-name fallback contained delisted/renamed tickers
-                    # (ANTM, WCG, ATVI, PXD, MRO, DISH), a non-ticker ('BERKSHIREH-B'),
-                    # duplicates (TSLA, TPG, SLG, ARE, BXP, LYV) and two ETFs (SPY, VTI)
-                    # inside a single-stock pairs universe.
-                    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'AVGO', 'ORCL',
-                    'CRM', 'ADBE', 'INTC', 'AMD', 'QCOM', 'TXN', 'MU', 'AMAT',
-                    'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'AXP', 'BLK', 'SCHW', 'PNC',
-                    'UNH', 'JNJ', 'PFE', 'ABT', 'TMO', 'MRK', 'ABBV', 'LLY', 'BMY', 'AMGN',
-                    'WMT', 'HD', 'COST', 'TGT', 'LOW', 'TJX', 'SBUX', 'MCD', 'NKE',
-                    'XOM', 'CVX', 'COP', 'EOG', 'SLB', 'MPC', 'VLO', 'PSX',
-                    'NEE', 'DUK', 'SO', 'AEP', 'CAT', 'BA', 'HON', 'UPS', 'RTX', 'LMT',
-                    'LIN', 'APD', 'SHW', 'NEM', 'FCX', 'NUE',
-                    'PLD', 'AMT', 'EQIX', 'PSA', 'SPG', 'O',
-                    'VZ', 'T', 'TMUS', 'DIS', 'NFLX', 'CMCSA', 'V', 'MA', 'KO', 'PEP',
-                ]
-                marketcap_df = pd.DataFrame({'Symbol': symbols})
-            else:
-                # v31 (audit): FAIL LOUDLY. Previously a missing universe file silently
-                # substituted a hardcoded mega-cap list, so `python -m pairs_trading.main`
-                # on a fresh clone ran a completely different (and survivorship-biased)
-                # study while the README/site presented it as reproducing the published
-                # Russell 3000 result. data/ is .gitignored, so this was the DEFAULT path
-                # for every person who cloned the repo.
-                raise FileNotFoundError(
-                    "data/marketcap.csv not found — this file defines the study universe "
-                    "(Russell 3000 constituents) and is required to reproduce the published "
-                    "results. It is not redistributed in this repository.\n"
-                    "  • Supply your own CSV with a 'Symbol' (or 'Ticker') column at "
-                    "data/marketcap.csv, or\n"
-                    "  • set PAIRS_DEMO_UNIVERSE=1 for a ~60-symbol smoke-test run that "
-                    "exercises the pipeline but does NOT reproduce the published numbers.\n"
-                    "Run from the repository root: the path is resolved relative to the "
-                    "current working directory."
-                )
+        """Load the study universe from data/marketcap.csv ('Symbol' or 'Ticker' column).
 
-            possible_symbol_columns = ['Symbol', 'Ticker', 'symbol', 'ticker', 'SYMBOL', 'TICKER']
-            symbol_column = None
-
-            for col_name in possible_symbol_columns:
-                if col_name in marketcap_df.columns:
-                    symbol_column = col_name
-                    break
-
-            if symbol_column is None:
-                for col in marketcap_df.columns:
-                    if 'symbol' in col.lower() or 'ticker' in col.lower():
-                        symbol_column = col
-                        break
-
-                if symbol_column is None:
-                    raise ValueError(f"No symbol column found. Available columns: {list(marketcap_df.columns)}")
-
-            if symbol_column != 'Symbol':
-                marketcap_df = marketcap_df.rename(columns={symbol_column: 'Symbol'})
-
-            logger.info("Cleaning and formatting symbol data...")
-
-            initial_count = len(marketcap_df)
-            marketcap_df = marketcap_df.dropna(subset=['Symbol'])
-            logger.info(f"Removed {initial_count - len(marketcap_df)} rows with missing symbols")
-
-            marketcap_df['Symbol'] = (marketcap_df['Symbol']
-                                    .astype(str)
-                                    .str.strip()
-                                    .str.upper()
-                                    .str.replace(' ', '')
-                                    .str.replace('\t', '')
-                                    .str.replace('\n', ''))
-
-            before_validation = len(marketcap_df)
-            valid_mask = (
-                (marketcap_df['Symbol'].str.len() >= 1) &
-                (marketcap_df['Symbol'].str.len() <= 6) &
-                (marketcap_df['Symbol'] != 'NAN') &
-                (marketcap_df['Symbol'] != 'NULL') &
-                (marketcap_df['Symbol'] != '') &
-                (marketcap_df['Symbol'] != '0') &
-                (~marketcap_df['Symbol'].str.contains(r'^[0-9]+$', na=False)) &
-                (marketcap_df['Symbol'].str.match(r'^[A-Z0-9\.\-]+$', na=False))
+        Fails loudly if the file is missing or unusable. v32: the v31 "fail loudly" error
+        was raised INSIDE this method's own try-block, whose catch-all handler logged it
+        and returned a hardcoded 20-mega-cap fallback — so a fresh clone silently ran a
+        different, survivorship-biased study. There is no silent fallback any more;
+        PAIRS_DEMO_UNIVERSE=1 is the explicit, opt-in smoke-test universe.
+        """
+        path = "data/marketcap.csv"
+        if os.path.exists(path):
+            marketcap_df = pd.read_csv(path)
+            logger.info(f"Loaded {path} with {len(marketcap_df)} rows")
+        elif os.environ.get('PAIRS_DEMO_UNIVERSE') == '1':
+            logger.warning("PAIRS_DEMO_UNIVERSE=1: using a ~85-symbol smoke-test universe. "
+                           "This does NOT reproduce the published Russell 3000 results.")
+            marketcap_df = pd.DataFrame({'Symbol': self.DEMO_UNIVERSE})
+        else:
+            raise FileNotFoundError(
+                "data/marketcap.csv not found — this file defines the study universe "
+                "(Russell 3000 constituents) and is required to reproduce the published "
+                "results. It is not redistributed in this repository.\n"
+                "  - Supply your own CSV with a 'Symbol' (or 'Ticker') column at "
+                "data/marketcap.csv, or\n"
+                "  - set PAIRS_DEMO_UNIVERSE=1 for a smoke-test run that exercises the "
+                "pipeline but does NOT reproduce the published numbers.\n"
+                "Run from the repository root: the path is resolved relative to the "
+                "current working directory."
             )
 
-            marketcap_df = marketcap_df[valid_mask]
-            logger.info(f"Validation removed {before_validation - len(marketcap_df)} invalid symbols")
+        symbol_column = next((c for c in ['Symbol', 'Ticker', 'symbol', 'ticker', 'SYMBOL', 'TICKER']
+                              if c in marketcap_df.columns), None)
+        if symbol_column is None:
+            symbol_column = next((c for c in marketcap_df.columns
+                                  if 'symbol' in c.lower() or 'ticker' in c.lower()), None)
+        if symbol_column is None:
+            raise ValueError(f"No symbol column in {path}. Available columns: {list(marketcap_df.columns)}")
+        if symbol_column != 'Symbol':
+            marketcap_df = marketcap_df.rename(columns={symbol_column: 'Symbol'})
 
-            before_dedup = len(marketcap_df)
-            marketcap_df = marketcap_df.drop_duplicates(subset=['Symbol'], keep='first')
-            logger.info(f"Removed {before_dedup - len(marketcap_df)} duplicate symbols")
+        initial_count = len(marketcap_df)
+        marketcap_df = marketcap_df.dropna(subset=['Symbol'])
+        # Class shares: exchanges/index files write BRK.B, Yahoo serves BRK-B.
+        marketcap_df['Symbol'] = (marketcap_df['Symbol'].astype(str).str.strip().str.upper()
+                                  .str.replace(r'\s+', '', regex=True).str.replace('.', '-', regex=False))
+        valid_mask = (
+            marketcap_df['Symbol'].str.len().between(1, 6) &
+            ~marketcap_df['Symbol'].isin(['NAN', 'NULL', '0']) &
+            ~marketcap_df['Symbol'].str.fullmatch(r'[0-9]+', na=False) &
+            marketcap_df['Symbol'].str.fullmatch(r'[A-Z0-9.\-]+', na=False)
+        )
+        marketcap_df = marketcap_df[valid_mask].drop_duplicates(subset=['Symbol'], keep='first')
+        symbols = sorted(marketcap_df['Symbol'].tolist())
+        if not symbols:
+            raise ValueError(f"{path} contains no valid symbols")
+        logger.info(f"Universe: {len(symbols)} symbols ({initial_count - len(symbols)} rows removed "
+                    f"as missing/invalid/duplicate); sample {symbols[:10]}")
+        return symbols
 
-            marketcap_df = marketcap_df.sort_values('Symbol').reset_index(drop=True)
+    def fetch_stock_data(self, symbol: str, max_retries: int = 4) -> Optional[pd.DataFrame]:
+        """Fetch one symbol's daily OHLCV (auto-adjusted) and compute its indicators.
 
-            symbols = marketcap_df['Symbol'].tolist()
-
-            logger.info(f"ENHANCED: Successfully loaded and formatted {len(symbols)} Russell 3000 symbols")
-            logger.info(f"Sample symbols: {symbols[:20]}...")
-
-            return symbols
-
-        except Exception as e:
-            logger.error(f"Error loading and formatting symbols: {str(e)}")
-            basic_symbols = [
-                'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'JPM', 'JNJ', 'WMT',
-                'HD', 'PG', 'BAC', 'UNH', 'V', 'MA', 'XOM', 'CVX', 'LLY', 'ABBV'
-            ]
-            logger.warning(f"Using fallback list of {len(basic_symbols)} symbols")
-            return basic_symbols
-
-    def fetch_stock_data(self, symbol: str, max_retries: int = 3) -> Optional[pd.DataFrame]:
-        """Fetch stock data with indicators"""
+        v32: exponential backoff with jitter between attempts (Yahoo rate-limit windows
+        last seconds to minutes; the old 0.05-0.15 s jitter burned all retries at once),
+        a private RNG for the jitter (worker threads no longer consume the seeded global
+        RNG), and the outcome recorded per symbol in `self.fetch_manifest`.
+        """
+        rng = random.Random(hash(symbol) & 0xFFFFFFFF)
+        status = 'error'
         for attempt in range(max_retries):
             try:
-                time.sleep(random.uniform(0.05, 0.15))
-
-                ticker = yf.Ticker(symbol)
-                data = ticker.history(
+                if attempt:
+                    time.sleep(min(60.0, 2.0 ** attempt) + rng.uniform(0.0, 1.0))
+                data = yf.Ticker(symbol).history(
                     start=self.start_date,
-                    end=self.end_date,
+                    end=self._fetch_end(),
                     interval='1d',
                     auto_adjust=True,
                     repair=True,
                     timeout=30
                 )
-
-                if not data.empty and len(data) >= 200:
-                    if self._validate_data(data):
-                        processed_data = self._process_indicators(data)
-                        self.successful_count += 1
-                        return processed_data
-
-            except Exception:
-                if attempt == max_retries - 1:
-                    self.failed_count += 1
+                if data.empty:
+                    status = 'empty'
+                    continue
+                if len(data) < 200:
+                    status = 'short'
+                    break
+                if not self._validate_data(data):
+                    status = 'invalid'
+                    break
+                self.successful_count += 1
+                self.fetch_manifest[symbol] = 'ok'
+                return self._process_indicators(data)
+            except Exception as e:
+                status = f'error:{type(e).__name__}'
                 continue
-
+        self.failed_count += 1
+        self.fetch_manifest[symbol] = status
         return None
+
+    def _fetch_end(self) -> str:
+        """yfinance treats `end` as EXCLUSIVE; fetch through end_date inclusive."""
+        return str((pd.Timestamp(self.end_date) + pd.Timedelta(days=1)).date())
+
+    @staticmethod
+    def future_split_factor(data: pd.DataFrame) -> pd.Series:
+        """Product of split ratios strictly AFTER each date (1.0 if no later split).
+
+        yfinance back-adjusts every earlier bar for a split, so for dates before a 10:1
+        split the cached Close is the traded price / 10 and Volume is traded shares x 10.
+        Multiplying Close (dividing Volume) by this factor recovers the point-in-time
+        values a trader actually saw. Splits after the fetched date range are not in the
+        data and cannot be undone here (documented limitation).
+        """
+        if 'Stock Splits' not in data.columns or len(data) == 0:
+            return pd.Series(1.0, index=data.index)
+        ratio = pd.to_numeric(data['Stock Splits'], errors='coerce').fillna(0.0)
+        ratio = ratio.where(ratio > 0, 1.0)
+        after = ratio.iloc[::-1].cumprod().iloc[::-1].shift(-1).fillna(1.0)
+        return after
 
     def _validate_data(self, data: pd.DataFrame) -> bool:
         """Validate data quality with more lenient criteria"""
@@ -195,7 +182,11 @@ class EnhancedRussell3000DataProcessor:
             # on this universe.
             # A penny-stock screen is legitimate, but it must use information available at
             # selection time. Screen on the START of the series instead of its minimum.
-            _early = close_prices.dropna().iloc[:21]
+            # v32: on the POINT-IN-TIME price. Back-adjusted prices divide pre-split history by
+            # later split ratios, so a $19 stock that split 10:1 in 2024 showed ~$1.90 in 2020
+            # and was screened out because of a future corporate action.
+            _pit = (close_prices * self.future_split_factor(data)).dropna()
+            _early = _pit.iloc[:21]
             if len(_early) == 0 or float(_early.median()) < 2.0:
                 return False
 
@@ -208,6 +199,10 @@ class EnhancedRussell3000DataProcessor:
         try:
             processed = data.copy()
 
+            _f = self.future_split_factor(processed)
+            processed['Close_PIT'] = processed['Close'] * _f
+            if 'Volume' in processed.columns:
+                processed['Volume_PIT'] = processed['Volume'] / _f
             processed['Returns'] = processed['Close'].pct_change()
             processed['Log_Returns'] = np.log(processed['Close'] / processed['Close'].shift(1))
 
@@ -248,7 +243,12 @@ class EnhancedRussell3000DataProcessor:
             processed['High_Vol_Regime'] = (vol_20 > vol_20.rolling(window=200, min_periods=100).quantile(0.7)).astype(int)
             processed['Trend_Strength'] = abs(processed['MA_20'] - processed['MA_50']) / (processed['Close'].rolling(20).std() + 1e-8)
 
-            numeric_columns = processed.select_dtypes(include=[np.number]).columns
+            # v32: fill only DERIVED indicator columns. Through v31 this loop also rewrote the
+            # raw OHLCV columns: a leading missing Close became 0 and gaps became stale
+            # prices, contradicting the "untouched vendor data" premise of the reprocess path.
+            protected = set(self._RAW_COLUMNS) | {'Close_PIT', 'Volume_PIT'}
+            numeric_columns = [c for c in processed.select_dtypes(include=[np.number]).columns
+                               if c not in protected]
             for col in numeric_columns:
                 # Neutral prior for this indicator family, used for the warm-up region
                 # where the rolling window genuinely has no information yet.
@@ -297,53 +297,87 @@ class EnhancedRussell3000DataProcessor:
         except Exception:
             return pd.Series(50, index=prices.index)
 
+    @staticmethod
+    def _atomic_pickle(obj, path: str) -> None:
+        """Write a pickle atomically (temp file in the same directory, then os.replace)."""
+        os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
+        tmp = f"{path}.tmp-{os.getpid()}"
+        with open(tmp, 'wb') as f:
+            pickle.dump(obj, f)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+
+    @staticmethod
+    def _load_pickle_or_raise(path: str):
+        """Load a cache file, failing LOUDLY rather than silently refetching over it.
+
+        v32: an unreadable cache used to fall through to a fresh fetch that then wrote
+        over the same path — destroying a study cache that cannot be rebuilt (it holds
+        names Yahoo no longer serves and a fixed adjustment vintage). Only local caches
+        you created yourself should ever be loaded: pickle can execute code (SECURITY.md).
+        """
+        try:
+            with open(path, 'rb') as f:
+                return pickle.load(f)
+        except Exception as e:
+            raise RuntimeError(
+                f"Could not read the cache {path} ({type(e).__name__}: {e}). It was NOT "
+                "overwritten. If it was written by a different pandas/numpy version, load it "
+                "with that environment (see requirements.txt); to rebuild from Yahoo "
+                "instead, move the file aside and re-run.") from e
+
     def load_macro_data(self) -> Dict:
-        """Load VIX and sector ETF data for macro regime features.
-        Cached in macro_data.pkl to avoid re-fetching.
-        Returns dict with keys: 'VIX' (Series), 'sectors' (Dict[str, Series])
+        """VIX and sector-ETF closes for the regime gate and macro features.
+
+        Returns {'VIX': Series, 'sectors': {etf: Series}} with tz-naive indexes, cached in
+        data/macro_data.pkl. v32: the cache is written only when VIX and every sector ETF
+        were fetched — a failed fetch used to be cached permanently as empty, which
+        silently switched the regime gate off (missing VIX defaults to "calm").
         """
         macro_file = "data/macro_data.pkl"
         if os.path.exists(macro_file):
-            try:
-                with open(macro_file, 'rb') as f:
-                    macro = pickle.load(f)
-                logger.info(f"Loaded cached macro data: VIX + {len(macro.get('sectors', {}))} sector ETFs")
-                return macro
-            except Exception as e:
-                logger.warning(f"Failed to load cached macro data: {str(e)}")
+            macro = self._load_pickle_or_raise(macro_file)
+            n_sec = len(macro.get('sectors', {}))
+            logger.info(f"Loaded cached macro data: VIX ({len(macro.get('VIX', []))} days) + "
+                        f"{n_sec} sector ETFs")
+            missing = [e for e in SECTOR_ETFS if e not in macro.get('sectors', {})]
+            if macro.get('VIX') is None or len(macro.get('VIX', [])) == 0 or missing:
+                logger.warning(f"Macro cache is incomplete (VIX present: "
+                               f"{len(macro.get('VIX', [])) > 0}; missing sector ETFs: {missing}). "
+                               "The regime gate treats missing days as calm.")
+            return macro
 
         logger.info(f"Fetching macro data: {MACRO_TICKERS}")
         macro = {'VIX': pd.Series(dtype=float), 'sectors': {}}
-
-        try:
-            for ticker in MACRO_TICKERS:
+        rng = random.Random(0)
+        for ticker in MACRO_TICKERS:
+            for attempt in range(4):
                 try:
-                    time.sleep(random.uniform(0.1, 0.3))
-                    t = yf.Ticker(ticker)
-                    data = t.history(start=self.start_date, end=self.end_date,
-                                     interval='1d', auto_adjust=True, timeout=30)
+                    if attempt:
+                        time.sleep(min(60.0, 2.0 ** attempt) + rng.uniform(0.0, 1.0))
+                    data = yf.Ticker(ticker).history(start=self.start_date, end=self._fetch_end(),
+                                                     interval='1d', auto_adjust=True, timeout=30)
                     if data.empty:
                         continue
                     close = data['Close'].dropna()
-                    # Strip timezone for consistency
-                    if hasattr(close.index, 'tz') and close.index.tz is not None:
+                    if getattr(close.index, 'tz', None) is not None:
                         close.index = close.index.tz_localize(None)
                     if ticker == '^VIX':
                         macro['VIX'] = close
-                        logger.info(f"  VIX: {len(close)} days ({close.index[0].date()} → {close.index[-1].date()})")
-                    elif ticker in SECTOR_ETFS:
+                    else:
                         macro['sectors'][ticker] = close
-                        logger.info(f"  {ticker}: {len(close)} days")
+                    logger.info(f"  {ticker}: {len(close)} days ({close.index[0].date()} -> {close.index[-1].date()})")
+                    break
                 except Exception as e:
-                    logger.warning(f"Failed to fetch {ticker}: {str(e)}")
-
-            with open(macro_file, 'wb') as f:
-                pickle.dump(macro, f)
+                    logger.warning(f"Fetch {ticker} attempt {attempt + 1} failed: {e}")
+        missing = [e for e in SECTOR_ETFS if e not in macro['sectors']]
+        if len(macro['VIX']) and not missing:
+            self._atomic_pickle(macro, macro_file)
             logger.info(f"Macro data cached to {macro_file}")
-
-        except Exception as e:
-            logger.error(f"Macro data fetch error: {str(e)}")
-
+        else:
+            logger.error(f"Macro fetch incomplete (VIX: {len(macro['VIX'])} days; missing: {missing}) — "
+                         "NOT cached; the regime gate will treat missing days as calm for this run.")
         return macro
 
     # Columns that come straight from the data vendor. Everything else in a cached frame
@@ -388,46 +422,71 @@ class EnhancedRussell3000DataProcessor:
                     f"({skipped} left as-is) — removes the pre-v31 bfill look-ahead")
         return out
 
-    def load_or_fetch_data(self, symbols: List[str], max_workers: int = 8) -> Dict[str, pd.DataFrame]:
-        """Load or fetch data"""
+    MIN_FETCH_COVERAGE = 0.90
 
+    def load_or_fetch_data(self, symbols: List[str], max_workers: int = 4) -> Dict[str, pd.DataFrame]:
+        """Load the price cache (restricted to `symbols`), or fetch and cache it.
+
+        Symbols are returned in sorted order, so pair orientation and every downstream
+        iteration are deterministic (a fetched dict used to follow thread-completion order).
+        """
         if os.path.exists(self.data_file):
-            try:
-                logger.info(f"Loading saved data from {self.data_file}")
-                with open(self.data_file, 'rb') as f:
-                    saved_data = pickle.load(f)
-                logger.info(f"Loaded {len(saved_data)} symbols from saved data")
-                return self._reprocess_cached_indicators(saved_data)
-            except Exception as e:
-                logger.warning(f"Failed to load saved data: {str(e)}")
+            logger.info(f"Loading saved data from {self.data_file}")
+            saved_data = self._load_pickle_or_raise(self.data_file)
+            logger.info(f"Loaded {len(saved_data)} symbols from saved data")
+            # v32: the universe file defines the universe. Through v31 a cache was used
+            # verbatim and `symbols` was ignored, so marketcap.csv had no effect at all
+            # whenever the cache existed.
+            wanted = set(symbols)
+            subset = {s: saved_data[s] for s in sorted(saved_data) if s in wanted}
+            if len(subset) < len(saved_data):
+                logger.info(f"Restricted the cache to the universe file: {len(subset)} of "
+                            f"{len(saved_data)} cached symbols are in the universe")
+            if len(wanted) > len(subset):
+                logger.info(f"{len(wanted) - len(subset)} universe symbols have no cached prices "
+                            "(failed or never fetched) and are excluded")
+            return self._reprocess_cached_indicators(subset)
 
         logger.info(f"Fetching fresh data for {len(symbols)} symbols")
         results = {}
-
-        with tqdm(total=len(symbols), desc="Fetching enhanced data", unit="symbol") as pbar:
+        with tqdm(total=len(symbols), desc="Fetching data", unit="symbol") as pbar:
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-                future_to_symbol = {executor.submit(self.fetch_stock_data, symbol): symbol for symbol in symbols}
-
+                future_to_symbol = {executor.submit(self.fetch_stock_data, s): s for s in symbols}
                 for future in concurrent.futures.as_completed(future_to_symbol):
                     symbol = future_to_symbol[future]
                     try:
-                        data = future.result(timeout=60)
+                        data = future.result()
                         if data is not None:
                             results[symbol] = data
-                        pbar.update(1)
-                        pbar.set_postfix({'Success': len(results)})
-                    except Exception:
-                        pbar.update(1)
-                        continue
-
-        logger.info(f"Fetched {len(results)}/{len(symbols)} symbols ({len(results)/len(symbols)*100:.1f}% success)")
-
-        if len(results) > 20:
-            try:
-                with open(self.data_file, 'wb') as f:
-                    pickle.dump(results, f)
-                logger.info("Enhanced data saved successfully")
-            except Exception as e:
-                logger.warning(f"Failed to save data: {str(e)}")
-
+                    except Exception as e:
+                        self.fetch_manifest[symbol] = f'error:{type(e).__name__}'
+                    pbar.update(1)
+                    pbar.set_postfix({'ok': len(results)})
+        results = dict(sorted(results.items()))
+        attempted = len(symbols)
+        errors = sum(1 for v in self.fetch_manifest.values() if v.startswith('error') or v == 'empty')
+        coverage = 1.0 - errors / attempted if attempted else 0.0
+        logger.info(f"Fetched {len(results)}/{attempted} symbols; {errors} fetch errors/empties "
+                    f"({coverage:.1%} fetch coverage); manifest outcome counts: "
+                    f"{dict(pd.Series(list(self.fetch_manifest.values())).value_counts()) if self.fetch_manifest else {}}")
+        manifest_path = self.data_file.replace('.pkl', '_manifest.json')
+        try:
+            os.makedirs(os.path.dirname(manifest_path) or '.', exist_ok=True)
+            import json as _json
+            with open(manifest_path, 'w') as f:
+                _json.dump({'start': self.start_date, 'end': self.end_date,
+                            'fetched_at': pd.Timestamp.now(tz='UTC').isoformat(),
+                            'yfinance_version': getattr(yf, '__version__', 'unknown'),
+                            'outcomes': dict(sorted(self.fetch_manifest.items()))}, f, indent=1)
+        except OSError as e:
+            logger.warning(f"Could not write the fetch manifest: {e}")
+        if coverage < self.MIN_FETCH_COVERAGE and os.environ.get('PAIRS_ALLOW_PARTIAL_FETCH') != '1':
+            raise RuntimeError(
+                f"Only {coverage:.1%} of symbols fetched without error (threshold "
+                f"{self.MIN_FETCH_COVERAGE:.0%}) — most likely Yahoo rate limiting. The partial "
+                "data was NOT cached, because a partial universe silently changes the study. "
+                "Re-run later, or set PAIRS_ALLOW_PARTIAL_FETCH=1 to accept it.")
+        if results:
+            self._atomic_pickle(results, self.data_file)
+            logger.info(f"Price cache written to {self.data_file} (manifest: {manifest_path})")
         return results
