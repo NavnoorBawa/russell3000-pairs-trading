@@ -62,9 +62,16 @@ def _is_constant(r: np.ndarray) -> bool:
 # ──────────────────────────────────────────────────────────────────────────────
 
 def annualized_sharpe(returns: np.ndarray, periods: int = 252) -> float:
-    """Annualised Sharpe of a per-period (e.g. daily) return series."""
+    """Annualised Sharpe of a per-period (e.g. daily) return series (ddof=1).
+
+    The single Sharpe definition of the project (the engine and the benchmarks call it).
+    Non-finite values are ignored. A series without dispersion (fewer than 2 points, or
+    constant up to floating-point rounding — np.full(n, 0.001) has std ~1e-19, which
+    used to give a Sharpe of ~7e16) has an undefined Sharpe, reported as 0.0.
+    """
     r = np.asarray(returns, dtype=float)
-    if len(r) < 2:
+    r = r[np.isfinite(r)]
+    if len(r) < 2 or _is_constant(r):
         return 0.0
     sd = r.std(ddof=1)
     if sd <= 0:

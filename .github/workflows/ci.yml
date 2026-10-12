@@ -20,7 +20,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    # The suite runs in ~2 minutes; 15 bounds a hung install or a wedged test
+    # The suite runs in ~3 minutes; 15 bounds a hung install or a wedged test
     # instead of inheriting GitHub's 360-minute default.
     timeout-minutes: 15
     env:
@@ -83,12 +83,15 @@ jobs:
 
       - name: Dependency vulnerability scan (pip-audit)
         # CodeQL analyses source code; it does not look at the dependency manifest.
-        # This gates the pinned set that the published results were produced on.
+        # v32: audits the environment this job actually installed (the pinned set, its
+        # transitive dependencies and the CPU torch wheel). `pip-audit -r requirements.txt`
+        # re-resolved the file in a throwaway venv from PyPI — pulling the multi-GB CUDA
+        # torch stack and auditing a different artifact from the one that is tested.
         # Deliberately no --ignore-vuln list: a new advisory should turn CI red.
         if: matrix.install == 'requirements'
         run: |
           pip install pip-audit
-          pip-audit -r requirements.txt --progress-spinner off
+          pip-audit --progress-spinner off
 
       - name: Lint (ruff)
         run: ruff check .
@@ -100,8 +103,7 @@ jobs:
 
       - name: Run test suite (with coverage)
         # Per-module report in the log; fail-under is a regression floor set just under the
-        # current total (29%). Total is held down by the data-dependent pipeline modules
-        # (run_comprehensive_backtest needs the full price cache), while the deterministic
-        # core (transaction_costs, fund_profiles, benchmark, significance, position_sizer)
-        # is 73-97% covered.
-        run: pytest -q --cov=pairs_trading --cov-report=term-missing --cov-fail-under=25
+        # current total (89% in v32). v32 added a synthetic market with known answers, so the
+        # whole pipeline — selection, backtest, walk-forward, significance, benchmarks, fund
+        # replay, exports — runs hermetically in CI (it was 29% when nothing ran end to end).
+        run: pytest -q --cov=pairs_trading --cov-report=term-missing --cov-fail-under=85

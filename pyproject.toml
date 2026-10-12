@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "russell3000-pairs-trading"
-version = "31.1.0"
+version = "32.0.0"
 description = "Russell 3000 statistical-arbitrage research system: cointegration pair selection, Kalman-filtered spreads, walk-forward validation, significance testing, and baseline benchmarks."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -31,6 +31,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-cov", "ruff>=0.5"]
 
+[project.scripts]
+pairs-trading = "pairs_trading.main:cli"
+
 [project.urls]
 Homepage = "https://navnoorbawa.github.io/russell3000-pairs-trading/"
 Repository = "https://github.com/NavnoorBawa/russell3000-pairs-trading"
@@ -41,13 +44,16 @@ packages = ["pairs_trading"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-filterwarnings = ["ignore::DeprecationWarning", "ignore::FutureWarning"]
+# A pandas/numpy FutureWarning in our own code is an error: it announces a change of
+# behaviour (e.g. pct_change's fill default) that would silently change results on the
+# next major version. Third-party DeprecationWarnings (pyparsing via matplotlib) are noise.
+filterwarnings = ["error::FutureWarning", "ignore::DeprecationWarning"]
 
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-# Lint the package and its tests; scripts/ and archive/ are throwaway diagnostics.
-extend-exclude = ["scripts", "archive"]
+# Lint the package, its tests and the supported scripts; archive/ is historical.
+extend-exclude = ["archive"]
 
 [tool.ruff.lint]
 # pyflakes (real bugs: unused imports/vars, undefined names) + key pycodestyle errors.

@@ -14,6 +14,7 @@ A failed run re-raises, so the process exits non-zero.
 
 import os
 import random
+import sys
 import time
 import logging
 from typing import Dict, List, Optional
@@ -307,6 +308,9 @@ def main():
         if isinstance(files, dict):
             files = [p for p in files.values() if p]
         print(format_summary(results, files or known_output_files(since=started)))
+        if results.get('pipeline_errors'):
+            logger.error("Run INCOMPLETE — exports were written but these stages failed: "
+                         + "; ".join(results['pipeline_errors']))
         return results
 
     except Exception as e:
@@ -320,5 +324,11 @@ def main():
         raise
 
 
+def cli() -> int:
+    """Console entry point: exit status 0 only for a complete run."""
+    results = main()
+    return 1 if results.get('pipeline_errors') else 0
+
+
 if __name__ == "__main__":
-    main()
+    sys.exit(cli())

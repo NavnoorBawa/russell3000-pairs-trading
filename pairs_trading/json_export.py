@@ -569,6 +569,9 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
             'file_name_note': 'The file name is historical and kept for backward compatibility; '
                               'see backtest_period for the actual period.',
             'field_notes': FIELD_NOTES,
+            # Stages that failed in this run (empty = complete). A run with failures still
+            # exports, for debugging, but main() exits non-zero and the headline is flagged.
+            'pipeline_errors': list(results.get('pipeline_errors') or []),
         },
         'run_config': run_config,
         'overall_performance': {
@@ -588,6 +591,14 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
             'signal_rejections': dict(sorted(_as_dict(results.get('signal_rejections')).items())),
             'halted_on': _date_str(results.get('halted_on')),
             'halt_reason': results.get('halt_reason') or None,
+            # Capital utilisation: a return on committed capital means little without
+            # how much capital was actually deployed and how often it turned over.
+            'avg_gross_exposure_pct_of_equity': _r(results.get('avg_gross_exposure'), 2, 100),
+            'max_gross_exposure_pct_of_equity': _r(results.get('max_gross_exposure'), 2, 100),
+            'annual_turnover_x_equity': _r(results.get('annual_turnover'), 2),
+            'return_on_avg_gross_exposure_pct': _r(results.get('return_on_gross_exposure'), 2, 100),
+            'avg_trading_days_held': _r(results.get('avg_trading_days_held'), 1),
+            'avg_short_leg_adv_participation_pct': _r(results.get('avg_leg_adv_participation'), 4, 100),
         },
         'pair_performance': pair_rows,
         'top_10_pairs': pair_rows[:10],
@@ -615,6 +626,16 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
         'benchmarks': _as_dict(results.get('benchmarks')),
         'fdr_diagnostic': _as_dict(results.get('fdr_diagnostic')),
         'factor_attribution': _as_dict(results.get('factor_attribution')),
+        # The learned ranker: how it was trained, and its out-of-sample skill (AUC 0.5 =
+        # no information) on signals after its training window; walk-forward per-window
+        # figures are in walk_forward_validation.windows[*].ranker_oos.
+        'ranker': {
+            'training': {k: v for k, v in _as_dict(results.get('ranker_training')).items()},
+            'out_of_sample': _as_dict(results.get('ranker_oos')) or None,
+            'walk_forward_pooled_out_of_sample': _as_dict(wf.get('ranker_oos_pooled')) or None,
+            'walk_forward_windows_with_trained_ranker': _int(wf.get('windows_with_trained_ranker')),
+        },
+        'regime_diagnosis': _as_dict(results.get('regime_diagnosis')),
     }
 
     output_path = _atomic_write_json(export_data, _output_path(output_filename, output_dir))
@@ -623,7 +644,7 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
 
     compact_keys = ('metadata', 'run_config', 'overall_performance', 'top_10_pairs',
                     'daily_equity_curve', 'walk_forward_validation', 'significance',
-                    'benchmarks', 'fdr_diagnostic', 'factor_attribution')
+                    'benchmarks', 'fdr_diagnostic', 'factor_attribution', 'ranker')
     compact_name = output_filename[:-5] + '_compact.json' if output_filename.endswith('.json') \
         else output_filename + '_compact.json'
     compact_path = _atomic_write_json({k: export_data[k] for k in compact_keys},
@@ -1082,10 +1103,13 @@ def build_headline_metrics(results: Dict, system_info: Dict = None,
     rc = random_control_summary(bm.get('random_control'), results.get('sharpe_ratio'),
                                 aligned=vs_strategy_entry(bm))
     diff = sharpe_diff_vs_gatev(bm)
+    ranker_oos = _as_dict(results.get('ranker_oos'))
 
     return {
         'schema': HEADLINE_SCHEMA_VERSION,
         'version': package_version(),
+        'complete': not results.get('pipeline_errors'),
+        'pipeline_errors': list(results.get('pipeline_errors') or []),
         'run_config': run_config if run_config is not None else _run_config_for(results, system_info),
         'main': {
             'period_start': _date_str(dates[0]) if len(dates) else None,
@@ -1096,6 +1120,16 @@ def build_headline_metrics(results: Dict, system_info: Dict = None,
             'win_rate_pct': _r(results.get('win_rate'), 1, 100) if n_trades else None,
             'max_drawdown_pct': _r(results.get('max_drawdown'), 2, 100),
             'exit_reasons': dict(sorted(_as_dict(results.get('exit_reasons')).items())),
+            'avg_gross_exposure_pct': _r(results.get('avg_gross_exposure'), 1, 100),
+            'annual_turnover_x': _r(results.get('annual_turnover'), 1),
+        },
+        'ranker': {
+            'trained': bool(_as_dict(results.get('ranker_training')).get('epochs')),
+            'train_samples': _int(_as_dict(results.get('ranker_training')).get('n_samples')),
+            'oos_signals': _int(ranker_oos.get('n')),
+            'oos_auc': _r(ranker_oos.get('auc'), 3),
+            'wf_pooled_auc': _r(_as_dict(wf.get('ranker_oos_pooled')).get('auc'), 3),
+            'wf_windows_trained': _int(wf.get('windows_with_trained_ranker')),
         },
         'oos': {
             'period_start': _date_str(wf.get('oos_start')),

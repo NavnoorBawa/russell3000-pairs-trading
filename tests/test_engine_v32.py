@@ -286,3 +286,21 @@ def test_reselection_uses_only_data_up_to_each_date(market, monkeypatch, mode):
     for d in early:
         assert sorted(a[d]) == sorted(b[d])
         assert a_sys.pair_window_stats[d] == b_sys.pair_window_stats[d]
+
+
+def test_cusum_and_hurst_gates_are_off_by_default_and_switchable():
+    """v32: both gates are statistically near-inert at 30-90 bars and default to off;
+    switching them on routes the same window through them again."""
+    S = CompleteFixedRussell3000TradingSystem
+    assert S.USE_CUSUM_GATE is False and S.USE_HURST_GATE is False
+    idx = pd.bdate_range('2022-01-03', periods=200, tz='America/New_York')
+    lp2 = np.log(50.0) + np.cumsum(np.random.default_rng(0).normal(0, 0.01, 200))
+    jump = np.where(np.arange(200) >= 170, 0.25, 0.0)          # a level break in the spread
+    state = pd.DataFrame({'lp1': lp2 + jump, 'lp2': lp2, 'beta': 1.0, 'alpha': 0.0,
+                          'spread': jump}, index=idx)
+    stats = {'half_life': 20.0}
+    s = S.__new__(S)
+    sig, why = s._locked_signal(state, 199, stats)
+    assert sig is not None and why == ''
+    s.USE_CUSUM_GATE = True
+    assert s._locked_signal(state, 199, stats) == (None, 'cusum')

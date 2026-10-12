@@ -53,7 +53,7 @@ import inspect
 import os
 
 from pairs_trading.config import pd, np, logging
-from pairs_trading.significance import align_return_series, sharpe_difference_test
+from pairs_trading.significance import align_return_series, annualized_sharpe, sharpe_difference_test
 from pairs_trading.transaction_costs import EnhancedPrimeFundTransactionCostModel
 
 logger = logging.getLogger(__name__)
@@ -395,11 +395,7 @@ def _trade_costs(trades, ia, ib, symbols, day_numbers, adv, dvol, pit_ratio, leg
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _sharpe(r, periods=TRADING_DAYS_PER_YEAR) -> float:
-    r = np.asarray(r, dtype=float)
-    if r.size < 2:
-        return 0.0
-    sd = r.std(ddof=1)
-    return float(r.mean() / sd * np.sqrt(periods)) if sd > 0 else 0.0
+    return annualized_sharpe(r, periods)
 
 
 def _series_stats(returns, dates=None, periods=TRADING_DAYS_PER_YEAR) -> dict:

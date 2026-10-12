@@ -203,7 +203,7 @@ class EnhancedRussell3000DataProcessor:
             processed['Close_PIT'] = processed['Close'] * _f
             if 'Volume' in processed.columns:
                 processed['Volume_PIT'] = processed['Volume'] / _f
-            processed['Returns'] = processed['Close'].pct_change()
+            processed['Returns'] = processed['Close'].pct_change(fill_method=None)
             processed['Log_Returns'] = np.log(processed['Close'] / processed['Close'].shift(1))
 
             for period in [5, 10, 20, 50]:
@@ -237,7 +237,7 @@ class EnhancedRussell3000DataProcessor:
                 processed['Volume_Ratio'] = 1
 
             for period in [1, 5, 10, 20]:
-                processed[f'Momentum_{period}'] = processed['Close'].pct_change(periods=period)
+                processed[f'Momentum_{period}'] = processed['Close'].pct_change(periods=period, fill_method=None)
 
             vol_20 = processed['Volatility_20']
             processed['High_Vol_Regime'] = (vol_20 > vol_20.rolling(window=200, min_periods=100).quantile(0.7)).astype(int)

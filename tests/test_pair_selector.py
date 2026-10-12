@@ -85,3 +85,75 @@ def test_cointegration_pvalue_is_bonferroni_over_both_directions(selector):
     assert selector.cointegration_pvalue(l1, l2) == pytest.approx(min(1.0, 2 * min(p12, p21)))
     ok, p = selector.test_cointegration(d1, d2)
     assert ok and p < 0.05
+
+
+# ── find_quality_pairs end to end (v32 screens) ──────────────────────────────────
+
+def _processed(frames):
+    from pairs_trading.data_processor import EnhancedRussell3000DataProcessor
+    proc = EnhancedRussell3000DataProcessor.__new__(EnhancedRussell3000DataProcessor)
+    cut = pd.Timestamp("2022-12-31", tz="America/New_York")
+    return {s: proc._process_indicators(df[df.index <= cut]) for s, df in frames.items()}
+
+
+@pytest.fixture(scope="module")
+def universe():
+    from tests.synthetic_market import _ohlcv, make_market
+    frames, _, _ = make_market(n_pairs=4, n_noise=3, seed=8, end="2022-12-31")
+    rng = np.random.default_rng(99)
+    idx = frames["SA00"].index
+    lb = np.log(frames["SB00"]["Close"].to_numpy())
+    s = np.zeros(len(idx))
+    for t in range(1, len(idx)):
+        s[t] = 0.9 * s[t - 1] + rng.normal(0, 0.01)
+    # cointegrated with SB00 but with a NEGATIVE slope: untradeable by the engine
+    frames["ZNEG"] = _ohlcv(np.log(60.0) - 0.8 * (lb - lb[0]) + s, rng, idx)
+    # expensive and thinly traded in shares (~1M/day, below the old 2.5M-share floor),
+    # but the most liquid name in dollars (~$1.5B/day)
+    pricey = _ohlcv(np.log(1500.0) + np.cumsum(rng.normal(0.0002, 0.015, len(idx))), rng, idx)
+    pricey["Volume"] = 1_000_000.0
+    frames["ZPRICEY"] = pricey
+    # cheap in dollars: plenty of shares, tiny dollar volume
+    thin = frames["SN01"].copy()
+    thin["Volume"] = 20_000.0
+    frames["ZTHIN"] = thin
+    return _processed(frames)
+
+
+def test_selection_finds_the_planted_pairs_in_sorted_orientation(universe):
+    sel = FixedPrimeFundPairSelector()
+    pairs = sel.find_quality_pairs(universe)
+    planted = {(f"SA{k:02d}", f"SB{k:02d}") for k in range(4)}
+    assert len(planted & set(pairs)) >= 3
+    assert all(a < b for a, b in pairs), "orientation must not depend on dict order"
+    assert sel.find_quality_pairs(dict(reversed(list(universe.items())))) == pairs
+
+
+def test_negatively_correlated_pairs_are_rejected(universe):
+    sel = FixedPrimeFundPairSelector()
+    pairs = sel.find_quality_pairs(universe)
+    assert all("ZNEG" not in p for p in pairs)
+    assert all(sel.pair_statistics[f"{a}-{b}"]["correlation"] >= sel.correlation_threshold
+               for a, b in pairs)
+
+
+def test_liquidity_screen_is_in_dollars(universe):
+    sel = FixedPrimeFundPairSelector()
+    sel.find_quality_pairs(universe)
+    assert "ZPRICEY" in sel.last_quality_symbols      # 1M shares/day at ~$1,500
+    assert "ZTHIN" not in sel.last_quality_symbols    # 20k shares/day: < $10M
+
+
+def test_no_silent_fallback_when_nothing_passes(universe):
+    sel = FixedPrimeFundPairSelector()
+    sel.min_dollar_volume = 1e15
+    assert sel.find_quality_pairs(universe) == []
+    assert sel.last_quality_symbols == [] and sel.pair_statistics == {}
+
+
+def test_universe_cap_keeps_the_most_liquid(universe):
+    sel = FixedPrimeFundPairSelector()
+    sel.max_universe = 3
+    sel.find_quality_pairs(universe)
+    assert len(sel.last_quality_symbols) == 3
+    assert "ZPRICEY" in sel.last_quality_symbols

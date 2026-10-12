@@ -24,29 +24,47 @@ Modules:
 - main.py: command-line entry point
 """
 
-from pairs_trading.trading_system import CompleteFixedRussell3000TradingSystem
-from pairs_trading.data_processor import EnhancedRussell3000DataProcessor
-from pairs_trading.pair_selector import FixedPrimeFundPairSelector
-from pairs_trading.transformer_agent import TransformerEnhancedTradingAgent
-from pairs_trading.multi_agent_system import FixedTransformerMultiAgentSystem
-from pairs_trading.position_sizer import FixedPrimeFundPositionSizer
-from pairs_trading.risk_manager import FixedPrimeFundRiskManager
-from pairs_trading.transaction_costs import EnhancedPrimeFundTransactionCostModel
-from pairs_trading.transformer_encoder import (
-    PositionalEncoding,
-    TransformerEncoderLayer,
-    FinancialTransformerEncoder
-)
-from pairs_trading.json_export import (
-    export_testing_results_to_json,
-    export_fund_comparison_to_json,
-    export_headline_metrics,
-    build_run_config,
-)
-from pairs_trading.plotting import plot_ranker_training, plot_results, plot_fund_comparison
-# Deprecated alias, importable for backward compatibility but no longer advertised in
-# __all__: the RL training loop it used to plot does not exist (see plotting.py).
-from pairs_trading.plotting import plot_training_results
+import importlib
+
+# v32: names are resolved lazily (PEP 562). Importing any submodule — e.g. the cost model
+# or the significance tests — no longer imports torch, matplotlib and yfinance via an
+# eager package __init__.
+_EXPORTS = {
+    'CompleteFixedRussell3000TradingSystem': 'pairs_trading.trading_system',
+    'EnhancedRussell3000DataProcessor': 'pairs_trading.data_processor',
+    'FixedPrimeFundPairSelector': 'pairs_trading.pair_selector',
+    'TransformerEnhancedTradingAgent': 'pairs_trading.transformer_agent',
+    'FixedTransformerMultiAgentSystem': 'pairs_trading.multi_agent_system',
+    'FixedPrimeFundPositionSizer': 'pairs_trading.position_sizer',
+    'FixedPrimeFundRiskManager': 'pairs_trading.risk_manager',
+    'EnhancedPrimeFundTransactionCostModel': 'pairs_trading.transaction_costs',
+    'PositionalEncoding': 'pairs_trading.transformer_encoder',
+    'TransformerEncoderLayer': 'pairs_trading.transformer_encoder',
+    'FinancialTransformerEncoder': 'pairs_trading.transformer_encoder',
+    'export_testing_results_to_json': 'pairs_trading.json_export',
+    'export_fund_comparison_to_json': 'pairs_trading.json_export',
+    'export_headline_metrics': 'pairs_trading.json_export',
+    'build_run_config': 'pairs_trading.json_export',
+    'plot_ranker_training': 'pairs_trading.plotting',
+    'plot_results': 'pairs_trading.plotting',
+    'plot_fund_comparison': 'pairs_trading.plotting',
+    # deprecated alias kept importable (not in __all__): the RL loop it plotted is gone
+    'plot_training_results': 'pairs_trading.plotting',
+}
+
+
+def __getattr__(name):
+    module = _EXPORTS.get(name)
+    if module is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(importlib.import_module(module), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__():
+    return sorted(set(globals()) | set(_EXPORTS))
+
 
 __all__ = [
     'CompleteFixedRussell3000TradingSystem',

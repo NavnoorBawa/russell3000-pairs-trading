@@ -16,20 +16,34 @@ logger = logging.getLogger(__name__)
 
 
 class FixedPrimeFundPairSelector:
-    """FIXED: More balanced pair selection criteria"""
+    """Formation-period pair selection: screens, correlation, cointegration, half-life, quality."""
 
     def __init__(self):
+        # v32: a POSITIVE return correlation is required. abs() used to admit negatively
+        # correlated pairs, whose cointegrating slope is negative — the engine cannot
+        # trade those (hedge ratios outside [0.25, 4] are skipped), so they only diluted
+        # the universe and the FDR count. 0.25 is a light pre-screen, not a similarity
+        # requirement; there is no same-industry restriction (see README limitations).
         self.correlation_threshold = 0.25
         self.cointegration_threshold = 0.05
+        # Half-life band, trading days. The time stop is clamp(2.5 x HL, 10, 25) days, and
+        # an OU spread closes 1 - 2^(-hold/HL) of its gap over a hold: ~82% for HL <= 10,
+        # falling to 63% at HL = 18 and 50% at HL = 25 (where the 25-day cap binds).
         self.min_half_life = 4
-        self.max_half_life = 25   # v13: lowered from 120. With 10-day hold, HL>25 reverts <24% on average.
+        self.max_half_life = 25
         self.min_common_days = 420
-        self.min_trade_volume = 2.5e6
+        # v32: liquidity is screened on point-in-time DOLLAR volume (close x shares). The
+        # former 2.5M-SHARE floor favoured low-priced names and excluded liquid high-priced
+        # ones (a $400 stock trading 1M shares a day is $400M of daily liquidity). Every
+        # symbol must clear the floor; if more than max_universe do, the most liquid
+        # max_universe are kept, which keeps the all-pairs search (n^2/2 tests) bounded.
+        self.min_dollar_volume = 10e6
+        self.max_universe = 300
 
         self.selected_pairs = []
         self.pair_statistics = {}
 
-        logger.info("FIXED Prime Fund Pair Selector - Balanced Quality")
+        logger.info("Pair selector initialised")
 
     def calculate_correlation(self, data1: pd.DataFrame, data2: pd.DataFrame) -> float:
         """Calculate correlation with better error handling"""
@@ -153,9 +167,10 @@ class FixedPrimeFundPairSelector:
         cointegration only due to genuine idiosyncratic mean reversion — not because
         both stocks load on the same sector or market factor.
 
-        v19: Added to eliminate spurious cointegration from common factors (Mag7 effect,
-        sector rotation). Published results show false-positive cointegration rate drops
-        from ~35% to ~8% after 5-factor PCA stripping on US equity universes.
+        v19: added to discount cointegration that only reflects shared factor exposure
+        (market, sector rotation). The residuals feed a quality-score bonus only; pairs
+        are selected and traded on raw prices. (v32 removed an unsourced claim that
+        5-factor stripping cuts the false-positive cointegration rate from ~35% to ~8%.)
         """
         try:
             ret_series = {}
@@ -225,48 +240,54 @@ class FixedPrimeFundPairSelector:
     def find_quality_pairs(self, processed_data: Dict[str, pd.DataFrame]) -> List[Tuple[str, str]]:
         """Screen symbols, then test every pair of screened symbols; return all that pass.
 
-        Symbol screen (formation data): >= 300 bars, mean point-in-time share volume >=
-        min_trade_volume, mean point-in-time price >= $5, annualised volatility 5-80%,
-        < 10% missing. Pair tests: |return correlation| >= 0.25, two-direction
-        Engle-Granger p < 0.05 (Bonferroni), half-life 4-25 days, quality score > 0.4.
-        All passing pairs are returned, ranked by quality score.
+        Symbol screen (formation data only): >= 300 bars, mean point-in-time price >= $5,
+        mean point-in-time dollar volume >= min_dollar_volume (the max_universe most
+        liquid names are kept if more pass), annualised volatility 5-80%, < 10% missing
+        closes. Pair tests: return correlation >= +0.25, two-direction Engle-Granger
+        p < 0.05 (Bonferroni), half-life 4-25 days, quality score > 0.4. All passing
+        pairs are returned, ranked by quality score. Symbols are processed in sorted
+        order, so the traded orientation of every pair (which leg is regressed on which)
+        is deterministic.
         """
 
-        symbols = list(processed_data.keys())
-        logger.info(f"FIXED: Finding quality pairs from {len(symbols)} symbols (Testing ALL combinations)")
+        symbols = sorted(processed_data)
+        logger.info(f"Pair selection: screening {len(symbols)} symbols")
 
-        quality_symbols = []
+        screened = []
         for symbol in symbols:
             data = processed_data[symbol]
-            if len(data) >= 300:
-                # v32: point-in-time (split-unadjusted) share volume and price. The adjusted
-                # series divide pre-split prices (and multiply pre-split volumes) by LATER
-                # split ratios, so these level screens used to depend on future corporate
-                # actions (e.g. a 2024 10:1 split made a 2020-22 stock look 10x as liquid).
-                vol_col = 'Volume_PIT' if 'Volume_PIT' in data.columns else 'Volume_MA'
-                avg_volume = data[vol_col].mean() if vol_col in data.columns else 0.0
-                if avg_volume >= self.min_trade_volume:
-                    avg_price = (data['Close_PIT'] if 'Close_PIT' in data.columns else data['Close']).mean()
-                    if avg_price >= 5.0:
-                        volatility = data['Returns'].std() * np.sqrt(252)
-                        if 0.05 < volatility < 0.8:
-                            missing_pct = data['Close'].isnull().sum() / len(data)
-                            if missing_pct < 0.10:
-                                quality_symbols.append(symbol)
+            if len(data) < 300:
+                continue
+            # v32: point-in-time (split-unadjusted) price and volume. The adjusted series
+            # divide pre-split prices (and multiply pre-split volumes) by LATER split
+            # ratios, so these level screens used to depend on future corporate actions.
+            price = data['Close_PIT'] if 'Close_PIT' in data.columns else data['Close']
+            shares = data['Volume_PIT'] if 'Volume_PIT' in data.columns else data['Volume']
+            if price.mean() < 5.0:
+                continue
+            dollar_volume = float((price * shares).mean())
+            if not np.isfinite(dollar_volume) or dollar_volume < self.min_dollar_volume:
+                continue
+            volatility = data['Returns'].std() * np.sqrt(252)
+            if not (0.05 < volatility < 0.8):
+                continue
+            if data['Close'].isnull().sum() / len(data) >= 0.10:
+                continue
+            screened.append((symbol, dollar_volume))
 
-        logger.info(f"FIXED: {len(quality_symbols)} quality symbols after balanced filtering")
-
+        screened.sort(key=lambda kv: (-kv[1], kv[0]))
+        quality_symbols = sorted(sym for sym, _ in screened[:self.max_universe])
+        logger.info(f"Pair selection: {len(screened)} symbols pass the screens; testing the "
+                    f"{len(quality_symbols)} most liquid")
+        # v32: no silent fallback. Through v31, fewer than 30 passing symbols switched to
+        # the 100 longest histories with NO liquidity, price or volatility screen at all.
         if len(quality_symbols) < 30:
-            logger.warning("Few quality symbols found - using broader selection")
-            symbol_scores = []
-            for symbol in symbols:
-                data = processed_data[symbol]
-                if len(data) >= 200:
-                    score = len(data) * (1 - data['Close'].isnull().sum() / len(data))
-                    symbol_scores.append((symbol, score))
-
-            symbol_scores.sort(key=lambda x: x[1], reverse=True)
-            quality_symbols = [s[0] for s in symbol_scores[:100]]
+            logger.warning(f"Only {len(quality_symbols)} symbols pass the screens; the pair "
+                           "universe is small")
+        if len(quality_symbols) < 2:
+            self.selected_pairs, self.pair_statistics, self.fdr_diagnostic = [], {}, {}
+            self.last_quality_symbols = list(quality_symbols)
+            return []
 
         # v19: Compute PCA residuals once for the full quality symbol universe.
         # Each pair is then tested on BOTH raw prices (for backward compatibility) and
@@ -276,13 +297,13 @@ class FixedPrimeFundPairSelector:
         # --- CHANGED: Use itertools to generate ALL unique pairs instead of random sampling ---
         pairs_to_test = list(itertools.combinations(quality_symbols, 2))
 
-        logger.info(f"FIXED: Testing ALL {len(pairs_to_test):,} unique pairs")
+        logger.info(f"Pair selection: testing all {len(pairs_to_test):,} unique pairs")
 
         valid_pairs = []
         _all_coint_pvalues = []   # every correlation-passing pair's coint p-value (for FDR)
 
         # Use tqdm for progress bar
-        test_progress = tqdm(pairs_to_test, desc="FIXED pair testing", unit="pair")
+        test_progress = tqdm(pairs_to_test, desc="Pair testing", unit="pair")
 
         for symbol1, symbol2 in test_progress:
             try:
@@ -297,7 +318,7 @@ class FixedPrimeFundPairSelector:
                     continue
 
                 correlation = self.calculate_correlation(data1, data2)
-                if abs(correlation) < self.correlation_threshold:
+                if correlation < self.correlation_threshold:
                     continue
 
                 is_cointegrated, coint_pvalue = self.test_cointegration(data1, data2)
@@ -366,10 +387,12 @@ class FixedPrimeFundPairSelector:
 
         # ── Multiple-testing (FDR) diagnostic ────────────────────────────────────
         # Testing tens of thousands of pairs at raw p<0.05 yields many false positives
-        # by chance. Benjamini-Hochberg controls the false-discovery rate; reporting how
-        # many pairs survive BH (and the implied false-positive count at raw p<0.05)
-        # turns the "~N spurious pairs" caveat into a measured number. Diagnostic only —
-        # it does not change which pairs are selected.
+        # by chance. Benjamini-Hochberg controls the false-discovery rate; this reports
+        # how many correlation-passing pairs survive BH. "Expected false positives" is
+        # 0.05 x pairs tested, an UPPER bound (it assumes every tested pair is null), and
+        # it describes the cointegration step alone: the later half-life, quality and
+        # quarterly re-tests remove some false positives as well as true ones. Diagnostic
+        # only — it does not change which pairs are selected.
         self.fdr_diagnostic = {}
         try:
             from statsmodels.stats.multitest import multipletests
@@ -377,7 +400,7 @@ class FixedPrimeFundPairSelector:
             n_tested = int(pvals.size)
             if n_tested > 0:
                 n_raw_sig = int((pvals < 0.05).sum())
-                exp_false_pos = 0.05 * n_tested        # expected false positives at raw 5%
+                exp_false_pos = 0.05 * n_tested        # upper bound: all tested pairs null
                 bh05 = int(multipletests(pvals, alpha=0.05, method='fdr_bh')[0].sum())
                 bh10 = int(multipletests(pvals, alpha=0.10, method='fdr_bh')[0].sum())
                 self.fdr_diagnostic = {
@@ -390,16 +413,16 @@ class FixedPrimeFundPairSelector:
                 }
                 logger.info("FDR diagnostic (Benjamini-Hochberg on cointegration p-values):")
                 logger.info(f"  tested {n_tested:,} pairs | raw p<0.05: {n_raw_sig:,} "
-                            f"(≈{exp_false_pos:,.0f} expected false positives by chance)")
+                            f"(<= {exp_false_pos:,.0f} expected false positives if all were null)")
                 logger.info(f"  survive BH-FDR q<0.05: {bh05:,} | q<0.10: {bh10:,} | "
                             f"final selected (after half-life/quality/PCA): {len(self.selected_pairs):,}")
         except Exception as e:
             logger.debug(f"FDR diagnostic skipped: {e}")
 
-        logger.info(f"FIXED: Found {len(self.selected_pairs)} pairs satisfying all conditions")
+        logger.info(f"Pair selection: {len(self.selected_pairs)} pairs satisfy all conditions")
 
         if valid_pairs:
-            logger.info("Top 5 FIXED quality pairs:")
+            logger.info("Top 5 pairs by quality score:")
             for i, pair in enumerate(valid_pairs[:5]):
                 s1, s2 = pair['symbols']
                 score = pair['score']
@@ -414,14 +437,23 @@ class FixedPrimeFundPairSelector:
     def _calculate_balanced_quality_score(self, correlation: float, coint_pvalue: float,
                                         half_life: float, data1: pd.DataFrame, data2: pd.DataFrame,
                                         pca_cointegrated: bool = False) -> float:
-        """FIXED: More balanced quality scoring. v19: pca_cointegrated bonus added."""
+        """Heuristic quality score in [0, 1] used for ranking, the 0.4 selection cut-off,
+        the engine's 0.55 trading floor and position sizing.
+
+        Components: correlation (<= 0.3), cointegration strength (<= 0.3), half-life
+        closeness to 10 days (<= 0.2), data completeness (0.2) and PCA-residual
+        cointegration (0.15). The weights are hand-set, not estimated. Note that the
+        completeness bonus is effectively a constant: the symbol screen already
+        requires < 10% missing closes and missing closes are rare in the cache, so
+        almost every pair receives the 0.2 — the 0.4 / 0.55 cut-offs are really
+        0.2 / 0.35 on the other four components.
+        """
         try:
-            corr_score = min(0.3, abs(correlation) * 0.6)
+            corr_score = min(0.3, max(0.0, correlation) * 0.6)
             coint_score = (self.cointegration_threshold - coint_pvalue) / self.cointegration_threshold * 0.3
 
-            # v19: half-life score recalibrated for dynamic hold (max 25 days).
-            # With 2.5× HL hold, all HL in [4,25] get ≥85% expected reversion.
-            # Score is still highest at HL=10 (fastest mean reversion = most reliable).
+            # Highest at HL = 10, where the time stop (2.5 x HL = 25 days) still allows
+            # ~82% expected reversion; see the half-life band in __init__.
             optimal_hl = 10
             if 4 <= half_life <= 25:
                 hl_score = 0.2 * max(0.0, 1.0 - abs(half_life - optimal_hl) / 15.0)
@@ -439,10 +471,11 @@ class FixedPrimeFundPairSelector:
             except Exception:
                 pass
 
-            # v19: PCA idiosyncratic cointegration bonus (+0.15).
-            # Pairs whose RESIDUAL spread (after stripping 5 systematic factors) is also
-            # cointegrated are genuinely idiosyncratic mean-reverting relationships.
-            # Literature shows these have ~3× lower regime-break failure rate.
+            # v19: PCA bonus (+0.15) when the two legs' factor-stripped residual "prices"
+            # are also cointegrated. A heuristic: the residual series is not what is
+            # traded, and no out-of-sample evidence that the bonus improves pair
+            # survival has been produced for this project. (v32 removed an unsourced
+            # "~3x lower regime-break failure rate" claim.)
             pca_bonus = 0.15 if pca_cointegrated else 0.0
 
             total_score = corr_score + coint_score + hl_score + bonus_score + pca_bonus

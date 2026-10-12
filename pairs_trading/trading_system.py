@@ -38,12 +38,16 @@ from typing import Dict, List, Optional, Tuple
 from pairs_trading.config import pd, np, logging
 from pairs_trading.data_processor import EnhancedRussell3000DataProcessor
 from pairs_trading.pair_selector import FixedPrimeFundPairSelector
-from pairs_trading.multi_agent_system import FixedTransformerMultiAgentSystem
+from pairs_trading.multi_agent_system import FixedTransformerMultiAgentSystem, classifier_skill
 from pairs_trading.position_sizer import FixedPrimeFundPositionSizer
 from pairs_trading.risk_manager import FixedPrimeFundRiskManager
 from pairs_trading.transaction_costs import EnhancedPrimeFundTransactionCostModel
-from pairs_trading.json_export import export_testing_results_to_json, export_fund_comparison_to_json
-from pairs_trading.plotting import plot_results, plot_fund_comparison
+from pairs_trading.significance import annualized_sharpe
+from pairs_trading.json_export import (
+    build_run_config, export_fund_comparison_to_json, export_headline_metrics,
+    export_testing_results_to_json, log_run_config,
+)
+from pairs_trading.plotting import plot_fund_comparison, plot_ranker_training, plot_results
 
 logger = logging.getLogger(__name__)
 
@@ -83,13 +87,8 @@ def _align_ts(ts, like) -> pd.Timestamp:
 
 
 def annualised_sharpe(daily_returns, periods: int = TRADING_DAYS_PER_YEAR) -> float:
-    """Sharpe of a daily return series (sample std, ddof=1 — used consistently)."""
-    r = np.asarray(daily_returns, dtype=float)
-    r = r[np.isfinite(r)]
-    if r.size < 2:
-        return 0.0
-    sd = r.std(ddof=1)
-    return float(r.mean() / sd * np.sqrt(periods)) if sd > 0 else 0.0
+    """Sharpe of a daily return series: significance.annualized_sharpe (ddof=1)."""
+    return annualized_sharpe(daily_returns, periods)
 
 
 def max_drawdown_from_returns(daily_returns) -> float:
@@ -125,7 +124,18 @@ class CompleteFixedRussell3000TradingSystem:
     MIN_HOLD_DAYS, MAX_HOLD_DAYS, HOLD_HL_MULT = 10, 25, 2.5   # time stop, trading days
     REF_MIN, REF_MAX, REF_HL_MULT = 30, 90, 3                    # z reference window, bars
     REF_STATS_BARS = 60           # trailing bars of the reference window used for mean/std
-    HURST_MAX = 0.55              # skip trending locked spreads
+    # v32: the CUSUM and Hurst entry gates are OFF by default. Measured on 2,000 simulated
+    # spreads per window (scratch study, v32 audit): at the 30/60/90-bar reference windows
+    # the CUSUM gate rejects 0.1%/4.5%/8.3% of pure random walks and 0.2%/2.9%/6.4% of
+    # mean-reverting OU(HL 15) spreads; the Hurst gate (H > 0.55) rejects ~11% of random
+    # walks and 5-10% of OU(HL 15) spreads. Neither separates trending from reverting
+    # spreads at these sample sizes (CUSUM standardises by the in-window mean, so a steady
+    # drift is invisible to it; a variance-of-increments Hurst estimate on <= 90 bars has a
+    # standard error of roughly 0.1). Both mostly removed a near-random 5-10% of signals.
+    # They remain available, unchanged, for sensitivity runs.
+    USE_CUSUM_GATE = False
+    USE_HURST_GATE = False
+    HURST_MAX = 0.55              # used only when USE_HURST_GATE is True
     MIN_ROLLING_CORR = 0.20       # 20-day return-correlation floor (decoupled pairs)
     # v32: the risk manager has always rejected quality < 0.55, so the engine's former
     # 0.40 pre-filter was dead; one threshold, stated once, at its effective value.
@@ -378,8 +388,8 @@ class CompleteFixedRussell3000TradingSystem:
         half-life-adaptive reference window (3 x half-life, 30-90 bars) is
         lp1 - beta_i * lp2 — the intercept is a constant shift and cancels in the z-score.
         Its mean/std over the last REF_STATS_BARS bars are frozen here and reused,
-        unchanged, by every exit test of a trade opened on this signal. The CUSUM and
-        Hurst gates run on the same window.
+        unchanged, by every exit test of a trade opened on this signal. The optional CUSUM
+        and Hurst gates (off by default, see USE_CUSUM_GATE) run on the same window.
         """
         beta = float(state['beta'].iat[i])
         if not np.isfinite(beta):
@@ -390,9 +400,9 @@ class CompleteFixedRussell3000TradingSystem:
         lk = state['lp1'].to_numpy()[lo:i + 1] - beta * state['lp2'].to_numpy()[lo:i + 1]
         if len(lk) < 20:
             return None, 'history'
-        if self._cusum_break(lk):
+        if self.USE_CUSUM_GATE and self._cusum_break(lk):
             return None, 'cusum'
-        if self._hurst_exponent(lk) > self.HURST_MAX:
+        if self.USE_HURST_GATE and self._hurst_exponent(lk) > self.HURST_MAX:
             return None, 'hurst'
         ref = lk[-min(self.REF_STATS_BARS, len(lk)):]
         mu = float(ref.mean())
@@ -594,7 +604,7 @@ class CompleteFixedRussell3000TradingSystem:
         """
         vix = self.macro_data.get('VIX', pd.Series(dtype=float))
         sectors = self.macro_data.get('sectors', {})
-        sector_rets = pd.DataFrame({k: v.pct_change() for k, v in sectors.items() if len(v) > 10})
+        sector_rets = pd.DataFrame({k: v.pct_change(fill_method=None) for k, v in sectors.items() if len(v) > 10})
         sector_rets = sector_rets.dropna(how='all')
         disp_z = pd.Series(dtype=float)
         if not sector_rets.empty:
@@ -1132,22 +1142,25 @@ class CompleteFixedRussell3000TradingSystem:
 
     def build_outcome_samples(self, pairs: List[Tuple[str, str]], end, start=None,
                               agent: FixedTransformerMultiAgentSystem = None,
-                              step: int = None, max_samples: int = None, seed: int = 0):
+                              step: int = None, max_samples: int = None, seed: int = 0,
+                              signal_end=None):
         """Feature/label samples for the signal-quality ranker from data in [start, end].
 
         A sample is a pair-day on which the ACTUAL entry rule fires (beta-locked
-        |z| >= ENTRY_Z after the CUSUM/Hurst gates). Its label is 1 if the trade the
+        |z| >= ENTRY_Z, after any enabled CUSUM/Hurst gate). Its label is 1 if the trade the
         engine would open — hedge-ratio-weighted legs, filled at the next close, exited by
         the same target/stop/time rule and filled at the close after that — has a positive
         gross return, else 0. Only samples whose whole outcome (exit fill included) lies
         on or before `end` are kept, so no label reads past the training window.
+        `signal_end` (evaluation only) additionally caps the signal date, so a test
+        window's signals can be scored with outcomes that finish after the window.
 
         v32: through v31 the ranker learned a different target (an expanding-window z of
         the Kalman residual reaching |z| < 0.5 within 10 days) from features extracted
         with EMPTY stock frames and no macro data — constant values at training time for
-        14 of the 38 inputs that are live at inference.
+        14 of the then-38 inputs (30 real + 8 zero pads) that are live at inference.
 
-        Returns (X_raw, y) with X_raw the unscaled 38-feature matrix, or (None, None).
+        Returns (X_raw, y) with X_raw the unscaled N_FEATURES (30) matrix, or (None, None).
         """
         agent = agent or self.rl_agent
         step = step or self.LABEL_STEP
@@ -1163,8 +1176,11 @@ class CompleteFixedRussell3000TradingSystem:
             first = self.MIN_SPREAD_HISTORY - 1
             if start is not None:
                 first = max(first, int(state.index.searchsorted(_align_ts(start, like), side='left')))
+            stop = last - 2
+            if signal_end is not None:
+                stop = min(stop, int(state.index.searchsorted(_align_ts(signal_end, like), side='right')))
             lp1, lp2 = state['lp1'].to_numpy(), state['lp2'].to_numpy()
-            for i in range(first, last - 2, step):
+            for i in range(first, stop, step):
                 pair_stats = self._pair_stats_asof(f"{s1}-{s2}", state.index[i])
                 max_hold = self._max_hold_days(pair_stats)
                 beta = state['beta'].iat[i]
@@ -1209,6 +1225,26 @@ class CompleteFixedRussell3000TradingSystem:
             return
         X, y = self.build_outcome_samples(pairs, end=end, start=start, agent=agent)
         agent.train_on_samples(X, y)
+
+    RANKER_EVAL_MAX_SAMPLES = 4000
+
+    def _ranker_oos_scores(self, agent: FixedTransformerMultiAgentSystem, pairs, start,
+                           signal_end=None, end=None):
+        """(p, y) for signals dated in [start, signal_end] on `pairs`, or (None, None).
+
+        Out-of-sample by construction: `start` is after the model's training window.
+        Outcomes may finish after `signal_end` (up to `end`, default the last bar);
+        this is ex-post measurement only and never feeds back into trading.
+        """
+        if agent.signal_transformer is None or not pairs:
+            return None, None
+        end = end if end is not None else max(self.get_pair_state(*pk).index[-1] for pk in pairs)
+        X, y = self.build_outcome_samples(pairs, end=end, start=start, agent=agent,
+                                          signal_end=signal_end,
+                                          max_samples=self.RANKER_EVAL_MAX_SAMPLES, seed=1)
+        if X is None:
+            return None, None
+        return agent.predict_raw(X), y
 
     # ════════════════════════════════════════════════════════════════════════════
     # Walk-forward validation
@@ -1263,7 +1299,7 @@ class CompleteFixedRussell3000TradingSystem:
 
         resel_sorted = sorted(k for k in universe if k is not None)
         first_resel = _naive(resel_sorted[0]) if resel_sorted else None
-        schedule, eligible = [], []
+        schedule, eligible, agents = [], [], []
         for w_idx, (tr_s, tr_e, te_s, te_e) in enumerate(windows):
             if first_resel is not None and _naive(tr_e) < first_resel:
                 logger.info(f"  Window {w_idx + 1}: no pair universe selected by "
@@ -1275,6 +1311,7 @@ class CompleteFixedRussell3000TradingSystem:
             self._train_ranker(agent, visible, end=tr_e, start=tr_s)
             schedule.append((te_s, agent))
             eligible.append((w_idx, tr_s, tr_e, te_s, te_e))
+            agents.append((agent, visible))
 
         if not eligible:
             logger.warning("Walk-forward: no eligible windows")
@@ -1286,6 +1323,18 @@ class CompleteFixedRussell3000TradingSystem:
         dates = [pd.Timestamp(d) for d in result['daily_dates']]
         rets = np.asarray(result['daily_returns'], dtype=float)
         trades = result['trades']
+
+        # Out-of-sample skill of each window's ranker on its own test-window signals
+        # (labels may finish after the window). Pooled across windows, this is the one
+        # direct measure of whether the learned score carries information.
+        pooled_p, pooled_y, ranker_windows = [], [], []
+        for (agent, visible), (w_idx, _, _, te_s, te_e) in zip(agents, eligible):
+            p, y = self._ranker_oos_scores(agent, visible, start=te_s, signal_end=te_e)
+            ranker_windows.append(None if p is None else classifier_skill(
+                y, p, agent.training_summary.get('base_rate')))
+            if p is not None:
+                pooled_p.append(p)
+                pooled_y.append(y)
 
         wf_results = []
         for n_w, (w_idx, tr_s, tr_e, te_s, te_e) in enumerate(eligible):
@@ -1309,6 +1358,9 @@ class CompleteFixedRussell3000TradingSystem:
                 'total_trades': len(w_trades),
                 'win_rate_pct': round(100.0 * sum(1 for t in w_trades if t['net_pnl_pct'] > 0)
                                       / len(w_trades), 2) if w_trades else 0.0,
+                'ranker_trained': agents[n_w][0].signal_transformer is not None,
+                'ranker_train_samples': int(agents[n_w][0].training_summary.get('n_samples', 0)),
+                'ranker_oos': ranker_windows[n_w],
             })
             logger.info(f"  Window {w_idx + 1}: test {pd.Timestamp(te_s).date()} -> "
                         f"{pd.Timestamp(te_e).date()} | return {w_ret:+.2%} | "
@@ -1341,6 +1393,9 @@ class CompleteFixedRussell3000TradingSystem:
             'oos_start': wf_results[0]['test_start'],
             'oos_end': result['daily_dates'][-1] if result['daily_dates'] else None,
             'halted_on': result.get('halted_on'),
+            'windows_with_trained_ranker': sum(1 for a, _ in agents if a.signal_transformer is not None),
+            'ranker_oos_pooled': classifier_skill(np.concatenate(pooled_y), np.concatenate(pooled_p))
+            if pooled_p else None,
             # Continuous OOS daily series (popped before JSON export by the caller).
             'oos_daily_returns': list(rets),
             'oos_daily_dates': list(result['daily_dates']),
@@ -1640,7 +1695,7 @@ class CompleteFixedRussell3000TradingSystem:
         """Market beta/alpha of the strategy's daily returns (equal-weight sector-ETF proxy)."""
         from pairs_trading.significance import align_return_series, factor_attribution
         sectors = self.macro_data.get('sectors', {})
-        rets = pd.DataFrame({k: v.pct_change() for k, v in sectors.items() if len(v) > 10})
+        rets = pd.DataFrame({k: v.pct_change(fill_method=None) for k, v in sectors.items() if len(v) > 10})
         if rets.empty:
             return {}
         market = rets.mean(axis=1).dropna()
@@ -1692,7 +1747,7 @@ class CompleteFixedRussell3000TradingSystem:
                             f"max {results['vix_max']:.1f}); prior-year avg {results['vix_pre_period_avg']}")
 
         if sectors:
-            rets = pd.DataFrame({k: v.pct_change() for k, v in sectors.items() if len(v) > 10}).dropna(how='all')
+            rets = pd.DataFrame({k: v.pct_change(fill_method=None) for k, v in sectors.items() if len(v) > 10}).dropna(how='all')
             if not rets.empty:
                 rets.index = pd.DatetimeIndex([_naive(d) for d in rets.index])
                 daily = rets.std(axis=1).dropna()
@@ -1742,6 +1797,9 @@ class CompleteFixedRussell3000TradingSystem:
         self.processed_data = self.data_processor.load_or_fetch_data(symbols)
         self.macro_data = self.data_processor.load_macro_data()
         self._pair_state_cache = {}
+        # Provenance first, so the log alone identifies code version, switches and data.
+        log_run_config(build_run_config(system_info={'total_symbols_processed': len(self.processed_data),
+                                                     'initial_capital': self.initial_capital}))
 
         # Pair selection on data up to the cutoff only (selecting on 2020-2025 data would
         # pick pairs because they cointegrated during the test period).
@@ -1782,6 +1840,14 @@ class CompleteFixedRussell3000TradingSystem:
         logger.info(f"Main backtest {MAIN_BACKTEST_START} -> {last_test}")
         results = self.run_comprehensive_backtest(
             test_spreads, pair_windows=pair_windows, date_range=(MAIN_BACKTEST_START, last_test))
+        traded_universe = sorted({pk for ws in pair_windows.values() for pk in ws})
+        p_oos, y_oos = self._ranker_oos_scores(self.rl_agent, traded_universe, start=MAIN_BACKTEST_START)
+        results['ranker_oos'] = (classifier_skill(y_oos, p_oos, self.rl_agent.training_summary.get('base_rate'))
+                                 if p_oos is not None else None)
+        if results['ranker_oos']:
+            r = results['ranker_oos']
+            logger.info(f"Ranker out-of-sample ({r['n']} signals from {MAIN_BACKTEST_START}): "
+                        f"AUC {r['auc']}, Brier {r['brier']:.4f} vs base-rate {r['brier_base_rate']:.4f}")
 
         wf_summary = self.run_walk_forward_validation(
             train_window_days=252, test_window_days=63, pair_windows=pair_windows)
@@ -1805,7 +1871,11 @@ class CompleteFixedRussell3000TradingSystem:
             log_significance_report(sig)
             results['significance'] = sig
         except Exception as e:
-            logger.warning(f"Significance analysis failed (non-fatal): {e}")
+            # Exports still run (they are needed to debug), but the run is marked failed:
+            # main() exits non-zero, so a run without its significance tables cannot be
+            # mistaken for a complete one and published.
+            logger.error(f"Significance analysis failed: {e}", exc_info=True)
+            results.setdefault('pipeline_errors', []).append(f"significance: {e}")
         finally:
             wf_summary.pop('oos_daily_returns', None)
             wf_summary.pop('all_window_daily_returns', None)
@@ -1831,21 +1901,31 @@ class CompleteFixedRussell3000TradingSystem:
                                           strategy_sharpe=results.get('sharpe_ratio', 0.0))
                 results['benchmarks'] = benchmarks
         except Exception as e:
-            logger.warning(f"Benchmark analysis failed (non-fatal): {e}")
+            logger.error(f"Benchmark analysis failed: {e}", exc_info=True)
+            results.setdefault('pipeline_errors', []).append(f"benchmarks: {e}")
 
         results['factor_attribution'] = self._factor_attribution(results, oos_dates, oos_rets)
         results['regime_diagnosis'] = self.diagnose_regime_break('2023-04-04', '2023-07-05')
 
-        export_testing_results_to_json(results, {
-            'total_symbols_processed': len(self.processed_data),
-            'pairs_selected': len(self.selected_pairs),
-        })
-        plot_results(results['daily_returns'], results)
-
         logger.info("Starting fund-type comparison...")
         fund_comparison = self.run_fund_type_comparison(results, main_daily_dates=results.get('daily_dates', []))
         results['fund_comparison'] = fund_comparison
+        results['ranker_training'] = dict(getattr(self.rl_agent, 'training_summary', {}) or {})
+
+        # Exports: full results, fund table, and the small headline snapshot that README,
+        # the site and the social card are checked against (scripts/check_published_numbers.py).
+        system_info = {
+            'total_symbols_processed': len(self.processed_data),
+            'pairs_selected': len(self.selected_pairs),
+            'initial_capital': self.initial_capital,
+        }
+        export_testing_results_to_json(results, system_info)
+        if fund_comparison:
+            export_fund_comparison_to_json(fund_comparison)
+        export_headline_metrics(results, system_info)
+        plot_results(results['daily_returns'], results, initial_capital=self.initial_capital,
+                     dates=results.get('daily_dates'))
+        plot_ranker_training(results['ranker_training'])
         if fund_comparison:
             plot_fund_comparison(fund_comparison)
-            export_fund_comparison_to_json(fund_comparison)
         return results

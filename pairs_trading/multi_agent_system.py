@@ -21,6 +21,31 @@ from sklearn.preprocessing import RobustScaler
 logger = logging.getLogger(__name__)
 
 
+def roc_auc(y: np.ndarray, score: np.ndarray):
+    """Mann-Whitney ROC AUC with tie handling; None if only one class is present."""
+    y = np.asarray(y, dtype=float) > 0.5
+    n_pos, n_neg = int(y.sum()), int((~y).sum())
+    if n_pos == 0 or n_neg == 0:
+        return None
+    ranks = stats.rankdata(np.asarray(score, dtype=float))
+    return float((ranks[y].sum() - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg))
+
+
+def classifier_skill(y: np.ndarray, p: np.ndarray, prior: float = None) -> Dict:
+    """AUC, Brier score vs the constant-prior Brier score, and calibration in the large."""
+    y = np.asarray(y, dtype=float)
+    p = np.asarray(p, dtype=float)
+    prior = float(y.mean()) if prior is None else float(prior)
+    return {
+        'n': int(len(y)),
+        'hit_rate': float(y.mean()) if len(y) else None,
+        'mean_predicted': float(p.mean()) if len(p) else None,
+        'brier': float(np.mean((p - y) ** 2)) if len(y) else None,
+        'brier_base_rate': float(np.mean((prior - y) ** 2)) if len(y) else None,
+        'auc': roc_auc(y, p),
+    }
+
+
 class FixedTransformerMultiAgentSystem:
     """Feature extractor + transformer signal-quality ranker (class name kept for API compatibility)."""
 
@@ -247,7 +272,8 @@ class FixedTransformerMultiAgentSystem:
         """BCE-train the transformer to predict P(profitable) at entry.
 
         Class-balanced via pos_weight = n_neg / n_pos, so an imbalanced label set still
-        trains a real model instead of collapsing to the prior.
+        trains a real model instead of collapsing to the prior; the induced shift in the
+        log-odds is removed at inference (logit_offset), so scores stay probabilities.
         """
         from pairs_trading.transformer_agent import TransformerEnhancedTradingAgent
         agent = TransformerEnhancedTradingAgent(state_dim=X.shape[1])
@@ -266,23 +292,54 @@ class FixedTransformerMultiAgentSystem:
             epoch_losses.append(float(np.mean(losses)))
             logger.info(f"Ranker epoch {ep + 1}/{epochs}: BCE loss {epoch_losses[-1]:.4f} "
                         f"({n} samples, base rate {y.mean():.1%}, pos_weight {pos_weight:.2f})")
+        # Prior correction for the class weighting (King & Zeng 2001): with positives
+        # weighted by w the loss is minimised at log-odds + log(w), so subtracting log(w)
+        # restores an estimate of P(profitable) at the training base rate.
+        agent.logit_offset = -float(np.log(pos_weight)) if pos_weight > 0 else 0.0
         self.training_summary.update({'epochs': epochs, 'epoch_losses': epoch_losses,
-                                      'pos_weight': pos_weight})
+                                      'pos_weight': pos_weight,
+                                      'logit_offset': agent.logit_offset})
         self.signal_transformer = agent
 
     def score_signal_quality(self, state: np.ndarray) -> float:
         """Transformer P(profitable) for a scaled feature vector — RANKING only.
 
         Returns 1.0 when no transformer is trained (classical-only / ablation path), so
-        ranking degrades to signal_strength x pair_quality.
+        ranking degrades to signal_strength x pair_quality. If a trained model fails on a
+        vector, the training base rate is returned: a neutral prior, not the top score
+        (through v31 a failure returned 1.0 and outranked every correctly scored signal).
         """
         if self.signal_transformer is None:
             return 1.0
         try:
             return float(self.signal_transformer.predict_signal_quality(state))
         except Exception as e:
-            logger.debug(f"Ranker scoring failed ({e}); using neutral 1.0")
-            return 1.0
+            prior = float(self.training_summary.get('base_rate', 0.5))
+            logger.debug(f"Ranker scoring failed ({e}); using the base rate {prior:.3f}")
+            return prior
+
+    def evaluate(self, X_raw: np.ndarray, y: np.ndarray) -> Dict:
+        """Out-of-sample skill of the trained scorer on (raw features, labels).
+
+        Reports ROC AUC (0.5 = no ranking skill), the Brier score next to the Brier score
+        of always predicting the training base rate, and the mean predicted probability
+        against the realised hit rate (calibration in the large). Nothing here feeds back
+        into trading; it measures whether the ranker carries information at all.
+        """
+        p = self.predict_raw(X_raw)
+        if p is None:
+            return {'n': 0 if X_raw is None else int(len(X_raw)),
+                    'trained': self.signal_transformer is not None}
+        return {'trained': True, **classifier_skill(y, p, self.training_summary.get('base_rate'))}
+
+    def predict_raw(self, X_raw: np.ndarray):
+        """P(profitable) for a batch of RAW feature vectors, or None if untrained/empty."""
+        if self.signal_transformer is None or X_raw is None or len(X_raw) == 0:
+            return None
+        X = np.asarray(X_raw, dtype=np.float32)
+        if self.scaler_fitted:
+            X = self.scaler.transform(X).astype(np.float32)
+        return self.signal_transformer.predict_proba(X)
 
     def get_pair_stats(self, pair_key):
         """Get pair statistics — uses real stored stats when available (v27 fix).

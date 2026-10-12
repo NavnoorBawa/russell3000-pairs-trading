@@ -382,7 +382,10 @@ def test_headline_schema_and_rounding(tmp_path, fixed_config):
     assert h['main'] == {'period_start': '2023-07-03', 'period_end': '2023-07-10',
                          'total_return_pct': round((res['equity_curve'][-1] / 1e8 - 1) * 100, 2),
                          'sharpe': -0.31, 'trades': 3, 'win_rate_pct': 28.6, 'max_drawdown_pct': -0.81,
-                         'exit_reasons': {'stop': 1, 'target': 2}}
+                         'exit_reasons': {'stop': 1, 'target': 2},
+                         'avg_gross_exposure_pct': None, 'annual_turnover_x': None}
+    assert h['ranker'] == {'trained': False, 'train_samples': None, 'oos_signals': None, 'oos_auc': None,
+                           'wf_pooled_auc': None, 'wf_windows_trained': None}
     o = h['oos']
     assert {'period_start', 'period_end', 'windows', 'windows_positive', 'windows_no_trades',
             'avg_window_return_pct', 'median_window_return_pct', 'pooled_sharpe', 'total_return_pct',

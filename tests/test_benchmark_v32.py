@@ -69,7 +69,7 @@ def _factor_universe(n_sym=30, n_days=252 + 300, seed=1, tz='America/New_York'):
         df = pd.DataFrame({'Open': close * np.exp(rng.normal(0, 0.003, n_days)), 'Close': close,
                            'Volume': rng.lognormal(np.log(4e6), 0.3, n_days)}, index=idx)
         df['Volume_MA'] = df['Volume'].rolling(20, min_periods=14).mean()
-        df['Volatility_20'] = df['Close'].pct_change().rolling(20, min_periods=14).std() * np.sqrt(252)
+        df['Volatility_20'] = df['Close'].pct_change(fill_method=None).rolling(20, min_periods=14).std() * np.sqrt(252)
         data[f"F{i:02d}"] = df
     return data, idx
 

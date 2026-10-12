@@ -16,10 +16,14 @@ RNG = np.random.default_rng(0)
 
 # ── annualized_sharpe ───────────────────────────────────────────────────────
 def test_annualized_sharpe_sign_and_zero_variance():
-    pos = np.full(300, 0.001)
-    assert annualized_sharpe(pos) > 0           # mean > 0 ... but zero variance
-    # constant series has zero std -> guarded to 0.0
+    noisy = 0.001 + RNG.normal(0, 0.01, 300)
+    assert annualized_sharpe(noisy) > 0
+    assert annualized_sharpe(-noisy) < 0
+    # A constant series has an undefined Sharpe, reported as 0.0. np.full(n, 0.001) has a
+    # rounding-level std (~1e-19) that used to produce a Sharpe of ~7e16.
     assert annualized_sharpe(np.zeros(300)) == 0.0
+    assert annualized_sharpe(np.full(300, 0.001)) == 0.0
+    assert annualized_sharpe(np.r_[noisy, np.nan]) == pytest.approx(annualized_sharpe(noisy))
 
 def test_annualized_sharpe_matches_formula():
     r = RNG.normal(0.0005, 0.01, 5000)
