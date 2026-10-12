@@ -412,10 +412,15 @@ def test_write_fills_placeholders_and_reports_nulls(tmp_path, capsys):
     js.write_text(json.dumps(data), encoding='utf-8')
     doc = tmp_path / 'README.md'
     doc.write_text(f"{m('oos.avg_window_return_pct', '—')} {m('main.trades', 'tbd')} "
-                   f"{m('main.sharpe', '—')}", encoding='utf-8')
-    rc = chk.main(['--json', str(js), '--files', str(doc), '--write', '--allow-missing-markers'])
+                   f"{m('main.sharpe', '—')} <!--m:significance.oos_windows.p|3-->—<!--/m-->",
+                   encoding='utf-8')
+    page = tmp_path / 'index.html'
+    page.write_text('<p><span data-metric="oos.pooled_sharpe" data-dp="1">—</span></p>', encoding='utf-8')
+    rc = chk.main(['--json', str(js), '--files', str(doc), str(page), '--write', '--allow-missing-markers'])
     out = capsys.readouterr().out
     text = doc.read_text(encoding='utf-8')
+    assert '<!--m:significance.oos_windows.p|3-->0.085<!--/m-->' in text      # precision hint
+    assert '<span data-metric="oos.pooled_sharpe" data-dp="1">−1.2</span>' in page.read_text(encoding='utf-8')
     assert m('oos.avg_window_return_pct', MINUS + '0.28%') in text
     assert m('main.trades', '14') in text
     assert m('main.sharpe', '—') in text and 'main.sharpe' in out   # null: left as is, reported
@@ -435,3 +440,18 @@ def test_parameter_sensitivity_runs_the_grid_and_reports_pbo(tmp_path, capsys):
     assert len({c['trades'] for c in rep['configurations']}) > 1, "the grid must change the rule"
     from pairs_trading.trading_system import CompleteFixedRussell3000TradingSystem as S
     assert (S.ENTRY_Z, S.EXIT_Z, S.STOP_Z) == (1.8, 0.5, 1.5), "class defaults must be untouched"
+
+
+def test_og_pending_card_needs_no_run(tmp_path):
+    out = tmp_path / 'card.png'
+    assert og.main(['--pending', '--json', str(tmp_path / 'missing.json'), '--out', str(out)]) == 0
+    assert out.read_bytes()[:8] == b'\x89PNG\r\n\x1a\n'
+
+
+def test_og_refuses_an_incomplete_run(tmp_path):
+    data = _headline()
+    data.update({'complete': False, 'pipeline_errors': ['benchmarks: boom']})
+    js = tmp_path / 'h.json'
+    js.write_text(json.dumps(data), encoding='utf-8')
+    assert og.main(['--json', str(js), '--out', str(tmp_path / 'card.png')]) == 1
+    assert not (tmp_path / 'card.png').exists()

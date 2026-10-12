@@ -1,4 +1,6 @@
 # Transaction Costs & Total Exposure Relative to Portfolio Equity — Ultra-Deep Research
+
+> **Background research (not a description of the code).** The cost model actually implemented in v32 — per-share commission, half-spread by dollar-ADV bucket, volatility-scaled square-root impact, general-collateral borrow, prime-broker financing — is described in the README; see [README.md](../README.md) and the v32 entry of [PROGRESS.md](PROGRESS.md) for the current system and its status.
 *An exhaustive, source-backed reference covering each category of transaction cost and fund-level leverage exposure, with named hedge funds, HFTs, buy-side & sell-side firms, concrete numbers, and verified source links.*
 ---
 ## Part 1 — Types of Transaction Costs

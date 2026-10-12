@@ -1,4 +1,6 @@
 # Deep Research: How Professional Firms Solve Regime Breaks, Adaptive Cointegration & Walk-Forward Calibration in Statistical Arbitrage
+
+> **Historical research note (superseded).** Its starting premise — a Q2 2023 regime break — was diagnosed on walk-forward windows that v31 found to carry pair-selection look-ahead, so the premise is unproven; the literature survey may still be useful. See [README.md](../README.md) and the v32 entry of [PROGRESS.md](PROGRESS.md) for the current system and its status.
 **Final Deep Research Iteration — 35+ Web Searches, 50+ Primary Sources**
 ---
 ## Table of Contents

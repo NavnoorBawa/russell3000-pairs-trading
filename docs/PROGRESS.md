@@ -1,5 +1,8 @@
 # Pairs Trading System — Progress Reference Document
-Last updated: 2026-09-05 (v31.1 — finalization after the v31 pre-launch audit)
+Last updated: 2026-10-12 (v32 — full audit and engine rebuild; v31.1 figures withdrawn pending a re-run)
+
+> Entries are chronological and are kept as written at the time, including claims later
+> found wrong; the newest entry (v32, at the end) supersedes earlier ones where they disagree.
 
 ---
 
@@ -9,8 +12,10 @@ A modular, research-grade statistical arbitrage system for Russell 3000 stocks.
 - **Entry point**: `python -m pairs_trading.main`
 - **Initial capital**: $100M
 - **Data**: 2020–2025, daily prices, yfinance
-- **Technology**: Transformer encoder + RL agent for signal generation
-- **Architecture**: 16 Python modules in `pairs_trading/` + a `tests/` pytest suite
+- **Technology**: cointegration selection, two-state Kalman spread, rule-based entries and
+  exits; a learned classifier only ranks same-day candidates (there is no RL agent — the
+  early "RL" description below was wrong, see v32)
+- **Architecture**: 18 Python modules in `pairs_trading/` + a `tests/` pytest suite
 
 ---
 
@@ -2891,3 +2896,154 @@ documented reason above. Determinism verified rather than assumed.
 - Does not change: the v31 result (main −0.31%/−0.31; OOS −0.28%/qtr, pooled −1.23,
   1/10; Gatev beats the pipeline; 0 pairs survive BH; transformer exactly 0). Every headline
   figure reproduced exactly on a fresh run of the corrected code.
+
+---
+
+## v32 — Full audit and engine rebuild (2026-10-12)
+
+**Outcome.** The v31.1 results are withdrawn. A full audit found defects in the trading
+engine itself, some of them look-ahead; v32 rebuilds the engine and most of the system
+around it. v32 has not been re-run on the study data (no universe file in the audit
+environment; Yahoo rate-limited a fresh fetch), so it ships with synthetic known-answer
+validation and an end-to-end hermetic pipeline test instead of new headline numbers.
+README and the site carry marked placeholders that `scripts/check_published_numbers.py
+--write` fills from the first v32 run.
+
+### How the audit ran
+
+Seven review areas (engine; pair selection and ML; statistics, data and costs; outputs and
+docs; website and engineering; a fresh-eyes research review; a seeded-bug check), each
+finding re-checked by independent adversarial verifiers before it was acted on: about 270
+findings confirmed, 9 refuted (some verification agents in the website/engineering area
+did not complete; those findings were re-checked by hand before being fixed). Every fix
+that changes behaviour has a test.
+
+### Engine (`trading_system.py`, rewritten)
+
+- **Look-ahead in sizing and cool-off.** v31 called `position_sizer.record_trade(pair,
+  net_pnl_pct)` and updated the pair loss streak when a trade was OPENED, with that trade's
+  final outcome — the sizer's win-rate and the cool-off knew the future. Outcomes now
+  arrive at the exit fill. `test_sizer_probe_*` perturbs every price after a cut-off and
+  fails a re-introduced version of this bug at all three cut-offs tried.
+- **Kalman model.** v31: one state, no intercept, `log p1 = β log p2`. β absorbed the price
+  level (in synthetic tests a true slope of 0.90 read as ~1.27), and because a vendor's
+  back-adjustment for a later split or dividend shifts every log price by a constant, the
+  whole signal history depended on the date the data were fetched. v32: two states (slope
+  and intercept) on log prices centred on their burn-in means, OLS seed with its
+  parameter covariance as P0, the first 29 rows left NaN. Measured β memory: half of a
+  step change in the true slope is absorbed after a median 184 bars, far longer than the
+  25-day maximum hold, so β is effectively fixed during a trade.
+- **One z-score.** Entry used an expanding-window z of the Kalman residual; exits used a
+  β-locked z. Now entry, target, stop and time stop all use the β-locked spread
+  `lp1 − β_t·lp2` against its mean/std over the last 30–60 bars (3 × half-life), frozen at
+  the signal.
+- **Hedge.** Legs are $1 : $β (v31: equal-dollar halves whatever β was). β outside
+  [0.25, 4] skips the signal rather than clamping it into a different position.
+- **Accounting.** Daily mark-to-market (v31 booked a trade's whole P&L on its exit day,
+  understating daily volatility and drawdown); costs booked on fill days; share counts
+  fixed from the signal-day close; positions unresolved at the end of data are closed
+  (`exit_reason='end_of_data'`) instead of disappearing; a risk halt flattens the book at
+  the next bar.
+- **Walk-forward.** One continuous out-of-sample simulation over the eligible test windows
+  with a ranker refit per window; per-window statistics are calendar slices. v31 ran
+  independent 63-day backtests on truncated spreads, so a position opened late in a
+  window with no bar left to exit on was silently discarded.
+- **Re-selection.** Date-aligned data, the same Bonferroni p-value everywhere (the
+  126-day stability thresholds were restated on that scale: p_recent ≤ 0.30, |p_recent −
+  p_2y| ≤ 0.20), pair statistics re-estimated at every re-selection, and an opt-in full
+  re-search (`PAIRS_RESELECT=full`).
+- **Sizing and gates.** The z multiplier is applied inside the sizer's [3%, 10%] clamp
+  (outside it, the strongest signals were vetoed by the 10% limit); the dead 0.40 quality
+  pre-filter became the effective 0.55; an ex-ante round-trip cost gate (≤ 1% of equity).
+- **CUSUM and Hurst entry gates off by default.** Measured on 2,000 simulated spreads per
+  window length (30/60/90 bars): CUSUM rejected 0.1%/4.5%/8.3% of random walks and
+  0.2%/2.9%/6.4% of OU(HL 15) spreads; Hurst > 0.55 rejected ~11% of random walks and
+  5–10% of OU(HL 15) spreads. Neither separates trending from reverting spreads at these
+  lengths. Kept as `USE_CUSUM_GATE` / `USE_HURST_GATE` for sensitivity runs.
+- **Diagnostics.** Rejection funnel, capital utilisation (average/max gross exposure,
+  turnover, return on gross exposure, ADV participation), market-beta attribution with
+  Newey-West errors, exit-reason counts.
+
+### Data (`data_processor.py`)
+
+Point-in-time (split-unadjusted) `Close_PIT`/`Volume_PIT` reconstructed from the split
+column and used for every level screen (v31 screened adjusted prices, so later splits
+decided earlier membership); raw OHLCV is never filled; the universe file is required
+(no silent substitute); fetches retry with backoff, record a manifest and must cover ≥ 90%
+of the universe; caches are written atomically and an unreadable cache is an error, never
+a silent re-fetch over the study data; yfinance's exclusive end date no longer drops the
+last trading day; failed macro fetches are not cached.
+
+### Pair selection (`pair_selector.py`)
+
+Half-life on the OLS cointegrating residual (v31: on the β = 1 spread); PCA residuals
+exclude each symbol's mean return; positive correlation required; liquidity screened on
+point-in-time dollar volume (≥ $10M/day, the 300 most liquid kept; v31 used a 2.5M-share
+floor); no fallback that skipped every screen when fewer than 30 symbols passed; symbols
+sorted so leg orientation is deterministic; unsourced PCA claims and a wrong "≥ 85%
+expected reversion" comment removed.
+
+### Costs (`transaction_costs.py`, `fund_profiles.py`)
+
+Per-share commission ($0.002, $0.50 minimum; v31's effective rate was ~0.09 bp),
+half-spread by dollar-ADV bucket, square-root impact on each stock's own volatility and
+dollar ADV on entry and exit, general-collateral borrow on the short leg, prime-broker
+financing on the short half. Fund profiles: the institutional (NBIM-based) costs were 10×
+too small and in the wrong units; retail commission 7 → 0.7 bp; profile impact now scales
+with volatility and is charged on both sides; borrow is charged on the actual short leg.
+
+### Ranker (`multi_agent_system.py`, `transformer_agent.py`)
+
+Training samples are pair-days on which the real entry rule fires, labelled by whether the
+trade the engine would open makes money, keeping only outcomes complete inside the
+training window; features use the same stock and macro data as inference (v31 trained on
+empty frames: 14 inputs were constants). 30 features (the 8 zero pads are gone). The
+class-weighted loss is prior-corrected at inference (`logit_offset = −log pos_weight`), a
+failing score returns the base rate, inference is batched, and out-of-sample AUC / Brier
+are reported for the main model and pooled across walk-forward windows. The
+1,000-episode "multi-agent RL" loop, which updated no parameters, and its plots are gone.
+
+### Statistics and benchmarks (`significance.py`, `benchmark.py`)
+
+Politis-White block length, Lo (2002) autocorrelation-adjusted Sharpe, PSR with null
+variance, DSR with n_trials = 32 (and correct for a single trial), Ledoit-Wolf Sharpe-
+difference test, PBO by CSCV, one Sharpe definition with a zero-variance guard. Gatev
+baseline: t+1 fills, the strategy's cost model, re-normalised prices and crossing exits,
+coverage screen; random control: 200 draws per block, reported as a distribution with the
+strategy's percentile.
+
+### Outputs and engineering
+
+`headline_metrics.json` (schema 1) with provenance; `check_published_numbers.py` reads
+markers (`<!--m:KEY-->`, `data-metric`) and `--write` fills them; a failed analysis stage
+marks the run incomplete and the CLI exits 1; utilisation, ranker and regime sections in
+the export; lazy heavy imports; twelve obsolete or unsafe scripts deleted; `pairs-trading`
+console script; tests hermetic to `PAIRS_*` variables; `FutureWarning` is a test error;
+CI coverage floor 25% → 85%, `pip-audit` on the installed environment, synthetic
+validation in CI.
+
+### Validation (synthetic markets, `scripts/synthetic_validation.py`, 5 markets each)
+
+| Check | Result |
+|---|---|
+| Planted cointegrated pairs | 2,241 trades, +80.7 bp gross/trade (t = 23.7), median net Sharpe 3.3 |
+| Forced independent driftless random walks | 2,485 trades, +4.6 bp (t = 1.15); 16 further markets: 8,325 trades, +0.25 bp (t = 0.12) |
+| Hedge ratio | median |β̂ − β| 0.031 (90th percentile 0.073) |
+| Pair selection | 100% of planted pairs found; 2.5 of 270 unrelated pairs admitted per market |
+
+With the market drift of the edge scenario (+0.03%/day), random-walk pairs earned
++2.1 bp/trade (t = 0.96) from unbalanced drift exposure; that is why the null scenario is
+driftless.
+
+### Tests
+
+300+ hermetic tests (v31.1: 109), 89% line coverage (v31.1: 29%), including a full
+`run_complete_system` run on a synthetic market in a temporary directory.
+
+### To finish v32
+
+1. `python -m pairs_trading.main` on the study data (`data/marketcap.csv` + cache).
+2. `python scripts/check_published_numbers.py --write`, then `python scripts/make_og_image.py`.
+3. Write the conclusion from the numbers — v31.1's "no edge" is not assumed.
+4. Optional: `scripts/parameter_sensitivity.py` (PBO of the chosen thresholds) and the
+   `PAIRS_USE_TRANSFORMER=0` / `PAIRS_FILL=open` sensitivity runs.

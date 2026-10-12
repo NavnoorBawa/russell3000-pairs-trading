@@ -1,5 +1,7 @@
 # v11 Implementation Plan
 
+> **Historical plan (superseded).** The v11 implementation plan (March 2026); the code it describes has since been rewritten; see [README.md](../README.md) and the v32 entry of [PROGRESS.md](PROGRESS.md) for the current system and its status.
+
 ## Based on v10 Results Analysis
 
 ### Files to Modify

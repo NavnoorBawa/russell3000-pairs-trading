@@ -23,7 +23,7 @@ The realistic attack surface is small and mostly reduces to **what data you feed
 | --- | --- | --- |
 | `data/*.pkl` price cache | `pickle.load()` executes arbitrary code during deserialization (CWE-502) | **Real.** See below. |
 | `yfinance` / `requests` network fetch | Hostile or MITM'd upstream response | HTTPS; response is parsed as a DataFrame, never executed |
-| `scripts/` diagnostics | Local developer tooling, not imported by the package | Not part of the installable package |
+| `scripts/` tools | Publication check, social card, synthetic validation, parameter sensitivity; read local JSON/HTML only | Not part of the installable package; no network access |
 | Published site (`index.html`) | Static page, no JS input handling, no cookies, no analytics | No dynamic content |
 
 ### The pickle cache is a trust boundary
@@ -40,15 +40,21 @@ trustworthy as your machine. The danger is different:
 
 `data/` is `.gitignore`d and no `.pkl` is distributed with this repository, precisely so that no
 one is ever encouraged to download one. If you obtain a cache file from anyone, treat it as
-executable code. To rebuild it safely, delete `data/` and let the system re-fetch from source.
+executable code. To rebuild it safely, delete the `.pkl` files in `data/` — **not**
+`data/marketcap.csv`, the study universe, which is required and not redistributed — and let
+the system re-fetch from source. A re-fetch is safe but will not reproduce an earlier run
+bit-for-bit: vendors revise history, and adjusted prices depend on the fetch date. An
+unreadable cache is reported as an error; it is never silently re-fetched over.
 
 ### Dependency advisories
 
 `requirements.txt` pins the exact dependency set that produced the published results, so
 reproducibility and advisory-freshness are in genuine tension here. The pins are chosen so that
-both hold: **`pip-audit -r requirements.txt` currently reports no known vulnerabilities**, and CI
-enforces that on every push (see `.github/workflows/ci.yml`). There is no ignore-list — a newly
-disclosed advisory in any pinned package turns CI red rather than being silently waived.
+both hold: the pinned set has no known advisories, and CI enforces that on every push by running
+`pip-audit` on the environment it actually installed — the pins, their transitive dependencies and
+the CPU torch wheel (see `.github/workflows/ci.yml`). There is no ignore-list — a newly disclosed
+advisory turns CI red rather than being silently waived. Note that `requirements.txt` pins the
+direct dependencies only; transitive versions are resolved at install time.
 
 For the record, the pins moved to get there:
 
@@ -59,13 +65,13 @@ For the record, the pins moved to get there:
 Independently of the version pin, most `torch` advisories are also **unreachable from this
 codebase**: it uses only `nn.Linear`, `nn.LayerNorm`, `nn.MultiheadAttention`, `nn.GELU`,
 `nn.Dropout`, `AdamW` and `clip_grad_norm_`, and **never calls `torch.load()`,
-`load_state_dict()`, or any distributed / RPC API**. Published results were re-generated on the
-upgraded set, so the pins and the numbers agree.
+`load_state_dict()`, or any distributed / RPC API**. (v31.1 results were generated on this set;
+they are withdrawn in v32 pending a re-run, which will use the same pins.)
 
 ## What is out of scope
 
-- The strategy losing money. The repository's own conclusion is that the out-of-sample edge is
-  **not statistically significant**; that is a documented research finding, not a vulnerability.
+- The strategy losing money, or having no statistically significant edge. That is a research
+  outcome, not a vulnerability.
 - Advisories in `torch` that require `torch.load()` or distributed APIs, unless you can show a
   reachable path in this code.
-- Anything in `archive/` or `scripts/` — local diagnostics, not shipped as part of the package.
+- Anything in `archive/` — historical material, not shipped as part of the package.

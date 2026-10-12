@@ -1,5 +1,7 @@
 # Deep Analysis: Why v9 Failed (0.41% return, 327 trades)
 
+> **Historical document (superseded).** Diagnosis notes for v9 (February 2026). The system it analyses, including its "RL agent", no longer exists, and its figures are withdrawn; see [README.md](../README.md) and the v32 entry of [PROGRESS.md](PROGRESS.md) for the current system and its status.
+
 ## Root Cause Analysis (Completed: 2026-02-21 01:16)
 
 ### Issue 1: RL Agent Signal Generation Too Strict

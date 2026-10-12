@@ -83,3 +83,30 @@ def test_exports_are_strict_json(pipeline_run):
     for path in exported:
         with open(path) as fh:
             json.loads(fh.read(), parse_constant=_reject)
+
+
+def test_published_markers_resolve_against_a_real_run(pipeline_run):
+    """Every number marked in the real README.md / index.html names a key that a real run
+    writes to headline_metrics.json, every required headline is marked, and --write can
+    fill them (values that are null in this synthetic run — e.g. ranker AUC with the ranker
+    disabled — are the only acceptable gaps)."""
+    import importlib.util
+    import pathlib
+    repo = pathlib.Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location('_chk_e2e', repo / 'scripts' / 'check_published_numbers.py')
+    chk = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(chk)
+    root, _, _ = pipeline_run
+    data = json.loads((root / 'outputs' / 'headline_metrics.json').read_text(encoding='utf-8'))
+    for name in ('README.md', 'index.html'):
+        text = (repo / name).read_text(encoding='utf-8')
+        is_md = name.endswith('.md')
+        markers, errors = chk.extract_markers(text, is_markdown=is_md)
+        assert not errors, errors
+        keys = {k for k, _, _ in markers}
+        assert set(chk.REQUIRED_KEYS) <= keys, f"{name} lacks markers for {set(chk.REQUIRED_KEYS) - keys}"
+        filled, n, problems = chk.write_text(data, text, is_markdown=is_md)
+        assert n > 0
+        assert not [p for p in problems if 'unknown key' in p or 'nested markup' in p], problems
+        _, failures, _, _ = chk.check_text(data, filled, name, is_markdown=is_md)
+        assert all('null' in f for f in failures), failures

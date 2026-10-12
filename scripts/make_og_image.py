@@ -10,6 +10,7 @@ the Gatev baseline (worded by its Sharpe-difference test when the run has one) a
 data years.
 
 Usage:  python3.12 scripts/make_og_image.py [--json PATH] [--out PATH]
+        python3.12 scripts/make_og_image.py --pending   # status card, no figures (no run yet)
 Writes: og-image.png at the repository root by default (index.html's og:image).
 Exit codes: 0 written; 1 the JSON lacks a value the card needs; 2 the JSON is missing
 or unreadable.
@@ -31,7 +32,7 @@ DEFAULT_OUT = ROOT / 'og-image.png'
 # ── Palette (matches index.html light theme) ──────────────────────────────────
 BG = '#ffffff'
 TEXT = '#1d1d1b'
-MUTED = '#97978f'
+MUTED = '#6b6b66'          # 5.3:1 on white
 FAINT = '#d8d8d4'
 POS = '#2e7d54'
 NEG = '#b03a3a'
@@ -79,6 +80,9 @@ def _years(data):
 
 def card_content(data):
     """Everything the card draws, derived from the headline metrics. Raises CardDataError."""
+    if data.get('complete') is False:
+        raise CardDataError('the run is marked incomplete (pipeline_errors: '
+                            f"{'; '.join(data.get('pipeline_errors') or [])})")
     returns = _need(data, 'oos.window_returns_pct')
     if not isinstance(returns, list) or not returns or any(v is None for v in returns):
         raise CardDataError('oos.window_returns_pct must be a non-empty list of numbers')
@@ -130,6 +134,15 @@ def card_content(data):
     }
 
 
+PENDING = {
+    'bars': [],
+    'eyebrow': 'RUSSELL 3000     ·     EQUITY STATISTICAL ARBITRAGE     ·     v32',
+    'subtitle': 'Engine rebuilt after a full audit; earlier results withdrawn.\n'
+                'Validated on synthetic markets with known answers. Study re-run pending.',
+    'caption': 'KNOWN-ANSWER CHECKS:  PLANTED EDGE FOUND   ·   NO EDGE IN RANDOM WALKS   ·   HEDGE RATIO RECOVERED',
+}
+
+
 def render_card(content, out_path):
     """Draw the card described by `content` (see card_content) to out_path."""
     import matplotlib
@@ -148,6 +161,12 @@ def render_card(content, out_path):
         fig.text(0.06, 0.555, content['subtitle'], fontsize=16, color=TEXT, va='top', ha='left',
                  linespacing=1.45)
 
+        if not bars:                       # status card: no figures to draw
+            fig.add_artist(plt.Line2D([0.06, 0.94], [0.2, 0.2], color=FAINT, linewidth=1.2))
+            fig.text(0.06, 0.13, content['caption'], fontsize=11, color=MUTED, va='center', ha='left',
+                     family='monospace')
+            fig.savefig(out_path, facecolor=BG, dpi=100)
+            return
         ax = fig.add_axes([0.06, 0.09, 0.88, 0.27])
         ax.set_facecolor(BG)
         for side in ('top', 'right', 'left', 'bottom'):
@@ -190,9 +209,15 @@ def main(argv=None):
     ap.add_argument('--json', default=None, help='headline metrics JSON '
                     '(default: outputs/headline_metrics.json in the repository)')
     ap.add_argument('--out', default=None, help='output PNG (default: og-image.png at the repository root)')
+    ap.add_argument('--pending', action='store_true',
+                    help='draw the status card (no figures) used until the study has been run')
     args = ap.parse_args(argv)
     json_path = pathlib.Path(args.json) if args.json else DEFAULT_JSON
     out_path = pathlib.Path(args.out) if args.out else DEFAULT_OUT
+    if args.pending:
+        render_card(PENDING, out_path)
+        print(f'wrote {out_path} (status card, no figures)')
+        return 0
 
     if not json_path.exists():
         print(f'ERROR: {json_path} not found. The card is drawn from the headline metrics of a '

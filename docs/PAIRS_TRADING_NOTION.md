@@ -1,4 +1,6 @@
 # Transformer Encoder — Pairs Trading System
+
+> **Historical document (superseded).** A February 2026 write-up of an early version. Its architecture description (a transformer that generates signals, an RL agent) and its figures are wrong for every later version: the learned model only ranks candidates the rule has accepted, and there is no RL. All results from v31.1 and earlier are withdrawn; see [README.md](../README.md) and the v32 entry of [PROGRESS.md](PROGRESS.md) for the current system and its status.
 *Feb 2026 · v1.0 (In Progress)*
 
 ---

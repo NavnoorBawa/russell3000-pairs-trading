@@ -24,7 +24,9 @@ code spans / fenced code blocks are ignored, so the docs can show the syntax its
 
 --write refreshes every marked value from the JSON first (each marker keeps its
 precision, minus style, '+' and '%'), so updating the published numbers after a run is
-one command; the check then runs on the rewritten files.
+one command; the check then runs on the rewritten files. A marker that still holds a
+placeholder ('—') can carry a precision hint for that first fill: <!--m:KEY|3-->—<!--/m-->
+or data-dp="3".
 
 Exit codes: 0 every compared value matches; 1 at least one failure (mismatch, unknown
 or non-numeric key, unparseable or unterminated marker, missing required marker); 2 the
@@ -65,7 +67,8 @@ REQUIRED_KEYS = (
     'significance.oos_windows.p',
 )
 
-_COMMENT_MARKER = re.compile(r'<!--\s*m:(?P<key>[\w.\-]+?)\s*-->(?P<body>.*?)<!--\s*/m\s*-->', re.S)
+_COMMENT_MARKER = re.compile(r'<!--\s*m:(?P<key>[\w.\-]+?)(?:\s*\|\s*(?P<dp>\d))?\s*-->(?P<body>.*?)<!--\s*/m\s*-->',
+                             re.S)
 _COMMENT_OPEN = re.compile(r'<!--\s*m:')
 _NUMBER = re.compile(r'(?P<sign>[+-]?)(?P<int>\d{1,3}(?:,\d{3})+|\d+)(?:\.(?P<frac>\d+))?(?P<pct>%?)')
 _FENCE = re.compile(r'^(?P<f>`{3,}|~{3,})[^\n]*\n.*?^(?P=f)[ \t]*$', re.M | re.S)
@@ -123,7 +126,7 @@ class _MetricParser(HTMLParser):
     def __init__(self, line_offsets=None):
         super().__init__(convert_charrefs=True)
         self.open, self.found, self.errors = [], [], []
-        self.spans = []                      # (key, raw content start, raw content end)
+        self.spans = []                      # (key, raw content start, raw content end, dp hint)
         self._line_offsets = line_offsets
 
     def _offset(self):
@@ -146,8 +149,9 @@ class _MetricParser(HTMLParser):
             start = self._offset()
             if start is not None:
                 start += len(self.get_starttag_text() or '')
+            dp = dict(attrs).get('data-dp')
             self.open.append({'key': key, 'tag': tag, 'depth': 1, 'text': [], 'line': line,
-                              'start': start})
+                              'start': start, 'dp': int(dp) if dp and dp.isdigit() else None})
 
     def handle_endtag(self, tag):
         still = []
@@ -157,7 +161,7 @@ class _MetricParser(HTMLParser):
                 if m['depth'] == 0:
                     self.found.append((m['key'], ''.join(m['text']), m['line']))
                     if m['start'] is not None:
-                        self.spans.append((m['key'], m['start'], self._offset()))
+                        self.spans.append((m['key'], m['start'], self._offset(), m['dp']))
                     continue
             still.append(m)
         self.open = still
@@ -201,18 +205,19 @@ def extract_markers(text, is_markdown=False):
 _RAW_NUMBER = re.compile(r'(?P<sign>&minus;|−|-|\+)?(?P<int>\d{1,3}(?:,\d{3})+|\d+)(?:\.(?P<frac>\d+))?')
 
 
-def format_like(value, template, key=''):
+def format_like(value, template, key='', dp=None):
     """`value` rendered in the style of the marker's current raw text.
 
     The first number in `template` fixes the precision, the minus style (Unicode '−',
     '&minus;' or ASCII '-'), an explicit '+' and thousands separators; everything around
     it (a '%' suffix, inline tags) is kept. A template without a number (a placeholder
-    such as '—') is replaced whole: integers without decimals, other values with two,
-    and a '%' for keys ending in _pct.
+    such as '—') is replaced whole: with `dp` decimals when the marker gives a hint
+    (<!--m:KEY|3--> or data-dp="3"), else none for integers and two otherwise, and a '%'
+    for keys ending in _pct.
     """
     m = _RAW_NUMBER.search(template)
     if m is None:
-        decimals = 0 if isinstance(value, int) else 2
+        decimals = dp if dp is not None else (0 if isinstance(value, int) else 2)
         body = f'{abs(value):.{decimals}f}'
         sign = '−' if value < 0 and float(body) != 0 else ''
         return sign + body + ('%' if key.endswith('_pct') else '')
@@ -231,14 +236,15 @@ def format_like(value, template, key=''):
 def write_text(data, text, is_markdown=False):
     """Return (new_text, n_written, problems) with every marker's value refreshed."""
     scan = mask_markdown_code(text) if is_markdown else text
-    spans = [(mm['key'], mm.start('body'), mm.end('body')) for mm in _COMMENT_MARKER.finditer(scan)]
+    spans = [(mm['key'], mm.start('body'), mm.end('body'), int(mm['dp']) if mm['dp'] else None)
+             for mm in _COMMENT_MARKER.finditer(scan)]
     offsets = [0] + [i + 1 for i, ch in enumerate(scan) if ch == '\n']   # HTMLParser counts '\n' only
     parser = _MetricParser(line_offsets=offsets)
     parser.feed(scan)
     parser.close()
     spans += parser.spans
     edits, problems = [], []
-    for key, start, end in spans:
+    for key, start, end, dp in spans:
         line = text.count('\n', 0, start) + 1
         try:
             value = resolve_key(data, key)
@@ -252,7 +258,7 @@ def write_text(data, text, is_markdown=False):
         if _RAW_NUMBER.search(raw) is None and '<' in raw:
             problems.append(f'{line}: {key}: no number to replace inside nested markup')
             continue
-        edits.append((start, end, format_like(value, raw, key)))
+        edits.append((start, end, format_like(value, raw, key, dp)))
     for start, end, new in sorted(edits, reverse=True):
         text = text[:start] + new + text[end:]
     return text, len(edits), problems
