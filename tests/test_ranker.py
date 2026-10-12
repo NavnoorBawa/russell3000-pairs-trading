@@ -140,4 +140,6 @@ def test_serving_features_are_as_of_the_decision_date():
             macro_data=_cut_macro(system.macro_data, as_of.tz_localize(None).normalize()),
             symbol1=s1, symbol2=s2)
         np.testing.assert_array_equal(full, cut)
-        assert not np.allclose(full[12:18], [0.5, 0, 0, 0.5, 0, 0]), "per-stock block must be live"
+        # indices 10-15: [RSI/100, Momentum_5, High_Vol_Regime] for each leg; the neutral
+        # fallback (stock data unusable) is [0.5, 0, 0] per leg
+        assert not np.allclose(full[10:16], [0.5, 0, 0, 0.5, 0, 0]), "per-stock block must be live"

@@ -2,568 +2,649 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Russell 3000 Pairs Trading Research</title>
-<meta name="description" content="A modular cointegration-based statistical arbitrage system with Kalman-filtered spreads, regime-adaptive position sizing, and a controlled ML ablation.">
+<meta name="description" content="Cointegration pairs-trading research on the Russell 3000. v32 rebuilt the engine after a full audit; earlier results are withdrawn until the study is re-run.">
 <link rel="canonical" href="https://navnoorbawa.github.io/russell3000-pairs-trading/">
-<meta name="theme-color" content="#ffffff">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e0e0d" media="(prefers-color-scheme: dark)">
 <meta name="author" content="Navnoor Bawa">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Statistical Arbitrage Research">
+<meta property="og:locale" content="en_US">
 <meta property="og:title" content="Russell 3000 Pairs Trading Research">
-<meta property="og:description" content="Cointegration-based statistical arbitrage with walk-forward validation, significance testing, and baseline benchmarks. After a full leakage audit the out-of-sample result is negative (−0.28%/qtr, Sharpe −1.23) and loses to the textbook Gatev baseline — reported honestly, with the rigor to prove it.">
+<meta property="og:description" content="Cointegration pairs trading on the Russell 3000. v32 rebuilt the engine after a full audit; earlier results are withdrawn until the study is re-run.">
 <meta property="og:url" content="https://navnoorbawa.github.io/russell3000-pairs-trading/">
 <meta property="og:image" content="https://navnoorbawa.github.io/russell3000-pairs-trading/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Card: Pairs trading research, measured honestly. Russell 3000 equity statistical arbitrage, v32. Engine rebuilt after a full audit; earlier results withdrawn; study re-run pending.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Russell 3000 Pairs Trading Research">
-<meta name="twitter:description" content="Cointegration-based statistical arbitrage with walk-forward validation, significance testing, and baseline benchmarks. After a full leakage audit the out-of-sample result is negative and loses to the textbook baseline — reported honestly.">
+<meta name="twitter:description" content="Cointegration pairs trading on the Russell 3000. v32 rebuilt the engine after a full audit; earlier results are withdrawn until the study is re-run.">
 <meta name="twitter:image" content="https://navnoorbawa.github.io/russell3000-pairs-trading/og-image.png">
+<meta name="twitter:image:alt" content="Card: Pairs trading research, measured honestly. Russell 3000 equity statistical arbitrage, v32. Engine rebuilt after a full audit; earlier results withdrawn; study re-run pending.">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
   "name": "Russell 3000 Statistical Arbitrage — Pairs Trading Research System",
-  "description": "A modular cointegration-based statistical-arbitrage research system: Kalman-filtered spreads, walk-forward validation, institutional cost modeling, significance testing (Probabilistic & Deflated Sharpe, Newey-West t-stat, bootstrap CIs) and baseline benchmarks. After a full leakage audit the out-of-sample result is negative and loses to the textbook baseline — reported in full.",
+  "description": "A cointegration pairs-trading research system over the Russell 3000: formation-period pair selection with point-in-time screens, a two-state Kalman hedge ratio, next-day fills with a per-stock cost model, a continuous walk-forward simulation, statistical significance testing (Probabilistic and Deflated Sharpe, Newey-West, block bootstrap, probability of backtest overfitting) and Gatev-distance / random-pair baselines run on the same footing. Version 32 rebuilt the engine after a full audit and is validated on synthetic markets with known answers; results from earlier versions are withdrawn.",
   "codeRepository": "https://github.com/NavnoorBawa/russell3000-pairs-trading",
   "url": "https://navnoorbawa.github.io/russell3000-pairs-trading/",
   "programmingLanguage": "Python",
   "runtimePlatform": "Python 3.12",
-  "author": { "@type": "Person", "name": "Navnoor Bawa" },
+  "version": "32.0.0",
+  "dateModified": "2026-10-12",
+  "author": { "@type": "Person", "name": "Navnoor Bawa", "url": "https://github.com/NavnoorBawa" },
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "statistical arbitrage, pairs trading, cointegration, Kalman filter, walk-forward validation, Sharpe ratio significance, quantitative finance"
 }
 </script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23070707'/%3E%3Crect x='6' y='14' width='5' height='12' fill='%234caf7d'/%3E%3Crect x='14' y='8' width='5' height='18' fill='%234caf7d'/%3E%3Crect x='22' y='18' width='5' height='8' fill='%23c75050'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+/* Runs before first paint: apply a saved theme choice (otherwise the CSS follows the OS
+   preference), so a returning dark-mode visitor never sees a light flash. */
+(function(){
+  var d=document.documentElement,t=null;
+  d.className+=' js';
+  try{t=localStorage.getItem('theme')}catch(e){}
+  if(t==='light'||t==='dark'){
+    d.setAttribute('data-theme',t);
+    var m=document.querySelectorAll('meta[name="theme-color"]');
+    for(var i=0;i<m.length;i++){m[i].setAttribute('content',t==='dark'?'#0e0e0d':'#ffffff')}
+  }
+})();
+</script>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
+*,*::before,*::after{box-sizing:border-box}
+*{margin:0;padding:0}
 :root{
-  --bg:#ffffff;--bg-s:#f7f7f5;
-  --b:#e2e2df;--bs:#ececea;--bh:#b5b5b0;
-  --tp:#1d1d1b;--ts:#5c5c58;--tm:#97978f;--tf:#a3a39b;
-  --pos:#2e7d54;--posm:#3a7a55;--neg:#b03a3a;--wh:#0c0c0b;
-  --nav:rgba(255,255,255,.92)
+  --bg:#ffffff;--bg-s:#f5f5f2;--code:#ebebe6;--b:#d9d9d4;--bs:#e8e8e4;--bh:#767670;
+  --tp:#1b1b19;--ts:#44443f;--tm:#5a5a54;--neg:#a32f2c;--link:#1b1b19;
+  --wbg:#fdf5e1;--wbd:#a8660b;--wtx:#6a4300;--wcode:#f3e4c2;--code-tx:#1b1b19;--focus:#1f5fbf;
+  --nav:rgba(255,255,255,.96);
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","DejaVu Sans Mono",monospace;
+  color-scheme:light
 }
-html[data-theme="dark"]{
-  --bg:#070707;--bg-s:#0e0e0e;
-  --b:#1c1c1c;--bs:#151515;--bh:#3a3a3a;
-  --tp:#e6e6e6;--ts:#8a8a8a;--tm:#454545;--tf:#333;
-  --pos:#4caf7d;--posm:#3f7f5d;--neg:#c75050;--wh:#fff;
-  --nav:rgba(7,7,7,.92)
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e0e0d;--bg-s:#171716;--code:#242422;--b:#2e2e2b;--bs:#232321;--bh:#85857d;
+    --tp:#ededea;--ts:#c4c4be;--tm:#a6a69f;--neg:#f08f88;--link:#ededea;
+    --wbg:#251d0d;--wbd:#c8963a;--wtx:#f0c776;--wcode:#3a2e14;--code-tx:#ededea;--focus:#8fb8ff;
+    --nav:rgba(14,14,13,.96);
+    color-scheme:dark
+  }
 }
-html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--tp);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;transition:background .25s ease,color .25s ease}
-a{text-decoration:none;color:inherit}
+:root[data-theme="dark"]{
+  --bg:#0e0e0d;--bg-s:#171716;--code:#242422;--b:#2e2e2b;--bs:#232321;--bh:#85857d;
+  --tp:#ededea;--ts:#c4c4be;--tm:#a6a69f;--neg:#f08f88;--link:#ededea;
+  --wbg:#251d0d;--wbd:#c8963a;--wtx:#f0c776;--wcode:#3a2e14;--code-tx:#ededea;--focus:#8fb8ff;
+  --nav:rgba(14,14,13,.96);
+  color-scheme:dark
+}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+body{background:var(--bg);color:var(--tp);font-family:var(--sans);font-size:16px;line-height:1.65;overflow-wrap:break-word}
+a{color:var(--link);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 ::selection{background:var(--tp);color:var(--bg)}
-:focus-visible{outline:2px solid var(--bh);outline-offset:2px}
-.section{scroll-margin-top:64px}
-html.js .section{opacity:0;transform:translateY(10px);transition:opacity .55s ease,transform .55s ease}
-html.js .section.vis{opacity:1;transform:none}
-@media(prefers-reduced-motion:reduce){html.js .section{opacity:1;transform:none;transition:none}}
-.nav-links a.active{color:var(--tp)}
-.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
-.bar-z{fill:var(--tm)}
+strong{font-weight:650}
+code,pre{font-family:var(--mono);font-size:.875em}
+code{background:var(--code);color:var(--code-tx);padding:.08em .35em;border-radius:3px;overflow-wrap:anywhere}
+.vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.skip:focus{position:fixed;left:12px;top:12px;width:auto;height:auto;margin:0;clip:auto;overflow:visible;white-space:normal;z-index:100;background:var(--bg);color:var(--tp);padding:10px 16px;border:2px solid var(--focus)}
 .wrap{max-width:1080px;margin:0 auto;padding:0 48px}
 
-nav{border-bottom:1px solid var(--b);position:sticky;top:0;background:var(--nav);backdrop-filter:blur(8px);z-index:10}
-.nav-in{max-width:1080px;margin:0 auto;padding:18px 48px;display:flex;justify-content:space-between;align-items:center}
-.brand{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ts);font-family:'JetBrains Mono',monospace}
-.nav-right{display:flex;gap:36px;align-items:center}
-.nav-links{display:flex;gap:36px}
-.nav-links a{font-size:11px;color:var(--tm);letter-spacing:.08em;text-transform:uppercase;transition:color .2s}
-.nav-links a:hover{color:var(--tp)}
-.theme-btn{font-size:10px;color:var(--tm);border:1px solid var(--b);background:none;padding:7px 16px;letter-spacing:.12em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:color .2s,border-color .2s}
-.theme-btn:hover{color:var(--tp);border-color:var(--bh)}
+/* ── navigation ── */
+.site-nav{border-bottom:1px solid var(--b);background:var(--nav);position:sticky;top:0;z-index:10}
+.nav-in{max-width:1080px;margin:0 auto;padding:12px 48px;display:flex;align-items:center;gap:8px 20px}
+.brand{flex:none;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ts);text-decoration:none;padding:6px 0}
+.nav-links{list-style:none;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px 16px;flex:1 1 auto;min-width:0}
+.nav-links a{display:inline-block;padding:6px 0;font-size:14px;color:var(--ts);text-decoration:none}
+.nav-links a:hover{color:var(--tp);text-decoration:underline}
+.theme-btn{flex:none;display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:13px;color:var(--tp);background:var(--bg);border:1px solid var(--bh);padding:6px 12px;border-radius:3px;cursor:pointer}
+.theme-btn .ind{width:12px;height:12px;border:1.5px solid currentColor;border-radius:50%}
+.theme-btn[aria-pressed="true"] .ind{background:currentColor}
+.theme-btn:hover{border-color:var(--tp)}
+html:not(.js) .theme-btn{display:none}
 
-.hero{padding:104px 0 72px;border-bottom:1px solid var(--b)}
-.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--tf);margin-bottom:28px;font-family:'JetBrains Mono',monospace}
-h1{font-size:52px;font-weight:200;letter-spacing:-.02em;color:var(--wh);line-height:1.12;max-width:680px;margin-bottom:24px}
-.subtitle{font-size:15px;font-weight:300;color:var(--ts);max-width:580px;line-height:1.8;margin-bottom:56px}
-.metrics{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--b);max-width:820px}
-.metric{padding:28px 32px 4px 0}
-.mval{font-family:'JetBrains Mono',monospace;font-size:34px;font-weight:400;color:var(--wh);letter-spacing:-.03em;margin-bottom:8px}
-.mval.pos{color:var(--pos)}
-.mlbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--tf);line-height:1.5}
-.hero-note{font-size:13px;font-weight:300;color:var(--ts);max-width:560px;line-height:1.75;margin-top:40px;padding-left:16px;border-left:2px solid var(--bh)}
-.hero-cta{display:flex;align-items:center;gap:28px;margin-top:40px;flex-wrap:wrap}
-.gh-btn{display:inline-flex;align-items:center;gap:10px;font-size:11px;color:var(--ts);border:1px solid var(--b);padding:12px 24px;letter-spacing:.1em;transition:all .2s;text-transform:uppercase}
-.gh-btn:hover{color:var(--wh);border-color:var(--bh)}
-.gh-link{font-size:11px;color:var(--tm);letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid transparent;transition:color .2s,border-color .2s;padding-bottom:2px}
-.gh-link:hover{color:var(--tp);border-color:var(--bh)}
+/* ── hero and status ── */
+.hero{padding:64px 0 56px;border-bottom:1px solid var(--b)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--tm);margin-bottom:18px}
+h1{font-size:46px;line-height:1.1;font-weight:650;letter-spacing:-.02em;max-width:760px;margin-bottom:28px}
+.lede{font-size:19px;line-height:1.55;color:var(--tp);max-width:700px;margin-top:36px}
+.status{border:1px solid var(--wbd);border-left-width:6px;background:var(--wbg);padding:26px 30px 24px;max-width:900px}
+.status .tag{font-family:var(--mono);font-size:12px;font-weight:650;letter-spacing:.12em;text-transform:uppercase;color:var(--wtx);margin-bottom:8px}
+.status h2{font-size:24px;line-height:1.3;margin-bottom:14px}
+.status p{max-width:760px;margin-bottom:12px}
+.status code{background:var(--wcode)}
+.status a{color:var(--tp)}
+.status dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--wbd);margin-top:18px}
+.status dl>div{padding:12px 16px 0 0}
+.status dt{font-family:var(--mono);font-size:12px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--wtx)}
+.status dd{font-size:15px;line-height:1.5}
+.hero-note{color:var(--ts);max-width:700px;margin-top:14px}
+.cta{display:flex;flex-wrap:wrap;gap:12px 24px;margin-top:28px;align-items:center}
+.btn{display:inline-block;font-size:14px;color:var(--tp);border:1px solid var(--bh);padding:10px 18px;text-decoration:none;border-radius:3px}
+.btn:hover{border-color:var(--tp)}
 
-.section{padding:80px 0;border-bottom:1px solid var(--b)}
-.sec-label{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--tf);margin-bottom:36px;font-family:'JetBrains Mono',monospace}
-h2{font-size:24px;font-weight:300;color:var(--wh);margin-bottom:14px;letter-spacing:-.01em}
-.desc{font-size:14px;font-weight:300;color:var(--ts);max-width:620px;line-height:1.8;margin-bottom:44px}
+/* ── sections ── */
+.section{padding:72px 0;border-bottom:1px solid var(--b);scroll-margin-top:72px}
+.section:last-of-type{border-bottom:0}
+.sec-label{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--tm);margin-bottom:10px}
+h2{font-size:28px;line-height:1.25;font-weight:650;letter-spacing:-.01em;margin-bottom:14px}
+h3{font-size:19px;line-height:1.35;font-weight:650;margin:44px 0 10px}
+.desc{color:var(--ts);max-width:700px;margin-bottom:26px}
+.note{color:var(--ts);max-width:760px;margin-top:16px;font-size:15px}
+.note strong{color:var(--tp)}
+.history{border-left:3px solid var(--bh);padding-left:16px}
 
-.chart-box{border:1px solid var(--b);padding:36px 32px 24px;background:var(--bg-s)}
-.chart-title{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--tm);font-family:'JetBrains Mono',monospace;margin-bottom:24px;display:flex;justify-content:space-between}
-.chart-legend{display:flex;gap:20px}
-.lg{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--tm);text-transform:none;letter-spacing:.04em}
-.sw{width:10px;height:10px}
-.bar-p{fill:var(--pos)}
-.bar-n{fill:var(--neg)}
-.ax{stroke:var(--b)}
-.dv{stroke:var(--bh)}
-.ctx{fill:var(--tm);font-family:'JetBrains Mono',monospace;font-size:9px}
+/* ── tables ── */
+.tw{max-width:100%;overflow-x:auto}
+table{width:100%;border-collapse:collapse;border:1px solid var(--b);font-size:15px;line-height:1.5}
+caption{caption-side:top;text-align:left;font-size:14px;color:var(--ts);padding:0 0 10px}
+th,td{padding:12px 16px;text-align:left;vertical-align:top;border-bottom:1px solid var(--bs)}
+thead th{font-family:var(--mono);font-size:12px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--tm);background:var(--bg-s);border-bottom:1px solid var(--b)}
+tbody th{font-weight:400;color:var(--tp)}
+tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
+td{color:var(--ts)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--tp)}
+.old{color:var(--tm);font-family:var(--mono);white-space:nowrap}
+.flag{display:inline-block;font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--neg);border:1px solid currentColor;border-radius:3px;padding:0 6px;margin-left:4px;white-space:nowrap}
+.res th:first-child{width:56%}
+.res td{width:22%}
+.hist tbody th{white-space:nowrap}
 
+/* ── methodology rows ── */
 .pipeline{border:1px solid var(--b)}
-.p-row{display:grid;grid-template-columns:200px 1fr;border-bottom:1px solid var(--b);transition:background .2s}
-.p-row:hover{background:var(--bg-s)}
-.p-row:last-child{border-bottom:none}
-.p-key{padding:24px 28px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tm);border-right:1px solid var(--b);letter-spacing:.06em}
-.p-val{padding:24px 28px;font-size:13px;font-weight:300;color:var(--ts);line-height:1.7}
-.p-val strong{color:var(--tp);font-weight:400}
+.p-row{display:grid;grid-template-columns:210px minmax(0,1fr);border-bottom:1px solid var(--b)}
+.p-row:last-child{border-bottom:0}
+.p-key{margin:0;padding:20px 24px;font-family:var(--mono);font-size:13px;font-weight:650;letter-spacing:.04em;color:var(--tm);border-right:1px solid var(--b)}
+.p-val{padding:20px 24px;color:var(--ts);min-width:0}
+.p-val p+p{margin-top:10px}
+.p-val strong{color:var(--tp)}
 
-.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
-table{width:100%;border-collapse:collapse;border:1px solid var(--b)}
-th{padding:14px 22px;text-align:left;font-weight:400;color:var(--tf);letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--b);background:var(--bg-s);font-family:'JetBrains Mono',monospace;font-size:10px}
-td{padding:15px 22px;border-bottom:1px solid var(--bs);color:var(--ts);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:400}
-td:first-child{color:var(--tp);font-family:'Inter',sans-serif;font-size:13px;font-weight:300}
-tr:last-child td{border-bottom:none}
-tbody tr{transition:background .2s}
-tbody tr:hover{background:var(--bg-s)}
-.pos{color:var(--pos)}.neg{color:var(--neg)}.zero{color:var(--tf)}.spos{color:var(--posm)}
+/* ── lists, code, cards ── */
+.lims{list-style:none;max-width:800px;border-top:1px solid var(--b)}
+.lims li{padding:16px 0;border-bottom:1px solid var(--b);color:var(--ts)}
+.lims li strong{color:var(--tp)}
+.steps{max-width:800px;padding-left:1.4em;color:var(--ts)}
+.steps li{margin-bottom:8px;padding-left:4px}
+.plain{max-width:800px;padding-left:1.2em;color:var(--ts)}
+.plain li{margin-bottom:8px}
+.plain strong{color:var(--tp)}
+pre{background:var(--bg-s);color:var(--tp);border:1px solid var(--b);padding:16px 18px;overflow-x:auto;max-width:100%;line-height:1.6;font-size:13.5px;white-space:pre}
+pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
+.docs{list-style:none;border-top:1px solid var(--b);max-width:860px}
+.doc{padding:22px 0;border-bottom:1px solid var(--b)}
+.doc .meta{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--tm);margin-bottom:4px}
+.doc h3{margin:0 0 6px;font-size:19px}
+.doc p{color:var(--ts);max-width:760px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--b);max-width:860px;margin-top:28px}
+.g2{padding:20px 24px;border-bottom:1px solid var(--b)}
+.g2:nth-child(odd){border-right:1px solid var(--b)}
+.g2:nth-last-child(-n+2){border-bottom:0}
+.g2 dt{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--tm);margin-bottom:4px}
+.g2 dd{color:var(--tp)}
+.g2 dd span{display:block;color:var(--ts);font-size:14px;margin-top:2px}
 
-.pubs{border-top:1px solid var(--b)}
-.pub{display:block;padding:28px 4px;border-bottom:1px solid var(--b);transition:background .2s}
-.pub:hover{background:var(--bg-s)}
-.pub-meta{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--tf);font-family:'JetBrains Mono',monospace;margin-bottom:10px}
-.pub-title{font-size:17px;font-weight:300;color:var(--wh);margin-bottom:8px;letter-spacing:-.005em}
-.pub-abs{font-size:13px;font-weight:300;color:var(--ts);line-height:1.7;max-width:640px;margin-bottom:12px}
-.pub-tags{display:flex;gap:10px}
-.tag{font-size:10px;color:var(--tm);border:1px solid var(--b);padding:4px 12px;letter-spacing:.06em;font-family:'JetBrains Mono',monospace}
+/* ── footer ── */
+.site-foot{border-top:1px solid var(--b);padding:32px 0 40px}
+.f-in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px 32px;align-items:flex-start}
+.f-left{font-size:14px;color:var(--ts)}
+.f-links{list-style:none;display:flex;flex-wrap:wrap;gap:8px 24px;font-size:14px}
 
-.disc-box{border:1px solid var(--b);background:var(--bg-s);padding:36px 40px;max-width:740px}
-.disc-title{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--tf);margin-bottom:16px;font-family:'JetBrains Mono',monospace}
-.disc-text{font-size:13px;font-weight:300;color:var(--ts);line-height:1.9}
-.disc-text em{color:var(--tp);font-style:normal;font-weight:400}
-
-.grid2{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--b);max-width:740px}
-.g2-item{padding:28px 32px;border-right:1px solid var(--b);border-bottom:1px solid var(--b)}
-.g2-item:nth-child(2n){border-right:none}
-.g2-item:nth-last-child(-n+2){border-bottom:none}
-.g2-lbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--tf);font-family:'JetBrains Mono',monospace;margin-bottom:10px}
-.g2-val{font-size:14px;font-weight:300;color:var(--tp);line-height:1.55}
-.g2-sub{font-size:11px;color:var(--tm);font-family:'JetBrains Mono',monospace;margin-top:5px;line-height:1.8}
-
-footer{padding:36px 0}
-.f-in{display:flex;justify-content:space-between;align-items:center}
-.f-left{font-size:11px;color:var(--tf);font-family:'JetBrains Mono',monospace;letter-spacing:.04em}
-.f-right{display:flex;gap:32px}
-.f-right a{font-size:11px;color:var(--tf);letter-spacing:.06em;transition:color .2s}
-.f-right a:hover{color:var(--ts)}
-
-@media(max-width:900px){
-  /* Stack the nav earlier so the links + theme button never crowd or truncate
-     in the ~760–900px tablet zone (was only handled below 760px). */
-  .nav-in{flex-direction:column;align-items:flex-start;gap:12px}
-  .nav-right{width:100%;display:flex;justify-content:space-between;align-items:center;gap:16px}
-  .nav-links{gap:18px;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;max-width:78%}
-  .nav-links::-webkit-scrollbar{display:none}
-  .theme-btn{flex-shrink:0}
+@media (max-width:900px){
+  .site-nav{position:static}
+  .section{scroll-margin-top:0}
+  .nav-in{flex-wrap:wrap}
+  .brand{flex:1 1 0;min-width:0;order:0}
+  .theme-btn{order:1}
+  .nav-links{order:2;flex:1 1 100%;justify-content:flex-start}
+  .status dl{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
-@media(max-width:760px){
-  .wrap,.nav-in{padding-left:20px;padding-right:20px}
-  .nav-in{padding-top:14px;padding-bottom:14px}
-  .hero{padding:60px 0 48px}
-  h1{font-size:33px}
-  .subtitle{font-size:14px;margin-bottom:40px}
-  .metrics{grid-template-columns:repeat(2,1fr)}
-  .metric{padding:20px 12px 4px 0}
-  .mval{font-size:26px}
-  .section{padding:56px 0}
-  h2{font-size:21px}
-  .chart-box{padding:22px 14px 14px}
-  .p-row{grid-template-columns:1fr}
-  .p-key{border-right:none;border-bottom:1px solid var(--bs);padding-bottom:12px}
-  .p-val{padding-top:16px}
-  .tw table{min-width:560px}
-  .disc-box{padding:24px 20px}
-  .grid2{grid-template-columns:1fr}
-  .g2-item{border-right:none;border-bottom:1px solid var(--b)}
-  .g2-item:nth-last-child(-n+2){border-bottom:1px solid var(--b)}
-  .g2-item:last-child{border-bottom:none}
-  .f-in{flex-direction:column;align-items:flex-start;gap:14px}
-  .hero-cta{gap:20px}
+@media (max-width:760px){
+  .wrap,.nav-in{padding-left:16px;padding-right:16px}
+  .nav-in{gap:4px 16px}
+  .nav-links{gap:0 16px}
+  .hero{padding:40px 0 44px}
+  h1{font-size:34px;margin-bottom:22px}
+  .lede{font-size:17px;margin-top:28px}
+  .status{padding:20px 16px 18px;border-left-width:5px}
+  .status h2{font-size:20px}
+  .section{padding:52px 0}
+  h2{font-size:24px}
+  th,td{padding:10px 12px}
+  .p-row{grid-template-columns:minmax(0,1fr)}
+  .p-key{border-right:0;border-bottom:1px solid var(--bs);padding:14px 16px 10px}
+  .p-val{padding:12px 16px 18px}
+  .grid2{grid-template-columns:minmax(0,1fr)}
+  .g2,.g2:nth-child(odd){border-right:0}
+  .g2:nth-last-child(2){border-bottom:1px solid var(--b)}
+  /* long-text tables become one card per row; the header row is hidden with the
+     standard clip pattern and every cell repeats its column name */
+  table.stack,.stack caption,.stack tbody,.stack tr,.stack th,.stack td{display:block;width:auto}
+  .stack thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+  .stack caption{padding:12px 14px 6px;border-bottom:1px solid var(--b)}
+  .stack tbody tr{border-bottom:1px solid var(--b);padding:10px 0}
+  .stack tbody tr:last-child{border-bottom:0}
+  .stack th,.stack td{border:0;padding:4px 14px}
+  .stack td[data-label]::before{content:attr(data-label);display:block;font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--tm);margin-top:6px}
+  .stack tbody th{font-weight:650}
+}
+@media (max-width:480px){
+  h1{font-size:30px}
+  .eyebrow{letter-spacing:.06em}
+  .status dl{grid-template-columns:minmax(0,1fr)}
+  .res{font-size:14px}
+  .res th,.res td{padding:10px 8px}
+  .res .old{white-space:normal}
 }
 @media print{
-  nav,.theme-btn,.hero-cta{display:none}
-  html[data-theme="dark"]{--bg:#fff;--bg-s:#fff;--b:#ccc;--bs:#ddd;--tp:#000;--ts:#333;--tm:#555;--tf:#777;--wh:#000;--pos:#1a6b3f;--neg:#9a2a2a}
-  body{font-size:11pt}
-  .section,.hero{padding:18px 0;break-inside:avoid}
-  .chart-box,.pipeline,table,.disc-box,.grid2,.pub{break-inside:avoid}
-  html.js .section{opacity:1;transform:none}
-  a{color:inherit}
+  :root:root:root{--bg:#fff;--bg-s:#fff;--code:#f2f2f2;--b:#bbb;--bs:#ddd;--tp:#000;--ts:#222;--tm:#444;--neg:#8f2422;--link:#000;--wbg:#fff;--wtx:#000;--wcode:#f2f2f2;color-scheme:light}
+  .site-nav,.theme-btn,.cta,.skip{display:none}
+  .section,.hero{padding:18px 0}
+  .pipeline,table,.status,.doc{break-inside:avoid}
 }
 </style>
 </head>
 <body>
-<script>document.documentElement.classList.add('js')</script>
+<a class="skip vh" href="#main">Skip to content</a>
 
-<nav>
-  <div class="nav-in">
-    <span class="brand">Statistical Arbitrage Research</span>
-    <div class="nav-right">
-      <div class="nav-links">
-        <a href="#methodology">Methodology</a>
-        <a href="#results">Results</a>
-        <a href="#ablation">Ablation</a>
-        <a href="#notes">Research notes</a>
-        <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">GitHub ↗</a>
-      </div>
-      <button class="theme-btn" id="tt" aria-label="Toggle color theme">Dark</button>
-    </div>
-  </div>
-</nav>
+<header class="site-nav">
+  <nav class="nav-in" aria-label="Primary">
+    <a class="brand" href="#top">Statistical Arbitrage Research</a>
+    <ul class="nav-links">
+      <li><a href="#results">Results</a></li>
+      <li><a href="#validation">Validation</a></li>
+      <li><a href="#methodology">Methodology</a></li>
+      <li><a href="#changes">Changes</a></li>
+      <li><a href="#limitations">Limitations</a></li>
+      <li><a href="#docs">Docs</a></li>
+      <li><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">GitHub<span aria-hidden="true"> ↗</span></a></li>
+    </ul>
+    <button class="theme-btn" id="tt" type="button" aria-pressed="false"><span class="ind" aria-hidden="true"></span>Dark theme</button>
+  </nav>
+</header>
 
+<main id="main">
 <div class="wrap">
 
-<section class="hero">
-  <div class="eyebrow">Russell 3000 · Equity Statistical Arbitrage · 2020–2025</div>
-  <h1>Pairs trading research,<br>measured honestly.</h1>
-  <p class="subtitle">A modular cointegration-based statistical arbitrage system — Kalman-filtered spreads, regime-adaptive position sizing, walk-forward validation — with a controlled ablation that quantifies each component's contribution to out-of-sample performance.</p>
-  <div class="metrics">
-    <div class="metric">
-      <div class="mval">−0.31%</div>
-      <div class="mlbl">Main backtest return<br>Jul 2023–2025 (t+1)</div>
-    </div>
-    <div class="metric">
-      <div class="mval">−0.28%</div>
-      <div class="mlbl">Walk-forward OOS<br>per quarter (10 clean windows)</div>
-    </div>
-    <div class="metric">
-      <div class="mval">−0.31</div>
-      <div class="mlbl">Main Sharpe vs +0.26<br>textbook (Gatev) — baseline wins</div>
-    </div>
-    <div class="metric">
-      <div class="mval">p = 0.63</div>
-      <div class="mlbl">Edge vs zero<br>(not significant)</div>
-    </div>
-  </div>
-  <p class="hero-note">A v31 audit found six result-changing bugs — an inverted stop-loss, a truncated exit search that silently dropped non-reverting trades, a same-bar exit fill, a look-ahead pair universe, features read from the study’s final day, and an invalid cointegration p-value. With all of them fixed, the out-of-sample result is <strong>negative</strong>: −0.28%/qtr across 10 selection-clean windows, 1 of 10 positive, pooled Sharpe −1.23. It also <strong>loses to the textbook Gatev (2006) distance baseline</strong> (−0.31 vs +0.26 Sharpe) once that baseline runs the paper’s own rolling re-formation instead of a single stale 42-month formation. Zero pairs survive a Benjamini-Hochberg correction. The deliverable is a rigorously validated research framework — and the discipline to keep auditing until the number told the truth — not a deployable alpha.</p>
-  <div class="hero-cta">
-    <a class="gh-btn" href="https://github.com/NavnoorBawa/russell3000-pairs-trading">View repository ↗</a>
-    <a class="gh-link" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">Read the engineering log ↗</a>
+<section class="hero" id="top" aria-labelledby="page-title">
+  <p class="eyebrow">Russell 3000 · Equity statistical arbitrage · Data 2020–2025</p>
+  <h1 id="page-title">Pairs trading research, measured honestly.</h1>
+  <section class="status" aria-labelledby="status-title">
+    <p class="tag">Status · v32 · October 2026</p>
+    <h2 id="status-title">v32 rebuilt the engine. The published v31.1 figures are withdrawn until the study is re-run.</h2>
+    <p>A complete audit of v31.1 (about 270 findings across seven review areas, nearly all confirmed by an independent adversarial re-check) found defects in the trading engine itself: entry and exit used different z-scores; the Kalman “hedge ratio” was a price-level ratio that changed with the data vendor’s back-adjustment; each trade’s final P&amp;L reached the position sizer and the loss cool-off on the day it was <strong>opened</strong>; P&amp;L was booked on exit days only; and the walk-forward silently discarded trades still open at a window’s end. Some of these defects flattered the old result and others changed the strategy itself, so the net direction cannot be predicted. The v31.1 numbers are therefore withdrawn, not adjusted.</p>
+    <p>v32 has <strong>not yet been re-run on the study data</strong> (the universe file is not redistributable and the price cache is local to the author). It is validated instead on <a href="#validation">synthetic markets with known answers</a>, by 300+ hermetic tests (89% line coverage) and by an end-to-end run of the full pipeline in CI. Every v32 result on this page shows “—” until the next study run fills it.</p>
+    <dl>
+      <div><dt>Engine</dt><dd>Rebuilt in v32.0.0 (<a href="#changes">what changed</a>)</dd></div>
+      <div><dt>v31.1 results</dt><dd>Withdrawn, not adjusted</dd></div>
+      <div><dt>Study re-run</dt><dd>Pending</dd></div>
+      <div><dt>Validated by</dt><dd>Known-answer markets · 300+ tests · CI pipeline run</dd></div>
+    </dl>
+  </section>
+
+  <p class="lede">A research system built to answer one question honestly: does a cointegration pairs-trading strategy on the Russell 3000 have an edge after realistic execution and costs, out of sample?</p>
+  <p class="hero-note">It selects pairs on formation data only, trades a Kalman-filtered spread with next-day fills and a per-stock cost model, validates with a continuous walk-forward simulation, and then tests whether the result is distinguishable from zero (Probabilistic and Deflated Sharpe, Newey-West, block bootstrap) and from two baselines (Gatev et al. 2006 distance method, random pairs).</p>
+  <div class="cta">
+    <a class="btn" href="https://github.com/NavnoorBawa/russell3000-pairs-trading">View repository<span aria-hidden="true"> ↗</span></a>
+    <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/README.md">Read the README<span aria-hidden="true"> ↗</span></a>
+    <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">Read the engineering log<span aria-hidden="true"> ↗</span></a>
   </div>
 </section>
 
-<section class="section" id="results-chart">
-  <div class="sec-label">01 — Walk-forward returns</div>
-  <h2>Ten selection-clean quarters</h2>
-  <p class="desc">Each window: 252 trading days of training, 63 days of out-of-sample testing, models retrained from scratch, and — as of v31 — trading only pairs already selected as of its train-end. One of ten is positive; three (W17–W19) generated no trades at all, so the honest read is one profitable window out of seven that traded.</p>
-  <div class="chart-box">
-    <div class="chart-title">
-      <span>Quarterly window returns, %</span>
-      <span class="chart-legend">
-        <span class="lg"><span class="sw" style="background:var(--pos)"></span>positive</span>
-        <span class="lg"><span class="sw" style="background:var(--neg)"></span>negative</span>
-      </span>
-    </div>
-    <svg viewBox="0 0 760 230" width="100%" role="img" aria-describedby="wf-table"
-         aria-label="Bar chart of 10 selection-clean walk-forward window returns (v31, t+1 execution). One of ten positive; three traded nothing.">
-      <line class="ax" x1="10" y1="100" x2="740" y2="100" stroke-width="1"/>
-      <text class="ctx" x="14" y="94">0%</text>
-      <rect class="bar-n" x="20" y="100" width="44" height="46.3"><title>W10 · -0.46% · 3 trades</title></rect>
-      <rect class="bar-n" x="92" y="100" width="44" height="44.8"><title>W11 · -0.45% · 7 trades</title></rect>
-      <rect class="bar-n" x="164" y="100" width="44" height="9.3"><title>W12 · -0.09% · 12 trades</title></rect>
-      <rect class="bar-p" x="236" y="43.2" width="44" height="56.8"><title>W13 · +0.57% · 4 trades</title></rect>
-      <rect class="bar-n" x="308" y="100" width="44" height="73.7"><title>W14 · -0.74% · 5 trades</title></rect>
-      <rect class="bar-n" x="380" y="100" width="44" height="99.5"><title>W15 · -1.00% · 13 trades</title></rect>
-      <rect class="bar-n" x="452" y="100" width="44" height="64.8"><title>W16 · -0.65% · 2 trades</title></rect>
-      <rect class="bar-z" x="524" y="98" width="44" height="3" opacity=".35"><title>W17 · +0.00% · 0 trades</title></rect>
-      <rect class="bar-z" x="596" y="98" width="44" height="3" opacity=".35"><title>W18 · +0.00% · 0 trades</title></rect>
-      <rect class="bar-z" x="668" y="98" width="44" height="3" opacity=".35"><title>W19 · +0.00% · 0 trades</title></rect>
-      <text class="ctx" x="42" y="215" text-anchor="middle">W10</text>
-      <text class="ctx" x="114" y="215" text-anchor="middle">W11</text>
-      <text class="ctx" x="186" y="215" text-anchor="middle">W12</text>
-      <text class="ctx" x="258" y="215" text-anchor="middle">W13</text>
-      <text class="ctx" x="330" y="215" text-anchor="middle">W14</text>
-      <text class="ctx" x="402" y="215" text-anchor="middle">W15</text>
-      <text class="ctx" x="474" y="215" text-anchor="middle">W16</text>
-      <text class="ctx" x="546" y="215" text-anchor="middle">W17</text>
-      <text class="ctx" x="618" y="215" text-anchor="middle">W18</text>
-      <text class="ctx" x="690" y="215" text-anchor="middle">W19</text>
-      <text class="ctx" x="746" y="44" text-anchor="end">+0.6</text>
-      <text class="ctx" x="746" y="200" text-anchor="end">−1.0</text>
-    </svg>
-    <table id="wf-table" class="visually-hidden">
-      <caption>Walk-forward window returns (v31, 10 selection-clean windows)</caption>
-      <thead><tr><th>Window</th><th>Return</th><th>Trades</th></tr></thead>
-      <tbody>
-      <tr><td>W10</td><td>-0.4634%</td><td>3</td></tr>
-      <tr><td>W11</td><td>-0.4484%</td><td>7</td></tr>
-      <tr><td>W12</td><td>-0.0931%</td><td>12</td></tr>
-      <tr><td>W13</td><td>+0.5675%</td><td>4</td></tr>
-      <tr><td>W14</td><td>-0.7372%</td><td>5</td></tr>
-      <tr><td>W15</td><td>-0.9953%</td><td>13</td></tr>
-      <tr><td>W16</td><td>-0.6481%</td><td>2</td></tr>
-      <tr><td>W17</td><td>+0.0000%</td><td>0</td></tr>
-      <tr><td>W18</td><td>+0.0000%</td><td>0</td></tr>
-      <tr><td>W19</td><td>+0.0000%</td><td>0</td></tr>
-      </tbody>
-    </table>
+<section class="section" id="results" aria-labelledby="results-title">
+  <p class="sec-label">01 · Results</p>
+  <h2 id="results-title">Results</h2>
+  <p class="desc">Every v32 number on this page is a marker. After a run, <code>python scripts/check_published_numbers.py --write</code> fills it from <code>outputs/headline_metrics.json</code>, and the same script without <code>--write</code> fails if any published number disagrees with the run. “—” means not yet run.</p>
+  <div class="tw">
+  <table class="res">
+    <caption>Headline results. The v31.1 column is kept for the record only: those figures are withdrawn.</caption>
+    <thead>
+      <tr><th scope="col">Measure</th><th scope="col">v32</th><th scope="col">v31.1 (withdrawn)</th></tr>
+    </thead>
+    <tbody>
+      <tr><th scope="row">Main backtest (Jul 2023 – 2025): return</th><td class="num"><span data-metric="main.total_return_pct">—</span></td><td class="old">−0.31%</td></tr>
+      <tr><th scope="row">Main backtest: Sharpe</th><td class="num"><span data-metric="main.sharpe">—</span></td><td class="old">−0.31</td></tr>
+      <tr><th scope="row">Main backtest: trades</th><td class="num"><span data-metric="main.trades">—</span></td><td class="old">14</td></tr>
+      <tr><th scope="row">Walk-forward OOS: average window return</th><td class="num"><span data-metric="oos.avg_window_return_pct" data-dp="3">—</span></td><td class="old">−0.282%</td></tr>
+      <tr><th scope="row">Walk-forward OOS: pooled daily Sharpe</th><td class="num"><span data-metric="oos.pooled_sharpe">—</span></td><td class="old">−1.23</td></tr>
+      <tr><th scope="row">Walk-forward OOS: windows positive</th><td class="num"><span data-metric="oos.windows_positive">—</span> of <span data-metric="oos.windows">—</span></td><td class="old">1 of 10</td></tr>
+      <tr><th scope="row">Walk-forward OOS: per-window t-test p-value</th><td class="num"><span data-metric="significance.oos_windows.p" data-dp="3">—</span></td><td class="old">0.085</td></tr>
+      <tr><th scope="row">Gatev (2006) distance method, same period: Sharpe</th><td class="num"><span data-metric="benchmarks.gatev.sharpe">—</span></td><td class="old">+0.26</td></tr>
+      <tr><th scope="row">Ranker out-of-sample AUC (0.5 = no skill)</th><td class="num"><span data-metric="ranker.oos_auc" data-dp="3">—</span></td><td class="old">not measured</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note history"><strong>What v31.1 concluded, for the record (withdrawn):</strong> no edge — negative out-of-sample, not statistically distinguishable from zero, zero pairs surviving a Benjamini-Hochberg correction, and beaten by the textbook distance method. Whether v32 confirms that is what the re-run will show; nothing here assumes it.</p>
+
+  <h3 id="sig-title">Significance tests (v32, filled by the same run)</h3>
+  <p class="desc">The evidence layer reports whether the Sharpe ratio is distinguishable from zero, separately for the main backtest and for the stitched daily walk-forward returns.</p>
+  <table class="stack" role="table">
+    <caption>Significance tests, v32. “—” means not yet run.</caption>
+    <thead role="rowgroup">
+      <tr role="row"><th scope="col" role="columnheader">Test</th><th scope="col" role="columnheader">Main backtest</th><th scope="col" role="columnheader">Walk-forward OOS (daily)</th></tr>
+    </thead>
+    <tbody role="rowgroup">
+      <tr role="row"><th scope="row" role="rowheader">Annualised Sharpe</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.ann_sharpe">—</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.ann_sharpe">—</span></td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Newey-West t-statistic (mean ≠ 0)</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.hac_t">—</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.hac_t">—</span></td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Newey-West p-value</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.hac_p" data-dp="3">—</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.hac_p" data-dp="3">—</span></td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Probabilistic Sharpe, P(SR &gt; 0)</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.psr_pct" data-dp="1">—</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.psr_pct" data-dp="1">—</span></td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Deflated Sharpe (32 trials)</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.dsr_pct" data-dp="1">—</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.dsr_pct" data-dp="1">—</span></td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Block-bootstrap 95% interval for the Sharpe</th><td class="num" role="cell" data-label="Main backtest">[<span data-metric="significance.main.boot_lo">—</span>, <span data-metric="significance.main.boot_hi">—</span>]</td><td class="num" role="cell" data-label="Walk-forward OOS (daily)">[<span data-metric="significance.oos_daily.boot_lo">—</span>, <span data-metric="significance.oos_daily.boot_hi">—</span>]</td></tr>
+    </tbody>
+  </table>
+
+  <h3 id="base-title">Baselines, multiple testing and capital use (v32)</h3>
+  <div class="tw">
+  <table class="res">
+    <caption>Comparisons and diagnostics, v32. “—” means not yet run.</caption>
+    <thead>
+      <tr><th scope="col">Measure</th><th scope="col">v32</th></tr>
+    </thead>
+    <tbody>
+      <tr><th scope="row">Gatev (2006) distance method, same period: return</th><td class="num"><span data-metric="benchmarks.gatev.total_return_pct">—</span></td></tr>
+      <tr><th scope="row">Sharpe difference, strategy minus Gatev</th><td class="num"><span data-metric="benchmarks.sharpe_diff_vs_gatev.diff">—</span></td></tr>
+      <tr><th scope="row">Ledoit-Wolf test of that difference: p-value</th><td class="num"><span data-metric="benchmarks.sharpe_diff_vs_gatev.p" data-dp="3">—</span></td></tr>
+      <tr><th scope="row">Random-pair control (200 draws): median Sharpe</th><td class="num"><span data-metric="benchmarks.random_control.median_sharpe">—</span></td></tr>
+      <tr><th scope="row">Pairs Engle-Granger tested (after the correlation screen)</th><td class="num"><span data-metric="fdr.pairs_tested">—</span></td></tr>
+      <tr><th scope="row">Of those, significant at raw p &lt; 0.05</th><td class="num"><span data-metric="fdr.significant_raw_p05">—</span></td></tr>
+      <tr><th scope="row">Of those, surviving Benjamini-Hochberg at q &lt; 0.05</th><td class="num"><span data-metric="fdr.survive_bh_fdr_q05">—</span></td></tr>
+      <tr><th scope="row">Pairs selected after every filter</th><td class="num"><span data-metric="fdr.final_selected_pairs">—</span></td></tr>
+      <tr><th scope="row">Main backtest: maximum drawdown</th><td class="num"><span data-metric="main.max_drawdown_pct">—</span></td></tr>
+      <tr><th scope="row">Main backtest: average gross exposure</th><td class="num"><span data-metric="main.avg_gross_exposure_pct">—</span></td></tr>
+      <tr><th scope="row">Walk-forward OOS: windows with no trades</th><td class="num"><span data-metric="oos.windows_no_trades">—</span></td></tr>
+    </tbody>
+  </table>
   </div>
 </section>
 
-<section class="section" id="methodology">
-  <div class="sec-label">02 — Methodology</div>
-  <h2>System architecture</h2>
-  <p class="desc">A sequential pipeline from pair selection through signal generation, regime filtering, and portfolio accounting. Each stage is independently testable and documented across 19 versioned entries (v7 → v31).</p>
+<section class="section" id="validation" aria-labelledby="validation-title">
+  <p class="sec-label">02 · Validation</p>
+  <h2 id="validation-title">Validation on markets with known answers</h2>
+  <p class="desc">A backtest on real data can only say what a strategy did, not whether the code measures what it claims. <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/scripts/synthetic_validation.py"><code>scripts/synthetic_validation.py</code></a> runs the real engine, with its full cost model, on synthetic markets whose answer is known (<a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/pairs_trading/synthetic.py"><code>pairs_trading/synthetic.py</code></a>); CI runs it on every push. Five independent markets per scenario. These are checks of the code on synthetic data, not results on the study data.</p>
+  <table class="stack" role="table">
+    <caption>Known-answer checks, v32 (five synthetic markets per scenario)</caption>
+    <thead role="rowgroup">
+      <tr role="row"><th scope="col" role="columnheader">Check</th><th scope="col" role="columnheader">What must happen</th><th scope="col" role="columnheader">v32 result</th></tr>
+    </thead>
+    <tbody role="rowgroup">
+      <tr role="row"><th scope="row" role="rowheader">Planted cointegrated pairs (OU spreads, half-life 5–14 days)</th><td role="cell" data-label="What must happen">find a large positive edge</td><td role="cell" data-label="v32 result">2,241 trades, +80.7 bp gross per trade (t = 23.7), median net Sharpe 3.3</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Independent driftless random walks, forced into the universe</th><td role="cell" data-label="What must happen">no edge (a positive mean would be look-ahead)</td><td role="cell" data-label="v32 result">2,485 trades, +4.6 bp (t = 1.15); 16 more markets: 8,325 trades, +0.25 bp (t = 0.12)</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Kalman hedge ratio vs the true slope</th><td role="cell" data-label="What must happen">recover it</td><td role="cell" data-label="v32 result">median absolute error 0.031 (90th percentile 0.073)</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Pair selection on 2020–2022 data, 6 planted pairs among 24 names</th><td role="cell" data-label="What must happen">find them, admit few others</td><td role="cell" data-label="v32 result">100% of planted pairs found; 2.5 of 270 unrelated pairs admitted per market</td></tr>
+    </tbody>
+  </table>
+  <p class="note">The test suite adds causality checks with teeth: every result dated before T is unchanged when all prices after T are replaced (the check catches a deliberately re-introduced sizer look-ahead at every cut-off tried), the same trades are taken at the same z-scores when the vendor back-adjusts history for a split after the sample, and the daily P&amp;L series reconciles exactly with the per-trade P&amp;L.</p>
+</section>
+
+<section class="section" id="methodology" aria-labelledby="methodology-title">
+  <p class="sec-label">03 · Methodology</p>
+  <h2 id="methodology-title">Architecture (v32)</h2>
+  <p class="desc">One pipeline from universe to evidence. 18 modules in <code>pairs_trading/</code>; entry point <code>python -m pairs_trading.main</code>. Thresholds below are the shipped defaults.</p>
   <div class="pipeline">
     <div class="p-row">
-      <div class="p-key">pair selection</div>
-      <div class="p-val">Engle-Granger cointegration on all <strong>47,586 pairs</strong> (36,524 return usable p-values; 539 survive every filter). ADF on OLS residuals, both directions, p &lt; 0.05. Half-life filter 4–25 days. PCA strips 5 systematic factors (56.5% variance in the v31 run); idiosyncratic residual cointegration adds a quality bonus. CUSUM and Hurst pre-filters. Quarterly re-selection.</div>
+      <h3 class="p-key">universe and data</h3>
+      <div class="p-val"><p>Russell 3000 constituents from <code>data/marketcap.csv</code> (2,542 symbols) · daily OHLCV 2020–2025 · VIX and 11 sector ETFs. Every level screen uses point-in-time (split-unadjusted) prices and volumes. A price fetch must cover at least 90% of the universe; caches are written atomically and never silently overwritten.</p></div>
     </div>
     <div class="p-row">
-      <div class="p-key">spread construction</div>
-      <div class="p-val"><strong>1-D Kalman filter</strong> estimates a time-varying hedge ratio β<sub>t</sub>. Spread = log P₁ − β<sub>t</sub> · log P₂, with β locked at entry so β drift can't be booked as P&amp;L. Equal-dollar legs; P&amp;L from realized log-returns.</div>
+      <h3 class="p-key">pair selection</h3>
+      <div class="p-val">
+        <p><strong>Formation data to 2022-12-31 only.</strong> Symbols are screened on point-in-time price and dollar volume, and only the <strong>300 most liquid</strong> enter the pair search, so most of the universe file is never paired. Pair tests: positive return correlation ≥ 0.25 · two-direction Engle-Granger p &lt; 0.05 (Bonferroni across both directions) · half-life 4–25 days on the cointegrating spread · heuristic quality score. PCA (5 factors) residual cointegration adds a quality bonus. A Benjamini-Hochberg diagnostic is reported over the pairs that pass the correlation screen and are tested.</p>
+        <p><strong>Re-selection every 90 trading days</strong> (about four months, not a calendar quarter): a 2-year re-test plus a 126-day stability check, with pair statistics re-estimated each time. Re-selection can drop pairs but not add them unless <code>PAIRS_RESELECT=full</code>.</p>
+      </div>
     </div>
     <div class="p-row">
-      <div class="p-key">signal rule</div>
-      <div class="p-val">Rolling z-score with <strong>half-life-adaptive lookback</strong>. Entry |z| &gt; 1.8, exit |z| &lt; 0.5. Dynamic maximum hold = clamp(2.5 × half-life, 10–25 trading days).</div>
+      <h3 class="p-key">spread model</h3>
+      <div class="p-val"><p><strong>Two-state Kalman filter</strong> (slope and intercept) on log prices centred on their burn-in means, so β is a hedge ratio and every signal is invariant to a vendor back-adjustment for a later split or dividend.</p></div>
     </div>
     <div class="p-row">
-      <div class="p-key">regime gate</div>
-      <div class="p-val">VIX bands: &gt;30 → 0.5×, &gt;40 → 0.25×. 63-day cumulative sector dispersion gate — low VIX with high dispersion → 0.4×. Hard skip when &gt;20% of trailing 63 days were reduced-scale.</div>
+      <h3 class="p-key">trading rule</h3>
+      <div class="p-val">
+        <p><strong>One z-score for everything:</strong> z is the β-locked spread (lp₁ − β<sub>t</sub>·lp₂) against its mean and standard deviation over the last 30–60 bars (3 × half-life), frozen at the signal, and the same z drives entry, target, stop and time stop. Entry |z| ≥ 1.8 · target |z| ≤ 0.5 · stop 1.5 further against · time stop clamp(2.5 × half-life, 10, 25) days.</p>
+        <p><strong>Execution:</strong> signal at the day-t close, fill at the t+1 close on entry and on exit; legs $1 : $β.</p>
+        <p><strong>Per-entry gates:</strong> 20-day return correlation ≥ 0.20 · β in [0.25, 4] (outside it the signal is skipped, not clamped) · loss cool-off · ex-ante round-trip cost ≤ 1% of equity. CUSUM and Hurst entry gates exist as flags but are <strong>off by default</strong>: at 30–90 bars they reject 5–11% of both random walks and mean-reverting spreads.</p>
+      </div>
     </div>
     <div class="p-row">
-      <div class="p-key">validation</div>
-      <div class="p-val"><strong>10 selection-clean walk-forward windows</strong>, 252-day train / 63-day test, rolling by one test window. Models retrained from scratch each window; no price data crosses the train/test boundary, enforced by a runtime guard that raises rather than asserts. As of v31 each window may also only trade pairs whose quarterly re-selection date is known by its train-end — the schedule spans 19 slots, but the nine earliest have no pairs selected yet and are skipped rather than back-filled from a future universe.</div>
+      <h3 class="p-key">ranker</h3>
+      <div class="p-val"><p>Optional (<code>PAIRS_USE_TRANSFORMER=0</code> disables it). A classifier of P(trade profitable) on 30 features, trained on outcomes of the actual rule and used only to <strong>order same-day candidates</strong>; its out-of-sample AUC and Brier score are reported. The order changes which trades execute only on days when candidates exceed capacity (8 entries a day, no shared legs, 30% gross cap). It sees one 30-feature vector, so it is functionally a residual MLP.</p></div>
+    </div>
+    <div class="p-row">
+      <h3 class="p-key">portfolio and risk</h3>
+      <div class="p-val">
+        <p>$100M · 3–10% per pair (the z multiplier applied inside that clamp) · 30% gross cap · 8 entries a day · no shared legs. Daily mark-to-market; commissions, spreads and impact booked on fill days. A drawdown and daily-loss kill switch flattens the book.</p>
+        <p><strong>Regime scaling</strong> (the smallest applicable scale wins): VIX &gt; 30 → 0.5×, VIX &gt; 40 → 0.25×; sector-dispersion z &gt; 2 → 0.5× at any VIX; VIX &lt; 20 with dispersion z &gt; 0.8 → 0.4×. Dispersion is the cross-sectional spread of 63-day cumulative sector returns, z-scored against its own trailing 252 days. No new entries while more than 20% of the trailing 63 days were scaled down.</p>
+      </div>
+    </div>
+    <div class="p-row">
+      <h3 class="p-key">costs</h3>
+      <div class="p-val"><p>Per stock, per fill: $0.002/share commission · half-spread by dollar-ADV bucket · square-root impact on the stock’s own σ and dollar ADV, on entry and exit · general-collateral borrow 25 bp/yr on the short leg · prime-broker carry on the short half.</p></div>
+    </div>
+    <div class="p-row">
+      <h3 class="p-key">walk-forward</h3>
+      <div class="p-val"><p><strong>One continuous out-of-sample simulation</strong> on a 252-day train / 63-day test grid. The ranker is refit for each window on that window’s train period, positions carry across window boundaries, and per-window figures are calendar slices of the one simulation.</p></div>
+    </div>
+    <div class="p-row">
+      <h3 class="p-key">evidence layer</h3>
+      <div class="p-val">
+        <p><code>significance.py</code>: Probabilistic Sharpe, Deflated Sharpe (32 trials), Newey-West t, Politis-White block bootstrap, Lo (2002) adjusted Sharpe, Ledoit-Wolf Sharpe-difference test, probability of backtest overfitting (PBO, by CSCV).</p>
+        <p><code>benchmark.py</code>: Gatev (2006) distance method with t+1 fills and the same cost model · 200-draw random-pair control. Also market-beta attribution, capital utilisation and a rejection funnel.</p>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="section" id="results">
-  <div class="sec-label">03 — Results</div>
-  <h2>Walk-forward performance</h2>
-  <p class="desc">v31 figures, under realistic <strong>t+1 execution</strong> on both entry <em>and</em> exit. Every walk-forward window is now selection-clean: each one may only trade pairs whose quarterly re-selection date is already known at its train-end, so the nine early windows that previously reported a Sharpe of ~5 no longer exist — they were trading a universe chosen with their own future.</p>
-  <div class="tw"><table>
+<section class="section" id="changes" aria-labelledby="changes-title">
+  <p class="sec-label">04 · What v32 changed</p>
+  <h2 id="changes-title">What v32 changed</h2>
+  <p class="desc">Each row is a defect the audit confirmed in v31.1 and how v32 handles it. <span class="flag">flatters</span> marks defects that made the old backtest look better than the strategy was. The full record of v32 and every earlier version is in <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">docs/PROGRESS.md</a>.</p>
+  <table class="stack" role="table">
+    <caption>Defects confirmed in v31.1 and the v32 handling</caption>
+    <thead role="rowgroup">
+      <tr role="row"><th scope="col" role="columnheader">Area</th><th scope="col" role="columnheader">v31.1</th><th scope="col" role="columnheader">v32</th></tr>
+    </thead>
+    <tbody role="rowgroup">
+      <tr role="row"><th scope="row" role="rowheader">Look-ahead</th><td role="cell" data-label="v31.1">each trade’s final P&amp;L was recorded with the position sizer and the loss-streak cool-off <strong>on its entry day</strong> <span class="flag">flatters</span></td><td role="cell" data-label="v32">outcomes reach the sizer and cool-off only after the exit fill; a perturbation test enforces it</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Look-ahead</th><td role="cell" data-label="v31.1">one-state Kalman without intercept on log prices: β absorbed the price level (true 0.90 read as ≈1.27), and a vendor back-adjustment for a split or dividend after the sample changed every past signal</td><td role="cell" data-label="v32">two-state filter on burn-in-centred log prices; signals are invariant to such back-adjustment (a test enforces it)</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Signal</th><td role="cell" data-label="v31.1">entry used an expanding-window z of the Kalman residual; target, stop and time stop used a β-locked z — two different spreads</td><td role="cell" data-label="v32">one β-locked z with reference statistics frozen at the signal, used for every decision</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Hedge</th><td role="cell" data-label="v31.1">equal-dollar legs regardless of β</td><td role="cell" data-label="v32">legs weighted $1 : $β; β outside [0.25, 4] is skipped, not clamped</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Accounting</th><td role="cell" data-label="v31.1">a trade’s whole P&amp;L booked on its exit day (understates volatility and drawdown)</td><td role="cell" data-label="v32">daily mark-to-market; costs on fill days; end-of-data positions force-closed, never dropped</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Walk-forward</th><td role="cell" data-label="v31.1">independent 63-day windows; trades still open at a window’s end were discarded <span class="flag">flatters</span></td><td role="cell" data-label="v32">one continuous simulation with per-window ranker refits; per-window figures are slices of it</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Sizing</th><td role="cell" data-label="v31.1">z multiplier applied after the 3–10% clamp, so the strongest signals were vetoed by the 10% limit</td><td role="cell" data-label="v32">multiplier inside the clamp; one quality threshold (0.55) instead of a dead 0.40 pre-filter</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Entry gates</th><td role="cell" data-label="v31.1">CUSUM and Hurst gates on 30–90 bars</td><td role="cell" data-label="v32">measured near-random at these lengths (they reject 5–11% of both random walks and mean-reverting spreads); off by default, kept as flags</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Re-selection</th><td role="cell" data-label="v31.1">inconsistent p-value definitions; pair statistics frozen at the 2022 selection</td><td role="cell" data-label="v32">one Bonferroni p-value; statistics re-estimated at every re-selection; opt-in full re-search (<code>PAIRS_RESELECT=full</code>)</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Selection</th><td role="cell" data-label="v31.1">half-life on the β = 1 spread; share-volume screen on split-adjusted data; negative correlations admitted; a silent screen-free fallback</td><td role="cell" data-label="v32">half-life on the cointegrating spread; point-in-time dollar-volume screen; positive correlation; no fallback; deterministic leg order</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Costs</th><td role="cell" data-label="v31.1">effective commission ≈0.09 bp; the same 0.8 bp spread for every stock; impact from a fixed share volume (so it scaled with 1/√price); fund profiles: impact without volatility (its cap bound on every trade), charged on entry only, institutional costs 10× too small (unit error)</td><td role="cell" data-label="v32">per-share commission; half-spread by dollar-ADV bucket; square-root impact on each stock’s own σ and dollar ADV, on entry and exit; GC borrow and financing; fund-profile units and impact fixed</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Data</th><td role="cell" data-label="v31.1">universe screens on split-adjusted prices (later splits decided membership); partial fetches cached as the study; an unreadable cache was silently refetched and overwritten; last trading day dropped</td><td role="cell" data-label="v32">point-in-time screens; fetch coverage ≥ 90% enforced, retries with backoff, manifest; caches written atomically and never overwritten; inclusive end date</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Ranker</th><td role="cell" data-label="v31.1">trained on a different target than the rule it ranks, from features extracted with empty stock data; 8 always-zero inputs; class weighting left the score uncalibrated; a 1,000-episode “RL” loop updated nothing</td><td role="cell" data-label="v32">labels from the actual rule (outcome complete inside the training window); live features; 30 real inputs; prior-corrected probabilities; failures score the base rate; out-of-sample AUC and Brier reported; RL loop removed</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Benchmarks</th><td role="cell" data-label="v31.1">Gatev baseline filled on the signal bar at 2.5–5× lower cost than the strategy; 5-draw random control</td><td role="cell" data-label="v32">t+1 fills and the same per-stock cost model; Gatev re-normalisation and crossing exits; 200-draw random control with its distribution; Ledoit-Wolf test of the Sharpe difference</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Statistics</th><td role="cell" data-label="v31.1">fixed 10-day bootstrap blocks; DSR = 1.0 when one trial; constant series gave a Sharpe of 10¹⁶</td><td role="cell" data-label="v32">Politis-White block length; Lo (2002) adjustment; PBO; one Sharpe definition with a zero-variance guard</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Outputs</th><td role="cell" data-label="v31.1">publication check scraped a log (could not parse signed numbers, matched integers as substrings); a failed stage still exited 0</td><td role="cell" data-label="v32"><code>headline_metrics.json</code> plus marker check (and <code>--write</code>); provenance block in every export; failed stages make the run exit non-zero</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="section" id="limitations" aria-labelledby="limitations-title">
+  <p class="sec-label">05 · Known limitations</p>
+  <h2 id="limitations-title">Known limitations</h2>
+  <p class="desc">These hold for v32 and should be read with any result it produces.</p>
+  <ul class="lims">
+    <li><strong>Survivorship.</strong> The universe is close to current Russell 3000 membership back-filled with prices: of 36 names that failed, delisted or were acquired in 2020–2025, one is present. Pairs that broke because a company failed are missing, which flatters a pairs strategy. Fixing it needs a point-in-time dataset such as CRSP.</li>
+    <li><strong>Design choices were made on the same data.</strong> Thresholds, gates and the regime rule were chosen across 32 versions using 2020–2025. The walk-forward is out of sample for pair selection and the ranker, not for those choices. The Deflated Sharpe counts 32 trials (a lower bound), and <code>scripts/parameter_sensitivity.py</code> reports how fragile the chosen thresholds are (PBO).</li>
+    <li><strong>Re-selection can drop pairs but not add them</strong> unless <code>PAIRS_RESELECT=full</code> (slow).</li>
+    <li><strong>Borrow is general-collateral for every name</strong> (25 bp/yr); hard-to-borrow fees, recalls, short rebates and regulatory fees are not modelled.</li>
+    <li><strong>Fills are close-to-close</strong>; no auction, queue or intraday modelling. Capacity is reported as average ADV participation rather than simulated.</li>
+    <li><strong>Ranker features include pair statistics estimated on the formation window</strong> that also produces its earliest training labels. The ranker only orders same-day candidates, and its out-of-sample AUC is reported.</li>
+    <li><strong>The “transformer” sees one 30-feature vector</strong> — a sequence of length one — so it is functionally a residual MLP. Its scores are not bit-identical across CPU thread counts or devices.</li>
+    <li><strong>Sector features are coarse.</strong> The sector map covers about 315 of 2,542 symbols; the rest get neutral sector inputs. Pairs are not restricted to one industry.</li>
+    <li><strong>The 126-day re-selection check uses asymptotic MacKinnon p-values at n ≈ 87</strong>, which are anti-conservative; its threshold (0.30) is deliberately loose.</li>
+    <li><strong>The price cache used through v31 was built with a full-sample penny-stock screen.</strong> The screen is point-in-time in v32; a cache built before that still carries the old filtering until it is re-fetched.</li>
+  </ul>
+  <p class="note">Literature context: Do &amp; Faff (2010, <cite>Financial Analysts Journal</cite>; 2012, <cite>Journal of Financial Research</cite>) find that simple distance-method pairs trading became largely unprofitable after 2002 once trading costs are counted. That is indirect support for a negative result here, not a test of this strategy.</p>
+</section>
+
+<section class="section" id="reproduce" aria-labelledby="reproduce-title">
+  <p class="sec-label">06 · Reproduce and test</p>
+  <h2 id="reproduce-title">Reproducing and testing</h2>
+  <p class="desc">The study needs <code>data/marketcap.csv</code> (the study universe; required and not redistributed — the loader stops with instructions rather than substituting another universe) and the price cache, which is local to the author; a cache fetched fresh from Yahoo Finance is not guaranteed to match it. <code>PAIRS_SEED</code> (default 42) seeds Python, NumPy and torch and is recorded, with the git commit, in every export’s provenance block. The ranker’s scores are not bit-identical across CPU thread counts or devices.</p>
+  <pre tabindex="0" aria-label="Commands to run the study and publish its numbers"><code>pip install -r requirements.txt          # Python 3.12; or: pip install -e ".[dev]"
+mkdir -p logs outputs
+
+# the study (needs data/marketcap.csv; the price cache is fetched if absent)
+python -m pairs_trading.main 2&gt;&amp;1 | tee logs/backtest.log
+
+# publish: fill every marked number in README.md and index.html, then verify them
+python scripts/check_published_numbers.py --write
+python scripts/make_og_image.py          # social card from the same JSON
+
+# evidence beyond the headline
+python scripts/synthetic_validation.py   # known-answer checks (~4 min)
+python scripts/parameter_sensitivity.py  # threshold grid + PBO on the study data (slow)
+PAIRS_USE_TRANSFORMER=0 python -m pairs_trading.main &gt; logs/backtest_noml.log 2&gt;&amp;1   # ranker ablation
+PAIRS_FILL=open python -m pairs_trading.main &gt; logs/backtest_open.log 2&gt;&amp;1          # fill sensitivity</code></pre>
+
+  <h3 id="switches-title">Switches</h3>
+  <table class="stack" role="table">
+    <caption>Environment switches</caption>
+    <thead role="rowgroup">
+      <tr role="row"><th scope="col" role="columnheader">Switch</th><th scope="col" role="columnheader">Default</th><th scope="col" role="columnheader">Effect</th></tr>
+    </thead>
+    <tbody role="rowgroup">
+      <tr role="row"><th scope="row" role="rowheader"><code>PAIRS_SEED</code></th><td role="cell" data-label="Default">42</td><td role="cell" data-label="Effect">seeds Python, NumPy and torch; recorded in every export</td></tr>
+      <tr role="row"><th scope="row" role="rowheader"><code>PAIRS_USE_TRANSFORMER</code></th><td role="cell" data-label="Default">1</td><td role="cell" data-label="Effect"><code>0</code> skips ranker training: classical ranking on the same code path</td></tr>
+      <tr role="row"><th scope="row" role="rowheader"><code>PAIRS_FILL</code></th><td role="cell" data-label="Default">close</td><td role="cell" data-label="Effect"><code>open</code> fills at the next bar’s open instead of its close</td></tr>
+      <tr role="row"><th scope="row" role="rowheader"><code>PAIRS_RESELECT</code></th><td role="cell" data-label="Default">pool</td><td role="cell" data-label="Effect"><code>full</code> re-runs the complete pair search at every re-selection</td></tr>
+      <tr role="row"><th scope="row" role="rowheader"><code>PAIRS_ALLOW_PARTIAL_FETCH</code></th><td role="cell" data-label="Default">unset</td><td role="cell" data-label="Effect"><code>1</code> accepts a price fetch covering &lt; 90% of the universe</td></tr>
+      <tr role="row"><th scope="row" role="rowheader"><code>PAIRS_DEMO_UNIVERSE</code></th><td role="cell" data-label="Default">unset</td><td role="cell" data-label="Effect"><code>1</code> uses an 85-symbol smoke-test universe when <code>data/marketcap.csv</code> is absent (does not reproduce the study)</td></tr>
+      <tr role="row"><th scope="row" role="rowheader"><code>PAIRS_SKIP_REPROCESS</code></th><td role="cell" data-label="Default">unset</td><td role="cell" data-label="Effect"><code>1</code> loads the price cache verbatim</td></tr>
+    </tbody>
+  </table>
+  <p class="note">A run exits non-zero if any analysis stage fails; its exports are still written, marked <code>"complete": false</code>, for debugging. <code>data/</code>, <code>logs/</code> and <code>outputs/</code> are git-ignored.</p>
+
+  <h3 id="testing-title">Testing</h3>
+  <p class="desc"><code>pytest --cov=pairs_trading</code> runs 300+ hermetic tests (no data files, no network; 89% line coverage, about 3 minutes). The suite runs the whole pipeline end to end on a synthetic market written in the exact on-disk format of the study, and tests the engine for causality (future-perturbation and back-adjustment invariance), accounting (daily P&amp;L reconciles with trades; mark-to-market telescopes), the trading rule (one z definition, timing, exposure caps, run-off), the cost model, pair selection, the ranker (calibration, out-of-sample metrics, as-of features), the statistics (against reference implementations), the benchmarks, the exports and the publication scripts. CI also runs the known-answer validation, <code>pip-audit</code>, <code>ruff</code> and CodeQL; pandas/NumPy <code>FutureWarning</code>s are errors.</p>
+  <dl class="grid2">
+    <div class="g2"><dt>Version</dt><dd>v32.0.0 <span>2026-10-12 · engineering log v6 → v32</span></dd></div>
+    <div class="g2"><dt>Stack</dt><dd>Python 3.12 · PyTorch 2.13 <span>NumPy · pandas · SciPy · statsmodels · scikit-learn · yfinance</span></dd></div>
+    <div class="g2"><dt>Universe</dt><dd>Russell 3000 constituents <span>2,542 symbols in the universe file · 300 most liquid enter pair search · 2020–2025</span></dd></div>
+    <div class="g2"><dt>Tests</dt><dd>300+ hermetic tests <span>89% line coverage · end-to-end pipeline run in CI</span></dd></div>
+  </dl>
+</section>
+
+<section class="section" id="next" aria-labelledby="next-title">
+  <p class="sec-label">07 · Next</p>
+  <h2 id="next-title">What happens next</h2>
+  <p class="desc">To finish v32 (from the v32 entry of the engineering log):</p>
+  <ol class="steps">
+    <li>Run <code>python -m pairs_trading.main</code> on the study data (<code>data/marketcap.csv</code> and the price cache).</li>
+    <li>Run <code>python scripts/check_published_numbers.py --write</code>, then <code>python scripts/make_og_image.py</code>.</li>
+    <li>Write the conclusion from the numbers — v31.1’s “no edge” is not assumed.</li>
+    <li>Optional: <code>scripts/parameter_sensitivity.py</code> (PBO of the chosen thresholds) and the <code>PAIRS_USE_TRANSFORMER=0</code> / <code>PAIRS_FILL=open</code> sensitivity runs.</li>
+  </ol>
+  <h3 id="beyond-title">Beyond the re-run</h3>
+  <p class="desc">Each of these answers a limitation listed above; none is promised to change the answer.</p>
+  <ul class="plain">
+    <li><strong>Survivorship-free data:</strong> repeat the study on a point-in-time, delisting-inclusive universe such as CRSP.</li>
+    <li><strong>Untouched data for the design choices:</strong> the thresholds, gates and regime rule were chosen on 2020–2025, so only data none of the 32 versions has seen can test them out of sample.</li>
+    <li><strong>Short-side and execution realism:</strong> hard-to-borrow fees, locates and recalls, short rebates, auction and intraday fills, and capacity simulated rather than reported as ADV participation.</li>
+  </ul>
+</section>
+
+<section class="section" id="docs" aria-labelledby="docs-title">
+  <p class="sec-label">08 · Documentation and history</p>
+  <h2 id="docs-title">Documentation</h2>
+  <ul class="docs">
+    <li class="doc">
+      <p class="meta">Canonical description · v32</p>
+      <h3><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/README.md">README</a></h3>
+      <p>Status, the results table that the next run fills, the known-answer validation, the v32 architecture, what v32 changed, known limitations, and how to reproduce and test. This page says the same things.</p>
+    </li>
+    <li class="doc">
+      <p class="meta">Engineering log · v6 → v32</p>
+      <h3><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">PROGRESS.md: the complete engineering log</a></h3>
+      <p>Every version from v6 to v32, kept as written at the time, including claims later found wrong; the newest entry supersedes earlier ones where they disagree. It runs from the first look-ahead fixes (v9–v12), the Kalman spread work (v16–v19), the ranker (v24–v26.1), the significance layer and baselines (v28–v29), the v30 leakage audit and the v31–v31.1 pre-launch audit, to the v32 audit and rebuild: how the audit ran, each change to the engine, data, selection, costs, ranker, statistics and outputs, the synthetic validation, and what remains to finish v32.</p>
+    </li>
+    <li class="doc">
+      <p class="meta">Historical post-mortem · superseded · figures withdrawn</p>
+      <h3><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/deep_analysis_v9_issues.md">Why v9 under-traded (February 2026)</a></h3>
+      <p>Diagnosis notes for v9: signal thresholds that were too strict, a regime gate that scaled positions rather than suspending trading, and a training-data mismatch. It also explains how v8’s result was inflated by a selection look-ahead — trading 2020–2022 with pairs validated on 2023 data — which v9 removed. The note calls that look-ahead “survival bias”; it is not the survivorship bias listed under known limitations, which remains unfixed.</p>
+    </li>
+    <li class="doc">
+      <p class="meta">Background research · not a description of the code</p>
+      <h3><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/transaction_costs_and_portfolio_exposure.md">Transaction costs and fund exposure: a literature reference</a></h3>
+      <p>A source-linked compendium of published cost data — broker commissions, spreads, borrow, and the leverage of named funds — used as background for the cost parameters. It contains no backtest results; the cost model v32 actually implements is described under <a href="#methodology">Methodology</a>.</p>
+    </li>
+  </ul>
+
+  <h3 id="history-title">Version history (highlights)</h3>
+  <table class="hist">
+    <caption>Selected versions; the engineering log has the full record, deliberately unflattering.</caption>
     <thead>
-      <tr><th>Period</th><th>Windows</th><th>Avg return / qtr</th><th>Sharpe</th><th>Win rate</th><th>Profitable</th></tr>
+      <tr><th scope="col">Version</th><th scope="col">Change</th></tr>
     </thead>
     <tbody>
-      <tr><td>Out-of-sample (10 selection-clean windows)</td><td>10</td><td>−0.28%</td><td>−1.23</td><td>21.2%</td><td>1/10</td></tr>
-      <tr><td>Main backtest (Jul 2023–2025)</td><td>—</td><td class="neg">−0.31%</td><td>−0.31</td><td>28.6%</td><td>—</td></tr>
+      <tr><th scope="row">v9–v12</th><td>first look-ahead fixes (P&amp;L, pair selection, Kalman β drift)</td></tr>
+      <tr><th scope="row">v16–v19</th><td>Kalman spread fixes, β-weighted P&amp;L, PCA residual cointegration, dynamic hold</td></tr>
+      <tr><th scope="row">v24–v26.1</th><td>ranker trained and wired in (ranking only); controlled ablation; a label bug that had disabled training</td></tr>
+      <tr><th scope="row">v28–v29</th><td>significance layer and baselines; t+1 entry fills</td></tr>
+      <tr><th scope="row">v30</th><td>leakage audit: survivorship confirmed, selection-clean window tagging</td></tr>
+      <tr><th scope="row">v31–v31.1</th><td>pre-launch audit: inverted stop-loss, same-bar exits, future re-selections in the walk-forward and more (its results are withdrawn)</td></tr>
+      <tr><th scope="row">v32</th><td>full audit (≈270 confirmed findings): engine, Kalman model, accounting, walk-forward, costs, ranker, benchmarks and outputs rebuilt; synthetic known-answer validation; v31.1 figures withdrawn pending a re-run</td></tr>
     </tbody>
-  </table></div>
-
-  <h2 style="margin-top:48px">Is the edge real?</h2>
-  <p class="desc">The pipeline doesn't just report a Sharpe — it tests whether the Sharpe is distinguishable from zero (<code>significance.py</code>). It is not — and the point estimate is negative: no t-stat clears |2|, every bootstrap CI includes zero, and the Deflated Sharpe (which penalises for the number of trials) is 0.0% out-of-sample.</p>
-  <div class="tw"><table>
-    <thead>
-      <tr><th>Test</th><th>Main backtest</th><th>Out-of-sample (stitched daily)</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>Annualised Sharpe</td><td>−0.31</td><td>−1.23</td></tr>
-      <tr><td>Newey-West t-stat (mean ≠ 0)</td><td>−0.49 (p=0.63)</td><td>−1.86 (p=0.06)</td></tr>
-      <tr><td>Probabilistic Sharpe P(SR&gt;0)</td><td>32.5%</td><td class="neg">2.2%</td></tr>
-      <tr><td>Bootstrap 95% CI on Sharpe</td><td>[−1.70, +0.80]</td><td>[−2.41, +0.06]</td></tr>
-      <tr><td>Deflated Sharpe (vs best-of-27 trials)</td><td>0.9%</td><td class="neg">0.0%</td></tr>
-    </tbody>
-  </table></div>
-  <p class="desc" style="margin-top:14px">Per-window OOS test: mean −0.282%/qtr, t-stat −1.94, <strong>p=0.085</strong>, 1/10 positive, 95% CI [−0.611%, +0.047%]. <strong>The result is negative and not statistically distinguishable from zero — the strategy has no edge to deploy, and the project proves that to itself rather than asserting otherwise.</strong></p>
-
-  <h2 style="margin-top:48px">Does it beat the textbook?</h2>
-  <p class="desc">Gatev (2006) distance method and a random-pair control, run on the same universe and out-of-sample period (<code>benchmark.py</code>). The baseline now follows the paper’s rolling 12-month formation / 6-month trading scheme; it previously formed once over ~42 months and then traded ~30 months without re-forming, which quietly handicapped it. <strong>On a fair comparison the textbook baseline beats this pipeline.</strong> The random-pair row is not a consolation either: this pipeline wins on return but loses on Sharpe (−0.31 vs −0.02), and the five draws span Sharpe −0.45 to +1.08.</p>
-  <div class="tw"><table>
-    <thead>
-      <tr><th>Strategy</th><th>Return</th><th>Sharpe</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>Cointegration + Kalman (this project)</td><td class="neg">−0.31%</td><td class="neg">−0.31</td></tr>
-      <tr><td>Distance method (Gatev 2006), rolling</td><td>+2.78%</td><td class="pos">+0.26</td></tr>
-      <tr><td>Random-pair control (avg of 5 draws)</td><td class="neg">−1.74%</td><td class="neg">−0.02</td></tr>
-    </tbody>
-  </table></div>
-  <p class="desc" style="margin-top:14px">Multiple-testing check (Benjamini-Hochberg FDR): of 36,524 pairs with usable p-values, 3,725 are "cointegrated" at raw p&lt;0.05 — but ~1,826 of those are expected false positives by chance, and <strong>zero survive BH-FDR at q&lt;0.05</strong> (zero at q&lt;0.10 too). The p-values are now Bonferroni-corrected across the two Engle-Granger directions; the previous <code>min(p₁,p₂)</code> was not a valid p-value and inflated the test size.</p>
+  </table>
 </section>
 
-<section class="section" id="ablation">
-  <div class="sec-label">04 — Controlled ablation</div>
-  <h2>ML contribution: ≈ 0, confirmed by a seed-robustness check</h2>
-  <p class="desc">A transformer-based signal-quality scorer is trained (leak-free, per window) on whether an entry reaches its exit band, and used for opportunity ranking. It trains, but it barely discriminates: across the 27 logged training epochs the BCE never falls below coin-flip entropy (minimum 0.7700 vs ln 2 = 0.6931) and only dips modestly under the class-weighted base-rate loss (≈0.88 at a 36.6% base rate with pos_weight 1.73). Yet the main backtest and all five cost profiles do <strong>not depend on it</strong> by construction: the score only reorders same-day opportunities, and the sparse main backtest never has enough competing pairs on one day for the ordering to matter. The definitive ML-contribution test is the four-seed robustness check below (run on the v26.1 codebase): one training seed showed an OOS gain (+0.74%/qtr), but across seeds {42,1,2,7} it dissolved into noise — the OOS spread (0.30–0.74%/qtr) is larger than the mean effect, with one seed below the classical baseline. The v31 audit changed the trade population substantially (14 trades, down from 41), so the ablation was re-run against the corrected code rather than assumed. The two arms come back <strong>bit-identical on every metric</strong> — return, Sharpe, trade count, win rate, walk-forward pooled Sharpe, and all five cost profiles. The measured ML contribution is exactly 0, not approximately 0.</p>
-  <div class="tw"><table>
-    <thead>
-      <tr><th>Metric</th><th>Classical only</th><th>+ Transformer</th><th>Δ</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>Main backtest return / Sharpe (v31)</td><td>−0.31% / −0.31</td><td>−0.31% / −0.31</td><td class="zero">0</td></tr>
-      <tr><td>Main backtest trades / win rate (v31)</td><td>14 / 28.57%</td><td>14 / 28.57%</td><td class="zero">0</td></tr>
-      <tr><td>Walk-forward OOS pooled Sharpe (v31)</td><td>−1.228</td><td>−1.228</td><td class="zero">0</td></tr>
-      <tr><td>Walk-forward OOS, 4-seed mean / range (v26.1)</td><td>+0.36%/qtr</td><td>+0.53%/qtr (0.30–0.74)</td><td class="zero">noise</td></tr>
-      <tr><td>Institutional cost profiles (5)</td><td colspan="2" style="text-align:center">independent of the scorer by construction</td><td class="zero">0</td></tr>
-    </tbody>
-  </table></div>
-  <p style="margin-top:18px;font-size:11px;color:var(--tf);font-family:'JetBrains Mono',monospace">PAIRS_USE_TRANSFORMER=0 disables the scorer · seeds {42,1,2,7} · reproducible on any machine</p>
+<section class="section" id="not" aria-labelledby="not-title">
+  <p class="sec-label">09 · Scope</p>
+  <h2 id="not-title">What this project is not</h2>
+  <ul class="plain">
+    <li><strong>Not a deployable strategy.</strong> It is a framework for finding out whether one exists.</li>
+    <li><strong>Not reinforcement learning.</strong> There is no policy, value function or environment loop; v32 deleted a loop that was labelled as training but updated nothing.</li>
+    <li><strong>Not “AI-driven”.</strong> The learned component only orders candidates that the classical rule has already accepted. In v31.1 its contribution was exactly zero; v32 measures its out-of-sample skill directly.</li>
+  </ul>
 </section>
 
-<section class="section" id="notes">
-  <div class="sec-label">05 — Research notes</div>
-  <h2>Selected documentation</h2>
-  <p class="desc">The engineering log records every version, bug, and failed hypothesis from v7 to v31. Selected research notes below.</p>
-  <div class="pubs">
-    <a class="pub" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">
-      <div class="pub-meta">Engineering log · v6 → v31.1</div>
-      <div class="pub-title">Progress reference: nineteen versioned entries of bias hunts, fixes, and verification</div>
-      <div class="pub-abs">Complete chronological record — survivorship bias (v9), Kalman spread differencing (v16), the dead-code audit (v24), the Sharpe correction (v25), the v26 sign-bug that reversed the all-negative fund result, and the v27 audit (9 bugs: feature skew, cross-symbol concentration, fund Sharpe inflation, stat shadowing, deprecated API, dead code). Kept deliberately unflattering — bugs in both directions.</div>
-      <div class="pub-tags"><span class="tag">methodology</span><span class="tag">validation</span></div>
-    </a>
-    <a class="pub" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/deep_research_regime_breaks_stat_arb.md">
-      <div class="pub-meta">Research note</div>
-      <div class="pub-title">Regime breaks in statistical arbitrage: the 2023 dispersion shift</div>
-      <div class="pub-abs">Why pair-trading performance degraded post-2023: rate regime, sector dispersion dynamics, and what the 63-day cumulative dispersion gate detects.</div>
-      <div class="pub-tags"><span class="tag">regime analysis</span></div>
-    </a>
-    <a class="pub" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/transaction_costs_and_portfolio_exposure.md">
-      <div class="pub-meta">Research note</div>
-      <div class="pub-title">Transaction costs and portfolio exposure across institutional profiles</div>
-      <div class="pub-abs">Five cost structures — quant HF, pod shop, fundamental L/S, unlevered institutional, retail — applied to identical signals. Under realistic t+1 execution <strong>all five are net-negative</strong> on the main backtest — from −1.46% at Sharpe −0.57 (quant HF) to −0.12% at Sharpe −0.28 (unlevered institutional) — and the more leverage a profile runs, the larger its loss. The earlier "four of five positive" reading came from a fund replay that booked 2× gross P&amp;L against a 1× cost basis, corrected in v31. The walk-forward OOS remains the binding constraint and is negative and not statistically significant.</div>
-      <div class="pub-tags"><span class="tag">cost modeling</span><span class="tag">disclosure</span></div>
-    </a>
-    <a class="pub" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/deep_analysis_v9_issues.md">
-      <div class="pub-meta">Post-mortem</div>
-      <div class="pub-title">The v9 survivorship bias: how a backtest flattered itself</div>
-      <div class="pub-abs">Diagnosis and fix of a date-range bias that let the main backtest trade through periods its pair-selection had already seen.</div>
-      <div class="pub-tags"><span class="tag">validation</span><span class="tag">post-mortem</span></div>
-    </a>
-  </div>
-</section>
+</div>
+</main>
 
-<section class="section">
-  <div class="sec-label">06 — Disclosure</div>
-  <h2>Honest assessment</h2>
-  <p class="desc">Negative results are reported in full.</p>
-  <p style="font-size:15px;font-weight:300;color:var(--tp);line-height:1.75;margin:6px 0 26px;padding-left:18px;border-left:2px solid var(--pos)">Where the effort actually went: training the model was maybe 2% of this project. The other 98% was evaluation and data — the significance tests, the leakage audit, and a survivorship-bias hunt that mattered more than any architecture. No model lowers the noise floor set by the information in the data (the Bayes limit; in markets, the efficient-market wall), and the evaluation here showed the signal sits at that floor. The job is to measure the ceiling honestly, not to pretend an architecture can raise it.</p>
-  <div class="disc-box">
-    <div class="disc-title">What the data shows</div>
-    <div class="disc-text">
-      The honest bottom line (v31): <em>the strategy does not work, and it loses to the textbook.</em> A pre-launch audit found six result-changing bugs, every one of which had been flattering the result: an inverted stop-loss that cut winners at 1σ and never stopped a loss; an exit search truncated to the trading window, which silently discarded the trades that failed to revert; an exit that still filled on the same bar as its own signal; a walk-forward universe built from the union of <em>all</em> quarterly re-selections, future ones included; per-stock features read from the last day of the entire study on every backtest date; and a cointegration "p-value" taken as <code>min(p₁,p₂)</code> across two Engle-Granger directions, which is not a p-value. With all six fixed the out-of-sample result is <span class="neg">−0.28%/qtr</span> over 10 selection-clean windows (1 of 10 positive, pooled Sharpe <span class="neg">−1.23</span>, per-window p=0.085), and the main backtest is <span class="neg">−0.31%</span> at Sharpe <span class="neg">−0.31</span> on just 14 trades. Deflated Sharpe is 0.9% (main) and 0.0% (OOS). Of 36,524 pairs with usable p-values, ~1,826 of the 3,725 significant at raw p&lt;0.05 are expected false positives, and <span class="neg">zero survive BH-FDR at q&lt;0.05</span>. <em>The comparison claim reversed too:</em> the Gatev (2006) baseline had been formed once over ~42 months and then traded ~30 months without re-forming, while this strategy re-selected quarterly. Run properly — the paper’s rolling 12-month formation / 6-month trading — the textbook baseline returns +2.78% at Sharpe +0.26 and <strong>beats this pipeline</strong> (−0.31). Against a random-pair control it wins on cumulative return (−0.31% vs −1.74%) but <strong>loses on Sharpe</strong> (−0.31 vs −0.02), and the five draws are so dispersed (Sharpe −0.45 to +1.08) that the comparison settles nothing — the honest reading is that cointegration-based selection is not obviously worse than random, not that it beat it. <em>Known limitations, all of which bias upward on an already-negative result:</em> the universe comes from ~current Russell 3000 membership (survivorship bias — of 36 names that delisted/failed/were acquired in 2020–2025, only 1 is present), and the price cache predates the fix to the full-sample penny-stock filter, so names that fell below $2 were retroactively removed from earlier periods and cannot be recovered without a refetch. 14 trades is also far too little breadth for the Fundamental Law to give a meaningful IR at any plausible IC. The value here is the audit trail — a framework disciplined enough to keep finding its own errors until the number stopped flattering it — not a deployable alpha. Every claim is derived from logged, reproducible runs (<code>logs/backtest_v31.log</code>).
-    </div>
-  </div>
-</section>
-
-<section class="section" id="roadmap">
-  <div class="sec-label">07 — Research roadmap</div>
-  <h2>What I'd test next, with data and capital</h2>
-  <p class="desc">None of these is promised to produce alpha. Each is the specific, falsifiable experiment that would either confirm the null is real or locate an edge the free-tier study could not reach — and each maps one-to-one onto a limitation disclosed above. This is the difference between "give me resources and I'll figure it out" and knowing exactly what the next experiment is and why.</p>
-  <div class="pipeline">
-    <div class="p-row">
-      <div class="p-key">survivorship-free data</div>
-      <div class="p-val">Re-run the entire study on a point-in-time, delisting-inclusive universe (CRSP / Compustat) to eliminate the survivorship bias documented above. Because every known bias points <em>up</em> on a null, the first falsifiable question is whether the edge is genuinely zero or merely masked by a clean-sample artifact. <strong>Cost:</strong> a data licence, not new modelling.</div>
-    </div>
-    <div class="p-row">
-      <div class="p-key">breadth at scale</div>
-      <div class="p-val">Trade hundreds of cointegrated pairs simultaneously under portfolio-level optimisation (risk-parity / constrained mean-variance) instead of ~14 near-sequential bets. By Grinold's law, IR = IC · √breadth — a small information coefficient only becomes a book at scale, and the risk controls that keep this backtest honest also cap breadth far below what a deployable strategy needs.</div>
-    </div>
-    <div class="p-row">
-      <div class="p-key">more forecastable targets</div>
-      <div class="p-val">Point the same significance + walk-forward + leakage-audit machinery at <strong>volatility and covariance forecasting</strong>, where genuine out-of-sample predictability exists (Gu, Kelly &amp; Xiu, <em>RFS</em> 2020), rather than decayed price-spread mean reversion. The infrastructure transfers directly; only the target changes.</div>
-    </div>
-    <div class="p-row">
-      <div class="p-key">execution &amp; capacity</div>
-      <div class="p-val">Add a market-impact and borrow-availability model plus forward paper-trading, to estimate real capacity at size and confirm out-of-sample behaviour in live time before a dollar of capital is risked.</div>
-    </div>
-  </div>
-</section>
-
-<section class="section" style="border-bottom:none">
-  <div class="sec-label">08 — Engineering</div>
-  <h2>Stack and reproduction</h2>
-  <div class="grid2" style="margin-top:36px">
-    <div class="g2-item">
-      <div class="g2-lbl">Versions</div>
-      <div class="g2-val">v6 → v31.1</div>
-      <div class="g2-sub">25 documented entries · every bug logged</div>
-    </div>
-    <div class="g2-item">
-      <div class="g2-lbl">Stack</div>
-      <div class="g2-val">Python 3.12 · PyTorch 2.13</div>
-      <div class="g2-sub">statsmodels · scikit-learn · yfinance</div>
-    </div>
-    <div class="g2-item">
-      <div class="g2-lbl">Universe</div>
-      <div class="g2-val">Russell 3000</div>
-      <div class="g2-sub">2,542 symbols · 2020–2025 · NY tz</div>
-    </div>
-    <div class="g2-item">
-      <div class="g2-lbl">Reproduce</div>
-      <div class="g2-sub" style="margin-top:2px">python3.12 -m pairs_trading.main<br>PAIRS_USE_TRANSFORMER=0 python3.12 -m pairs_trading.main<br>PAIRS_FILL=open python3.12 -m pairs_trading.main</div>
-    </div>
-  </div>
-</section>
-
-<footer>
-  <div class="f-in">
-    <div class="f-left">MIT License · Research project · Not investment advice<br>
-      Results: v31.0.0 · study window Jul 2023–2025 (fixed) · page updated <span id="lastmod">—</span></div>
-    <div class="f-right">
-      <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">GitHub</a>
-      <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">Engineering log</a>
-      <a href="mailto:navnoorquant@gmail.com">Contact</a>
-    </div>
+<footer class="site-foot">
+  <div class="wrap f-in">
+    <p class="f-left">v32.0.0 · 2026-10-12 · MIT License<br>Research project. Not investment advice.</p>
+    <ul class="f-links">
+      <li><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/README.md">README</a></li>
+      <li><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">Engineering log</a></li>
+      <li><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">GitHub</a></li>
+      <li><a href="mailto:navnoorquant@gmail.com">Contact</a></li>
+    </ul>
   </div>
 </footer>
 
-</div>
-
 <script>
 (function(){
-  // Self-updating "page updated" stamp: document.lastModified reflects when this file
-  // was last deployed (GitHub Pages sets it on each build), so this always shows the
-  // true freshness with zero maintenance and no commit loop. The RESULTS themselves are
-  // a fixed, versioned study (v31.0.0) and deliberately do not auto-mutate.
-  try{
-    var lm=document.getElementById('lastmod');
-    if(lm){
-      var d=new Date(document.lastModified);
-      lm.textContent=isNaN(d)?'recently':d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-    }
-  }catch(e){}
-
-  var root=document.documentElement;
-  var btn=document.getElementById('tt');
-  function setLabel(){btn.textContent=root.getAttribute('data-theme')==='dark'?'Light':'Dark'}
-  try{
-    if(localStorage.getItem('theme')==='dark'){root.setAttribute('data-theme','dark')}
-  }catch(e){}
-  setLabel();
+  var root=document.documentElement,btn=document.getElementById('tt');
+  if(!btn){return}
+  var mq=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null;
+  function current(){return root.getAttribute('data-theme')||(mq&&mq.matches?'dark':'light')}
+  function sync(){btn.setAttribute('aria-pressed',current()==='dark'?'true':'false')}
   btn.addEventListener('click',function(){
-    var dark=root.getAttribute('data-theme')==='dark';
-    if(dark){root.removeAttribute('data-theme')}else{root.setAttribute('data-theme','dark')}
-    try{localStorage.setItem('theme',dark?'light':'dark')}catch(e){}
-    setLabel();
+    var next=current()==='dark'?'light':'dark';
+    root.setAttribute('data-theme',next);
+    try{localStorage.setItem('theme',next)}catch(e){}
+    var m=document.querySelectorAll('meta[name="theme-color"]');
+    for(var i=0;i<m.length;i++){m[i].setAttribute('content',next==='dark'?'#0e0e0d':'#ffffff')}
+    sync();
   });
-
-  var sections=document.querySelectorAll('.section');
-  if('IntersectionObserver' in window){
-    var io=new IntersectionObserver(function(es){
-      es.forEach(function(e){
-        if(e.isIntersecting){e.target.classList.add('vis');io.unobserve(e.target)}
-      });
-    },{threshold:.08});
-    sections.forEach(function(s){io.observe(s)});
-
-    var links=document.querySelectorAll('.nav-links a[href^="#"]');
-    var map={};
-    links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a});
-    var io2=new IntersectionObserver(function(es){
-      es.forEach(function(e){
-        var a=map[e.target.id];
-        if(a&&e.isIntersecting){
-          links.forEach(function(l){l.classList.remove('active')});
-          a.classList.add('active');
-        }
-      });
-    },{rootMargin:'-25% 0px -65% 0px'});
-    document.querySelectorAll('section[id]').forEach(function(s){if(map[s.id])io2.observe(s)});
-  }else{
-    sections.forEach(function(s){s.classList.add('vis')});
+  if(mq){
+    if(mq.addEventListener){mq.addEventListener('change',sync)}else if(mq.addListener){mq.addListener(sync)}
   }
+  sync();
 })();
 </script>
 </body>

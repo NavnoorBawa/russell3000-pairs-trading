@@ -229,3 +229,28 @@ def test_oos_window_one_sided_pvalues():
     assert out['ci_method'] == 't'
     small = oos_window_test([0.01])
     assert {'pvalue_mean_lt0', 'pvalue_mean_gt0', 'ci_lo', 'boot_ci_lo'} <= set(small)
+
+
+def test_constant_and_nan_inputs_are_handled_by_every_statistic():
+    """v32 review: the zero-variance guard covered annualized_sharpe only; Lo, HAC and the
+    bootstrap still turned np.full(n, 0.001) into Sharpes of ~1e16 and t-stats of ~1e7, and
+    HAC / bootstrap mishandled a single NaN."""
+    from pairs_trading.significance import (block_bootstrap_sharpe_ci, hac_tstat_mean,
+                                            lo_annualized_sharpe, significance_report)
+    c = np.full(300, 0.001)
+    assert lo_annualized_sharpe(c)['sharpe'] == 0.0
+    h = hac_tstat_mean(c)
+    assert (h['tstat'], h['pvalue']) == (0.0, 1.0)
+    b = block_bootstrap_sharpe_ci(c, n_boot=200)
+    assert np.isnan(b['lo']) and np.isnan(b['hi'])
+    rep = significance_report(daily_returns=c, oos_window_returns=None, oos_daily_returns=None, n_trials=1)
+    assert rep['main_backtest']['ann_sharpe'] == 0.0 and rep['main_backtest']['ann_sharpe_lo'] == 0.0
+
+    r = np.random.default_rng(3).normal(0.001, 0.01, 500)
+    with_nan = r.copy()
+    with_nan[100] = np.nan
+    ref, got = hac_tstat_mean(np.delete(r, 100)), hac_tstat_mean(with_nan)
+    assert got['tstat'] == pytest.approx(ref['tstat']) and np.isfinite(got['mean'])
+    b_ref = block_bootstrap_sharpe_ci(np.delete(r, 100), n_boot=300, block=5)
+    b_nan = block_bootstrap_sharpe_ci(with_nan, n_boot=300, block=5)
+    assert (b_nan['lo'], b_nan['hi']) == pytest.approx((b_ref['lo'], b_ref['hi']))

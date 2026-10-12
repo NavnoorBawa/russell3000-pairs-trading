@@ -115,7 +115,7 @@ def lo_annualized_sharpe(returns: np.ndarray, periods: int = 252, max_lag: int =
     r = _finite(returns)
     n = len(r)
     iid = annualized_sharpe(r, periods)
-    if n < 4 or r.std(ddof=1) <= 0:
+    if n < 4 or _is_constant(r) or r.std(ddof=1) <= 0:
         return {'sharpe': iid, 'eta': float(np.sqrt(periods)), 'lags': 0,
                 'iid_sharpe': iid, 'autocorr': []}
     q = int(periods)
@@ -258,12 +258,15 @@ def hac_tstat_mean(returns: np.ndarray, max_lag: int = None) -> dict:
     """Newey-West (HAC) t-stat that the mean per-period return = 0.
 
     Robust to the serial correlation that overlapping holding periods induce.
-    Testing mean = 0 is equivalent to testing Sharpe = 0.
+    Testing mean = 0 is equivalent to testing Sharpe = 0. Non-finite values are ignored;
+    a series without dispersion has no defined t-stat and is reported as t = 0, p = 1.
     """
-    r = np.asarray(returns, dtype=float)
+    r = _finite(returns)
     n = len(r)
     if n < 3:
         return {'tstat': 0.0, 'pvalue': 1.0, 'mean': 0.0, 'lags': 0}
+    if _is_constant(r):
+        return {'tstat': 0.0, 'pvalue': 1.0, 'mean': float(r.mean()), 'lags': 0}
 
     if max_lag is None:
         max_lag = _newey_west_lags(n)
@@ -372,16 +375,17 @@ def block_bootstrap_sharpe_ci(returns: np.ndarray, block: int = None, n_boot: in
     block=None (default) selects the block length automatically (Politis & White 2004 /
     Patton, Politis & White 2009, circular-bootstrap constant); pass an integer to fix it.
     v32: the docstring used to promise a "stationary/block bootstrap" while the block
-    was hard-coded to 10 days whatever the dependence in the data.
+    was hard-coded to 10 days whatever the dependence in the data. Non-finite values are
+    ignored; a series without dispersion has no CI (NaN bounds).
     """
-    r = np.asarray(returns, dtype=float)
+    r = _finite(returns)
     n = len(r)
     point = annualized_sharpe(r, periods)
     method = 'fixed' if block is not None else 'politis-white'
     if block is None:
         block = _auto_block(r) if n >= 8 else 1
     block = int(max(1, block))
-    if n < block + 1 or n < 3:
+    if n < block + 1 or n < 3 or _is_constant(r):
         return {'lo': _NAN, 'hi': _NAN, 'point': point, 'n_boot': n_boot, 'block': block,
                 'block_method': method}
     rng = np.random.default_rng(seed)
@@ -392,7 +396,9 @@ def block_bootstrap_sharpe_ci(returns: np.ndarray, block: int = None, n_boot: in
         samp = r[_circular_block_indices(rng, n, block, m)]
         sd = samp.std(axis=1, ddof=1)
         mu = samp.mean(axis=1)
-        boots[s:s + m] = np.where(sd > 0, mu / np.where(sd > 0, sd, 1.0), 0.0) * np.sqrt(periods)
+        # a resample without dispersion (relative to its level) has Sharpe 0, not mean/1e-19
+        ok = sd > 1e-12 * np.max(np.abs(samp), axis=1)
+        boots[s:s + m] = np.where(ok, mu / np.where(ok, sd, 1.0), 0.0) * np.sqrt(periods)
     return {
         'lo': float(np.percentile(boots, 100 * alpha / 2)),
         'hi': float(np.percentile(boots, 100 * (1 - alpha / 2))),
@@ -797,7 +803,7 @@ def significance_report(daily_returns, oos_window_returns=None,
     n_trials, var_sr_trials_ann : inputs for the Deflated Sharpe (multiple-testing).
     """
     def _battery(r):
-        r = np.asarray(r, dtype=float)
+        r = _finite(r)
         lo = lo_annualized_sharpe(r, periods)
         out = {
             'n_days': int(len(r)),
