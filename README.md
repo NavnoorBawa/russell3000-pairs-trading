@@ -191,7 +191,10 @@ These hold for v32 and should be read with any result it produces.
   re-selection. It is kept as the documented v8 design; `RESEL_RECENT_MAX_P = 1.0` turns it off.
 - **The price cache used through v31 was built with a full-sample penny-stock screen**, and
   its fill step also wrote forward-filled prices into rows where the vendor returned none.
-  v32 does neither, but a cache built before v32 keeps both until it is re-fetched.
+  v32 does neither, but a cache built before v32 keeps both until it is re-fetched. Its
+  universe coverage is also unchecked: v31 wrote no fetch manifest (and dropped some
+  symbols on purpose), so such a run records `universe_coverage: null` plus the fraction of
+  the universe the cache holds, and is not marked a variant unless that is below half.
 - **"Point-in-time" prices undo splits, not dividends.** The cached closes are dividend-
   adjusted, so early prices are understated by the yield of later dividends (a few percent
   a year for high-yield names) in the $5 price and dollar-volume screens.
@@ -230,7 +233,7 @@ PAIRS_FILL=open python -m pairs_trading.main > logs/backtest_open.log 2>&1      
 | `PAIRS_USE_TRANSFORMER` | 1 | `0` skips ranker training: classical ranking on the same code path |
 | `PAIRS_FILL` | close | `open` fills at the next bar's open instead of its close |
 | `PAIRS_RESELECT` | pool | `full` re-runs the complete pair search at every re-selection |
-| `PAIRS_ALLOW_PARTIAL_FETCH` | unset | `1` accepts price data covering < 90% of the universe (a partial fetch, or loading a cache built from one); such a run is a variant |
+| `PAIRS_ALLOW_PARTIAL_FETCH` | unset | `1` accepts price data covering < 90% of the universe (a partial fetch, or loading a v32 cache built from one); such a run is a variant. A pre-v32 cache has no fetch manifest: its coverage cannot be checked, only that it holds at least half the universe |
 | `PAIRS_DEMO_UNIVERSE` | unset | `1` uses an 85-symbol smoke-test universe when `data/marketcap.csv` is absent (does not reproduce the study) |
 | `PAIRS_SKIP_REPROCESS` | unset | `1` loads the price cache verbatim |
 

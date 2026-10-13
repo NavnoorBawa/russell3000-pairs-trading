@@ -399,6 +399,9 @@ def build_run_config(results: Optional[Dict] = None, system_info: Optional[Dict]
             'n_pairs': _int(info.get('pairs_selected')),
             # fraction of the universe file the price data covers (None: pre-v32 cache, unknown)
             'universe_coverage': _r(info.get('universe_coverage'), 4),
+            # fraction of the universe file present in the price cache (always measurable;
+            # below coverage when symbols were deliberately excluded for short/invalid data)
+            'universe_cached_fraction': _r(info.get('universe_cached_fraction'), 4),
             'price_cache': file_fingerprint(data_file),
         },
         'versions': {

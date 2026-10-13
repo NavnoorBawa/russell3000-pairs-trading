@@ -1834,7 +1834,8 @@ class CompleteFixedRussell3000TradingSystem:
         log_run_config(build_run_config(system_info={
             'total_symbols_processed': len(self.processed_data),
             'initial_capital': self.initial_capital,
-            'universe_coverage': getattr(self.data_processor, 'universe_coverage', None)}))
+            'universe_coverage': getattr(self.data_processor, 'universe_coverage', None),
+            'universe_cached_fraction': getattr(self.data_processor, 'universe_cached_fraction', None)}))
 
     def prepare_study(self):
         """Everything before the backtests, on the loaded data.
@@ -1974,6 +1975,7 @@ class CompleteFixedRussell3000TradingSystem:
             'data_start': min(starts) if starts else None,
             'data_end': max(ends) if ends else None,
             'universe_coverage': getattr(self.data_processor, 'universe_coverage', None),
+            'universe_cached_fraction': getattr(self.data_processor, 'universe_cached_fraction', None),
         }
         export_testing_results_to_json(results, system_info)      # sets results['run_config']
         if fund_comparison:

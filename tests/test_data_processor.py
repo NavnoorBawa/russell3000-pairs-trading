@@ -149,3 +149,44 @@ def test_a_full_or_pre_v32_cache_loads(tmp_path, monkeypatch):
     dp2 = _P()
     dp2.data_file = path
     assert sorted(dp2.load_or_fetch_data(syms)) == syms and dp2.universe_coverage is None
+
+
+def test_a_manifest_that_does_not_describe_the_cache_is_ignored(tmp_path, monkeypatch):
+    """A manifest left over from another fetch (different symbols) must neither refuse a
+    good cache nor certify a bad one: coverage becomes unknown, with a warning."""
+    monkeypatch.delenv('PAIRS_ALLOW_PARTIAL_FETCH', raising=False)
+    path, syms = _write_cache(tmp_path, 4, lambda s: {'OTHER': 'ok', **{f'Z{i}': 'error:X' for i in range(50)}})
+    dp = _P()
+    dp.data_file = path
+    assert sorted(dp.load_or_fetch_data(syms)) == syms
+    assert dp.universe_coverage is None and dp.universe_cached_fraction == 1.0
+
+
+def test_an_old_demo_cache_without_manifest_is_refused(tmp_path, monkeypatch):
+    """No manifest (pre-v32) and only a small part of the universe: not the study cache."""
+    monkeypatch.delenv('PAIRS_ALLOW_PARTIAL_FETCH', raising=False)
+    path, syms = _write_cache(tmp_path, 4, None)
+    universe = syms + [f'Z{i:03d}' for i in range(96)]
+    dp = _P()
+    dp.data_file = path
+    with pytest.raises(RuntimeError, match='holds only 4.0%'):
+        dp.load_or_fetch_data(universe)
+    monkeypatch.setenv('PAIRS_ALLOW_PARTIAL_FETCH', '1')
+    assert sorted(dp.load_or_fetch_data(universe)) == syms and dp.universe_cached_fraction == pytest.approx(0.04)
+
+
+def test_a_refused_fetch_leaves_no_manifest(tmp_path, monkeypatch):
+    """The manifest is written only together with a cache; a refused fetch removes a stale one."""
+    monkeypatch.delenv('PAIRS_ALLOW_PARTIAL_FETCH', raising=False)
+    dp = _P()
+    dp.data_file = str(tmp_path / 'cache.pkl')
+    stale = tmp_path / 'cache_manifest.json'
+    stale.write_text('{"outcomes": {"A": "ok"}}')
+
+    def fake_fetch(symbol):
+        dp.fetch_manifest[symbol] = 'error:HTTPError'
+        return None
+    monkeypatch.setattr(dp, 'fetch_stock_data', fake_fetch)
+    with pytest.raises(RuntimeError, match='NOT cached'):
+        dp.load_or_fetch_data(['A', 'B', 'C'], max_workers=1)
+    assert not stale.exists() and not (tmp_path / 'cache.pkl').exists()

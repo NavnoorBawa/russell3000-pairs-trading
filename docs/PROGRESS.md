@@ -2977,7 +2977,9 @@ Point-in-time (split-unadjusted; still dividend-adjusted) `Close_PIT`/`Volume_PI
 reconstructed from the split column and used for every level screen (v31 screened adjusted prices, so later splits
 decided earlier membership); raw OHLCV is never filled (a pre-v32 cache keeps its filled rows until re-fetched); the universe file is required
 (no silent substitute); returns across a missing close keep the true move (no copied
-returns); fetches retry with backoff, record a manifest and must cover ≥ 90%
+returns); a cache is written together with a fetch manifest that names its symbols, and on
+load the 90% coverage rule is applied again (a pre-v32 cache without a manifest is only
+required to hold half the universe; its coverage is recorded as unknown); fetches retry with backoff, record a manifest and must cover ≥ 90%
 of the universe; caches are written atomically and an unreadable cache is an error, never
 a silent re-fetch over the study data; yfinance's exclusive end date no longer drops the
 last trading day; failed macro fetches are not cached.

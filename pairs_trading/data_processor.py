@@ -27,6 +27,7 @@ class EnhancedRussell3000DataProcessor:
         # Fraction of the universe the price data covers (None: a pre-v32 cache without a
         # fetch manifest, coverage unknown). Recorded in every export's run_config.
         self.universe_coverage: Optional[float] = None
+        self.universe_cached_fraction: Optional[float] = None   # cached symbols / universe
 
         logger.info("ENHANCED Russell 3000 Data Processor initialized")
 
@@ -439,36 +440,66 @@ class EnhancedRussell3000DataProcessor:
 
     MIN_FETCH_COVERAGE = 0.90
 
-    def _check_cache_coverage(self, wanted) -> None:
+    MIN_PRE_V32_CACHED_FRACTION = 0.5
+
+    def _check_cache_coverage(self, wanted, cached) -> None:
         """Apply the fetch-coverage rule to a cache that is being LOADED, not only fetched.
 
         A partial fetch accepted once with PAIRS_ALLOW_PARTIAL_FETCH=1 (or a demo-universe
         fetch) is written to the cache; without this check every later run would reuse it
         silently, with no switch set and nothing in its provenance. Coverage comes from the
-        fetch manifest written next to the cache: a universe symbol counts as covered only
-        if its last fetch succeeded ('short'/'invalid' outcomes are deliberate exclusions,
-        not failures). A cache with no manifest predates v32; its coverage is unknown.
+        fetch manifest written together with the cache: a universe symbol counts as covered
+        if its fetch succeeded and it is in the cache, or if it was deliberately excluded
+        ('short' history / 'invalid' data). A manifest that does not describe this cache
+        (a different symbol set) is ignored with a warning.
+
+        A cache without a manifest predates v32: its coverage in this sense is unknown,
+        because v31 also dropped symbols on purpose. The fraction of the universe it holds is
+        recorded as provenance, and only a cache holding less than half the universe (e.g.
+        an old demo-universe cache) is refused.
         """
+        allow = os.environ.get('PAIRS_ALLOW_PARTIAL_FETCH') == '1'
+        cached = set(cached)
+        wanted = set(wanted)
+        self.universe_cached_fraction = len(cached & wanted) / len(wanted) if wanted else None
         manifest_path = self.data_file.replace('.pkl', '_manifest.json')
         try:
             with open(manifest_path) as f:
-                outcomes = json.load(f).get('outcomes')
+                manifest = json.load(f)
+            outcomes = manifest.get('outcomes') or None
         except (OSError, ValueError):
-            outcomes = None
-        if not outcomes or not wanted:
+            manifest, outcomes = None, None
+        if outcomes is not None:
+            described = set(manifest.get('cached_symbols') or
+                            [k for k, v in outcomes.items() if v == 'ok'])
+            if described != cached:
+                logger.warning(f"{manifest_path} does not describe this cache ({len(described)} "
+                               f"symbols vs {len(cached)} cached); ignoring it — coverage unknown")
+                outcomes = None
+        if outcomes is None or not wanted:
             self.universe_coverage = None
-            logger.info("Price cache has no fetch manifest (pre-v32): universe coverage unknown")
+            frac = self.universe_cached_fraction
+            logger.info(f"Price cache coverage unknown (no usable fetch manifest); it holds "
+                        f"{frac:.1%} of the universe file" if frac is not None else
+                        "Price cache coverage unknown (no usable fetch manifest)")
+            if frac is not None and frac < self.MIN_PRE_V32_CACHED_FRACTION and not allow:
+                raise RuntimeError(
+                    f"The price cache holds only {frac:.1%} of the universe file and has no fetch "
+                    "manifest: it cannot be the study cache (an old demo-universe or partial "
+                    "cache?). Delete it to re-fetch, or set PAIRS_ALLOW_PARTIAL_FETCH=1 to run "
+                    "on it as a sensitivity variant.")
             return
         bad = sum(1 for s in wanted
-                  if s not in outcomes or outcomes[s] == 'empty' or str(outcomes[s]).startswith('error'))
+                  if outcomes.get(s) not in ('short', 'invalid')
+                  and not (outcomes.get(s) == 'ok' and s in cached))
         self.universe_coverage = 1.0 - bad / len(wanted)
-        if (self.universe_coverage < self.MIN_FETCH_COVERAGE
-                and os.environ.get('PAIRS_ALLOW_PARTIAL_FETCH') != '1'):
+        if self.universe_coverage < self.MIN_FETCH_COVERAGE and not allow:
             raise RuntimeError(
-                f"The price cache covers only {self.universe_coverage:.1%} of the universe file "
-                f"(threshold {self.MIN_FETCH_COVERAGE:.0%}): it was built from a partial or "
-                "demo-universe fetch. Delete it to re-fetch, or set PAIRS_ALLOW_PARTIAL_FETCH=1 "
-                "to run on it as a sensitivity variant.")
+                f"According to its fetch manifest ({manifest_path}), the price cache covers only "
+                f"{self.universe_coverage:.1%} of the universe file (threshold "
+                f"{self.MIN_FETCH_COVERAGE:.0%}): it was built from a partial or demo-universe "
+                "fetch. Delete the cache and its manifest to re-fetch, or set "
+                "PAIRS_ALLOW_PARTIAL_FETCH=1 to run on it as a sensitivity variant.")
 
     def load_or_fetch_data(self, symbols: List[str], max_workers: int = 4) -> Dict[str, pd.DataFrame]:
         """Load the price cache (restricted to `symbols`), or fetch and cache it.
@@ -491,7 +522,7 @@ class EnhancedRussell3000DataProcessor:
             if len(wanted) > len(subset):
                 logger.info(f"{len(wanted) - len(subset)} universe symbols have no cached prices "
                             "(failed or never fetched) and are excluded")
-            self._check_cache_coverage(wanted)
+            self._check_cache_coverage(wanted, saved_data.keys())
             return self._reprocess_cached_indicators(subset)
 
         logger.info(f"Fetching fresh data for {len(symbols)} symbols")
@@ -518,23 +549,27 @@ class EnhancedRussell3000DataProcessor:
                     f"({coverage:.1%} fetch coverage); manifest outcome counts: "
                     f"{dict(pd.Series(list(self.fetch_manifest.values())).value_counts()) if self.fetch_manifest else {}}")
         manifest_path = self.data_file.replace('.pkl', '_manifest.json')
-        try:
-            os.makedirs(os.path.dirname(manifest_path) or '.', exist_ok=True)
-            import json as _json
-            with open(manifest_path, 'w') as f:
-                _json.dump({'start': self.start_date, 'end': self.end_date,
-                            'fetched_at': pd.Timestamp.now(tz='UTC').isoformat(),
-                            'yfinance_version': getattr(yf, '__version__', 'unknown'),
-                            'outcomes': dict(sorted(self.fetch_manifest.items()))}, f, indent=1)
-        except OSError as e:
-            logger.warning(f"Could not write the fetch manifest: {e}")
+        manifest = {'start': self.start_date, 'end': self.end_date,
+                    'fetched_at': pd.Timestamp.now(tz='UTC').isoformat(),
+                    'yfinance_version': getattr(yf, '__version__', 'unknown'),
+                    'cached_symbols': sorted(results),
+                    'outcomes': dict(sorted(self.fetch_manifest.items()))}
         if coverage < self.MIN_FETCH_COVERAGE and os.environ.get('PAIRS_ALLOW_PARTIAL_FETCH') != '1':
+            if os.path.exists(manifest_path):
+                os.remove(manifest_path)       # no cache exists, so any manifest here is stale
             raise RuntimeError(
                 f"Only {coverage:.1%} of symbols fetched without error (threshold "
                 f"{self.MIN_FETCH_COVERAGE:.0%}) — most likely Yahoo rate limiting. The partial "
                 "data was NOT cached, because a partial universe silently changes the study. "
                 "Re-run later, or set PAIRS_ALLOW_PARTIAL_FETCH=1 to accept it.")
         if results:
+            # the manifest describes exactly this cache: staged first, renamed after the cache
+            os.makedirs(os.path.dirname(manifest_path) or '.', exist_ok=True)
+            tmp_manifest = f"{manifest_path}.tmp-{os.getpid()}"
+            with open(tmp_manifest, 'w') as f:
+                json.dump(manifest, f, indent=1)
             self._atomic_pickle(results, self.data_file)
+            os.replace(tmp_manifest, manifest_path)
             logger.info(f"Price cache written to {self.data_file} (manifest: {manifest_path})")
+            self.universe_cached_fraction = len(results) / attempted if attempted else None
         return results
