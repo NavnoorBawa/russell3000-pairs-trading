@@ -211,6 +211,7 @@ python -m pairs_trading.main 2>&1 | tee logs/backtest.log
 python scripts/check_published_numbers.py --write
 python scripts/make_og_image.py          # social card from the same JSON
 cp -r outputs outputs_headline           # keep the headline run: every run rewrites outputs/
+# (re-check later with: python scripts/check_published_numbers.py --json outputs_headline/headline_metrics.json)
 
 # evidence beyond the headline (each run rewrites outputs/; the publishing scripts refuse a
 # JSON from a non-default switch unless --allow-variant is given)

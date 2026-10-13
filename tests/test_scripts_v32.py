@@ -482,3 +482,20 @@ def test_publishing_refuses_a_sensitivity_run(site, tmp_path, capsys):
     assert run(site, '--allow-variant') == 0
     assert og.main(['--json', str(js), '--out', str(tmp_path / 'c.png')]) == 2
     assert og.main(['--json', str(js), '--out', str(tmp_path / 'c.png'), '--allow-variant']) == 0
+
+
+def test_site_and_readme_list_the_same_limitations():
+    """The page says it says the same things as the README; the limitations list is the
+    part that drifted (v32 review). Compare the bold lead-ins of both lists."""
+    import pathlib
+    import re
+    root = pathlib.Path(__file__).resolve().parents[1]
+    md = (root / 'README.md').read_text(encoding='utf-8')
+    section = md.split('## Known limitations', 1)[1].split('\n## ', 1)[0]
+    readme = [re.sub(r'[*“”"]', '', m).strip(' .') for m in re.findall(r'^- \*\*(.+?)\*\*', section, re.M)]
+    page_html = (root / 'index.html').read_text(encoding='utf-8')
+    lims = page_html.split('class="lims"', 1)[1].split('</ul>', 1)[0]
+    page = [re.sub(r'<[^>]+>|[“”"]', '', m).strip(' .') for m in re.findall(r'<li><strong>(.+?)</strong>', lims)]
+    assert len(readme) == len(page) and len(readme) >= 8, (readme, page)
+    norm = [lambda s: re.sub(r'\W+', ' ', s).lower().strip()]
+    assert [norm[0](x) for x in readme] == [norm[0](x) for x in page], list(zip(readme, page))

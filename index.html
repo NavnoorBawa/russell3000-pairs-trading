@@ -85,7 +85,7 @@
   --nav:rgba(14,14,13,.96);
   color-scheme:dark
 }
-html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-padding-top:104px}  /* keep focused/anchored content clear of the sticky nav */
 @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 body{background:var(--bg);color:var(--tp);font-family:var(--sans);font-size:16px;line-height:1.65;overflow-wrap:break-word}
 a{color:var(--link);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
@@ -133,7 +133,7 @@ h1{font-size:46px;line-height:1.1;font-weight:650;letter-spacing:-.02em;max-widt
 .btn:hover{border-color:var(--tp)}
 
 /* ── sections ── */
-.section{padding:72px 0;border-bottom:1px solid var(--b);scroll-margin-top:72px}
+.section{padding:72px 0;border-bottom:1px solid var(--b)}
 .section:last-of-type{border-bottom:0}
 .sec-label{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--tm);margin-bottom:10px}
 h2{font-size:28px;line-height:1.25;font-weight:650;letter-spacing:-.01em;margin-bottom:14px}
@@ -199,12 +199,13 @@ pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
 .f-links{list-style:none;display:flex;flex-wrap:wrap;gap:8px 24px;font-size:14px}
 
 @media (max-width:900px){
+  html{scroll-padding-top:0}
   .site-nav{position:static}
-  .section{scroll-margin-top:0}
   .nav-in{flex-wrap:wrap}
-  .brand{flex:1 1 0;min-width:0;order:0}
-  .theme-btn{order:1}
-  .nav-links{order:2;flex:1 1 100%;justify-content:flex-start}
+  /* visual order = DOM order = tab order: brand, links, then the theme toggle */
+  .brand{flex:1 1 100%;min-width:0}
+  .nav-links{flex:1 1 100%;justify-content:flex-start}
+  .theme-btn{margin-top:4px}
   .status dl{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (max-width:760px){
@@ -281,7 +282,7 @@ pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
     <p class="tag">Status · v32 · October 2026</p>
     <h2 id="status-title">v32 rebuilt the engine. The published v31.1 figures are withdrawn until the study is re-run.</h2>
     <p>A complete audit of v31.1 (about 270 findings across seven review areas, nearly all confirmed by an independent adversarial re-check) found defects in the trading engine itself: entry and exit used different z-scores; the Kalman “hedge ratio” was a price-level ratio that changed with the data vendor’s back-adjustment; each trade’s final P&amp;L reached the position sizer and the loss cool-off on the day it was <strong>opened</strong>; P&amp;L was booked on exit days only; and the walk-forward silently discarded trades still open at a window’s end. Some of these defects flattered the old result and others changed the strategy itself, so the net direction cannot be predicted. The v31.1 numbers are therefore withdrawn, not adjusted.</p>
-    <p>v32 has <strong>not yet been re-run on the study data</strong> (the universe file is not redistributable and the price cache is local to the author). It is validated instead on <a href="#validation">synthetic markets with known answers</a>, by 300+ hermetic tests (89% line coverage) and by an end-to-end run of the full pipeline in CI (with classical ranking; the trained-ranker path is tested separately). Every v32 result on this page shows “—” until the next study run fills it.</p>
+    <p>v32 has <strong>not yet been re-run on the study data</strong> (the universe file is not redistributable and the price cache is local to the author). It is validated instead on <a href="#validation">synthetic markets with known answers</a>, by 300+ hermetic tests (89% line coverage) and by an end-to-end run of the full pipeline in CI (with classical ranking; the trained-ranker path is tested separately). Every v32 study result on this page shows “—” until the next study run fills it; the known-answer figures under Validation come from <code>scripts/synthetic_validation.py</code> and are not filled by the publication script.</p>
     <dl>
       <div><dt>Engine</dt><dd>Rebuilt in v32.0.0 (<a href="#changes">what changed</a>)</dd></div>
       <div><dt>v31.1 results</dt><dd>Withdrawn, not adjusted</dd></div>
@@ -302,7 +303,7 @@ pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
 <section class="section" id="results" aria-labelledby="results-title">
   <p class="sec-label">01 · Results</p>
   <h2 id="results-title">Results</h2>
-  <p class="desc">Every v32 number on this page is a marker. After a run, <code>python scripts/check_published_numbers.py --write</code> fills it from <code>outputs/headline_metrics.json</code>, and the same script without <code>--write</code> fails if any published number disagrees with the run. “—” means not yet run.</p>
+  <p class="desc">Every v32 study result in this section is a marker. After a run, <code>python scripts/check_published_numbers.py --write</code> fills it from <code>outputs/headline_metrics.json</code>, and the same script without <code>--write</code> fails if any published number disagrees with the run. “—” means not yet run.</p>
   <div class="tw">
   <table class="res">
     <caption>Headline results. The v31.1 column is kept for the record only: those figures are withdrawn.</caption>
@@ -358,7 +359,7 @@ pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
       <tr><th scope="row">Of those, surviving Benjamini-Hochberg at q &lt; 0.05</th><td class="num"><span data-metric="fdr.survive_bh_fdr_q05">—</span></td></tr>
       <tr><th scope="row">Pairs selected after every filter</th><td class="num"><span data-metric="fdr.final_selected_pairs">—</span></td></tr>
       <tr><th scope="row">Main backtest: maximum drawdown</th><td class="num"><span data-metric="main.max_drawdown_pct">—</span></td></tr>
-      <tr><th scope="row">Main backtest: average gross exposure</th><td class="num"><span data-metric="main.avg_gross_exposure_pct">—</span></td></tr>
+      <tr><th scope="row">Main backtest: average gross exposure</th><td class="num"><span data-metric="main.avg_gross_exposure_pct" data-dp="1">—</span></td></tr>
       <tr><th scope="row">Walk-forward OOS: windows with no trades</th><td class="num"><span data-metric="oos.windows_no_trades">—</span></td></tr>
     </tbody>
   </table>
@@ -368,7 +369,7 @@ pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
 <section class="section" id="validation" aria-labelledby="validation-title">
   <p class="sec-label">02 · Validation</p>
   <h2 id="validation-title">Validation on markets with known answers</h2>
-  <p class="desc">A backtest on real data can only say what a strategy did, not whether the code measures what it claims. <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/scripts/synthetic_validation.py"><code>scripts/synthetic_validation.py</code></a> runs the real engine, with its full cost model, on synthetic markets whose answer is known (<a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/pairs_trading/synthetic.py"><code>pairs_trading/synthetic.py</code></a>); CI runs it on every push. Five independent markets per scenario. These are checks of the code on synthetic data, not results on the study data.</p>
+  <p class="desc">A backtest on real data can only say what a strategy did, not whether the code measures what it claims. <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/scripts/synthetic_validation.py"><code>scripts/synthetic_validation.py</code></a> runs the real engine, with its full cost model, on synthetic markets whose answer is known (<a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/pairs_trading/synthetic.py"><code>pairs_trading/synthetic.py</code></a>); CI runs two markets per scenario on every push to main and on pull requests. The table reports five independent markets per scenario. These are checks of the code on synthetic data, not results on the study data.</p>
   <table class="stack" role="table">
     <caption>Known-answer checks, v32 (five synthetic markets per scenario)</caption>
     <thead role="rowgroup">
@@ -391,7 +392,7 @@ pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
   <div class="pipeline">
     <div class="p-row">
       <h3 class="p-key">universe and data</h3>
-      <div class="p-val"><p>Russell 3000 constituents from <code>data/marketcap.csv</code> (2,542 symbols) · daily OHLCV 2020–2025 · VIX and 11 sector ETFs. Every level screen uses point-in-time (split-unadjusted) prices and volumes. A price fetch must cover at least 90% of the universe; caches are written atomically and never silently overwritten.</p></div>
+      <div class="p-val"><p>Russell 3000 constituents from <code>data/marketcap.csv</code> (2,542 symbols) · daily OHLCV 2020–2025 · VIX and 11 sector ETFs. Every level screen uses point-in-time prices and volumes (split-unadjusted; still dividend-adjusted, see limitations). A price fetch must cover at least 90% of the universe; caches are written atomically and never silently overwritten.</p></div>
     </div>
     <div class="p-row">
       <h3 class="p-key">pair selection</h3>
@@ -485,7 +486,8 @@ pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
     <li><strong>The “transformer” sees one 30-feature vector</strong> — a sequence of length one — so it is functionally a residual MLP. Its scores are not bit-identical across CPU thread counts or devices.</li>
     <li><strong>Sector features are coarse.</strong> The sector map covers about 315 of 2,542 symbols; the rest get neutral sector inputs. Pairs are not restricted to one industry.</li>
     <li><strong>The 126-day re-selection check has little power.</strong> At n ≈ 87 bars (asymptotic MacKinnon p-values) the rule p ≤ 0.30 passes 27% of non-cointegrated pairs and only 32–63% of truly cointegrated ones (half-life 14 down to 5 days), so it removes many healthy pairs at every re-selection. It is kept as the documented v8 design; <code>RESEL_RECENT_MAX_P = 1.0</code> turns it off.</li>
-    <li><strong>The price cache used through v31 was built with a full-sample penny-stock screen.</strong> The screen is point-in-time in v32; a cache built before that still carries the old filtering until it is re-fetched.</li>
+    <li><strong>The price cache used through v31 was built with a full-sample penny-stock screen</strong>, and its fill step also wrote forward-filled prices into rows where the vendor returned none. v32 does neither, but a cache built before v32 keeps both until it is re-fetched.</li>
+    <li><strong>“Point-in-time” prices undo splits, not dividends.</strong> The cached closes are dividend-adjusted, so early prices are understated by the yield of later dividends (a few percent a year for high-yield names) in the $5 price and dollar-volume screens.</li>
   </ul>
   <p class="note">Literature context: Do &amp; Faff (2010, <cite>Financial Analysts Journal</cite>; 2012, <cite>Journal of Financial Research</cite>) find that simple distance-method pairs trading became largely unprofitable after 2002 once trading costs are counted. That is indirect support for a negative result here, not a test of this strategy.</p>
 </section>
@@ -503,8 +505,11 @@ python -m pairs_trading.main 2&gt;&amp;1 | tee logs/backtest.log
 # publish: fill every marked number in README.md and index.html, then verify them
 python scripts/check_published_numbers.py --write
 python scripts/make_og_image.py          # social card from the same JSON
+cp -r outputs outputs_headline           # keep the headline run: every run rewrites outputs/
+# (re-check later with: python scripts/check_published_numbers.py --json outputs_headline/headline_metrics.json)
 
-# evidence beyond the headline
+# evidence beyond the headline (each run rewrites outputs/; the publishing scripts refuse a
+# JSON from a non-default switch unless --allow-variant is given)
 python scripts/synthetic_validation.py   # known-answer checks (~4 min)
 python scripts/parameter_sensitivity.py  # threshold grid + PBO on the study data (slow)
 PAIRS_USE_TRANSFORMER=0 python -m pairs_trading.main &gt; logs/backtest_noml.log 2&gt;&amp;1   # ranker ablation
