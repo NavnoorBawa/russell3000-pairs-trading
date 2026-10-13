@@ -6,7 +6,7 @@ reconstruction, and causal technical indicators.
 """
 
 from pairs_trading.config import (
-    pd, np, yf, os, pickle, time, random, logging,
+    pd, np, yf, os, json, pickle, time, random, logging,
     concurrent, tqdm, List, Dict, Optional,
     MACRO_TICKERS, SECTOR_ETFS
 )
@@ -24,6 +24,9 @@ class EnhancedRussell3000DataProcessor:
         self.successful_count = 0
         self.failed_count = 0
         self.fetch_manifest: Dict[str, str] = {}
+        # Fraction of the universe the price data covers (None: a pre-v32 cache without a
+        # fetch manifest, coverage unknown). Recorded in every export's run_config.
+        self.universe_coverage: Optional[float] = None
 
         logger.info("ENHANCED Russell 3000 Data Processor initialized")
 
@@ -436,6 +439,37 @@ class EnhancedRussell3000DataProcessor:
 
     MIN_FETCH_COVERAGE = 0.90
 
+    def _check_cache_coverage(self, wanted) -> None:
+        """Apply the fetch-coverage rule to a cache that is being LOADED, not only fetched.
+
+        A partial fetch accepted once with PAIRS_ALLOW_PARTIAL_FETCH=1 (or a demo-universe
+        fetch) is written to the cache; without this check every later run would reuse it
+        silently, with no switch set and nothing in its provenance. Coverage comes from the
+        fetch manifest written next to the cache: a universe symbol counts as covered only
+        if its last fetch succeeded ('short'/'invalid' outcomes are deliberate exclusions,
+        not failures). A cache with no manifest predates v32; its coverage is unknown.
+        """
+        manifest_path = self.data_file.replace('.pkl', '_manifest.json')
+        try:
+            with open(manifest_path) as f:
+                outcomes = json.load(f).get('outcomes')
+        except (OSError, ValueError):
+            outcomes = None
+        if not outcomes or not wanted:
+            self.universe_coverage = None
+            logger.info("Price cache has no fetch manifest (pre-v32): universe coverage unknown")
+            return
+        bad = sum(1 for s in wanted
+                  if s not in outcomes or outcomes[s] == 'empty' or str(outcomes[s]).startswith('error'))
+        self.universe_coverage = 1.0 - bad / len(wanted)
+        if (self.universe_coverage < self.MIN_FETCH_COVERAGE
+                and os.environ.get('PAIRS_ALLOW_PARTIAL_FETCH') != '1'):
+            raise RuntimeError(
+                f"The price cache covers only {self.universe_coverage:.1%} of the universe file "
+                f"(threshold {self.MIN_FETCH_COVERAGE:.0%}): it was built from a partial or "
+                "demo-universe fetch. Delete it to re-fetch, or set PAIRS_ALLOW_PARTIAL_FETCH=1 "
+                "to run on it as a sensitivity variant.")
+
     def load_or_fetch_data(self, symbols: List[str], max_workers: int = 4) -> Dict[str, pd.DataFrame]:
         """Load the price cache (restricted to `symbols`), or fetch and cache it.
 
@@ -457,6 +491,7 @@ class EnhancedRussell3000DataProcessor:
             if len(wanted) > len(subset):
                 logger.info(f"{len(wanted) - len(subset)} universe symbols have no cached prices "
                             "(failed or never fetched) and are excluded")
+            self._check_cache_coverage(wanted)
             return self._reprocess_cached_indicators(subset)
 
         logger.info(f"Fetching fresh data for {len(symbols)} symbols")
@@ -478,6 +513,7 @@ class EnhancedRussell3000DataProcessor:
         attempted = len(symbols)
         errors = sum(1 for v in self.fetch_manifest.values() if v.startswith('error') or v == 'empty')
         coverage = 1.0 - errors / attempted if attempted else 0.0
+        self.universe_coverage = coverage
         logger.info(f"Fetched {len(results)}/{attempted} symbols; {errors} fetch errors/empties "
                     f"({coverage:.1%} fetch coverage); manifest outcome counts: "
                     f"{dict(pd.Series(list(self.fetch_manifest.values())).value_counts()) if self.fetch_manifest else {}}")

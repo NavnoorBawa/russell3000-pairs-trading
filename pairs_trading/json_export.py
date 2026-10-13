@@ -397,6 +397,8 @@ def build_run_config(results: Optional[Dict] = None, system_info: Optional[Dict]
             'backtest_end': _date_str(dates[-1]) if len(dates) else None,
             'n_symbols': _int(info.get('total_symbols_processed')),
             'n_pairs': _int(info.get('pairs_selected')),
+            # fraction of the universe file the price data covers (None: pre-v32 cache, unknown)
+            'universe_coverage': _r(info.get('universe_coverage'), 4),
             'price_cache': file_fingerprint(data_file),
         },
         'versions': {
@@ -1094,6 +1096,7 @@ def _sig_battery(b: Dict) -> Dict:
 # value is a sensitivity variant (non_default_switches), which the publishing scripts refuse.
 HEADLINE_SEED = 42                                  # pairs_trading.main.DEFAULT_SEED
 FLAG_SWITCHES = ('PAIRS_DEMO_UNIVERSE', 'PAIRS_SKIP_REPROCESS', 'PAIRS_ALLOW_PARTIAL_FETCH')
+MIN_UNIVERSE_COVERAGE = 0.90                        # data_processor.MIN_FETCH_COVERAGE
 
 
 def non_default_switches(run_config: Optional[Dict]) -> List[str]:
@@ -1118,6 +1121,9 @@ def non_default_switches(run_config: Optional[Dict]) -> List[str]:
     for key in FLAG_SWITCHES:
         if env.get(key) == '1':
             out.append(f'{key}=1')
+    coverage = (rc.get('data') or {}).get('universe_coverage')
+    if coverage is not None and coverage < MIN_UNIVERSE_COVERAGE:
+        out.append(f'universe_coverage={coverage:.1%}')   # a partial cache, whatever the switches
     return out
 
 

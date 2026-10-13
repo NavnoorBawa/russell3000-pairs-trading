@@ -106,3 +106,46 @@ def test_returns_keep_the_true_move_across_a_missing_close():
     assert (1 + r[100]) * (1 + r[101]) - 1 == pytest.approx(close[101] / close[99] - 1)
     assert r[99] == pytest.approx(close[99] / close[98] - 1)
     assert np.isnan(out['Close'].iloc[100])                    # raw close stays unfilled
+
+
+def _write_cache(tmp_path, n_cached, outcomes):
+    """A price cache of n_cached synthetic symbols plus a fetch manifest."""
+    import json
+    import pickle
+    from pairs_trading.synthetic import make_market
+    frames, _, _ = make_market(n_pairs=1, n_noise=n_cached - 2, seed=1, end='2021-06-30')
+    syms = sorted(frames)
+    path = tmp_path / 'cache.pkl'
+    with open(path, 'wb') as f:
+        pickle.dump(frames, f)
+    if outcomes is not None:
+        (tmp_path / 'cache_manifest.json').write_text(json.dumps({'outcomes': outcomes(syms)}))
+    return str(path), syms
+
+
+def test_a_partial_cache_is_refused_on_load(tmp_path, monkeypatch):
+    """v32 regression review: a partial (or demo-universe) fetch accepted once with
+    PAIRS_ALLOW_PARTIAL_FETCH=1 is cached; later runs must not reuse it silently."""
+    path, syms = _write_cache(tmp_path, 4, lambda s: {**{x: 'ok' for x in s},
+                                                      **{f'Z{i:03d}': 'error:HTTPError' for i in range(96)}})
+    universe = syms + [f'Z{i:03d}' for i in range(96)]
+    dp = _P()
+    dp.data_file = path
+    monkeypatch.delenv('PAIRS_ALLOW_PARTIAL_FETCH', raising=False)
+    with pytest.raises(RuntimeError, match='covers only 4.0%'):
+        dp.load_or_fetch_data(universe)
+    monkeypatch.setenv('PAIRS_ALLOW_PARTIAL_FETCH', '1')
+    data = dp.load_or_fetch_data(universe)
+    assert sorted(data) == syms and dp.universe_coverage == pytest.approx(0.04)
+
+
+def test_a_full_or_pre_v32_cache_loads(tmp_path, monkeypatch):
+    monkeypatch.delenv('PAIRS_ALLOW_PARTIAL_FETCH', raising=False)
+    path, syms = _write_cache(tmp_path, 4, lambda s: {x: 'ok' for x in s})
+    dp = _P()
+    dp.data_file = path
+    assert sorted(dp.load_or_fetch_data(syms)) == syms and dp.universe_coverage == 1.0
+    (tmp_path / 'cache_manifest.json').unlink()                     # pre-v32: no manifest
+    dp2 = _P()
+    dp2.data_file = path
+    assert sorted(dp2.load_or_fetch_data(syms)) == syms and dp2.universe_coverage is None

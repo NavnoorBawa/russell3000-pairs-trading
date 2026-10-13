@@ -230,7 +230,7 @@ PAIRS_FILL=open python -m pairs_trading.main > logs/backtest_open.log 2>&1      
 | `PAIRS_USE_TRANSFORMER` | 1 | `0` skips ranker training: classical ranking on the same code path |
 | `PAIRS_FILL` | close | `open` fills at the next bar's open instead of its close |
 | `PAIRS_RESELECT` | pool | `full` re-runs the complete pair search at every re-selection |
-| `PAIRS_ALLOW_PARTIAL_FETCH` | unset | `1` accepts a price fetch covering < 90% of the universe |
+| `PAIRS_ALLOW_PARTIAL_FETCH` | unset | `1` accepts price data covering < 90% of the universe (a partial fetch, or loading a cache built from one); such a run is a variant |
 | `PAIRS_DEMO_UNIVERSE` | unset | `1` uses an 85-symbol smoke-test universe when `data/marketcap.csv` is absent (does not reproduce the study) |
 | `PAIRS_SKIP_REPROCESS` | unset | `1` loads the price cache verbatim |
 

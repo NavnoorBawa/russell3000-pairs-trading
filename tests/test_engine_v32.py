@@ -510,3 +510,15 @@ def test_walk_forward_trains_each_window_only_on_its_past(monkeypatch):
     for c in calls:
         if c['max_samples'] is not None:                          # OOS evaluation of a trained window
             assert c['signal_end'] is not None
+
+
+def test_capped_positions_do_not_halt_the_run():
+    """Engine-level regression: with many pairs, three positions at the 10% sizer cap fill
+    the 30% gross cap exactly; that must not read as an exposure breach (seed 28 halted
+    after 24 trades before the kill switch shared the entry checks' tolerance)."""
+    frames, macro, _ = make_market(n_pairs=40, n_noise=0, seed=28)
+    s = build_system(frames, macro, quality=1.0)
+    r = s.run_comprehensive_backtest(s.spread_data, date_range=RANGE)
+    assert r['halted_on'] is None, r.get('halt_reason')
+    assert 'risk_halt' not in r['exit_reasons']
+    assert r['total_trades'] > 100

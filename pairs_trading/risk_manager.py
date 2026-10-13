@@ -19,7 +19,13 @@ class FixedPrimeFundRiskManager:
     mark-to-market P&L): 15% drawdown, 5% single-day loss, gross exposure above the cap.
     """
 
+    LIMIT_EPS = 1e-9          # shared tolerance for every limit comparison (see __init__)
+
     def __init__(self, initial_capital: float = 100000000):
+        # Every limit comparison uses the same tolerance (LIMIT_EPS): a size computed as
+        # exactly the cap can round to cap + 1 ulp, and 0.1 + 0.1 + 0.1 > 0.3 in floating
+        # point. Entry checks and the kill switch must agree, or an entry accepted at the
+        # cap trips the kill switch the next morning and halts the run.
         self.max_position_size = 0.10
         self.max_total_exposure = 0.30
         self.max_daily_trades = 8
@@ -117,9 +123,7 @@ class FixedPrimeFundRiskManager:
                     return False, f"Must wait {self.min_holding_period} days between trades"
 
             position_pct = position_size / current_portfolio_value
-            # limits compare with a 1e-9 tolerance: a size computed as exactly the cap can
-            # round to cap + 1 ulp (and 0.1 + 0.1 + 0.1 > 0.3 in floating point)
-            if position_pct > self.max_position_size + 1e-9:
+            if position_pct > self.max_position_size + self.LIMIT_EPS:
                 return False, f"Position {position_pct:.2%} exceeds {self.max_position_size:.2%}"
 
             if self.daily_trade_count >= self.max_daily_trades:
@@ -129,7 +133,7 @@ class FixedPrimeFundRiskManager:
             if volatility > self.max_daily_volatility:
                 return False, f"Volatility {volatility:.2%} exceeds {self.max_daily_volatility:.2%}"
 
-            if self.current_exposure + position_pct > self.max_total_exposure + 1e-9:
+            if self.current_exposure + position_pct > self.max_total_exposure + self.LIMIT_EPS:
                 return False, f"Would exceed {self.max_total_exposure:.1%} exposure limit"
 
             volume = market_data.get('volume', 1e6)
@@ -252,7 +256,7 @@ class FixedPrimeFundRiskManager:
             return True, f"Single-day loss circuit breaker: {daily_pnl:.2%} < -{self.max_single_day_loss:.2%}"
 
         # 3. Exposure limit - Position sizing safety
-        if self.current_exposure > self.max_total_exposure:
+        if self.current_exposure > self.max_total_exposure + self.LIMIT_EPS:
             return True, f"Exposure limit exceeded: {self.current_exposure:.2%} > {self.max_total_exposure:.2%}"
 
         return False, "All risk checks passed"

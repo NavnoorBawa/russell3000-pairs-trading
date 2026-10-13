@@ -921,7 +921,7 @@ class CompleteFixedRussell3000TradingSystem:
                 beta = c['sig']['beta']
                 gross = float(c['position_size'])
                 exposure_frac = gross / equity
-                if open_exposure + exposure_frac > self.risk_manager.max_total_exposure + 1e-9:
+                if open_exposure + exposure_frac > self.risk_manager.max_total_exposure + self.risk_manager.LIMIT_EPS:
                     _reject('gross_exposure_cap')
                     continue
                 # Share counts are fixed from the SIGNAL-day close: $1 of leg 1 : $beta of leg 2.
@@ -1831,8 +1831,10 @@ class CompleteFixedRussell3000TradingSystem:
         self.macro_data = self.data_processor.load_macro_data()
         self._pair_state_cache = {}
         # Provenance first, so the log alone identifies code version, switches and data.
-        log_run_config(build_run_config(system_info={'total_symbols_processed': len(self.processed_data),
-                                                     'initial_capital': self.initial_capital}))
+        log_run_config(build_run_config(system_info={
+            'total_symbols_processed': len(self.processed_data),
+            'initial_capital': self.initial_capital,
+            'universe_coverage': getattr(self.data_processor, 'universe_coverage', None)}))
 
     def prepare_study(self):
         """Everything before the backtests, on the loaded data.
@@ -1971,6 +1973,7 @@ class CompleteFixedRussell3000TradingSystem:
             'initial_capital': self.initial_capital,
             'data_start': min(starts) if starts else None,
             'data_end': max(ends) if ends else None,
+            'universe_coverage': getattr(self.data_processor, 'universe_coverage', None),
         }
         export_testing_results_to_json(results, system_info)      # sets results['run_config']
         if fund_comparison:

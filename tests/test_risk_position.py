@@ -124,3 +124,15 @@ def test_a_size_exactly_at_the_cap_is_accepted():
     r.current_exposure = 0.1 + 0.1
     ok, why = r.validate_signal(("A", "B"), 2, 0.8, _market(), 0.10 * CAP, CAP)
     assert ok, why
+
+
+def test_a_book_exactly_at_the_gross_cap_does_not_trip_the_kill_switch():
+    """v32 regression review: entry checks accepted a third capped position (gross
+    0.1 + 0.1 + 0.1 = 0.30000000000000004) but the morning kill switch compared without
+    tolerance and halted the whole run."""
+    r = FixedPrimeFundRiskManager(CAP)
+    r.update_daily_stats(0, 0.1 + 0.1 + 0.1, 0.0, CAP)
+    stop, why = r.should_stop_trading(0.0)
+    assert stop is False, why
+    r.update_daily_stats(0, 0.31, 0.0, CAP)
+    assert r.should_stop_trading(0.0)[0] is True                 # a real breach still stops

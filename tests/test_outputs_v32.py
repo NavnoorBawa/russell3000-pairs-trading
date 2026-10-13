@@ -824,3 +824,12 @@ def test_headline_configuration_is_not_a_variant(monkeypatch, tmp_path):
     assert je.non_default_switches(je.build_run_config(system_info={})) == []
     monkeypatch.setenv('PAIRS_SEED', '42')
     assert je.non_default_switches(je.build_run_config(system_info={})) == []
+
+
+def test_a_partial_universe_is_a_variant_whatever_the_switches(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    cfg = je.build_run_config(system_info={'universe_coverage': 0.42})
+    assert cfg['data']['universe_coverage'] == 0.42
+    assert je.non_default_switches(cfg) == ['universe_coverage=42.0%']
+    assert je.non_default_switches(je.build_run_config(system_info={'universe_coverage': 0.97})) == []
+    assert je.non_default_switches(je.build_run_config(system_info={'universe_coverage': None})) == []
