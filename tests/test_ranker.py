@@ -56,18 +56,24 @@ def test_class_weighting_is_undone_at_inference(monkeypatch):
     """pos_weight training shifts the log-odds by +log(w); the score must not inherit it.
 
     On uninformative features with a 20% base rate, a calibrated scorer predicts about
-    0.2 on average. Without the prior correction it predicts about 0.5 (v31 behaviour).
+    0.2 on average; without the prior correction its mean moves toward 0.5 (v31). The
+    test is deterministic (seeded torch init, seeded batch order) and contrastive.
     """
     import torch
     torch.manual_seed(0)
     monkeypatch.setenv('PAIRS_USE_TRANSFORMER', '1')
+    monkeypatch.setenv('PAIRS_SEED', '0')
     agent = FixedTransformerMultiAgentSystem()
     X, y = _samples(n=1200, seed=3, base_rate=0.2)
-    assert agent.train_on_samples(X, y, epochs=2)
+    assert agent.train_on_samples(X, y, epochs=10)
     w = agent.training_summary['pos_weight']
     assert agent.signal_transformer.logit_offset == pytest.approx(-np.log(w))
     p = agent.predict_raw(X)
-    assert abs(float(p.mean()) - float(y.mean())) < 0.1
+    assert abs(float(p.mean()) - float(y.mean())) < 0.07      # seeds 0-2: 0.17-0.27 vs 0.21
+    offset = agent.signal_transformer.logit_offset
+    agent.signal_transformer.logit_offset = 0.0                 # the v31 behaviour
+    assert float(agent.predict_raw(X).mean()) - float(p.mean()) > 0.15   # uncorrected: 0.43-0.57
+    agent.signal_transformer.logit_offset = offset
     skill = agent.evaluate(X, y)
     assert skill['n'] == len(y) and 0.0 <= skill['auc'] <= 1.0
     assert skill['brier_base_rate'] == pytest.approx(np.mean((y.mean() - y) ** 2), rel=1e-6)

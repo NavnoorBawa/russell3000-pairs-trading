@@ -74,7 +74,7 @@ def test_indicators_are_prefix_invariant():
     full = proc._process_indicators(df)
     prefix = proc._process_indicators(df.iloc[:k])
 
-    for col in ('MA_50', 'MA_20', 'RSI_14'):
+    for col in ('MA_50', 'MA_20', 'RSI_14', 'Volume_MA', 'Volatility_20', 'Returns', 'Momentum_5'):
         if col not in full.columns:
             continue
         np.testing.assert_allclose(

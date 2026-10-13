@@ -2923,7 +2923,8 @@ that changes behaviour has a test.
 - **Look-ahead in sizing and cool-off.** v31 called `position_sizer.record_trade(pair,
   net_pnl_pct)` and updated the pair loss streak when a trade was OPENED, with that trade's
   final outcome — the sizer's win-rate and the cool-off knew the future. Outcomes now
-  arrive at the exit fill. `test_sizer_never_sees_an_open_trades_outcome` perturbs every price after a cut-off and
+  arrive at the exit fill. `test_sizer_never_sees_an_open_trades_outcome` perturbs every stock price, volume and macro
+  series after a cut-off and
   fails a re-introduced version of this bug at all three cut-offs tried.
 - **Kalman model.** v31: one state, no intercept, `log p1 = β log p2`. β absorbed the price
   level (in synthetic tests a true slope of 0.90 read as ~1.27), and because a vendor's

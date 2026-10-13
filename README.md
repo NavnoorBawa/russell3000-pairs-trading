@@ -76,11 +76,14 @@ scenario on every push to main and on pull requests. Five independent markets pe
 | Kalman hedge ratio vs the true slope | recover it | median absolute error 0.031 (90th percentile 0.073) |
 | Pair selection on 2020–2022 data, 6 planted pairs among 24 names | find them, admit few others | 100% of planted pairs found; unrelated pairs admitted: 2.4 of 270 per market with planted pairs, 2.6 of 276 per market with none (≤ 3% in every market) |
 
-The test suite adds causality checks with teeth: every result dated before T is unchanged
-when all prices after T are replaced (the check catches a deliberately re-introduced
-sizer look-ahead at every cut-off tried), the same trades are taken at the same z-scores
-when the vendor back-adjusts history for a split after the sample, and the daily P&L
-series reconciles exactly with the per-trade P&L.
+The test suite adds causality checks with teeth, each confirmed by re-introducing the bug
+it guards against: every decision dated on or before T is unchanged when all stock prices,
+volumes, VIX and sector data after T are replaced — with classical ranking and with a
+trained ranker (this catches a sizer that sees open trades' outcomes and the v31
+terminal-date feature look-ahead); the regime gate's inputs are prefix-invariant (catches a
+centred window); the same trades are taken at the same z-scores when the vendor
+back-adjusts history for a split after the sample; and trade paths, fills and the fund
+replay are checked against hand-computed answers.
 
 ## Architecture (v32)
 

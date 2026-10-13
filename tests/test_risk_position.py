@@ -109,3 +109,18 @@ def test_profit_scaling_reduces_at_high_profit(rm):
 
 def test_volatility_scaling_full_without_history(rm):
     assert rm.get_volatility_scaling_factor() == 1.0
+
+
+def test_a_size_exactly_at_the_cap_is_accepted():
+    """v32 review: 0.10 * equity / equity can round to 0.10 + 1 ulp, so ~6% of capped
+    sizes were vetoed at random; three capped positions (0.1 + 0.1 + 0.1 > 0.3 in floating
+    point) likewise tripped the gross cap."""
+    import numpy as np
+    for eq in np.random.default_rng(0).uniform(5e7, 2e8, 1000):
+        r = FixedPrimeFundRiskManager()
+        ok, why = r.validate_signal(("A", "B"), 2, 0.8, _market(), 0.10 * eq, eq)
+        assert ok, why
+    r = FixedPrimeFundRiskManager()
+    r.current_exposure = 0.1 + 0.1
+    ok, why = r.validate_signal(("A", "B"), 2, 0.8, _market(), 0.10 * CAP, CAP)
+    assert ok, why

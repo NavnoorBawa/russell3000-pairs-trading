@@ -604,6 +604,19 @@ class CompleteFixedRussell3000TradingSystem:
     # Backtest
     # ════════════════════════════════════════════════════════════════════════════
 
+    def _dispersion_z(self) -> pd.Series:
+        """Cross-sectional std of 63-day cumulative sector log-returns, z-scored against its
+        own trailing 252 days (trailing windows only; tested for prefix invariance)."""
+        sectors = self.macro_data.get('sectors', {})
+        sector_rets = pd.DataFrame({k: v.pct_change(fill_method=None) for k, v in sectors.items() if len(v) > 10})
+        sector_rets = sector_rets.dropna(how='all')
+        if sector_rets.empty:
+            return pd.Series(dtype=float)
+        cum63 = np.log1p(sector_rets.fillna(0)).rolling(63, min_periods=30).sum()
+        disp = cum63.std(axis=1).dropna()
+        return ((disp - disp.rolling(252, min_periods=60).mean())
+                / (disp.rolling(252, min_periods=60).std() + 1e-10)).dropna()
+
     def _regime_scales(self, full_dates: List) -> np.ndarray:
         """Per-date regime scale from VIX bands and 63-day cumulative sector dispersion.
 
@@ -613,15 +626,7 @@ class CompleteFixedRussell3000TradingSystem:
         against its own trailing 252 days — trailing data only.
         """
         vix = self.macro_data.get('VIX', pd.Series(dtype=float))
-        sectors = self.macro_data.get('sectors', {})
-        sector_rets = pd.DataFrame({k: v.pct_change(fill_method=None) for k, v in sectors.items() if len(v) > 10})
-        sector_rets = sector_rets.dropna(how='all')
-        disp_z = pd.Series(dtype=float)
-        if not sector_rets.empty:
-            cum63 = np.log1p(sector_rets.fillna(0)).rolling(63, min_periods=30).sum()
-            disp = cum63.std(axis=1).dropna()
-            disp_z = ((disp - disp.rolling(252, min_periods=60).mean())
-                      / (disp.rolling(252, min_periods=60).std() + 1e-10)).dropna()
+        disp_z = self._dispersion_z()
         vix_lookup = {str(pd.Timestamp(d).date()): float(v) for d, v in vix.items()}
         disp_lookup = {str(pd.Timestamp(d).date()): float(z) for d, z in disp_z.items()}
         scales = np.ones(len(full_dates))
@@ -916,7 +921,7 @@ class CompleteFixedRussell3000TradingSystem:
                 beta = c['sig']['beta']
                 gross = float(c['position_size'])
                 exposure_frac = gross / equity
-                if open_exposure + exposure_frac > self.risk_manager.max_total_exposure:
+                if open_exposure + exposure_frac > self.risk_manager.max_total_exposure + 1e-9:
                     _reject('gross_exposure_cap')
                     continue
                 # Share counts are fixed from the SIGNAL-day close: $1 of leg 1 : $beta of leg 2.

@@ -117,7 +117,9 @@ class FixedPrimeFundRiskManager:
                     return False, f"Must wait {self.min_holding_period} days between trades"
 
             position_pct = position_size / current_portfolio_value
-            if position_pct > self.max_position_size:
+            # limits compare with a 1e-9 tolerance: a size computed as exactly the cap can
+            # round to cap + 1 ulp (and 0.1 + 0.1 + 0.1 > 0.3 in floating point)
+            if position_pct > self.max_position_size + 1e-9:
                 return False, f"Position {position_pct:.2%} exceeds {self.max_position_size:.2%}"
 
             if self.daily_trade_count >= self.max_daily_trades:
@@ -127,7 +129,7 @@ class FixedPrimeFundRiskManager:
             if volatility > self.max_daily_volatility:
                 return False, f"Volatility {volatility:.2%} exceeds {self.max_daily_volatility:.2%}"
 
-            if self.current_exposure + position_pct > self.max_total_exposure:
+            if self.current_exposure + position_pct > self.max_total_exposure + 1e-9:
                 return False, f"Would exceed {self.max_total_exposure:.1%} exposure limit"
 
             volume = market_data.get('volume', 1e6)

@@ -64,10 +64,11 @@ def make_market(n_pairs=6, n_noise=4, seed=0, cointegrated=True, betas=None,
 
 
 def perturb_after(frames, cutoff, seed=123, scale=0.03):
-    """Copy of `frames` whose prices strictly after `cutoff` follow a different path.
+    """Copy of `frames` whose prices AND volumes strictly after `cutoff` follow a different path.
 
     Everything dated <= cutoff is untouched, so any computation that is causal must give
     identical results for all dates <= cutoff on the original and the perturbed market.
+    Pair with perturb_macro_after so the VIX / sector inputs change too.
     """
     rng = np.random.default_rng(seed)
     out = {}
@@ -79,8 +80,28 @@ def perturb_after(frames, cutoff, seed=123, scale=0.03):
             shock = np.exp(np.cumsum(rng.normal(0, scale, n)))
             for col in ('Open', 'High', 'Low', 'Close'):
                 df.loc[after, col] = df.loc[after, col].to_numpy() * shock
+            if 'Volume' in df.columns:
+                df.loc[after, 'Volume'] = (df.loc[after, 'Volume'].to_numpy()
+                                           * np.exp(rng.normal(0, 0.5, n))).round()
         out[sym] = df
     return out
+
+
+def perturb_macro_after(macro, cutoff, seed=124, scale=0.03):
+    """Copy of the macro dict (tz-naive VIX + sector ETFs) with a different path after `cutoff`:
+    VIX jumps across the 20 / 30 / 40 regime bands and every sector takes its own random walk."""
+    rng = np.random.default_rng(seed)
+    cut = pd.Timestamp(cutoff)
+    vix = macro['VIX'].copy()
+    after = vix.index > cut
+    vix[after] = np.clip(vix[after].to_numpy() + rng.normal(0, 12, int(after.sum())), 9, 80)
+    sectors = {}
+    for k, v in macro['sectors'].items():
+        v = v.copy()
+        a = v.index > cut
+        v[a] = v[a].to_numpy() * np.exp(np.cumsum(rng.normal(0, scale, int(a.sum()))))
+        sectors[k] = v
+    return {**macro, 'VIX': vix, 'sectors': sectors}
 
 
 def build_system(frames, macro, pairs=None, half_life=8.0, quality=0.8, capital=100_000_000):

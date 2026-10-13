@@ -269,7 +269,7 @@ class FixedTransformerMultiAgentSystem:
         return self.signal_transformer is not None
 
     def _train_signal_transformer(self, X: np.ndarray, y: np.ndarray,
-                                  epochs: int = 3, batch_size: int = 256):
+                                  epochs: int = 3, batch_size: int = 256, seed: int = None):
         """BCE-train the transformer to predict P(profitable) at entry.
 
         Class-balanced via pos_weight = n_neg / n_pos, so an imbalanced label set still
@@ -284,8 +284,11 @@ class FixedTransformerMultiAgentSystem:
         n = len(X)
         idx = np.arange(n)
         epoch_losses = []
+        # own RNG for the batch order: training does not depend on (or disturb) the global
+        # NumPy state; the seed follows the run's PAIRS_SEED
+        rng = np.random.default_rng(int(os.environ.get('PAIRS_SEED', 42)) if seed is None else seed)
         for ep in range(epochs):
-            np.random.shuffle(idx)
+            rng.shuffle(idx)
             losses = []
             for i in range(0, n, batch_size):
                 b = idx[i:i + batch_size]

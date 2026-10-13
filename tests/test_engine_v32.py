@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from tests.synthetic_market import build_system, make_market, perturb_after
+from tests.synthetic_market import build_system, make_market, perturb_after, perturb_macro_after
 from pairs_trading.trading_system import (
     CompleteFixedRussell3000TradingSystem, max_drawdown_from_returns, annualised_sharpe,
 )
@@ -41,12 +41,14 @@ def _key(t):
 def test_future_perturbation_leaves_the_past_unchanged(market, base_run):
     frames, macro, _ = market
     _, a = base_run
-    b_sys = build_system(perturb_after(frames, CUTOFF), macro)
+    b_sys = build_system(perturb_after(frames, CUTOFF), perturb_macro_after(macro, CUTOFF))
     b = b_sys.run_comprehensive_backtest(b_sys.spread_data, date_range=RANGE)
 
     cut = pd.Timestamp(CUTOFF)
-    pre_a = [t for t in a['trades'] if pd.Timestamp(t['signal_date']).tz_localize(None) < cut]
-    pre_b = [t for t in b['trades'] if pd.Timestamp(t['signal_date']).tz_localize(None) < cut]
+    # signals dated ON the cutoff use only data <= cutoff, so they must match too (a one-bar
+    # look-ahead — deciding with the next close — would change exactly those)
+    pre_a = [t for t in a['trades'] if pd.Timestamp(t['signal_date']).tz_localize(None) <= cut]
+    pre_b = [t for t in b['trades'] if pd.Timestamp(t['signal_date']).tz_localize(None) <= cut]
     assert len(pre_a) >= 10, "fixture too quiet to test causality"
     assert [_key(t) for t in pre_a] == [_key(t) for t in pre_b], \
         "entry decisions before the cutoff changed when only later prices changed"
@@ -67,7 +69,7 @@ def test_outcome_labels_are_causal(market):
     """Ranker samples built with data up to T are identical whatever happens after T."""
     frames, macro, _ = market
     a_sys = build_system(frames, macro)
-    b_sys = build_system(perturb_after(frames, CUTOFF), macro)
+    b_sys = build_system(perturb_after(frames, CUTOFF), perturb_macro_after(macro, CUTOFF))
     pairs = sorted(a_sys.spread_data)
     Xa, ya = a_sys.build_outcome_samples(pairs, end=CUTOFF)
     Xb, yb = b_sys.build_outcome_samples(pairs, end=CUTOFF)
@@ -236,7 +238,7 @@ def test_sizer_never_sees_an_open_trades_outcome(market, cutoff):
     after `cutoff` would change what the sizer 'knew' before `cutoff`."""
     frames, macro, _ = market
     _, a = _run_with_sizer_probe(build_system(frames, macro))
-    _, b = _run_with_sizer_probe(build_system(perturb_after(frames, cutoff), macro))
+    _, b = _run_with_sizer_probe(build_system(perturb_after(frames, cutoff), perturb_macro_after(macro, cutoff)))
     cut = pd.Timestamp(cutoff)
     pre_a = [s for s in a if s[0] <= cut]
     pre_b = [s for s in b if s[0] <= cut]
@@ -244,11 +246,13 @@ def test_sizer_never_sees_an_open_trades_outcome(market, cutoff):
     assert pre_a == pre_b
 
 
-def test_decisions_invariant_to_vendor_back_adjustment(market):
+@pytest.mark.parametrize('seed', [7, 3, 5])
+def test_decisions_invariant_to_vendor_back_adjustment(seed):
     """yfinance back-adjusts a whole history for splits that happen later (even after the
     sample). Rescaling one leg's entire price history by a constant must not change a
-    single decision: the signal may depend on relative moves, never on the price level."""
-    frames, macro, _ = market
+    single decision: the signal may depend on relative moves, never on the price level.
+    (Several seeds: seeds 3 and 5 caught a rounding veto at the 10% position cap.)"""
+    frames, macro, _ = make_market(n_pairs=6, n_noise=2, seed=seed)
     base = build_system(frames, macro)
     a = base.run_comprehensive_backtest(base.spread_data, date_range=RANGE)
     scaled = {s: df.copy() for s, df in frames.items()}
@@ -277,7 +281,7 @@ def test_reselection_uses_only_data_up_to_each_date(market, monkeypatch, mode):
     frames, macro, _ = market
     dates = pd.bdate_range('2023-01-03', '2025-06-30', tz='America/New_York')
     a_sys = build_system(frames, macro)
-    b_sys = build_system(perturb_after(frames, CUTOFF), macro)
+    b_sys = build_system(perturb_after(frames, CUTOFF), perturb_macro_after(macro, CUTOFF))
     a = a_sys.build_rolling_pair_schedule(list(dates), reselect_every=90)
     b = b_sys.build_rolling_pair_schedule(list(dates), reselect_every=90)
     cut = pd.Timestamp(CUTOFF, tz='America/New_York')
@@ -331,7 +335,7 @@ def test_cost_gate_can_bind_and_stays_causal(market, monkeypatch):
     monkeypatch.setattr(CompleteFixedRussell3000TradingSystem, 'MAX_COST_PCT_OF_EQUITY', 1e-4)
     a_sys = build_system(frames, macro)
     a = a_sys.run_comprehensive_backtest(a_sys.spread_data, date_range=RANGE)
-    b_sys = build_system(perturb_after(frames, CUTOFF), macro)
+    b_sys = build_system(perturb_after(frames, CUTOFF), perturb_macro_after(macro, CUTOFF))
     b = b_sys.run_comprehensive_backtest(b_sys.spread_data, date_range=RANGE)
     assert a['signal_rejections'].get('cost_gate', 0) > 0, "threshold did not bind; lower it"
     assert a['total_trades'] > 0, "threshold rejects everything; raise it"
@@ -356,3 +360,153 @@ def test_one_missing_close_does_not_drop_a_pair_at_reselection():
     holed = build_system(gappy, macro).build_rolling_pair_schedule(dates, reselect_every=90)
     assert any(clean[d] for d in clean)
     assert {d: sorted(v) for d, v in clean.items()} == {d: sorted(v) for d, v in holed.items()}
+
+
+def test_regime_scales_use_only_past_macro_data():
+    """The regime gate (VIX bands, sector dispersion) must be prefix-invariant: dropping all
+    macro data after T leaves every scale dated <= T unchanged. An engine-level perturbation
+    rarely trips the gate on synthetic data, so test the function directly."""
+    frames, macro, _ = make_market(n_pairs=2, n_noise=0, seed=11)
+    s = build_system(frames, macro)
+    dates = list(frames['SA00'].index)
+    full = s._regime_scales(dates)
+    full_z = s._dispersion_z()
+    assert (full < 1.0).any() and len(full_z) > 500, "fixture too quiet; the test would be vacuous"
+    for T in ('2022-06-30', '2023-06-30', '2024-06-28'):
+        c = pd.Timestamp(T)
+        s.macro_data = {'VIX': macro['VIX'][macro['VIX'].index <= c],
+                        'sectors': {k: v[v.index <= c] for k, v in macro['sectors'].items()}}
+        m = np.array([pd.Timestamp(d).tz_localize(None) <= c for d in dates])
+        np.testing.assert_array_equal(full[m], s._regime_scales(dates)[m])
+        # the continuous input, not just the thresholded scale: a centred window changes it
+        cut_z = s._dispersion_z()
+        np.testing.assert_allclose(full_z.loc[full_z.index <= c].to_numpy(), cut_z.to_numpy(),
+                                   rtol=1e-12, atol=1e-12)
+    s.macro_data = macro
+
+
+# ── Accounting against known answers (v32 review: the telescoping test compared a
+#    quantity with itself) ─────────────────────────────────────────────────────
+
+def test_trade_path_known_answer():
+    """Hand-computed path: fill -> close on entry, close -> close in between, close -> fill on exit."""
+    S = CompleteFixedRussell3000TradingSystem
+    a1 = {'close_ff': np.array([10., 11., 12., 13., 14.])}
+    a2 = {'close_ff': np.array([20., 19., 21., 22., 20.])}
+    q1, q2, e1, e2, x1, x2 = 100.0, -50.0, 10.5, 19.5, 13.7, 21.0      # entry k=1, exit k=4
+    p = S._build_trade_path(a1, a2, q1, q2, 1, 4, e1, e2, x1, x2)
+    assert p == pytest.approx({1: 100 * (11 - 10.5) - 50 * (19 - 19.5),
+                               2: 100 * (12 - 11) - 50 * (21 - 19),
+                               3: 100 * (13 - 12) - 50 * (22 - 21),
+                               4: 100 * (13.7 - 13) - 50 * (21 - 22)})
+    assert sum(p.values()) == pytest.approx(q1 * (x1 - e1) + q2 * (x2 - e2))
+
+
+@pytest.mark.parametrize('fill', ['close', 'open'])
+def test_engine_paths_and_fills_match_the_prices(market, monkeypatch, fill):
+    """For every trade the engine finalises: the marked path sums to the P&L of its actual
+    fills, entry/exit fills are the real prices of the configured fill column on those
+    days, and costs are booked on exactly the entry and exit fill days."""
+    monkeypatch.setenv('PAIRS_FILL', fill)
+    S = CompleteFixedRussell3000TradingSystem
+    seen = {}
+    orig = S._finalise_trade
+
+    def spy(self, t, exit_signal_k, exit_k, reason, full_dates, aligned, fill_col):
+        orig(self, t, exit_signal_k, exit_k, reason, full_dates, aligned, fill_col)
+        seen[id(t)] = (t, aligned, fill_col)                # last finalisation wins
+    monkeypatch.setattr(S, '_finalise_trade', spy)
+    frames, macro, _ = market
+    system = build_system(frames, macro)
+    res = system.run_comprehensive_backtest(system.spread_data, date_range=RANGE)
+    assert len(seen) == res['total_trades'] > 10
+    col = 'Open' if fill == 'open' else 'Close'
+    for t, aligned, fill_col in seen.values():
+        assert fill_col == col
+        a1, a2 = aligned[t['symbol1']], aligned[t['symbol2']]
+        assert sum(t['path'].values()) == pytest.approx(
+            t['q1'] * (t['x1'] - t['e1']) + t['q2'] * (t['x2'] - t['e2']), rel=1e-9, abs=1e-6)
+        assert t['e1'] == S._fill_price(a1, t['entry_k'], col)
+        assert t['e2'] == S._fill_price(a2, t['entry_k'], col)
+        raw = a1['open'][t['entry_k']] if col == 'Open' else a1['close_ff'][t['entry_k']]
+        assert t['e1'] == pytest.approx(raw)
+        assert set(t['costs_by_k']) == {t['entry_k'], t['exit_k']}
+        if t['exit_k'] != t['entry_k']:
+            assert t['costs_by_k'][t['entry_k']] == pytest.approx(t['entry_cost'])
+
+
+def test_fund_replay_known_answer(monkeypatch):
+    """One hand-built trade with zero costs: each profile's equity must move by exactly
+    G x (marked return) on each marked day, where G = profile size x capital."""
+    import pairs_trading.transaction_costs as tc
+    from pairs_trading.fund_profiles import FUND_PROFILES
+    zero = {k: 0.0 for k in ('commission', 'bid_ask', 'market_impact', 'borrow', 'financing',
+                             'total_cost', 'total_bps')}
+    monkeypatch.setattr(tc, 'calculate_profile_trade_costs', lambda *a, **k: dict(zero))
+    S = CompleteFixedRussell3000TradingSystem
+    s = S.__new__(S)
+    s.initial_capital = 1e8
+    cal = ['2024-01-02', '2024-01-03', '2024-01-04', '2024-01-05', '2024-01-08']
+    trade = {'pair': 'A-B', 'unit_path': [(cal[1], 0.01), (cal[2], -0.005), (cal[3], 0.02)],
+             'zscore': 2.3, 'regime_scale': 1.0, 'long_notional': 1e6, 'short_notional': 1e6,
+             'holding_days': 3, 'long_symbol': 'A', 'short_symbol': 'B', 'net_pnl_pct': 0.0}
+    out = s.run_fund_type_comparison({'trades': [trade], 'daily_dates': cal}, main_daily_dates=cal)
+    for key, prof in out.items():
+        p = FUND_PROFILES[key]
+        G = min(p.base_position_pct * 1.0, p.max_position_pct) * 1e8          # z_mult = 2.3 / 2.3
+        eq = [pt['value'] for pt in prof['equity_curve']]
+        expected = [1e8, 1e8 + G * .01, 1e8 + G * .005, 1e8 + G * .025, 1e8 + G * .025]
+        assert eq == pytest.approx(expected, abs=0.02), key
+        assert prof['total_trades'] == 1 and prof['replayed_net_pnl'] == pytest.approx(G * .025, abs=0.02)
+
+
+def test_future_perturbation_with_a_trained_ranker():
+    """The default path ranks candidates with a trained model whose live features read
+    stock and macro data; with the same model, later prices (and macro) must not change any
+    earlier decision or score (a re-introduced v31 terminal-date feature look-ahead fails)."""
+    import copy
+    import torch
+    torch.manual_seed(0)
+    frames, macro, _ = make_market(n_pairs=12, n_noise=0, seed=31)
+    a_sys = build_system(frames, macro)
+    a_sys._train_ranker(a_sys.rl_agent, sorted(a_sys.spread_data), end='2023-06-30')
+    assert a_sys.rl_agent.signal_transformer is not None
+    b_sys = build_system(perturb_after(frames, CUTOFF), perturb_macro_after(macro, CUTOFF))
+    b_sys.rl_agent = copy.deepcopy(a_sys.rl_agent)               # same model; only later data differ
+    a = a_sys.run_comprehensive_backtest(a_sys.spread_data, date_range=RANGE)
+    b = b_sys.run_comprehensive_backtest(b_sys.spread_data, date_range=RANGE)
+    cut = pd.Timestamp(CUTOFF)
+
+    def pre(r):
+        return [t for t in r['trades'] if pd.Timestamp(t['signal_date']).tz_localize(None) <= cut]
+    assert len(pre(a)) >= 10
+    assert [_key(t) for t in pre(a)] == [_key(t) for t in pre(b)]
+    for ta, tb in zip(pre(a), pre(b)):
+        assert ta['feature_quality'] == pytest.approx(tb['feature_quality'], rel=1e-9)
+
+
+def test_walk_forward_trains_each_window_only_on_its_past(monkeypatch):
+    """Every walk-forward ranker is trained on samples whose outcomes complete by its
+    window's train end, which precedes that window's test start; evaluation samples start
+    at the test start."""
+    monkeypatch.setenv('PAIRS_USE_TRANSFORMER', '1')
+    frames, macro, _ = make_market(n_pairs=6, n_noise=0, seed=7)
+    system = build_system(frames, macro)
+    calls = []
+    orig = CompleteFixedRussell3000TradingSystem.build_outcome_samples
+
+    def rec(self, pairs, end, start=None, agent=None, step=None, max_samples=None, seed=0, signal_end=None):
+        calls.append({'end': end, 'start': start, 'signal_end': signal_end, 'max_samples': max_samples})
+        return orig(self, pairs, end, start=start, agent=agent, step=step, max_samples=max_samples,
+                    seed=seed, signal_end=signal_end)
+    monkeypatch.setattr(CompleteFixedRussell3000TradingSystem, 'build_outcome_samples', rec)
+    wf = system.run_walk_forward_validation()
+    train_calls = [c for c in calls if c['max_samples'] is None]
+    assert len(train_calls) == wf['total_windows'] >= 3
+    for c, w in zip(train_calls, wf['windows']):
+        end = pd.Timestamp(c['end']).tz_localize(None).normalize()
+        assert end <= pd.Timestamp(w['train_end']) < pd.Timestamp(w['test_start'])
+        assert pd.Timestamp(c['start']).tz_localize(None).normalize() == pd.Timestamp(w['train_start'])
+    for c in calls:
+        if c['max_samples'] is not None:                          # OOS evaluation of a trained window
+            assert c['signal_end'] is not None
