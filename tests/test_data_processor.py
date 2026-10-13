@@ -190,3 +190,15 @@ def test_a_refused_fetch_leaves_no_manifest(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match='NOT cached'):
         dp.load_or_fetch_data(['A', 'B', 'C'], max_workers=1)
     assert not stale.exists() and not (tmp_path / 'cache.pkl').exists()
+
+
+@pytest.mark.parametrize('content', ['[]', 'null', '"x"', '{"outcomes": ["A"]}', '{"outcomes": "ok"}',
+                                     '{"outcomes": {}, "cached_symbols": [[1]]}', '{"outcomes": {"A": "o'])
+def test_a_malformed_manifest_stops_with_a_clear_message(tmp_path, monkeypatch, content):
+    monkeypatch.delenv('PAIRS_ALLOW_PARTIAL_FETCH', raising=False)
+    path, syms = _write_cache(tmp_path, 4, None)
+    (tmp_path / 'cache_manifest.json').write_text(content)
+    dp = _P()
+    dp.data_file = path
+    with pytest.raises(RuntimeError, match='not a fetch manifest written by this system'):
+        dp.load_or_fetch_data(syms)

@@ -463,12 +463,24 @@ class EnhancedRussell3000DataProcessor:
         wanted = set(wanted)
         self.universe_cached_fraction = len(cached & wanted) / len(wanted) if wanted else None
         manifest_path = self.data_file.replace('.pkl', '_manifest.json')
-        try:
-            with open(manifest_path) as f:
-                manifest = json.load(f)
-            outcomes = manifest.get('outcomes') or None
-        except (OSError, ValueError):
-            manifest, outcomes = None, None
+        present = os.path.exists(manifest_path)
+        manifest = None
+        if present:
+            try:
+                with open(manifest_path) as f:
+                    manifest = json.load(f)
+            except (OSError, ValueError):
+                manifest = None                # present but unreadable: rejected below
+            cs = manifest.get('cached_symbols') if isinstance(manifest, dict) else None
+            if not (isinstance(manifest, dict) and isinstance(manifest.get('outcomes', {}), dict)
+                    and (cs is None or (isinstance(cs, list) and all(isinstance(x, str) for x in cs)))):
+                # fail closed with a clear message: ignoring it would drop to the weaker
+                # pre-v32 rule and could accept a partial cache
+                raise RuntimeError(
+                    f"{manifest_path} is not a fetch manifest written by this system. Delete the "
+                    "cache and its manifest to re-fetch, or delete only the manifest to load the "
+                    "cache as a pre-v32 cache (coverage unknown).")
+        outcomes = (manifest.get('outcomes') or None) if present else None
         if outcomes is not None:
             described = set(manifest.get('cached_symbols') or
                             [k for k, v in outcomes.items() if v == 'ok'])

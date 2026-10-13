@@ -194,7 +194,8 @@ These hold for v32 and should be read with any result it produces.
   v32 does neither, but a cache built before v32 keeps both until it is re-fetched. Its
   universe coverage is also unchecked: v31 wrote no fetch manifest (and dropped some
   symbols on purpose), so such a run records `universe_coverage: null` plus the fraction of
-  the universe the cache holds, and is not marked a variant unless that is below half.
+  the universe the cache holds; a cache holding less than half the universe is refused
+  unless `PAIRS_ALLOW_PARTIAL_FETCH=1` (which makes the run a variant).
 - **"Point-in-time" prices undo splits, not dividends.** The cached closes are dividend-
   adjusted, so early prices are understated by the yield of later dividends (a few percent
   a year for high-yield names) in the $5 price and dollar-volume screens.
