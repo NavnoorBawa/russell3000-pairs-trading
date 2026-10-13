@@ -82,3 +82,18 @@ def test_profile_costs_scale_with_notional():
     small = calculate_profile_trade_costs(100_000, profile, 10)['total_cost']
     big = calculate_profile_trade_costs(10_000_000, profile, 10)['total_cost']
     assert big > small
+
+
+def test_profile_impact_uses_each_legs_own_adv():
+    """v32 review: the fund replay priced both legs at the less liquid leg's ADV. A $1M leg
+    at $20M ADV and a $2M leg at $500M ADV must cost less than both at $20M."""
+    from pairs_trading.fund_profiles import FUND_PROFILES
+    from pairs_trading.transaction_costs import calculate_profile_trade_costs
+    prof = next(iter(FUND_PROFILES.values()))
+    kw = dict(position_value=3e6, profile=prof, holding_days=10, long_value=1e6, short_value=2e6,
+              daily_volatility=0.02, adv_dollars=20e6)
+    pooled = calculate_profile_trade_costs(**kw)['market_impact']
+    per_leg = calculate_profile_trade_costs(**kw, long_adv_dollars=20e6, short_adv_dollars=500e6)['market_impact']
+    assert per_leg < pooled
+    same = calculate_profile_trade_costs(**kw, long_adv_dollars=20e6, short_adv_dollars=20e6)['market_impact']
+    assert same == pytest.approx(pooled)

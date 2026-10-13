@@ -339,3 +339,20 @@ def test_cost_gate_can_bind_and_stays_causal(market, monkeypatch):
     pre = [[_key(t) for t in r['trades'] if pd.Timestamp(t['signal_date']).tz_localize(None) < cut]
            for r in (a, b)]
     assert pre[0] == pre[1] and len(pre[0]) > 0
+
+
+def test_one_missing_close_does_not_drop_a_pair_at_reselection():
+    """v32 review: a single NaN close inside the 126-day window reached coint, made the
+    p-value 1.0 and silently dropped the pair. The check now uses the same row filter
+    (common dates, finite positive closes) as the 2-year re-test."""
+    frames, macro, _ = make_market(n_pairs=6, n_noise=0, seed=5)
+    dates = list(pd.bdate_range('2023-01-03', '2024-06-28', tz='America/New_York'))
+    clean = build_system(frames, macro).build_rolling_pair_schedule(dates, reselect_every=90)
+    gappy = {s: df.copy() for s, df in frames.items()}
+    day = pd.Timestamp('2023-05-22', tz='America/New_York')
+    for s in gappy:
+        if s.startswith('SA'):
+            gappy[s].loc[day, 'Close'] = np.nan
+    holed = build_system(gappy, macro).build_rolling_pair_schedule(dates, reselect_every=90)
+    assert any(clean[d] for d in clean)
+    assert {d: sorted(v) for d, v in clean.items()} == {d: sorted(v) for d, v in holed.items()}

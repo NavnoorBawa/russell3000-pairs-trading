@@ -223,6 +223,10 @@ def calculate_profile_trade_costs(
     short_value: float = None,
     daily_volatility: float = None,
     adv_dollars: float = None,
+    long_adv_dollars: float = None,
+    short_adv_dollars: float = None,
+    long_daily_vol: float = None,
+    short_daily_vol: float = None,
 ) -> Dict[str, float]:
     """Round-trip cost of a pair trade under a FundProfile (dollars).
 
@@ -231,7 +235,9 @@ def calculate_profile_trade_costs(
     sqrt(leg notional / ADV$), capped at the profile cap. Holding: the profile's GC borrow
     rate on the short leg and its financing spread on the short side (the rebate
     haircut), per calendar day. `daily_volatility`/`adv_dollars` are the traded stocks'
-    own values when known (the replay passes them), else 2% and the profile's ADV.
+    own values when known (the replay passes them), else 2% and the profile's ADV. Each
+    leg's impact uses that leg's own dollar ADV and volatility when given
+    (long_/short_adv_dollars, long_/short_daily_vol), else the pair-level values.
 
     v32 (audit): impact had no volatility factor (the bug v31 fixed only in the main
     model), so every profile paid its flat cap; it was charged on entry only ("temporary
@@ -245,11 +251,15 @@ def calculate_profile_trade_costs(
     days = max(int(holding_days), 0)
     commission = 2 * (long_value + short_value) * (profile.commission_bps / 10_000)
     bid_ask = 2 * (long_value + short_value) * (profile.bid_ask_bps / 10_000)
-    adv = adv_dollars if adv_dollars is not None and np.isfinite(adv_dollars) and adv_dollars > 0 \
-        else profile.daily_volume_dollars
+    def _pos(x):
+        return x if x is not None and np.isfinite(x) and x > 0 else None
+
+    adv = _pos(adv_dollars) or profile.daily_volume_dollars
     impact = 0.0
-    for leg in (long_value, short_value):
-        bps = sqrt_impact_bps(leg / max(adv, 1.0), daily_volatility,
+    for leg, leg_adv, leg_vol in ((long_value, _pos(long_adv_dollars), long_daily_vol),
+                                  (short_value, _pos(short_adv_dollars), short_daily_vol)):
+        vol = leg_vol if leg_vol is not None and np.isfinite(leg_vol) else daily_volatility
+        bps = sqrt_impact_bps(leg / max(leg_adv or adv, 1.0), vol,
                               profile.market_impact_coeff, profile.market_impact_cap_bps)
         impact += 2 * leg * bps / 1e4                    # entry and exit executions
     borrow_cost = short_value * profile.borrow_rate_general * (days / 365.0)

@@ -977,6 +977,7 @@ class CompleteFixedRussell3000TradingSystem:
                                         for key in ('commission', 'bid_ask', 'market_impact')},
                     'regime_scale': regime_scale,
                     'leg_daily_vol': float(np.nanmean([a1['dvol'][k], a2['dvol'][k]])),
+                    'dvol1': float(a1['dvol'][k]), 'dvol2': float(a2['dvol'][k]),
                     'leg_adv_dollars': float(adv_min) if np.isfinite(adv_min) else None,
                     'adv1_dollars': float(adv1_d) if np.isfinite(adv1_d) and adv1_d > 0 else None,
                     'adv2_dollars': float(adv2_d) if np.isfinite(adv2_d) and adv2_d > 0 else None,
@@ -1070,6 +1071,8 @@ class CompleteFixedRussell3000TradingSystem:
             'leg_daily_vol': t['leg_daily_vol'],
             'leg_adv_dollars': t['leg_adv_dollars'],
             'long_adv_dollars': t.get('adv1_dollars') if long_is_1 else t.get('adv2_dollars'),
+            'long_daily_vol': t.get('dvol1') if long_is_1 else t.get('dvol2'),
+            'short_daily_vol': t.get('dvol2') if long_is_1 else t.get('dvol1'),
             'short_adv_dollars': t.get('adv2_dollars') if long_is_1 else t.get('adv1_dollars'),
             'position_size': t['gross_notional'],
             'position_pct': t['exposure_frac'],
@@ -1481,15 +1484,15 @@ class CompleteFixedRussell3000TradingSystem:
                 # common DATES (was positional truncation) and the p-value is the same
                 # two-direction Bonferroni p as the 2-year test (was the invalid min-p).
                 recent_start = cut - pd.Timedelta(days=126)
-                c1 = w1.loc[w1.index >= recent_start, 'Close']
-                c2 = w2.loc[w2.index >= recent_start, 'Close']
-                common = c1.index.intersection(c2.index)
-                if len(common) >= 60:
+                # Same row filter as the 2-year test (common dates with finite, positive
+                # closes): a single missing close used to reach coint as a NaN, make the
+                # p-value 1.0 and silently drop the pair.
+                lp1_r, lp2_r = self.pair_selector._aligned_log_prices(
+                    w1.loc[w1.index >= recent_start], w2.loc[w2.index >= recent_start])
+                if len(lp1_r) >= 60:
                     # The v8 threshold (min-p > 0.15) restated on the Bonferroni scale
                     # p = 2 * min-p; see RESEL_RECENT_MAX_P for its measured power.
-                    p_recent = self.pair_selector.cointegration_pvalue(
-                        np.log(c1.loc[common].to_numpy(dtype=float)),
-                        np.log(c2.loc[common].to_numpy(dtype=float)))
+                    p_recent = self.pair_selector.cointegration_pvalue(lp1_r, lp2_r)
                     if p_recent > self.RESEL_RECENT_MAX_P:
                         dropped_recent += 1
                         continue           # no recent evidence of cointegration
@@ -1613,7 +1616,9 @@ class CompleteFixedRussell3000TradingSystem:
                             G, profile, max(1, int(t['holding_days'])), SOFR,
                             long_symbol=t['long_symbol'], short_symbol=t['short_symbol'],
                             long_value=lv, short_value=G - lv,
-                            daily_volatility=t.get('leg_daily_vol'), adv_dollars=t.get('leg_adv_dollars'))
+                            daily_volatility=t.get('leg_daily_vol'), adv_dollars=t.get('leg_adv_dollars'),
+                            long_adv_dollars=t.get('long_adv_dollars'), short_adv_dollars=t.get('short_adv_dollars'),
+                            long_daily_vol=t.get('long_daily_vol'), short_daily_vol=t.get('short_daily_vol'))
                         half_ex = 0.5 * (c['commission'] + c['bid_ask'] + c['market_impact'])
                         a = {'G': G, 'path': dict(t['unit_path']), 'exit': t['unit_path'][-1][0],
                              'entry_cost': half_ex,

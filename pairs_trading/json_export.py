@@ -1090,6 +1090,12 @@ def _sig_battery(b: Dict) -> Dict:
     }
 
 
+# The headline configuration: every PAIRS_* switch at its default. A run with any other
+# value is a sensitivity variant (non_default_switches), which the publishing scripts refuse.
+HEADLINE_SEED = 42                                  # pairs_trading.main.DEFAULT_SEED
+FLAG_SWITCHES = ('PAIRS_DEMO_UNIVERSE', 'PAIRS_SKIP_REPROCESS', 'PAIRS_ALLOW_PARTIAL_FETCH')
+
+
 def non_default_switches(run_config: Optional[Dict]) -> List[str]:
     """Run switches that differ from the headline configuration (empty = headline run)."""
     rc = run_config or {}
@@ -1101,8 +1107,17 @@ def non_default_switches(run_config: Optional[Dict]) -> List[str]:
         out.append('PAIRS_USE_TRANSFORMER=0')
     if eff.get('reselect', 'pool') != 'pool':
         out.append(f"PAIRS_RESELECT={eff.get('reselect')}")
-    if env.get('PAIRS_DEMO_UNIVERSE') == '1':
-        out.append('PAIRS_DEMO_UNIVERSE=1')
+    seed = env.get('PAIRS_SEED')
+    if seed is not None:
+        try:
+            other_seed = int(str(seed).strip()) != HEADLINE_SEED
+        except ValueError:
+            other_seed = True
+        if other_seed:
+            out.append(f'PAIRS_SEED={seed}')
+    for key in FLAG_SWITCHES:
+        if env.get(key) == '1':
+            out.append(f'{key}=1')
     return out
 
 

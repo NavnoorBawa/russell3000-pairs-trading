@@ -160,7 +160,10 @@ def test_trained_ranker_scores_live_candidates_and_is_evaluated_out_of_sample():
     assert system.rl_agent.signal_transformer is not None, system.rl_agent.training_summary
     res = system.run_comprehensive_backtest(system.spread_data, date_range=('2023-07-01', '2025-12-31'))
     q = [t['feature_quality'] for t in res['trades']]
-    assert q and all(0.0 < x < 1.0 for x in q)                  # scored, not the 1.0 fallback
+    base = system.rl_agent.training_summary['base_rate']
+    assert q and all(0.0 < x < 1.0 for x in q)                  # not the 1.0 untrained fallback
+    assert len(set(q)) > 1, "live scores are constant: the model never scored a candidate"
+    assert not any(abs(x - base) < 1e-9 for x in q), "live scoring fell back to the base rate"
     p, y = system._ranker_oos_scores(system.rl_agent, pairs, start='2023-07-01')
     assert p is not None and len(p) == len(y) > 50
     from pairs_trading.multi_agent_system import classifier_skill

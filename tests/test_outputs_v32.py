@@ -805,3 +805,22 @@ def test_every_pairs_switch_the_code_reads_is_recorded():
         read |= set(re.findall(r"environ\[['\"](PAIRS_[A-Z_]+)['\"]\]", path.read_text()))
     assert read, "pattern found no PAIRS_* reads"
     assert read <= set(je.PROVENANCE_ENV_VARS), read - set(je.PROVENANCE_ENV_VARS)
+
+
+@pytest.mark.parametrize('var, value, flagged', [
+    ('PAIRS_SEED', '7', 'PAIRS_SEED=7'),
+    ('PAIRS_SKIP_REPROCESS', '1', 'PAIRS_SKIP_REPROCESS=1'),
+    ('PAIRS_ALLOW_PARTIAL_FETCH', '1', 'PAIRS_ALLOW_PARTIAL_FETCH=1'),
+    ('PAIRS_DEMO_UNIVERSE', '1', 'PAIRS_DEMO_UNIVERSE=1'),
+])
+def test_any_non_default_switch_makes_a_variant(monkeypatch, tmp_path, var, value, flagged):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(var, value)
+    assert flagged in je.non_default_switches(je.build_run_config(system_info={}))
+
+
+def test_headline_configuration_is_not_a_variant(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    assert je.non_default_switches(je.build_run_config(system_info={})) == []
+    monkeypatch.setenv('PAIRS_SEED', '42')
+    assert je.non_default_switches(je.build_run_config(system_info={})) == []
