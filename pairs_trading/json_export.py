@@ -20,8 +20,9 @@ traced to the code, data and settings that produced it.
 
 The strategy being described is a cointegration / Kalman-filter pairs strategy
 (Engle-Granger selection, beta-locked z-score signals, t+1 fills). A transformer-encoder
-scorer ranks candidate entries only; its measured contribution is ~0. The exports say so
-rather than naming the system after the transformer.
+scorer ranks candidate entries only (its out-of-sample AUC is exported; v31.1's ablation
+measured a contribution of exactly 0). The exports say so rather than naming the system
+after the transformer.
 """
 
 import hashlib
@@ -53,16 +54,17 @@ DATA_CACHE_FILE = os.path.join('data', 'enhanced_russell_3000_data.pkl')
 
 # Environment switches that change what a run computes; recorded verbatim (None = unset).
 PROVENANCE_ENV_VARS = (
-    'PAIRS_SEED', 'PAIRS_FILL', 'PAIRS_USE_TRANSFORMER', 'PAIRS_DEMO_UNIVERSE',
+    'PAIRS_SEED', 'PAIRS_FILL', 'PAIRS_USE_TRANSFORMER', 'PAIRS_RESELECT', 'PAIRS_DEMO_UNIVERSE',
     'PAIRS_SKIP_REPROCESS', 'PAIRS_ALLOW_PARTIAL_FETCH', 'PYTHONHASHSEED',
 )
 
 STRATEGY_DESCRIPTION = (
     'Cointegration / Kalman-filter pairs trading: Engle-Granger pair selection with '
-    'quarterly re-selection, a two-state Kalman hedge ratio locked at entry, z-score '
+    're-selection every 90 trading days, a two-state Kalman hedge ratio locked at entry, z-score '
     'mean-reversion entries and exits, t+1 fills and daily mark-to-market accounting. '
     'A transformer-encoder scorer (single feature vector, i.e. an MLP-like head) only '
-    'RANKS candidate entries; its measured contribution to the results is ~0. This is '
+    'RANKS candidate entries (its out-of-sample AUC is reported in the ranker section; the '
+    'PAIRS_USE_TRANSFORMER=0 run is the ablation). This is '
     'not a transformer trading model and not reinforcement learning.'
 )
 
@@ -385,6 +387,8 @@ def build_run_config(results: Optional[Dict] = None, system_info: Optional[Dict]
         'effective': {
             'fill': 'open' if fill.lower() == 'open' else 'close',   # trading_system.resolve_fill_column
             'use_transformer_ranker': os.environ.get('PAIRS_USE_TRANSFORMER', '1') != '0',
+            # trading_system.build_rolling_pair_schedule
+            'reselect': 'full' if os.environ.get('PAIRS_RESELECT', 'pool').lower() == 'full' else 'pool',
         },
         'data': {
             'data_start': _date_str(info.get('data_start')),
@@ -598,7 +602,8 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
             'annual_turnover_x_equity': _r(results.get('annual_turnover'), 2),
             'return_on_avg_gross_exposure_pct': _r(results.get('return_on_gross_exposure'), 2, 100),
             'avg_trading_days_held': _r(results.get('avg_trading_days_held'), 1),
-            'avg_short_leg_adv_participation_pct': _r(results.get('avg_leg_adv_participation'), 4, 100),
+            # per trade, the larger of (leg notional / that leg's dollar ADV); then averaged
+            'avg_max_leg_adv_participation_pct': _r(results.get('avg_max_leg_adv_participation'), 4, 100),
         },
         'pair_performance': pair_rows,
         'top_10_pairs': pair_rows[:10],
@@ -929,7 +934,7 @@ def export_fund_comparison_to_json(comparison_results: Dict,
         ('commission_bps', 'Commission (bps)'),
         ('bid_ask_bps', 'Bid-Ask (bps)'),
         ('market_impact_cap_bps', 'Market Impact Cap (bps)'),
-        ('borrow_rate_easy_pct', 'Borrow Rate Easy (%/yr)'),
+        ('borrow_rate_gc_pct', 'Borrow Rate, GC, short leg (%/yr)'),
         ('financing_spread_pct', 'Financing Spread (%/yr)'),
         ('base_position_pct', 'Base Position (% equity)'),
         ('gross_leverage_label', 'Gross Leverage (profile label)'),
@@ -1085,6 +1090,22 @@ def _sig_battery(b: Dict) -> Dict:
     }
 
 
+def non_default_switches(run_config: Optional[Dict]) -> List[str]:
+    """Run switches that differ from the headline configuration (empty = headline run)."""
+    rc = run_config or {}
+    eff, env = rc.get('effective') or {}, rc.get('env') or {}
+    out = []
+    if eff.get('fill', 'close') != 'close':
+        out.append(f"PAIRS_FILL={eff.get('fill')}")
+    if eff.get('use_transformer_ranker', True) is not True:
+        out.append('PAIRS_USE_TRANSFORMER=0')
+    if eff.get('reselect', 'pool') != 'pool':
+        out.append(f"PAIRS_RESELECT={eff.get('reselect')}")
+    if env.get('PAIRS_DEMO_UNIVERSE') == '1':
+        out.append('PAIRS_DEMO_UNIVERSE=1')
+    return out
+
+
 def build_headline_metrics(results: Dict, system_info: Dict = None,
                            run_config: Optional[Dict] = None) -> Dict:
     """The headline snapshot as a dict (see `export_headline_metrics`)."""
@@ -1109,6 +1130,10 @@ def build_headline_metrics(results: Dict, system_info: Dict = None,
         'schema': HEADLINE_SCHEMA_VERSION,
         'version': package_version(),
         'complete': not results.get('pipeline_errors'),
+        # switches that make this a sensitivity variant rather than the headline run; the
+        # publishing scripts refuse a non-empty list unless explicitly overridden
+        'non_default_switches': non_default_switches(run_config if run_config is not None
+                                                     else _run_config_for(results, system_info)),
         'pipeline_errors': list(results.get('pipeline_errors') or []),
         'run_config': run_config if run_config is not None else _run_config_for(results, system_info),
         'main': {
@@ -1139,8 +1164,8 @@ def build_headline_metrics(results: Dict, system_info: Dict = None,
             'windows_no_trades': sum(1 for w in windows if _int(w.get('total_trades')) == 0) if windows else None,
             'windows_selection_clean': _int(wf.get('selection_clean_windows')),
             'windows_skipped': _int(wf.get('skipped_windows')),
-            'avg_window_return_pct': _r(wf.get('avg_window_return_pct'), 2),
-            'median_window_return_pct': _r(wf.get('median_window_return_pct'), 2),
+            'avg_window_return_pct': _r(wf.get('avg_window_return_pct'), 3),
+            'median_window_return_pct': _r(wf.get('median_window_return_pct'), 3),
             'pooled_sharpe': _r(wf.get('pooled_sharpe'), 2),
             'total_return_pct': _r(wf.get('stitched_total_return_pct'), 2),
             'trades': _int(wf.get('total_trades')),

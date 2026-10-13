@@ -455,3 +455,30 @@ def test_og_refuses_an_incomplete_run(tmp_path):
     js.write_text(json.dumps(data), encoding='utf-8')
     assert og.main(['--json', str(js), '--out', str(tmp_path / 'card.png')]) == 1
     assert not (tmp_path / 'card.png').exists()
+
+
+def test_write_touches_only_the_value_text(tmp_path):
+    """--write must not rewrite digits inside tag attributes or character references, must
+    keep a numeric-reference minus, and must not choke on a self-closing marker."""
+    data = _headline()
+    data['oos']['pooled_sharpe'] = -0.976
+    data['main']['sharpe'] = 0.4
+    page = ('<p><span data-metric="oos.pooled_sharpe"><a href="#w2" class="c3">&#8722;1.23</a></span>'
+            '<span data-metric="main.sharpe">&#160;0.31</span><br data-metric="main.trades"/>'
+            '<span data-metric="main.total_return_pct"/></p>')
+    new, n, problems = chk.write_text(data, page)
+    assert '<a href="#w2" class="c3">&#8722;0.98</a>' in new
+    assert '<span data-metric="main.sharpe">&#160;0.40</span>' in new
+    assert new.count('data-metric="main.total_return_pct"') == 1      # not duplicated
+    assert n == 2 and not [p for p in problems if 'unknown key' in p]
+
+
+def test_publishing_refuses_a_sensitivity_run(site, tmp_path, capsys):
+    js, _, _ = site
+    data = _headline()
+    data['non_default_switches'] = ['PAIRS_FILL=open']
+    js.write_text(json.dumps(data), encoding='utf-8')
+    assert run(site) == 2 and 'sensitivity run' in capsys.readouterr().err
+    assert run(site, '--allow-variant') == 0
+    assert og.main(['--json', str(js), '--out', str(tmp_path / 'c.png')]) == 2
+    assert og.main(['--json', str(js), '--out', str(tmp_path / 'c.png'), '--allow-variant']) == 0

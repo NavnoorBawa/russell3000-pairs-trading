@@ -381,8 +381,8 @@ def plot_ranker_training(training_summary: dict, output_path: str = None) -> Opt
                  f"pos_weight {w:.2f}" if w is not None else None]
         ax.set_title('Transformer entry ranker — training loss per epoch', fontsize=11, loc='left')
         fig.text(0.01, -0.02, ' · '.join(p for p in parts if p) +
-                 '  ·  in-sample loss; the ranker only orders entries and its measured '
-                 'contribution to results is ~0', fontsize=7.5, color=INK_2, ha='left', va='top')
+                 '  ·  in-sample loss; the ranker only orders entries (its out-of-sample AUC '
+                 'is in the results export)', fontsize=7.5, color=INK_2, ha='left', va='top')
         fig.savefig(path, dpi=DPI, bbox_inches='tight', facecolor=SURFACE)
         logger.info(f"Ranker training chart saved to {path}")
         return path

@@ -140,17 +140,32 @@ class FixedPrimeFundPairSelector:
         v32: through v31 this used the beta = 1 spread log p1 - log p2 — not the spread
         that was tested for cointegration nor the one traded — so a genuinely
         cointegrated pair with hedge ratio far from 1 got a meaningless (often 999)
-        half-life; and NaNs were dropped AFTER aligning, so lags could straddle gaps.
+        half-life; and the AR(1) ran on the gap-compressed series, so lags straddled gaps
+        (now only true one-step pairs enter the regression).
         """
         try:
-            lp1, lp2 = self._aligned_log_prices(data1, data2)
-            if len(lp1) < 50 or np.std(lp2) < 1e-12:
+            # Gap-aware: align on the union of dates so a day missing from either leg is a
+            # NaN in the spread, and fit the AR(1) only on genuine one-step pairs (a
+            # compressed series would regress across gaps and bias phi down).
+            idx = data1.index.union(data2.index)
+            p1 = data1['Close'].reindex(idx).to_numpy(dtype=float)
+            p2 = data2['Close'].reindex(idx).to_numpy(dtype=float)
+            ok = np.isfinite(p1) & np.isfinite(p2) & (p1 > 0) & (p2 > 0)
+            if ok.sum() < 50:
                 return 999.0
-            b, a = np.polyfit(lp2, lp1, 1)
+            lp1 = np.full(len(idx), np.nan)
+            lp2 = np.full(len(idx), np.nan)
+            lp1[ok], lp2[ok] = np.log(p1[ok]), np.log(p2[ok])
+            if np.std(lp2[ok]) < 1e-12:
+                return 999.0
+            b, a = np.polyfit(lp2[ok], lp1[ok], 1)
             spread = lp1 - (a + b * lp2)
             y, x = spread[1:], spread[:-1]
-            X = np.column_stack([np.ones(len(x)), x])
-            phi = float(np.linalg.lstsq(X, y, rcond=None)[0][1])
+            m = np.isfinite(y) & np.isfinite(x)
+            if m.sum() < 30:
+                return 999.0
+            X = np.column_stack([np.ones(int(m.sum())), x[m]])
+            phi = float(np.linalg.lstsq(X, y[m], rcond=None)[0][1])
             if 0.0 < phi < 1.0:
                 return float(max(1.0, min(999.0, -np.log(2.0) / np.log(phi))))
             return 999.0

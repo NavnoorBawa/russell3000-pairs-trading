@@ -154,7 +154,11 @@ class EnhancedRussell3000DataProcessor:
         split the cached Close is the traded price / 10 and Volume is traded shares x 10.
         Multiplying Close (dividing Volume) by this factor recovers the point-in-time
         values a trader actually saw. Splits after the fetched date range are not in the
-        data and cannot be undone here (documented limitation).
+        data and cannot be undone here (documented limitation). Dividends are NOT undone:
+        with auto_adjust=True the cached closes are also dividend-adjusted, so a
+        "point-in-time" price is still lowered by the cumulative yield of later dividends
+        (a few percent a year for high-yield names) — a small, disclosed residual in the
+        $5 price and dollar-volume screens.
         """
         if 'Stock Splits' not in data.columns or len(data) == 0:
             return pd.Series(1.0, index=data.index)
@@ -203,8 +207,14 @@ class EnhancedRussell3000DataProcessor:
             processed['Close_PIT'] = processed['Close'] * _f
             if 'Volume' in processed.columns:
                 processed['Volume_PIT'] = processed['Volume'] / _f
-            processed['Returns'] = processed['Close'].pct_change(fill_method=None)
-            processed['Log_Returns'] = np.log(processed['Close'] / processed['Close'].shift(1))
+            # Return-type columns are computed on a LOCAL forward-filled close, so a missing
+            # close gives a 0 return on the gap day and the true move across the gap on the
+            # next valid day (the raw Close column itself stays unfilled). Computing them on
+            # the raw close left NaNs that the derived-column ffill below then replaced with
+            # copies of the previous day's return, inventing moves.
+            _close = processed['Close'].ffill()
+            processed['Returns'] = _close.pct_change(fill_method=None)
+            processed['Log_Returns'] = np.log(_close / _close.shift(1))
 
             for period in [5, 10, 20, 50]:
                 # v31 (audit): min_periods=1 so the warm-up is a CAUSAL partial average
@@ -237,7 +247,7 @@ class EnhancedRussell3000DataProcessor:
                 processed['Volume_Ratio'] = 1
 
             for period in [1, 5, 10, 20]:
-                processed[f'Momentum_{period}'] = processed['Close'].pct_change(periods=period, fill_method=None)
+                processed[f'Momentum_{period}'] = _close.pct_change(periods=period, fill_method=None)
 
             vol_20 = processed['Volatility_20']
             processed['High_Vol_Regime'] = (vol_20 > vol_20.rolling(window=200, min_periods=100).quantile(0.7)).astype(int)
@@ -394,8 +404,10 @@ class EnhancedRussell3000DataProcessor:
         Concretely: the shipped cache was built when `_process_indicators` ended with
         `.ffill().bfill()`, which back-filled future values across every rolling
         indicator's warm-up region (cached MA_50 begins with 34 identical rows computed
-        from days 35-50). Recomputing from the raw OHLCV — which is untouched vendor
-        data — makes the look-ahead fix effective without a multi-hour refetch.
+        from days 35-50). Recomputing from the raw OHLCV makes the look-ahead fix effective
+        without a multi-hour refetch. Caveat: in a cache built before v32 the raw OHLCV is
+        NOT untouched vendor data — the old fill loop also forward-filled prices on rows
+        where the vendor returned none — and those rows remain until the cache is re-fetched.
 
         Set PAIRS_SKIP_REPROCESS=1 to load the cache verbatim (e.g. to reproduce an
         older published run bit-for-bit).

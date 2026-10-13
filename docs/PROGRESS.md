@@ -2923,7 +2923,7 @@ that changes behaviour has a test.
 - **Look-ahead in sizing and cool-off.** v31 called `position_sizer.record_trade(pair,
   net_pnl_pct)` and updated the pair loss streak when a trade was OPENED, with that trade's
   final outcome — the sizer's win-rate and the cool-off knew the future. Outcomes now
-  arrive at the exit fill. `test_sizer_probe_*` perturbs every price after a cut-off and
+  arrive at the exit fill. `test_sizer_never_sees_an_open_trades_outcome` perturbs every price after a cut-off and
   fails a re-introduced version of this bug at all three cut-offs tried.
 - **Kalman model.** v31: one state, no intercept, `log p1 = β log p2`. β absorbed the price
   level (in synthetic tests a true slope of 0.90 read as ~1.27), and because a vendor's
@@ -2948,13 +2948,19 @@ that changes behaviour has a test.
   with a ranker refit per window; per-window statistics are calendar slices. v31 ran
   independent 63-day backtests on truncated spreads, so a position opened late in a
   window with no bar left to exit on was silently discarded.
-- **Re-selection.** Date-aligned data, the same Bonferroni p-value everywhere (the
-  126-day stability thresholds were restated on that scale: p_recent ≤ 0.30, |p_recent −
-  p_2y| ≤ 0.20), pair statistics re-estimated at every re-selection, and an opt-in full
-  re-search (`PAIRS_RESELECT=full`).
+- **Re-selection.** Date-aligned data, the same Bonferroni p-value everywhere, pair
+  statistics re-estimated at every re-selection, and an opt-in full re-search
+  (`PAIRS_RESELECT=full`). The 126-day check is one rule, p_recent ≤ 0.30: the final review
+  found that v8's second "divergence" rule (|p_recent − p_2y| > 0.20, restated) always bound
+  first because p_2y < 0.05, so the documented 0.30 never decided and the effective cut was
+  0.20–0.25. Measured power at n ≈ 87: passes 27% of non-cointegrated pairs and 32–63% of
+  truly cointegrated ones (half-life 14 → 5 days) — weak, disclosed, switchable
+  (`RESEL_RECENT_MAX_P = 1.0`).
 - **Sizing and gates.** The z multiplier is applied inside the sizer's [3%, 10%] clamp
   (outside it, the strongest signals were vetoed by the 10% limit); the dead 0.40 quality
-  pre-filter became the effective 0.55; an ex-ante round-trip cost gate (≤ 1% of equity).
+  pre-filter became the effective 0.55; an ex-ante round-trip cost rail (≤ 1% of equity —
+  with positions capped at 10% of equity it cannot bind on the screened universe; kept as a
+  safety rail only).
 - **CUSUM and Hurst entry gates off by default.** Measured on 2,000 simulated spreads per
   window length (30/60/90 bars): CUSUM rejected 0.1%/4.5%/8.3% of random walks and
   0.2%/2.9%/6.4% of OU(HL 15) spreads; Hurst > 0.55 rejected ~11% of random walks and
@@ -2966,10 +2972,11 @@ that changes behaviour has a test.
 
 ### Data (`data_processor.py`)
 
-Point-in-time (split-unadjusted) `Close_PIT`/`Volume_PIT` reconstructed from the split
-column and used for every level screen (v31 screened adjusted prices, so later splits
-decided earlier membership); raw OHLCV is never filled; the universe file is required
-(no silent substitute); fetches retry with backoff, record a manifest and must cover ≥ 90%
+Point-in-time (split-unadjusted; still dividend-adjusted) `Close_PIT`/`Volume_PIT`
+reconstructed from the split column and used for every level screen (v31 screened adjusted prices, so later splits
+decided earlier membership); raw OHLCV is never filled (a pre-v32 cache keeps its filled rows until re-fetched); the universe file is required
+(no silent substitute); returns across a missing close keep the true move (no copied
+returns); fetches retry with backoff, record a manifest and must cover ≥ 90%
 of the universe; caches are written atomically and an unreadable cache is an error, never
 a silent re-fetch over the study data; yfinance's exclusive end date no longer drops the
 last trading day; failed macro fetches are not cached.
@@ -3027,13 +3034,13 @@ validation in CI.
 | Check | Result |
 |---|---|
 | Planted cointegrated pairs | 2,241 trades, +80.7 bp gross/trade (t = 23.7), median net Sharpe 3.3 |
-| Forced independent driftless random walks | 2,485 trades, +4.6 bp (t = 1.15); 16 further markets: 8,325 trades, +0.25 bp (t = 0.12) |
+| Forced correlated, non-cointegrated pairs (random-walk spread, no drift) | 2,485 trades, +4.6 bp (t = 1.15); 16 further markets: 8,325 trades, +0.25 bp (t = 0.12) |
 | Hedge ratio | median |β̂ − β| 0.031 (90th percentile 0.073) |
-| Pair selection | 100% of planted pairs found; 2.5 of 270 unrelated pairs admitted per market |
+| Pair selection | 100% of planted pairs found; unrelated pairs admitted: 2.4 of 270 (planted markets), 2.6 of 276 (no-cointegration markets), ≤ 3% in every market |
 
-With the market drift of the edge scenario (+0.03%/day), random-walk pairs earned
-+2.1 bp/trade (t = 0.96) from unbalanced drift exposure; that is why the null scenario is
-driftless.
+With the edge scenario's market drift (+0.03%/day) the same kind of pairs gave +2.1
+bp/trade (t = 0.96, not significant); the null is run driftless so that any hedge-ratio
+error is exposure to zero-mean returns.
 
 ### Tests
 

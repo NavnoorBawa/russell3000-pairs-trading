@@ -7,17 +7,21 @@ answer is known in advance (pairs_trading/synthetic.py):
 
   edge         Planted cointegrated pairs (OU spreads, half-life 5-14 days). A correct
                engine must find a large, positive gross edge here.
-  forced_null  The same engine forced to trade pairs of INDEPENDENT, driftless random
-               walks. There is no edge to find, so the mean gross return per trade must
+  forced_null  The same engine forced to trade correlated pairs whose spread is a
+               driftless random walk (leg A = beta * leg B + random walk: not
+               cointegrated). There is no edge to find, so the mean gross return per trade must
                be statistically indistinguishable from zero; a significantly positive
                mean means the engine is reading the future (look-ahead). (With the
-               edge scenario's +0.03%/day market drift, an unbalanced hedge earns a
-               few bp per trade of drift; v32 measured +2.1 bp, t = 0.96 there, against
-               +0.25 bp, t = 0.12, without drift, over ~8,300 trades each.)
+               edge scenario's +0.03%/day market drift the same pairs gave +2.1 bp,
+               t = 0.96 (not significant), against +0.25 bp, t = 0.12, without drift,
+               over ~8,300 trades each; driftless, a hedge-ratio error is exposure to
+               zero-mean returns.)
   hedge_ratio  The Kalman hedge ratio on planted pairs against the true slope.
   selection    Pair selection on formation data (2020-2022) of a market with planted
                pairs among unrelated names: how many planted pairs are found, how many
                unrelated pairs are admitted; and on a market with NO cointegrated pairs.
+               Passes if >= 80% of planted pairs are found and no market admits more than
+               5% of its unrelated pairs.
 
 Net results include the full cost model; the gross per-trade statistic is the
 look-ahead test because it does not depend on costs. Trades overlap in time, so the
@@ -121,11 +125,13 @@ def scenario_selection(seeds):
     planted_rows = [r for r in out if r['market'] == 'planted']
     null_rows = [r for r in out if r['market'] == 'no_cointegration']
     recall = sum(r['planted_found'] for r in planted_rows) / max(1, sum(r['planted'] for r in planted_rows))
-    false_per_market = float(np.mean([r['other_pairs_selected'] for r in out]))
+    worst_fp_rate = max(r['other_pairs_selected'] / max(1, r['pairs_tested'] - r['planted']) for r in out)
     return {'runs': out, 'planted_recall': recall,
-            'unrelated_pairs_selected_per_market': false_per_market,
-            'null_market_pairs_selected': sum(r['other_pairs_selected'] for r in null_rows),
-            'pass': bool(recall >= 0.8)}
+            'unrelated_pairs_selected_per_planted_market':
+                float(np.mean([r['other_pairs_selected'] for r in planted_rows])),
+            'pairs_selected_per_null_market': float(np.mean([r['other_pairs_selected'] for r in null_rows])),
+            'worst_market_false_positive_rate': worst_fp_rate,
+            'pass': bool(recall >= 0.8 and worst_fp_rate <= 0.05)}
 
 
 def main(argv=None):
@@ -159,8 +165,9 @@ def main(argv=None):
     print(f"forced null  {pn['trades']:5d} trades | gross {nm} bp/trade (t {nt}) | "
           f"{'PASS' if n['pass'] else 'FAIL'} (look-ahead would give a large positive t)")
     print(f"selection    planted-pair recall {s['planted_recall']:.0%} | unrelated pairs admitted "
-          f"{s['unrelated_pairs_selected_per_market']:.1f} per market | "
-          f"{'PASS' if s['pass'] else 'FAIL'}")
+          f"{s['unrelated_pairs_selected_per_planted_market']:.1f}/market (planted), "
+          f"{s['pairs_selected_per_null_market']:.1f}/market (none planted), worst "
+          f"{s['worst_market_false_positive_rate']:.1%} | {'PASS' if s['pass'] else 'FAIL'}")
     out = pathlib.Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix('.json.tmp')

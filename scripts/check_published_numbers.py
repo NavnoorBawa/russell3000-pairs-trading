@@ -153,6 +153,13 @@ class _MetricParser(HTMLParser):
             self.open.append({'key': key, 'tag': tag, 'depth': 1, 'text': [], 'line': line,
                               'start': start, 'dp': int(dp) if dp and dp.isdigit() else None})
 
+    def handle_startendtag(self, tag, attrs):
+        # <span data-metric="k"/>: a marker with no content (never opened, so it is not
+        # mistaken for an element that encloses everything up to some later end tag)
+        key = dict(attrs).get('data-metric')
+        if key is not None:
+            self.found.append((key, '', self.getpos()[0]))
+
     def handle_endtag(self, tag):
         still = []
         for m in self.open:
@@ -202,7 +209,16 @@ def extract_markers(text, is_markdown=False):
 # Writing (--write): refresh every marked value from the JSON
 # ──────────────────────────────────────────────────────────────────────────────
 
-_RAW_NUMBER = re.compile(r'(?P<sign>&minus;|−|-|\+)?(?P<int>\d{1,3}(?:,\d{3})+|\d+)(?:\.(?P<frac>\d+))?')
+_MINUS_FORMS = ('&minus;', '&#8722;', '&#x2212;', '&#X2212;', '−', '-')
+_RAW_NUMBER = re.compile(r'(?P<sign>&minus;|&#8722;|&#[xX]2212;|−|-|\+)?'
+                         r'(?P<int>\d{1,3}(?:,\d{3})+|\d+)(?:\.(?P<frac>\d+))?')
+# tags and character references other than a minus sign: never part of a value
+_NOT_TEXT = re.compile(r'<[^>]*>|&(?!minus;|#8722;|#[xX]2212;)#?\w+;')
+
+
+def _text_only(raw):
+    """`raw` with tags and non-minus character references blanked (offsets preserved)."""
+    return _NOT_TEXT.sub(lambda x: ' ' * len(x.group(0)), raw)
 
 
 def format_like(value, template, key='', dp=None):
@@ -215,7 +231,7 @@ def format_like(value, template, key='', dp=None):
     (<!--m:KEY|3--> or data-dp="3"), else none for integers and two otherwise, and a '%'
     for keys ending in _pct.
     """
-    m = _RAW_NUMBER.search(template)
+    m = _RAW_NUMBER.search(_text_only(template))
     if m is None:
         decimals = dp if dp is not None else (0 if isinstance(value, int) else 2)
         body = f'{abs(value):.{decimals}f}'
@@ -223,7 +239,7 @@ def format_like(value, template, key='', dp=None):
         return sign + body + ('%' if key.endswith('_pct') else '')
     decimals = len(m['frac'] or '')
     body = f'{abs(value):,.{decimals}f}' if ',' in m['int'] else f'{abs(value):.{decimals}f}'
-    minus = m['sign'] if m['sign'] in ('&minus;', '−', '-') else '−'
+    minus = m['sign'] if m['sign'] in _MINUS_FORMS else '−'
     if value < 0 and float(body.replace(',', '')) != 0:
         sign = minus
     elif m['sign'] == '+' and value > 0:
@@ -254,8 +270,11 @@ def write_text(data, text, is_markdown=False):
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
             problems.append(f'{line}: {key}: the JSON value is {value!r}; marker left unchanged')
             continue
+        if end is None or end < start:
+            problems.append(f'{line}: {key}: marker element has no content to write')
+            continue
         raw = text[start:end]
-        if _RAW_NUMBER.search(raw) is None and '<' in raw:
+        if _RAW_NUMBER.search(_text_only(raw)) is None and '<' in raw:
             problems.append(f'{line}: {key}: no number to replace inside nested markup')
             continue
         edits.append((start, end, format_like(value, raw, key, dp)))
@@ -328,6 +347,8 @@ def main(argv=None):
                     help='exit 0 instead of 2 when the headline JSON does not exist yet')
     ap.add_argument('--allow-missing-markers', action='store_true',
                     help='report required keys without a marker as warnings, not failures')
+    ap.add_argument('--allow-variant', action='store_true',
+                    help='accept a JSON from a sensitivity run (non-default PAIRS_* switches)')
     ap.add_argument('--write', action='store_true',
                     help='rewrite every marked value from the JSON (keeping each marker\'s '
                          'precision and sign style), then check')
@@ -357,6 +378,14 @@ def main(argv=None):
         return 2
 
     rc = data.get('run_config') or {}
+    variant = data.get('non_default_switches') or []
+    if variant and not args.allow_variant:
+        print(f'ERROR: {_display(json_path)} comes from a sensitivity run ({", ".join(variant)}), not '
+              f'the headline configuration; refusing to check or publish it (--allow-variant overrides)',
+              file=sys.stderr)
+        return 2
+    if data.get('complete') is False:
+        print(f'WARNING: the run is marked incomplete: {"; ".join(data.get("pipeline_errors") or [])}')
     commit = rc.get('git_commit')
     print(f'Headline metrics: {_display(json_path)} (version {data.get("version")}, run '
           f'{rc.get("run_timestamp_utc", "?")}, commit {commit[:12] if commit else "n/a"})')

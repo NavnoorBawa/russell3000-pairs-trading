@@ -209,6 +209,8 @@ def main(argv=None):
     ap.add_argument('--json', default=None, help='headline metrics JSON '
                     '(default: outputs/headline_metrics.json in the repository)')
     ap.add_argument('--out', default=None, help='output PNG (default: og-image.png at the repository root)')
+    ap.add_argument('--allow-variant', action='store_true',
+                    help='draw from a sensitivity run (non-default PAIRS_* switches)')
     ap.add_argument('--pending', action='store_true',
                     help='draw the status card (no figures) used until the study has been run')
     args = ap.parse_args(argv)
@@ -227,6 +229,11 @@ def main(argv=None):
         data = json.loads(json_path.read_text(encoding='utf-8'))
     except (OSError, ValueError) as e:
         print(f'ERROR: cannot read {json_path}: {e}', file=sys.stderr)
+        return 2
+    variant = data.get('non_default_switches') or []
+    if variant and not args.allow_variant:
+        print(f'ERROR: {json_path} comes from a sensitivity run ({", ".join(variant)}); the card '
+              f'shows the headline run (--allow-variant overrides).', file=sys.stderr)
         return 2
     try:
         content = card_content(data)

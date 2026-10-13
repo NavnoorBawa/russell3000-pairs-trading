@@ -17,6 +17,7 @@ import pandas as pd
 import pytest
 
 from tests.synthetic_market import build_system, make_market
+from pairs_trading.fund_profiles import FUND_PROFILES
 from pairs_trading.trading_system import CompleteFixedRussell3000TradingSystem, resolve_fill_column
 
 
@@ -74,8 +75,26 @@ def test_fund_replay_reconciles_on_the_real_calendar(market):
         curve = prof['equity_curve']
         assert [p['date'] for p in curve] == res['daily_dates'], f"{key}: replay calendar differs"
         assert all(p['date'] in calendar for p in curve)
+        assert prof['unclosed_trades'] == 0
         if not prof['trades_stopped_early']:
-            # every main trade is either replayed or excluded by the profile's daily cap
-            assert prof['total_trades'] <= res['total_trades']
-            assert prof['total_trades'] > 0
+            if FUND_PROFILES[key].max_daily_trades >= res['max_daily_trades']:
+                # no profile cap binds: every main trade must be replayed (a dropped trade
+                # is exactly the v31.1 DST failure)
+                assert prof['total_trades'] == res['total_trades'], f"{key}: replay dropped trades"
+            else:
+                assert 0 < prof['total_trades'] <= res['total_trades']
+        # reconciliation: the replay's equity change is the sum of its trades' net P&L
+        assert prof['final_equity'] - system.initial_capital == pytest.approx(prof['replayed_net_pnl'], abs=0.05)
         assert np.isfinite(prof['sharpe_ratio'])
+
+
+def test_fund_replay_refuses_trades_off_the_calendar(market):
+    frames, macro, _ = market
+    system = build_system(frames, macro)
+    res = system.run_comprehensive_backtest(system.spread_data, date_range=('2023-07-01', '2025-12-31'))
+    first = res['trades'][0]
+    d0, v0 = first['unit_path'][0]
+    off_day = d0 + ' ' if isinstance(d0, str) else pd.Timestamp(d0) + pd.Timedelta(hours=1)
+    first['unit_path'] = [(off_day, v0)] + list(first['unit_path'][1:])   # a date the calendar lacks
+    with pytest.raises(ValueError, match='off the main calendar'):
+        system.run_fund_type_comparison(res, main_daily_dates=res['daily_dates'])

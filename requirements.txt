@@ -1,11 +1,12 @@
-# Pinned to the interpreter + package set that produced the published results (Python 3.12.0).
+# Pinned direct dependencies of the study (Python 3.12). These pins produced the v31.1 results
+# (withdrawn in v32 pending a re-run); transitive dependencies are resolved at install time.
 # CI installs this file directly (see .github/workflows/ci.yml, job "test (pinned)") so the
 # reproducibility claim is actually gated rather than assumed.
 #
-# Security posture for these pins is documented in SECURITY.md. Summary: this pinned set is
-# currently `pip-audit` clean (0 known advisories), and CI enforces that on every push with no
-# ignore-list, so a newly disclosed advisory in any pinned package turns CI red rather than
-# being silently waived. Most `torch` advisories would also be unreachable from this codebase
+# Security posture for these pins is documented in SECURITY.md. Summary: CI runs `pip-audit` on
+# every push with no ignore-list — once on the installed environment (transitive dependencies)
+# and once on these pins by name (torch included) — so a newly disclosed advisory turns CI red
+# rather than being silently waived. Most `torch` advisories would also be unreachable from this codebase
 # (no torch.load, no load_state_dict, no distributed/RPC), but that is a secondary defence —
 # the pin is clean on its own terms.
 numpy==1.26.4

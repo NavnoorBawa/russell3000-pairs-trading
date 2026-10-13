@@ -63,7 +63,10 @@ jobs:
         if: matrix.install == 'requirements'
         run: |
           python -m pip install --upgrade pip
-          pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
+          # --no-deps: only the torch wheel comes from the PyTorch index. Its dependencies
+          # (setuptools, sympy, ...) are resolved from PyPI by the next step — the PyTorch
+          # index carries an old setuptools (78.1.0) with known advisories.
+          pip install --no-deps torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install pinned dependencies
         if: matrix.install == 'requirements'
@@ -83,15 +86,17 @@ jobs:
 
       - name: Dependency vulnerability scan (pip-audit)
         # CodeQL analyses source code; it does not look at the dependency manifest.
-        # v32: audits the environment this job actually installed (the pinned set, its
-        # transitive dependencies and the CPU torch wheel). `pip-audit -r requirements.txt`
-        # re-resolved the file in a throwaway venv from PyPI — pulling the multi-GB CUDA
-        # torch stack and auditing a different artifact from the one that is tested.
+        # v32: two passes. (1) The environment this job installed: every transitive
+        # dependency at the version actually tested. The CPU wheel installs as torch
+        # 2.13.0+cpu, which PyPI does not know, so this pass skips torch. (2) Each pin in
+        # requirements.txt by its public version — torch==2.13.0 included — without
+        # resolving (or downloading) the CUDA stack.
         # Deliberately no --ignore-vuln list: a new advisory should turn CI red.
         if: matrix.install == 'requirements'
         run: |
           pip install pip-audit
           pip-audit --progress-spinner off
+          pip-audit --progress-spinner off --no-deps --disable-pip -r requirements.txt
 
       - name: Lint (ruff)
         run: ruff check .
@@ -102,7 +107,7 @@ jobs:
         run: python -m compileall -q pairs_trading tests scripts
 
       - name: Synthetic known-answer validation
-        # The engine must find a planted edge, find none in independent random walks
+        # The engine must find a planted edge, find none in non-cointegrated (random-walk spread) pairs
         # (a positive gross mean there would be look-ahead), recover the true hedge
         # ratio, and select the planted pairs. Two seeds keep this to ~90 s.
         if: matrix.install == 'requirements'

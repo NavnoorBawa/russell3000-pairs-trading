@@ -34,10 +34,10 @@ class FundProfile:
     bid_ask_bps: float           # half-spread per leg, one-way
     market_impact_coeff: float   # Y in the sqrt model: I = Y * sigma_daily * sqrt(Q/ADV) (fraction)
     market_impact_cap_bps: float # hard cap on per-leg market impact
-    borrow_rate_easy: float      # annual rate, easy-to-borrow stocks (decimal)
-    borrow_rate_general: float   # annual rate, general collateral (decimal)
-    borrow_rate_hard: float      # annual rate, hard-to-borrow (decimal)
-    financing_spread: float      # annual spread over SOFR paid on leveraged cash (decimal)
+    borrow_rate_easy: float      # reference only, not charged (decimal/yr)
+    borrow_rate_general: float   # annual rate charged on the short leg: general collateral (decimal)
+    borrow_rate_hard: float      # reference only, not charged (decimal/yr)
+    financing_spread: float      # annual prime-broker spread charged on the short notional (decimal)
     daily_volume_dollars: float  # fallback ADV ($) when a trade's own ADV is unknown
 
     # ── Position sizing ───────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ FUND_PROFILES: Dict[str, FundProfile] = {
         borrow_rate_easy=0.0030,    # 30 bps/yr
         borrow_rate_general=0.0060,
         borrow_rate_hard=0.0250,
-        financing_spread=0.0050,    # SOFR + 50 bps (prime brokerage rate)
+        financing_spread=0.0050,    # 50 bps/yr prime-broker spread, charged on the short notional
         daily_volume_dollars=1e9,   # assume $1B ADV (large-cap universe)
 
         base_position_pct=0.12,     # 12% equity per trade before z-scaling
@@ -107,7 +107,7 @@ FUND_PROFILES: Dict[str, FundProfile] = {
         borrow_rate_easy=0.0050,
         borrow_rate_general=0.0100,
         borrow_rate_hard=0.0500,
-        financing_spread=0.0100,    # SOFR + 100 bps (higher PB spread, pass-through model)
+        financing_spread=0.0100,    # 100 bps/yr (higher PB spread, pass-through model), on the short notional
         daily_volume_dollars=1e9,
 
         base_position_pct=0.08,
@@ -135,7 +135,7 @@ FUND_PROFILES: Dict[str, FundProfile] = {
         borrow_rate_easy=0.0100,    # 100 bps/yr (higher — they hold positions longer)
         borrow_rate_general=0.0200,
         borrow_rate_hard=0.0800,
-        financing_spread=0.0150,    # SOFR + 150 bps
+        financing_spread=0.0150,    # 150 bps/yr, on the short notional
         daily_volume_dollars=5e8,   # they trade less liquid, concentrated names
 
         base_position_pct=0.04,
@@ -198,7 +198,7 @@ FUND_PROFILES: Dict[str, FundProfile] = {
         borrow_rate_easy=0.0300,    # 3% (retail borrow is expensive)
         borrow_rate_general=0.0600,
         borrow_rate_hard=0.1500,    # 15% hard-to-borrow penalty
-        financing_spread=0.0300,    # SOFR + 3% = ~8% margin rate at retail
+        financing_spread=0.0300,    # 3%/yr retail margin spread, on the short notional
         daily_volume_dollars=1e8,   # smaller liquidity pool
 
         base_position_pct=0.02,
@@ -228,14 +228,14 @@ def get_profile_summary_table() -> str:
         "\n" + "=" * 100,
         f"{'FUND TYPE COMPARISON — PROFILE PARAMETERS':^100}",
         "=" * 100,
-        f"{'Profile':<25} {'Commission':>12} {'Bid-Ask':>10} {'MI Cap':>10} {'Borrow (easy)':>15} "
+        f"{'Profile':<25} {'Commission':>12} {'Bid-Ask':>10} {'MI Cap':>10} {'Borrow (GC)':>15} "
         f"{'Financing':>12} {'Base Pos%':>10} {'Max Pos%':>10} {'Leverage':>12}",
         "-" * 100,
     ]
     for profile in FUND_PROFILES.values():
         lines.append(
             f"{profile.name:<25} {profile.commission_bps:>10.2f}bp {profile.bid_ask_bps:>8.2f}bp "
-            f"{profile.market_impact_cap_bps:>8.1f}bp {profile.borrow_rate_easy*100:>13.2f}%/yr "
+            f"{profile.market_impact_cap_bps:>8.1f}bp {profile.borrow_rate_general*100:>13.2f}%/yr "
             f"{profile.financing_spread*100:>10.2f}%/yr {profile.base_position_pct*100:>8.1f}% "
             f"{profile.max_position_pct*100:>8.1f}% {profile.gross_leverage_label:>12}"
         )

@@ -143,3 +143,26 @@ def test_serving_features_are_as_of_the_decision_date():
         # indices 10-15: [RSI/100, Momentum_5, High_Vol_Regime] for each leg; the neutral
         # fallback (stock data unusable) is [0.5, 0, 0] per leg
         assert not np.allclose(full[10:16], [0.5, 0, 0, 0.5, 0, 0]), "per-stock block must be live"
+
+
+def test_trained_ranker_scores_live_candidates_and_is_evaluated_out_of_sample():
+    """The CI end-to-end run uses classical ranking; this covers the default path: a ranker
+    trained on outcomes complete by the training cut-off, used to score live candidates in
+    the backtest, and evaluated on later signals."""
+    import torch
+    from tests.synthetic_market import build_system, make_market
+    torch.manual_seed(0)
+    frames, macro, _ = make_market(n_pairs=12, n_noise=0, seed=31)
+    system = build_system(frames, macro)
+    assert system.rl_agent.use_signal_transformer
+    pairs = sorted(system.spread_data)
+    system._train_ranker(system.rl_agent, pairs, end='2023-06-30')
+    assert system.rl_agent.signal_transformer is not None, system.rl_agent.training_summary
+    res = system.run_comprehensive_backtest(system.spread_data, date_range=('2023-07-01', '2025-12-31'))
+    q = [t['feature_quality'] for t in res['trades']]
+    assert q and all(0.0 < x < 1.0 for x in q)                  # scored, not the 1.0 fallback
+    p, y = system._ranker_oos_scores(system.rl_agent, pairs, start='2023-07-01')
+    assert p is not None and len(p) == len(y) > 50
+    from pairs_trading.multi_agent_system import classifier_skill
+    skill = classifier_skill(y, p, system.rl_agent.training_summary['base_rate'])
+    assert 0.0 <= skill['auc'] <= 1.0 and skill['n'] == len(y)

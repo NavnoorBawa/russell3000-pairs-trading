@@ -6,7 +6,9 @@ Used by the test suite and by scripts/synthetic_validation.py. Not used by the s
 reads (tz-aware America/New_York daily bars) plus a macro dict (tz-naive VIX + sector
 ETFs). Pairs SAxx/SBxx are cointegrated by construction: log A = c + beta * log B + s,
 with s an Ornstein-Uhlenbeck spread of known half-life, so the true hedge ratio and the
-existence of an edge are known in advance. SNxx names are unrelated random walks.
+existence of an edge are known in advance. With cointegrated=False the spread s is a
+driftless-increment random walk instead: the legs stay correlated but are NOT cointegrated.
+SNxx names are unrelated random walks.
 """
 import numpy as np
 import pandas as pd

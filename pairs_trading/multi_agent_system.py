@@ -12,6 +12,7 @@ together with the never-populated actor/critic loss plots it produced.
 """
 
 import os
+import warnings
 
 from pairs_trading.config import (
     pd, np, stats, logging, Dict, List, SECTOR_MAP, SECTOR_ETFS
@@ -373,7 +374,9 @@ class FixedTransformerMultiAgentSystem:
         try:
             if len(features_list) > 0:
                 all_features = np.vstack(features_list)
-                with np.errstate(invalid='ignore', divide='ignore'):
+                # constant columns (e.g. a macro input that never moves) are expected here
+                with np.errstate(invalid='ignore', divide='ignore'), warnings.catch_warnings():
+                    warnings.simplefilter('ignore', RuntimeWarning)
                     z_scores = np.abs(stats.zscore(all_features, axis=0, nan_policy='omit'))
                 z_scores = np.nan_to_num(z_scores, nan=0.0)   # constant columns -> not outliers
                 mask = (z_scores < 3).all(axis=1)

@@ -304,3 +304,38 @@ def test_cusum_and_hurst_gates_are_off_by_default_and_switchable():
     assert sig is not None and why == ''
     s.USE_CUSUM_GATE = True
     assert s._locked_signal(state, 199, stats) == (None, 'cusum')
+
+
+def test_adv_participation_uses_each_legs_own_adv():
+    """v32 review: participation divided the short leg's notional by the SMALLER leg's ADV.
+    beta = 2: $1M long A (ADV $20M) vs $2M short B (ADV $500M) -> worst leg is A at 5%,
+    whichever leg is short."""
+    S = CompleteFixedRussell3000TradingSystem
+    s = S.__new__(S)
+    s.initial_capital = 1e8
+    base = {'position_size': 3e6, 'trading_days_held': 5}
+    t1 = {**base, 'long_notional': 1e6, 'long_adv_dollars': 20e6, 'short_notional': 2e6, 'short_adv_dollars': 500e6}
+    t2 = {**base, 'long_notional': 2e6, 'long_adv_dollars': 500e6, 'short_notional': 1e6, 'short_adv_dollars': 20e6}
+    for t in (t1, t2):
+        m = s._utilisation_metrics([t], [0.0, 0.0], [0.03, 0.03], [1e8, 1e8])
+        assert m['avg_max_leg_adv_participation'] == pytest.approx(0.05)
+
+
+def test_cost_gate_can_bind_and_stays_causal(market, monkeypatch):
+    """The 1%-of-equity cost rail never binds on a liquid universe, so test the gate's
+    logic with a binding threshold: it must reject some entries, and it must read only the
+    ex-ante maximum hold (a gate that used the realised hold would differ under a future
+    perturbation)."""
+    frames, macro, _ = market
+    # ~1 bp of equity: rejects roughly a third of entries on this liquid synthetic market
+    monkeypatch.setattr(CompleteFixedRussell3000TradingSystem, 'MAX_COST_PCT_OF_EQUITY', 1e-4)
+    a_sys = build_system(frames, macro)
+    a = a_sys.run_comprehensive_backtest(a_sys.spread_data, date_range=RANGE)
+    b_sys = build_system(perturb_after(frames, CUTOFF), macro)
+    b = b_sys.run_comprehensive_backtest(b_sys.spread_data, date_range=RANGE)
+    assert a['signal_rejections'].get('cost_gate', 0) > 0, "threshold did not bind; lower it"
+    assert a['total_trades'] > 0, "threshold rejects everything; raise it"
+    cut = pd.Timestamp(CUTOFF)
+    pre = [[_key(t) for t in r['trades'] if pd.Timestamp(t['signal_date']).tz_localize(None) < cut]
+           for r in (a, b)]
+    assert pre[0] == pre[1] and len(pre[0]) > 0

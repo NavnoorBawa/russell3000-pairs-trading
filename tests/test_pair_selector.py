@@ -157,3 +157,17 @@ def test_universe_cap_keeps_the_most_liquid(universe):
     sel.find_quality_pairs(universe)
     assert len(sel.last_quality_symbols) == 3
     assert "ZPRICEY" in sel.last_quality_symbols
+
+
+def test_half_life_is_not_biased_by_gaps(selector):
+    """v32: the AR(1) uses only genuine one-step pairs. Regressing across rows dropped for
+    missing data biased phi down: with 1/7 of one leg's closes missing, the compressed fit
+    averaged ~14% below the gap-free estimate on every draw (true half-life 6.6 days)."""
+    d1, d2 = _cointegrated_pair(phi=0.9)
+    clean = selector.calculate_half_life(d1, d2)
+    estimates = []
+    for seed in range(8):
+        gappy = d1.copy()
+        gappy.iloc[np.random.default_rng(seed).choice(N, size=N // 7, replace=False), 0] = np.nan
+        estimates.append(selector.calculate_half_life(gappy, d2))
+    assert 0.95 * clean <= float(np.mean(estimates)) <= 1.3 * clean

@@ -23,7 +23,8 @@ The realistic attack surface is small and mostly reduces to **what data you feed
 | --- | --- | --- |
 | `data/*.pkl` price cache | `pickle.load()` executes arbitrary code during deserialization (CWE-502) | **Real.** See below. |
 | `yfinance` / `requests` network fetch | Hostile or MITM'd upstream response | HTTPS; response is parsed as a DataFrame, never executed |
-| `scripts/` tools | Publication check, social card, synthetic validation, parameter sensitivity; read local JSON/HTML only | Not part of the installable package; no network access |
+| `scripts/` tools | Publication check, social card and synthetic validation: read local JSON/HTML or generate synthetic data in memory | Not part of the installable package; no network access |
+| `scripts/parameter_sensitivity.py` | On the study data it loads the same `data/*.pkl` caches as the main pipeline and fetches from Yahoo when they are absent; `--synthetic` writes and reloads its own pickles in a temporary directory | Same trust boundary as the price-cache and network rows above |
 | Published site (`index.html`) | Static page, no JS input handling, no cookies, no analytics | No dynamic content |
 
 ### The pickle cache is a trust boundary
@@ -50,11 +51,15 @@ unreadable cache is reported as an error; it is never silently re-fetched over.
 
 `requirements.txt` pins the exact dependency set that produced the published results, so
 reproducibility and advisory-freshness are in genuine tension here. The pins are chosen so that
-both hold: the pinned set has no known advisories, and CI enforces that on every push by running
-`pip-audit` on the environment it actually installed — the pins, their transitive dependencies and
-the CPU torch wheel (see `.github/workflows/ci.yml`). There is no ignore-list — a newly disclosed
-advisory turns CI red rather than being silently waived. Note that `requirements.txt` pins the
-direct dependencies only; transitive versions are resolved at install time.
+both hold: CI runs `pip-audit` on every push in two passes (see `.github/workflows/ci.yml`) —
+on the environment it actually installed, which covers every transitive dependency at the version
+tested, and on each pin in `requirements.txt` by its public version. The second pass is what
+covers torch: CI installs the CPU wheel (`2.13.0+cpu`), which PyPI does not know, so the
+environment pass skips it. Only the torch wheel itself comes from the PyTorch index; its
+dependencies come from PyPI (that index carries an old setuptools with known advisories). There is
+no ignore-list — a newly disclosed advisory turns CI red rather than being silently waived.
+`requirements.txt` pins the direct dependencies only; transitive versions are resolved at install
+time.
 
 For the record, the pins moved to get there:
 

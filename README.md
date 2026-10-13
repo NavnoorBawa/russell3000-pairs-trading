@@ -33,7 +33,7 @@ baselines (Gatev et al. 2006 distance method, random pairs).
 > redistributable and the price cache is local to the author). It is validated instead on
 > synthetic markets with known answers ([below](#validation-on-markets-with-known-answers)),
 > by 300+ hermetic tests (89% line coverage) and by an end-to-end run of the full pipeline
-> in CI. The results table below fills itself from the next study run.
+> in CI (with classical ranking; the trained-ranker path is tested separately). The results table below fills itself from the next study run.
 
 ---
 
@@ -66,15 +66,15 @@ the re-run will show; nothing here assumes it.
 A backtest on real data can only say what a strategy did, not whether the code measures
 what it claims. [`scripts/synthetic_validation.py`](scripts/synthetic_validation.py) runs
 the real engine, with its full cost model, on synthetic markets whose answer is known
-([`pairs_trading/synthetic.py`](pairs_trading/synthetic.py)); CI runs it on every push.
-Five independent markets per scenario:
+([`pairs_trading/synthetic.py`](pairs_trading/synthetic.py)); CI runs two markets per
+scenario on every push to main and on pull requests. Five independent markets per scenario:
 
 | Check | What must happen | v32 result |
 |---|---|---|
 | Planted cointegrated pairs (OU spreads, half-life 5–14 days) | find a large positive edge | 2,241 trades, +80.7 bp gross per trade (t = 23.7), median net Sharpe 3.3 |
-| Independent driftless random walks, forced into the universe | no edge (a positive mean would be look-ahead) | 2,485 trades, +4.6 bp (t = 1.15); 16 more markets: 8,325 trades, +0.25 bp (t = 0.12) |
+| Correlated but not cointegrated pairs (random-walk spread, no drift), forced into the universe | no edge (a positive mean would be look-ahead) | 2,485 trades, +4.6 bp (t = 1.15); 16 more markets: 8,325 trades, +0.25 bp (t = 0.12) |
 | Kalman hedge ratio vs the true slope | recover it | median absolute error 0.031 (90th percentile 0.073) |
-| Pair selection on 2020–2022 data, 6 planted pairs among 24 names | find them, admit few others | 100% of planted pairs found; 2.5 of 270 unrelated pairs admitted per market |
+| Pair selection on 2020–2022 data, 6 planted pairs among 24 names | find them, admit few others | 100% of planted pairs found; unrelated pairs admitted: 2.4 of 270 per market with planted pairs, 2.6 of 276 per market with none (≤ 3% in every market) |
 
 The test suite adds causality checks with teeth: every result dated before T is unchanged
 when all prices after T are replaced (the check catches a deliberately re-introduced
@@ -92,7 +92,7 @@ universe: data/marketcap.csv (Russell 3000 constituents) · daily OHLCV 2020–2
   │    positive return correlation ≥ 0.25 · two-direction Engle-Granger p < 0.05 (Bonferroni)
   │    half-life 4–25 days on the cointegrating spread · heuristic quality score
   │    PCA (5 factors) residual cointegration → quality bonus · Benjamini-Hochberg diagnostic
-  │    re-selection every 90 trading days: 2-year re-test + 126-day stability check
+  │    re-selection every 90 trading days: 2-year re-test + 126-day check (p ≤ 0.30)
   │
   ├─ Spread model
   │    two-state Kalman filter (slope + intercept) on log prices centred on their burn-in
@@ -102,7 +102,7 @@ universe: data/marketcap.csv (Russell 3000 constituents) · daily OHLCV 2020–2
   │    z = locked spread (lp1 − β_t·lp2) vs its mean/std over the last 30–60 bars (3 × half-life), frozen at the signal
   │    entry |z| ≥ 1.8 · target |z| ≤ 0.5 · stop 1.5 further against · time stop clamp(2.5·HL, 10, 25) days
   │    signal at day-t close, fill at the t+1 close (entry and exit); legs $1 vs $β
-  │    gates: 20-day return correlation ≥ 0.20, β in [0.25, 4], loss cool-off, ex-ante round-trip cost ≤ 1% of equity
+  │    gates: 20-day return correlation ≥ 0.20, β in [0.25, 4], loss cool-off (a 1%-of-equity cost rail never binds here)
   │
   ├─ Ranker (optional, PAIRS_USE_TRANSFORMER=0 disables)
   │    classifier of P(trade profitable) on 30 features, trained on outcomes of the actual rule,
@@ -144,7 +144,7 @@ defects that made the old backtest look better than the strategy was.
 | Accounting | a trade's whole P&L booked on its exit day (understates volatility and drawdown) | daily mark-to-market; costs on fill days; end-of-data positions force-closed, never dropped |
 | Walk-forward | independent 63-day windows; trades still open at a window's end were discarded (flatters) | one continuous simulation with per-window ranker refits; per-window figures are slices of it |
 | Sizing | z multiplier applied after the 3–10% clamp, so the strongest signals were vetoed by the 10% limit | multiplier inside the clamp; one quality threshold (0.55) instead of a dead 0.40 pre-filter |
-| Entry gates | CUSUM and Hurst gates on 30–90 bars | measured near-random at these lengths (they reject 5–11% of both random walks and mean-reverting spreads); off by default, kept as flags |
+| Entry gates | CUSUM and Hurst gates on 30–90 bars | measured near-random at these lengths (CUSUM rejects 0–8% and Hurst 5–11% of random walks and mean-reverting spreads alike); off by default, kept as flags |
 | Re-selection | inconsistent p-value definitions; pair statistics frozen at the 2022 selection | one Bonferroni p-value; statistics re-estimated at every re-selection; opt-in full re-search (`PAIRS_RESELECT=full`) |
 | Selection | half-life on the β = 1 spread; share-volume screen on split-adjusted data; negative correlations admitted; a silent screen-free fallback | half-life on the cointegrating spread; point-in-time dollar-volume screen; positive correlation; no fallback; deterministic leg order |
 | Costs | effective commission ≈0.09 bp; the same 0.8 bp spread for every stock; impact from a fixed share volume (so it scaled with 1/√price); fund profiles: impact without volatility (its cap bound on every trade), charged on entry only, institutional costs 10× too small (unit error) | per-share commission; half-spread by dollar-ADV bucket; square-root impact on each stock's own σ and dollar ADV, on entry and exit; GC borrow and financing; fund-profile units and impact fixed |
@@ -182,11 +182,16 @@ These hold for v32 and should be read with any result it produces.
   or devices.
 - **Sector features are coarse.** The sector map covers about 315 of 2,542 symbols; the rest
   get neutral sector inputs. Pairs are not restricted to one industry.
-- **The 126-day re-selection check uses asymptotic MacKinnon p-values at n ≈ 87**, which
-  are anti-conservative; its threshold (0.30) is deliberately loose.
-- **The price cache used through v31 was built with a full-sample penny-stock screen.**
-  The screen is point-in-time in v32; a cache built before that still carries the old
-  filtering until it is re-fetched.
+- **The 126-day re-selection check has little power.** At n ≈ 87 bars (asymptotic MacKinnon
+  p-values) the rule p ≤ 0.30 passes 27% of non-cointegrated pairs and only 32–63% of truly
+  cointegrated ones (half-life 14 down to 5 days), so it removes many healthy pairs at every
+  re-selection. It is kept as the documented v8 design; `RESEL_RECENT_MAX_P = 1.0` turns it off.
+- **The price cache used through v31 was built with a full-sample penny-stock screen**, and
+  its fill step also wrote forward-filled prices into rows where the vendor returned none.
+  v32 does neither, but a cache built before v32 keeps both until it is re-fetched.
+- **"Point-in-time" prices undo splits, not dividends.** The cached closes are dividend-
+  adjusted, so early prices are understated by the yield of later dividends (a few percent
+  a year for high-yield names) in the $5 price and dollar-volume screens.
 
 Literature context: Do & Faff (2010, *Financial Analysts Journal*; 2012, *Journal of
 Financial Research*) find that simple distance-method pairs trading became largely
@@ -205,8 +210,10 @@ python -m pairs_trading.main 2>&1 | tee logs/backtest.log
 # publish: fill every marked number in README.md and index.html, then verify them
 python scripts/check_published_numbers.py --write
 python scripts/make_og_image.py          # social card from the same JSON
+cp -r outputs outputs_headline           # keep the headline run: every run rewrites outputs/
 
-# evidence beyond the headline
+# evidence beyond the headline (each run rewrites outputs/; the publishing scripts refuse a
+# JSON from a non-default switch unless --allow-variant is given)
 python scripts/synthetic_validation.py   # known-answer checks (~4 min)
 python scripts/parameter_sensitivity.py  # threshold grid + PBO on the study data (slow)
 PAIRS_USE_TRANSFORMER=0 python -m pairs_trading.main > logs/backtest_noml.log 2>&1   # ranker ablation
@@ -240,8 +247,9 @@ ruff check .
 pytest --cov=pairs_trading                # ~3 min, hermetic: no data files, no network
 ```
 
-The suite runs the whole pipeline end to end on a synthetic market written to a temporary
-directory in the exact on-disk format of the study, and tests the engine for causality
+The suite runs the whole pipeline end to end (classical ranking) on a synthetic market
+written to a temporary directory in the exact on-disk format of the study, trains and uses
+the ranker in a separate test, and tests the engine for causality
 (future-perturbation and back-adjustment invariance), accounting (daily P&L reconciles
 with trades; mark-to-market telescopes), the trading rule (one z definition, timing,
 exposure caps, run-off), the cost model, pair selection, the ranker (calibration,

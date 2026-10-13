@@ -146,10 +146,20 @@ class CompleteFixedRussell3000TradingSystem:
     # partly unhedged position from the spread the signal was computed on.
     BETA_MIN, BETA_MAX = 0.25, 4.0
     COOLOFF_LOSSES, COOLOFF_CAL_DAYS = 3, 30
+    # Safety rail only: with gross positions capped at 10% of equity, round-trip costs
+    # cannot reach 1% of equity for any screened (>= $5, liquid) name, so this never binds
+    # in the study; it guards against pathological inputs (sub-$0.05 prices, no volume).
     MAX_COST_PCT_OF_EQUITY = 0.01
     REGIME_LOOKBACK, REGIME_MAX_REDUCED_FRAC = 63, 0.20
-    # Quarterly re-selection, recent-window check (Bonferroni-scale p-values).
-    RESEL_RECENT_MAX_P, RESEL_MAX_P_GAP = 0.30, 0.20
+    # Re-selection (every 90 trading days): a pair that passes the 2-year re-test is kept
+    # only if its 126-day (~87-bar) Bonferroni p-value is <= RESEL_RECENT_MAX_P (1.0 turns
+    # the check off). Measured power at n = 87 (300 simulations each, v32 review): it passes
+    # 27% of non-cointegrated random-walk pairs and 63% / 41% / 32% of truly cointegrated
+    # pairs with half-life 5 / 10 / 14 days — a weak filter that removes many healthy pairs.
+    # v32 dropped a second "divergence" rule (|p_recent - p_2y| > 0.20): because p_2y < 0.05
+    # it always bound first (an effective cut of 0.20-0.25), so the documented 0.30 never
+    # decided anything.
+    RESEL_RECENT_MAX_P = 0.30
     # Ranking-model training samples (see build_outcome_samples).
     LABEL_STEP, LABEL_MAX_SAMPLES = 2, 15000
 
@@ -913,7 +923,8 @@ class CompleteFixedRussell3000TradingSystem:
                 p1_sig, p2_sig = a1['close_ff'][k], a2['close_ff'][k]
                 n1 = gross / (1.0 + beta)
                 n2 = gross - n1
-                adv_min = min(a1['adv'][k] * p1_sig, a2['adv'][k] * p2_sig)
+                adv1_d, adv2_d = a1['adv'][k] * p1_sig, a2['adv'][k] * p2_sig
+                adv_min = min(adv1_d, adv2_d)
                 sign = 1.0 if c['action'] == 0 else -1.0     # long spread = long leg 1
                 q1 = sign * n1 / p1_sig
                 q2 = -sign * n2 / p2_sig
@@ -967,6 +978,8 @@ class CompleteFixedRussell3000TradingSystem:
                     'regime_scale': regime_scale,
                     'leg_daily_vol': float(np.nanmean([a1['dvol'][k], a2['dvol'][k]])),
                     'leg_adv_dollars': float(adv_min) if np.isfinite(adv_min) else None,
+                    'adv1_dollars': float(adv1_d) if np.isfinite(adv1_d) and adv1_d > 0 else None,
+                    'adv2_dollars': float(adv2_d) if np.isfinite(adv2_d) and adv2_d > 0 else None,
                     'action': c['action'], 'beta': beta, 'zscore': c['zscore'],
                     'signal_strength': c['signal_strength'], 'pair_quality': c['pair_quality'],
                     'feature_quality': c['feature_quality'],
@@ -1007,27 +1020,29 @@ class CompleteFixedRussell3000TradingSystem:
         avg/max gross exposure (fraction of equity), annual turnover (traded notional /
         average equity, entry and exit both count), return on average gross exposure
         (total P&L / (initial capital x average gross)), mean holding period and the
-        mean ADV participation of a leg.
+        mean, over trades, of the larger leg participation (leg notional / that leg's own
+        dollar ADV).
         """
         n = len(daily_returns)
         if n == 0:
             return {'avg_gross_exposure': 0.0, 'max_gross_exposure': 0.0, 'annual_turnover': 0.0,
                     'return_on_gross_exposure': None, 'avg_trading_days_held': 0.0,
-                    'avg_leg_adv_participation': None}
+                    'avg_max_leg_adv_participation': None}
         g = np.asarray(daily_gross, dtype=float)
         avg_g = float(g.mean())
         traded = 2.0 * sum(t['position_size'] for t in trades)
         avg_eq = float(np.mean(daily_equity)) if daily_equity else float(self.initial_capital)
         total_pnl = (daily_equity[-1] - self.initial_capital) if daily_equity else 0.0
-        parts = [t['short_notional'] / t['leg_adv_dollars'] for t in trades
-                 if t.get('leg_adv_dollars')]
+        # each leg's notional against its OWN dollar ADV; the worse leg per trade
+        parts = [max(t['long_notional'] / t['long_adv_dollars'], t['short_notional'] / t['short_adv_dollars'])
+                 for t in trades if t.get('long_adv_dollars') and t.get('short_adv_dollars')]
         return {
             'avg_gross_exposure': avg_g,
             'max_gross_exposure': float(g.max()),
             'annual_turnover': traded / avg_eq * TRADING_DAYS_PER_YEAR / n,
             'return_on_gross_exposure': (total_pnl / (self.initial_capital * avg_g)) if avg_g > 0 else None,
             'avg_trading_days_held': float(np.mean([t['trading_days_held'] for t in trades])) if trades else 0.0,
-            'avg_leg_adv_participation': float(np.mean(parts)) if parts else None,
+            'avg_max_leg_adv_participation': float(np.mean(parts)) if parts else None,
             'daily_gross_exposure': list(g),
         }
 
@@ -1054,6 +1069,8 @@ class CompleteFixedRussell3000TradingSystem:
             'regime_scale': t['regime_scale'],
             'leg_daily_vol': t['leg_daily_vol'],
             'leg_adv_dollars': t['leg_adv_dollars'],
+            'long_adv_dollars': t.get('adv1_dollars') if long_is_1 else t.get('adv2_dollars'),
+            'short_adv_dollars': t.get('adv2_dollars') if long_is_1 else t.get('adv1_dollars'),
             'position_size': t['gross_notional'],
             'position_pct': t['exposure_frac'],
             'signal_strength': t['signal_strength'],
@@ -1445,7 +1462,7 @@ class CompleteFixedRussell3000TradingSystem:
             if full_search:
                 pair_windows[resel_date] = self._full_reselection(resel_date)
                 continue
-            kept = dropped_recent = dropped_diverge = 0
+            kept = dropped_recent = 0
             window_spreads, window_stats = {}, {}
             for sym1, sym2 in candidate_pairs:
                 d1, d2 = self.processed_data.get(sym1), self.processed_data.get(sym2)
@@ -1468,18 +1485,14 @@ class CompleteFixedRussell3000TradingSystem:
                 c2 = w2.loc[w2.index >= recent_start, 'Close']
                 common = c1.index.intersection(c2.index)
                 if len(common) >= 60:
-                    # Thresholds are the v8 calibration (min-p > 0.15, |min-p gap| > 0.10)
-                    # restated on the Bonferroni scale p = 2 * min-p: identical decisions,
-                    # one consistent p-value definition.
+                    # The v8 threshold (min-p > 0.15) restated on the Bonferroni scale
+                    # p = 2 * min-p; see RESEL_RECENT_MAX_P for its measured power.
                     p_recent = self.pair_selector.cointegration_pvalue(
                         np.log(c1.loc[common].to_numpy(dtype=float)),
                         np.log(c2.loc[common].to_numpy(dtype=float)))
                     if p_recent > self.RESEL_RECENT_MAX_P:
                         dropped_recent += 1
-                        continue           # recent evidence clearly absent: relationship decayed
-                    if abs(p_recent - p_long) > self.RESEL_MAX_P_GAP:
-                        dropped_diverge += 1
-                        continue           # recent vs 2-year evidence diverge: break underway
+                        continue           # no recent evidence of cointegration
                 spread = self._pair_spread(sym1, sym2)
                 if not spread.empty:
                     window_spreads[(sym1, sym2)] = spread
@@ -1497,7 +1510,7 @@ class CompleteFixedRussell3000TradingSystem:
                                           'half_life': hl, 'quality_score': quality,
                                           'pca_cointegrated': bool(base.get('pca_cointegrated', False))}
             logger.info(f"  {pd.Timestamp(resel_date).date()}: kept {kept}/{len(candidate_pairs)} "
-                        f"(recent-window test dropped {dropped_recent}, divergence dropped {dropped_diverge})")
+                        f"(126-day check dropped {dropped_recent})")
             pair_windows[resel_date] = window_spreads
             self.pair_window_stats[resel_date] = window_stats
         self._index_window_stats()
@@ -1560,6 +1573,12 @@ class CompleteFixedRussell3000TradingSystem:
         calendar = list(main_daily_dates or main_results.get('daily_dates') or
                         sorted({d for t in trades for d, _ in t['unit_path']}))
         cal_pos = {d: i for i, d in enumerate(calendar)}
+        # A trade whose marked dates are not all on the calendar would have part of its P&L
+        # silently dropped (the v31.1 DST bug did exactly that); fail loudly instead.
+        off = [t for t in trades if any(d not in cal_pos for d, _ in t['unit_path'])]
+        if off:
+            raise ValueError(f"fund replay: {len(off)} trade(s) have mark-to-market dates off the "
+                             f"main calendar (first: {off[0]['pair']} {off[0]['unit_path'][0][0]})")
         by_entry: Dict[str, List[Dict]] = {}
         for t in trades:
             by_entry.setdefault(t['unit_path'][0][0], []).append(t)
@@ -1633,6 +1652,8 @@ class CompleteFixedRussell3000TradingSystem:
                         a['path'] = {day: v for day, v in a['path'].items()
                                      if cal_pos.get(day, 0) <= cal_pos.get(nxt, 0)}
                         a['exit'] = nxt
+            if active:
+                logger.error(f"  {profile.name}: {len(active)} trade(s) never reached their exit date")
             closed = done
             n_trades = len(closed)
             nets = np.array([a['net'] for a in closed], dtype=float)
@@ -1650,7 +1671,11 @@ class CompleteFixedRussell3000TradingSystem:
                 'commission_bps': profile.commission_bps,
                 'bid_ask_bps': profile.bid_ask_bps,
                 'market_impact_cap_bps': profile.market_impact_cap_bps,
-                'borrow_rate_easy_pct': profile.borrow_rate_easy * 100,
+                'borrow_rate_gc_pct': profile.borrow_rate_general * 100,
+                # sum of the replayed trades' net P&L; equals final equity minus capital when
+                # every replayed trade closed inside the calendar (reconciliation check)
+                'replayed_net_pnl': round(float(nets.sum()), 2),
+                'unclosed_trades': len(active),
                 'financing_spread_pct': profile.financing_spread * 100,
                 'base_position_pct': profile.base_position_pct * 100,
                 'max_position_pct': profile.max_position_pct * 100,
@@ -1928,14 +1953,19 @@ class CompleteFixedRussell3000TradingSystem:
 
         # Exports: full results, fund table, and the small headline snapshot that README,
         # the site and the social card are checked against (scripts/check_published_numbers.py).
+        starts = [df.index.min() for df in self.processed_data.values() if len(df)]
+        ends = [df.index.max() for df in self.processed_data.values() if len(df)]
         system_info = {
             'total_symbols_processed': len(self.processed_data),
             'pairs_selected': len(self.selected_pairs),
             'initial_capital': self.initial_capital,
+            'data_start': min(starts) if starts else None,
+            'data_end': max(ends) if ends else None,
         }
-        export_testing_results_to_json(results, system_info)
+        export_testing_results_to_json(results, system_info)      # sets results['run_config']
         if fund_comparison:
-            export_fund_comparison_to_json(fund_comparison)
+            # one provenance block per run: the fund export reuses the results' run_config
+            export_fund_comparison_to_json(fund_comparison, run_config=results.get('run_config'))
         export_headline_metrics(results, system_info)
         plot_results(results['daily_returns'], results, initial_capital=self.initial_capital,
                      dates=results.get('daily_dates'))

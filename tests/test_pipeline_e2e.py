@@ -110,3 +110,21 @@ def test_published_markers_resolve_against_a_real_run(pipeline_run):
         assert not [p for p in problems if 'unknown key' in p or 'nested markup' in p], problems
         _, failures, _, _ = chk.check_text(data, filled, name, is_markdown=is_md)
         assert all('null' in f for f in failures), failures
+
+
+def test_every_export_carries_the_same_provenance(pipeline_run):
+    """One run, one provenance block: the results, the fund table and the headline snapshot
+    must carry an identical run_config with the data span filled in."""
+    root, _, _ = pipeline_run
+    configs = {}
+    for path in sorted((root / 'outputs').glob('*.json')):
+        doc = json.loads(path.read_text(encoding='utf-8'))
+        if isinstance(doc, dict) and 'run_config' in doc:
+            configs[path.name] = doc['run_config']
+    assert len(configs) >= 3, sorted(configs)
+    first = next(iter(configs.values()))
+    assert all(c == first for c in configs.values()), "exports disagree on run_config"
+    assert first['data']['data_start'] and first['data']['data_end']
+    headline = json.loads((root / 'outputs' / 'headline_metrics.json').read_text(encoding='utf-8'))
+    assert headline['non_default_switches'] == ['PAIRS_USE_TRANSFORMER=0']   # this fixture's switch
+    assert headline['complete'] is True

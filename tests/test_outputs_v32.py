@@ -188,6 +188,7 @@ def test_run_config_records_switches_versions_and_data(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv('PAIRS_FILL', 'OPEN')
     monkeypatch.setenv('PAIRS_USE_TRANSFORMER', '0')
+    monkeypatch.setenv('PAIRS_RESELECT', 'FULL')
     monkeypatch.delenv('PAIRS_DEMO_UNIVERSE', raising=False)
     os.makedirs('data')
     payload = os.urandom(10_000) + b'end'
@@ -197,7 +198,9 @@ def test_run_config_records_switches_versions_and_data(monkeypatch, tmp_path):
                               {'total_symbols_processed': 2542, 'pairs_selected': 40,
                                'data_start': pd.Timestamp('2020-01-02', tz=TZ), 'data_end': '2025-06-30'})
     assert cfg['env']['PAIRS_FILL'] == 'OPEN' and cfg['env']['PAIRS_DEMO_UNIVERSE'] is None
-    assert cfg['effective'] == {'fill': 'open', 'use_transformer_ranker': False}
+    assert cfg['effective'] == {'fill': 'open', 'use_transformer_ranker': False, 'reselect': 'full'}
+    assert cfg['env']['PAIRS_RESELECT'] == 'FULL'
+    assert je.non_default_switches(cfg) == ['PAIRS_FILL=open', 'PAIRS_USE_TRANSFORMER=0', 'PAIRS_RESELECT=full']
     data = cfg['data']
     assert (data['data_start'], data['data_end']) == ('2020-01-02', '2025-06-30')
     assert (data['backtest_start'], data['backtest_end']) == ('2023-07-03', '2025-06-30')
@@ -391,7 +394,7 @@ def test_headline_schema_and_rounding(tmp_path, fixed_config):
             'avg_window_return_pct', 'median_window_return_pct', 'pooled_sharpe', 'total_return_pct',
             'trades', 'max_drawdown_pct', 'window_returns_pct', 'window_trades'} <= set(o)
     assert (o['windows'], o['windows_positive'], o['windows_no_trades']) == (3, 1, 1)
-    assert (o['avg_window_return_pct'], o['median_window_return_pct']) == (0.03, 0.0)
+    assert (o['avg_window_return_pct'], o['median_window_return_pct']) == (0.035, 0.0)
     assert (o['pooled_sharpe'], o['total_return_pct'], o['max_drawdown_pct']) == (-1.23, 0.1, -3.14)
     assert o['window_returns_pct'] == [-0.463, 0.567, 0.0] and o['window_trades'] == [3, 2, 0]
     assert o['window_ids'] == [10, 11, 12]
@@ -787,3 +790,18 @@ def _load_checker():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+def test_every_pairs_switch_the_code_reads_is_recorded():
+    """A PAIRS_* variable read anywhere in the package must be in the provenance block, or
+    a run that set it could not be told apart from one that did not (v32 review found
+    PAIRS_RESELECT missing)."""
+    import pathlib
+    import re
+    pkg = pathlib.Path(je.__file__).resolve().parent
+    read = set()
+    for path in pkg.glob('*.py'):
+        read |= set(re.findall(r"environ(?:\.get)?\(\s*['\"](PAIRS_[A-Z_]+)['\"]", path.read_text()))
+        read |= set(re.findall(r"environ\[['\"](PAIRS_[A-Z_]+)['\"]\]", path.read_text()))
+    assert read, "pattern found no PAIRS_* reads"
+    assert read <= set(je.PROVENANCE_ENV_VARS), read - set(je.PROVENANCE_ENV_VARS)

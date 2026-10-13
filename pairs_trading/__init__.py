@@ -4,8 +4,8 @@ Russell 3000 statistical-arbitrage research system.
 A cointegration / Kalman-filter pairs strategy (Engle-Granger selection, beta-locked
 z-score signals, t+1 fills, daily mark-to-market accounting) with walk-forward
 validation, significance tests, baseline benchmarks and a fund-cost replay. A
-transformer-encoder scorer only ranks candidate entries; its measured contribution is
-~0. Entry point: `python -m pairs_trading.main`.
+transformer-encoder scorer only ranks candidate entries (v31.1 measured its contribution
+at exactly 0; v32 reports its out-of-sample AUC). Entry point: `python -m pairs_trading.main`.
 
 Modules:
 
