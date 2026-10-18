@@ -119,14 +119,7 @@ class EnhancedRussell3000DataProcessor:
             try:
                 if attempt:
                     time.sleep(min(60.0, 2.0 ** attempt) + rng.uniform(0.0, 1.0))
-                data = yf.Ticker(symbol).history(
-                    start=self.start_date,
-                    end=self._fetch_end(),
-                    interval='1d',
-                    auto_adjust=True,
-                    repair=True,
-                    timeout=30
-                )
+                data = self._download_history(symbol)
                 if data.empty:
                     status = 'empty'
                     continue
@@ -145,6 +138,65 @@ class EnhancedRussell3000DataProcessor:
         self.failed_count += 1
         self.fetch_manifest[symbol] = status
         return None
+
+    CHART_URL = 'https://query2.finance.yahoo.com/v8/finance/chart/{symbol}'
+
+    def _download_history(self, symbol: str) -> pd.DataFrame:
+        """Daily history from Yahoo's chart API, shaped like yfinance's
+        Ticker.history(auto_adjust=True): Open/High/Low/Close adjusted for splits and
+        dividends, Volume split-adjusted, 'Dividends' and 'Stock Splits' event columns, and
+        a tz-aware date index in the exchange's timezone (midnight local).
+
+        v32: called directly. yfinance reads this same endpoint but first performs a
+        cookie/crumb handshake that Yahoo now rate-limits (HTTP 429 on every call from a
+        shared IP), so a full-universe fetch through yfinance failed on every symbol.
+        yfinance's optional price repair (repair=True) is not reproduced.
+        """
+        import requests
+        start = int(pd.Timestamp(self.start_date, tz='UTC').timestamp())
+        end = int(pd.Timestamp(self._fetch_end(), tz='UTC').timestamp())       # exclusive
+        r = requests.get(self.CHART_URL.format(symbol=requests.utils.quote(symbol, safe='')),
+                         params={'period1': start, 'period2': end, 'interval': '1d',
+                                 'events': 'div,splits', 'includeAdjustedClose': 'true'},
+                         headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
+        if r.status_code == 404:
+            return pd.DataFrame()
+        r.raise_for_status()
+        result = (r.json().get('chart') or {}).get('result') or []
+        if not result or not result[0].get('timestamp'):
+            return pd.DataFrame()
+        res = result[0]
+        tz = (res.get('meta') or {}).get('exchangeTimezoneName') or 'America/New_York'
+        idx = pd.to_datetime(res['timestamp'], unit='s', utc=True).tz_convert(tz).normalize()
+        q = res['indicators']['quote'][0]
+        df = pd.DataFrame({c.capitalize(): pd.to_numeric(pd.Series(q.get(c)), errors='coerce').to_numpy()
+                           for c in ('open', 'high', 'low', 'close', 'volume')}, index=idx)
+        adj = (res['indicators'].get('adjclose') or [{}])[0].get('adjclose')
+        if adj is not None:
+            adj = pd.to_numeric(pd.Series(adj), errors='coerce').to_numpy()
+            ratio = adj / df['Close'].to_numpy()
+            for c in ('Open', 'High', 'Low'):
+                df[c] = df[c].to_numpy() * ratio
+            df['Close'] = adj
+        df['Dividends'] = 0.0
+        df['Stock Splits'] = 0.0
+        events = res.get('events') or {}
+        for ev in (events.get('dividends') or {}).values():
+            d = pd.Timestamp(ev['date'], unit='s', tz='UTC').tz_convert(tz).normalize()
+            if d in df.index:
+                df.loc[d, 'Dividends'] = float(ev.get('amount') or 0.0)
+        for ev in (events.get('splits') or {}).values():
+            d = pd.Timestamp(ev['date'], unit='s', tz='UTC').tz_convert(tz).normalize()
+            num, den = float(ev.get('numerator') or 0), float(ev.get('denominator') or 0)
+            if d in df.index and num > 0 and den > 0:
+                df.loc[d, 'Stock Splits'] = num / den
+        df = df[~df.index.duplicated(keep='last')]
+        has_price = df[['Open', 'High', 'Low', 'Close']].notna().any(axis=1)
+        has_event = (df['Dividends'] != 0) | (df['Stock Splits'] != 0)
+        df = df[has_price | has_event]
+        df['Volume'] = df['Volume'].fillna(0.0)
+        df.index.name = 'Date'
+        return df
 
     def _fetch_end(self) -> str:
         """yfinance treats `end` as EXCLUSIVE; fetch through end_date inclusive."""
@@ -370,8 +422,7 @@ class EnhancedRussell3000DataProcessor:
                 try:
                     if attempt:
                         time.sleep(min(60.0, 2.0 ** attempt) + rng.uniform(0.0, 1.0))
-                    data = yf.Ticker(ticker).history(start=self.start_date, end=self._fetch_end(),
-                                                     interval='1d', auto_adjust=True, timeout=30)
+                    data = self._download_history(ticker)
                     if data.empty:
                         continue
                     close = data['Close'].dropna()

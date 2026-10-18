@@ -202,3 +202,36 @@ def test_a_malformed_manifest_stops_with_a_clear_message(tmp_path, monkeypatch, 
     dp.data_file = path
     with pytest.raises(RuntimeError, match='not a fetch manifest written by this system'):
         dp.load_or_fetch_data(syms)
+
+
+def test_chart_api_response_is_shaped_like_yfinance(monkeypatch):
+    """The direct Yahoo chart-API download must give auto-adjusted OHLC (adjclose ratio),
+    split-adjusted volume, event columns and a tz-aware midnight index, like yfinance."""
+    import requests
+    ts = [1598621400, 1598880600, 1598967000]            # 2020-08-28, 08-31, 09-01 13:30 UTC
+    payload = {'chart': {'result': [{
+        'meta': {'exchangeTimezoneName': 'America/New_York'},
+        'timestamp': ts,
+        'indicators': {'quote': [{'open': [120.0, 127.0, 132.0], 'high': [125.0, 131.0, 134.0],
+                                  'low': [119.0, 126.0, 130.0], 'close': [124.0, 129.0, 134.0],
+                                  'volume': [1e8, 2e8, None]}],
+                       'adjclose': [{'adjclose': [62.0, 129.0, 134.0]}]},
+        'events': {'splits': {'1': {'date': ts[1], 'numerator': 4.0, 'denominator': 1.0}},
+                   'dividends': {'2': {'date': ts[2], 'amount': 0.2}}}}]}}
+
+    class R:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return payload
+    monkeypatch.setattr(requests, 'get', lambda *a, **k: R())
+    df = _P()._download_history('AAPL')
+    assert list(df.columns) == ['Open', 'High', 'Low', 'Close', 'Volume', 'Dividends', 'Stock Splits']
+    assert str(df.index.tz) == 'America/New_York' and (df.index.hour == 0).all()
+    assert df['Close'].tolist() == [62.0, 129.0, 134.0]
+    assert df['Open'].iloc[0] == pytest.approx(120.0 * 62.0 / 124.0)
+    assert df['Stock Splits'].tolist() == [0.0, 4.0, 0.0] and df['Dividends'].tolist() == [0.0, 0.0, 0.2]
+    assert df['Volume'].tolist() == [1e8, 2e8, 0.0]
