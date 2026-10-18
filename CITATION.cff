@@ -8,7 +8,9 @@ abstract: >-
   significance testing (Probabilistic and Deflated Sharpe, Newey-West, block bootstrap,
   probability of backtest overfitting) and Gatev-distance / random-pair baselines run on
   the same footing. Version 32 rebuilt the engine after a full audit and is validated on
-  synthetic markets with known answers; results from earlier versions are withdrawn.
+  synthetic markets with known answers. Its 2026-10-18 study run finds no edge:
+  negative and not significant in sample and out of sample, no different from the
+  baselines, and a learned ranker with no out-of-sample skill.
 authors:
   - family-names: Bawa
     given-names: Navnoor

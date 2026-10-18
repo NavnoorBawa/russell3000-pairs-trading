@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Russell 3000 Pairs Trading Research</title>
-<meta name="description" content="Cointegration pairs-trading research on the Russell 3000. v32 rebuilt the engine after a full audit; earlier results are withdrawn until the study is re-run.">
+<meta name="description" content="Cointegration pairs trading on the Russell 3000, rebuilt after a full audit and re-run: no edge after realistic execution and costs, in or out of sample.">
 <link rel="canonical" href="https://navnoorbawa.github.io/russell3000-pairs-trading/">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
@@ -14,17 +14,17 @@
 <meta property="og:site_name" content="Statistical Arbitrage Research">
 <meta property="og:locale" content="en_US">
 <meta property="og:title" content="Russell 3000 Pairs Trading Research">
-<meta property="og:description" content="Cointegration pairs trading on the Russell 3000. v32 rebuilt the engine after a full audit; earlier results are withdrawn until the study is re-run.">
+<meta property="og:description" content="Cointegration pairs trading on the Russell 3000, rebuilt after a full audit and re-run: no edge after realistic execution and costs, in or out of sample.">
 <meta property="og:url" content="https://navnoorbawa.github.io/russell3000-pairs-trading/">
 <meta property="og:image" content="https://navnoorbawa.github.io/russell3000-pairs-trading/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Card: Pairs trading research, measured honestly. Russell 3000 equity statistical arbitrage, v32. Engine rebuilt after a full audit; earlier results withdrawn; study re-run pending.">
+<meta property="og:image:alt" content="Card: Pairs trading research, measured honestly. Out-of-sample −0.16% per quarter, pooled Sharpe −0.33; not distinguishable from the textbook baseline. Bars show 11 walk-forward windows, 3 positive.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Russell 3000 Pairs Trading Research">
-<meta name="twitter:description" content="Cointegration pairs trading on the Russell 3000. v32 rebuilt the engine after a full audit; earlier results are withdrawn until the study is re-run.">
+<meta name="twitter:description" content="Cointegration pairs trading on the Russell 3000, rebuilt after a full audit and re-run: no edge after realistic execution and costs, in or out of sample.">
 <meta name="twitter:image" content="https://navnoorbawa.github.io/russell3000-pairs-trading/og-image.png">
-<meta name="twitter:image:alt" content="Card: Pairs trading research, measured honestly. Russell 3000 equity statistical arbitrage, v32. Engine rebuilt after a full audit; earlier results withdrawn; study re-run pending.">
+<meta name="twitter:image:alt" content="Card: Pairs trading research, measured honestly. Out-of-sample −0.16% per quarter, pooled Sharpe −0.33; not distinguishable from the textbook baseline. Bars show 11 walk-forward windows, 3 positive.">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -280,14 +280,14 @@ pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
   <h1 id="page-title">Pairs trading research, measured honestly.</h1>
   <section class="status" aria-labelledby="status-title">
     <p class="tag">Status · v32 · October 2026</p>
-    <h2 id="status-title">v32 rebuilt the engine. The published v31.1 figures are withdrawn until the study is re-run.</h2>
-    <p>A complete audit of v31.1 (about 270 findings across seven review areas, nearly all confirmed by an independent adversarial re-check) found defects in the trading engine itself: entry and exit used different z-scores; the Kalman “hedge ratio” was a price-level ratio that changed with the data vendor’s back-adjustment; each trade’s final P&amp;L reached the position sizer and the loss cool-off on the day it was <strong>opened</strong>; P&amp;L was booked on exit days only; and the walk-forward silently discarded trades still open at a window’s end. Some of these defects flattered the old result and others changed the strategy itself, so the net direction cannot be predicted. The v31.1 numbers are therefore withdrawn, not adjusted.</p>
-    <p>v32 has <strong>not yet been re-run on the study data</strong> (the universe file is not redistributable and the price cache is local to the author). It is validated instead on <a href="#validation">synthetic markets with known answers</a>, by 300+ hermetic tests (89% line coverage) and by an end-to-end run of the full pipeline in CI (with classical ranking; the trained-ranker path is tested separately). Every v32 study result on this page shows “—” until the next study run fills it; the known-answer figures under Validation come from <code>scripts/synthetic_validation.py</code> and are not filled by the publication script.</p>
+    <h2 id="status-title">v32 rebuilt the engine and re-ran the study. The answer is unchanged: there is no edge.</h2>
+    <p>A complete audit of v31.1 (about 270 findings across seven review areas, nearly all confirmed by an independent adversarial re-check) found defects in the trading engine itself: entry and exit used different z-scores; the Kalman “hedge ratio” was a price-level ratio that changed with the data vendor’s back-adjustment; each trade’s final P&amp;L reached the position sizer and the loss cool-off on the day it was <strong>opened</strong>; P&amp;L was booked on exit days only; and the walk-forward silently discarded trades still open at a window’s end. v32 rewrote the engine, costs, ranker training, benchmarks and outputs, so the v31.1 numbers were withdrawn rather than adjusted.</p>
+    <p>The study run of 2026-10-18 (the 3,000 largest US common stocks, 97% fetched, prices 2020–2025) is <strong>negative and statistically indistinguishable from zero</strong> in the main backtest and out of sample, does not differ significantly from the textbook distance method or from random pairs, and its learned ranker has no out-of-sample skill. The code is also validated on <a href="#validation">synthetic markets with known answers</a> and by 350+ hermetic tests; the study numbers on this page are filled from the run’s <code>headline_metrics.json</code> and checked against it.</p>
     <dl>
       <div><dt>Engine</dt><dd>Rebuilt in v32.0.0 (<a href="#changes">what changed</a>)</dd></div>
       <div><dt>v31.1 results</dt><dd>Withdrawn, not adjusted</dd></div>
-      <div><dt>Study re-run</dt><dd>Pending</dd></div>
-      <div><dt>Validated by</dt><dd>Known-answer markets · 300+ tests · CI pipeline run</dd></div>
+      <div><dt>Study re-run</dt><dd>2026-10-18 · no edge</dd></div>
+      <div><dt>Validated by</dt><dd>Known-answer markets · 350+ tests · CI pipeline run</dd></div>
     </dl>
   </section>
 
@@ -303,7 +303,7 @@ pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
 <section class="section" id="results" aria-labelledby="results-title">
   <p class="sec-label">01 · Results</p>
   <h2 id="results-title">Results</h2>
-  <p class="desc">Every v32 study result in this section is a marker. After a run, <code>python scripts/check_published_numbers.py --write</code> fills it from <code>outputs/headline_metrics.json</code>, and the same script without <code>--write</code> fails if any published number disagrees with the run. “—” means not yet run.</p>
+  <p class="desc">Every v32 study result in this section is filled from <code>outputs/headline_metrics.json</code> of the study run of 2026-10-18 by <code>python scripts/check_published_numbers.py --write</code>, and the same script without <code>--write</code> fails if any published number disagrees with the run.</p>
   <div class="tw">
   <table class="res">
     <caption>Headline results. The v31.1 column is kept for the record only: those figures are withdrawn.</caption>
@@ -311,56 +311,64 @@ pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
       <tr><th scope="col">Measure</th><th scope="col">v32</th><th scope="col">v31.1 (withdrawn)</th></tr>
     </thead>
     <tbody>
-      <tr><th scope="row">Main backtest (Jul 2023 – 2025): return</th><td class="num"><span data-metric="main.total_return_pct">—</span></td><td class="old">−0.31%</td></tr>
-      <tr><th scope="row">Main backtest: Sharpe</th><td class="num"><span data-metric="main.sharpe">—</span></td><td class="old">−0.31</td></tr>
-      <tr><th scope="row">Main backtest: trades</th><td class="num"><span data-metric="main.trades">—</span></td><td class="old">14</td></tr>
-      <tr><th scope="row">Walk-forward OOS: average window return</th><td class="num"><span data-metric="oos.avg_window_return_pct" data-dp="3">—</span></td><td class="old">−0.282%</td></tr>
-      <tr><th scope="row">Walk-forward OOS: pooled daily Sharpe</th><td class="num"><span data-metric="oos.pooled_sharpe">—</span></td><td class="old">−1.23</td></tr>
-      <tr><th scope="row">Walk-forward OOS: windows positive</th><td class="num"><span data-metric="oos.windows_positive">—</span> of <span data-metric="oos.windows">—</span></td><td class="old">1 of 10</td></tr>
-      <tr><th scope="row">Walk-forward OOS: per-window t-test p-value</th><td class="num"><span data-metric="significance.oos_windows.p" data-dp="3">—</span></td><td class="old">0.085</td></tr>
-      <tr><th scope="row">Gatev (2006) distance method, same period: Sharpe</th><td class="num"><span data-metric="benchmarks.gatev.sharpe">—</span></td><td class="old">+0.26</td></tr>
-      <tr><th scope="row">Ranker out-of-sample AUC (0.5 = no skill)</th><td class="num"><span data-metric="ranker.oos_auc" data-dp="3">—</span></td><td class="old">not measured</td></tr>
+      <tr><th scope="row">Main backtest (Jul 2023 – 2025): return</th><td class="num"><span data-metric="main.total_return_pct">−0.30%</span></td><td class="old">−0.31%</td></tr>
+      <tr><th scope="row">Main backtest: Sharpe</th><td class="num"><span data-metric="main.sharpe">−0.07</span></td><td class="old">−0.31</td></tr>
+      <tr><th scope="row">Main backtest: trades</th><td class="num"><span data-metric="main.trades">161</span></td><td class="old">14</td></tr>
+      <tr><th scope="row">Walk-forward OOS: average window return</th><td class="num"><span data-metric="oos.avg_window_return_pct" data-dp="3">−0.158%</span></td><td class="old">−0.282%</td></tr>
+      <tr><th scope="row">Walk-forward OOS: pooled daily Sharpe</th><td class="num"><span data-metric="oos.pooled_sharpe">−0.33</span></td><td class="old">−1.23</td></tr>
+      <tr><th scope="row">Walk-forward OOS: windows positive</th><td class="num"><span data-metric="oos.windows_positive">3</span> of <span data-metric="oos.windows">11</span></td><td class="old">1 of 10</td></tr>
+      <tr><th scope="row">Walk-forward OOS: per-window t-test p-value</th><td class="num"><span data-metric="significance.oos_windows.p" data-dp="3">0.478</span></td><td class="old">0.085</td></tr>
+      <tr><th scope="row">Gatev (2006) distance method, same period: Sharpe</th><td class="num"><span data-metric="benchmarks.gatev.sharpe">+0.07</span></td><td class="old">+0.26</td></tr>
+      <tr><th scope="row">Ranker out-of-sample AUC (0.5 = no skill)</th><td class="num"><span data-metric="ranker.oos_auc" data-dp="3">0.514</span></td><td class="old">not measured</td></tr>
     </tbody>
   </table>
   </div>
-  <p class="note history"><strong>What v31.1 concluded, for the record (withdrawn):</strong> no edge — negative out-of-sample, not statistically distinguishable from zero, zero pairs surviving a Benjamini-Hochberg correction, and beaten by the textbook distance method. Whether v32 confirms that is what the re-run will show; nothing here assumes it.</p>
+  <h3 id="shows-title">What the v32 run shows</h3>
+  <ul class="plain">
+    <li><strong>No edge in the main backtest:</strong> <span data-metric="main.trades">161</span> trades, return <span data-metric="main.total_return_pct">−0.30%</span>, Sharpe <span data-metric="main.sharpe">−0.07</span>, Newey-West p = <span data-metric="significance.main.hac_p" data-dp="3">0.917</span>.</li>
+    <li><strong>No edge out of sample:</strong> the continuous walk-forward averages <span data-metric="oos.avg_window_return_pct" data-dp="3">−0.158%</span> per window, pooled daily Sharpe <span data-metric="oos.pooled_sharpe">−0.33</span> (p = <span data-metric="significance.oos_daily.hac_p" data-dp="3">0.559</span>); Deflated Sharpe <span data-metric="significance.oos_daily.dsr_pct">0.4</span>%.</li>
+    <li><strong>No different from the baselines:</strong> the Gatev (2006) distance method returns <span data-metric="benchmarks.gatev.total_return_pct">+0.57%</span> at Sharpe <span data-metric="benchmarks.gatev.sharpe">+0.07</span>; the Sharpe difference is <span data-metric="benchmarks.sharpe_diff_vs_gatev.diff">−0.14</span> (p = <span data-metric="benchmarks.sharpe_diff_vs_gatev.p" data-dp="3">0.879</span>), and the strategy sits at the <span data-metric="benchmarks.random_control.strategy_percentile">28</span>th percentile of 200 random-pair draws.</li>
+    <li><strong>Cointegration does not survive multiple testing:</strong> <span data-metric="fdr.significant_raw_p05">2,965</span> of <span data-metric="fdr.pairs_tested">35,491</span> correlated pairs pass at raw p &lt; 0.05 (chance alone would give about 1,775), but <span data-metric="fdr.survive_bh_fdr_q05">1</span> survives Benjamini-Hochberg.</li>
+    <li><strong>The ranker has no skill:</strong> out-of-sample AUC <span data-metric="ranker.oos_auc" data-dp="3">0.514</span> (0.5 = coin flip), <span data-metric="ranker.wf_pooled_auc" data-dp="3">0.510</span> pooled across walk-forward windows.</li>
+  </ul>
+  <p class="note history"><strong>For the record:</strong> v31.1 reached the same conclusion with defective code (main −0.31%, out-of-sample −0.28%/qtr). v32 confirms it with an engine that passes known-answer, causality and accounting tests. The defensible statement is the narrow one: this cointegration pairs strategy, on this universe and period, has no detectable edge after realistic execution and costs.</p>
 
   <h3 id="sig-title">Significance tests (v32, filled by the same run)</h3>
   <p class="desc">The evidence layer reports whether the Sharpe ratio is distinguishable from zero, separately for the main backtest and for the stitched daily walk-forward returns.</p>
   <table class="stack" role="table">
-    <caption>Significance tests, v32. “—” means not yet run.</caption>
+    <caption>Significance tests, v32 study run of 2026-10-18.</caption>
     <thead role="rowgroup">
       <tr role="row"><th scope="col" role="columnheader">Test</th><th scope="col" role="columnheader">Main backtest</th><th scope="col" role="columnheader">Walk-forward OOS (daily)</th></tr>
     </thead>
     <tbody role="rowgroup">
-      <tr role="row"><th scope="row" role="rowheader">Annualised Sharpe</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.ann_sharpe">—</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.ann_sharpe">—</span></td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Newey-West t-statistic (mean ≠ 0)</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.hac_t">—</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.hac_t">—</span></td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Newey-West p-value</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.hac_p" data-dp="3">—</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.hac_p" data-dp="3">—</span></td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Probabilistic Sharpe, P(SR &gt; 0)</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.psr_pct" data-dp="1">—</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.psr_pct" data-dp="1">—</span></td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Deflated Sharpe (32 trials)</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.dsr_pct" data-dp="1">—</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.dsr_pct" data-dp="1">—</span></td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Block-bootstrap 95% interval for the Sharpe</th><td class="num" role="cell" data-label="Main backtest">[<span data-metric="significance.main.boot_lo">—</span>, <span data-metric="significance.main.boot_hi">—</span>]</td><td class="num" role="cell" data-label="Walk-forward OOS (daily)">[<span data-metric="significance.oos_daily.boot_lo">—</span>, <span data-metric="significance.oos_daily.boot_hi">—</span>]</td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Annualised Sharpe</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.ann_sharpe">−0.07</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.ann_sharpe">−0.33</span></td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Newey-West t-statistic (mean ≠ 0)</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.hac_t">−0.10</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.hac_t">−0.58</span></td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Newey-West p-value</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.hac_p" data-dp="3">0.917</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.hac_p" data-dp="3">0.559</span></td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Probabilistic Sharpe, P(SR &gt; 0)</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.psr_pct" data-dp="1">45.5%</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.psr_pct" data-dp="1">28.7%</span></td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Deflated Sharpe (32 trials)</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.dsr_pct" data-dp="1">1.4%</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.dsr_pct" data-dp="1">0.4%</span></td></tr>
+      <tr role="row"><th scope="row" role="rowheader">Block-bootstrap 95% interval for the Sharpe</th><td class="num" role="cell" data-label="Main backtest">[<span data-metric="significance.main.boot_lo">−1.39</span>, <span data-metric="significance.main.boot_hi">1.23</span>]</td><td class="num" role="cell" data-label="Walk-forward OOS (daily)">[<span data-metric="significance.oos_daily.boot_lo">−1.49</span>, <span data-metric="significance.oos_daily.boot_hi">0.86</span>]</td></tr>
     </tbody>
   </table>
 
   <h3 id="base-title">Baselines, multiple testing and capital use (v32)</h3>
   <div class="tw">
   <table class="res">
-    <caption>Comparisons and diagnostics, v32. “—” means not yet run.</caption>
+    <caption>Comparisons and diagnostics, v32 study run of 2026-10-18.</caption>
     <thead>
       <tr><th scope="col">Measure</th><th scope="col">v32</th></tr>
     </thead>
     <tbody>
-      <tr><th scope="row">Gatev (2006) distance method, same period: return</th><td class="num"><span data-metric="benchmarks.gatev.total_return_pct">—</span></td></tr>
-      <tr><th scope="row">Sharpe difference, strategy minus Gatev</th><td class="num"><span data-metric="benchmarks.sharpe_diff_vs_gatev.diff">—</span></td></tr>
-      <tr><th scope="row">Ledoit-Wolf test of that difference: p-value</th><td class="num"><span data-metric="benchmarks.sharpe_diff_vs_gatev.p" data-dp="3">—</span></td></tr>
-      <tr><th scope="row">Random-pair control (200 draws): median Sharpe</th><td class="num"><span data-metric="benchmarks.random_control.median_sharpe">—</span></td></tr>
-      <tr><th scope="row">Pairs Engle-Granger tested (after the correlation screen)</th><td class="num"><span data-metric="fdr.pairs_tested">—</span></td></tr>
-      <tr><th scope="row">Of those, significant at raw p &lt; 0.05</th><td class="num"><span data-metric="fdr.significant_raw_p05">—</span></td></tr>
-      <tr><th scope="row">Of those, surviving Benjamini-Hochberg at q &lt; 0.05</th><td class="num"><span data-metric="fdr.survive_bh_fdr_q05">—</span></td></tr>
-      <tr><th scope="row">Pairs selected after every filter</th><td class="num"><span data-metric="fdr.final_selected_pairs">—</span></td></tr>
-      <tr><th scope="row">Main backtest: maximum drawdown</th><td class="num"><span data-metric="main.max_drawdown_pct">—</span></td></tr>
-      <tr><th scope="row">Main backtest: average gross exposure</th><td class="num"><span data-metric="main.avg_gross_exposure_pct" data-dp="1">—</span></td></tr>
-      <tr><th scope="row">Walk-forward OOS: windows with no trades</th><td class="num"><span data-metric="oos.windows_no_trades">—</span></td></tr>
+      <tr><th scope="row">Gatev (2006) distance method, same period: return</th><td class="num"><span data-metric="benchmarks.gatev.total_return_pct">+0.57%</span></td></tr>
+      <tr><th scope="row">Sharpe difference, strategy minus Gatev</th><td class="num"><span data-metric="benchmarks.sharpe_diff_vs_gatev.diff">−0.14</span></td></tr>
+      <tr><th scope="row">Ledoit-Wolf test of that difference: p-value</th><td class="num"><span data-metric="benchmarks.sharpe_diff_vs_gatev.p" data-dp="3">0.879</span></td></tr>
+      <tr><th scope="row">Random-pair control (200 draws): median Sharpe</th><td class="num"><span data-metric="benchmarks.random_control.median_sharpe">0.26</span></td></tr>
+      <tr><th scope="row">Pairs Engle-Granger tested (after the correlation screen)</th><td class="num"><span data-metric="fdr.pairs_tested">35,491</span></td></tr>
+      <tr><th scope="row">Of those, significant at raw p &lt; 0.05</th><td class="num"><span data-metric="fdr.significant_raw_p05">2,965</span></td></tr>
+      <tr><th scope="row">Of those, surviving Benjamini-Hochberg at q &lt; 0.05</th><td class="num"><span data-metric="fdr.survive_bh_fdr_q05">1</span></td></tr>
+      <tr><th scope="row">Pairs selected after every filter</th><td class="num"><span data-metric="fdr.final_selected_pairs">1,776</span></td></tr>
+      <tr><th scope="row">Main backtest: maximum drawdown</th><td class="num"><span data-metric="main.max_drawdown_pct">−3.00%</span></td></tr>
+      <tr><th scope="row">Main backtest: average gross exposure</th><td class="num"><span data-metric="main.avg_gross_exposure_pct" data-dp="1">15.1%</span></td></tr>
+      <tr><th scope="row">Walk-forward OOS: windows with no trades</th><td class="num"><span data-metric="oos.windows_no_trades">2</span></td></tr>
     </tbody>
   </table>
   </div>
@@ -392,7 +400,7 @@ pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
   <div class="pipeline">
     <div class="p-row">
       <h3 class="p-key">universe and data</h3>
-      <div class="p-val"><p>Russell 3000 constituents from <code>data/marketcap.csv</code> (2,542 symbols) · daily OHLCV 2020–2025 · VIX and 11 sector ETFs. Every level screen uses point-in-time prices and volumes (split-unadjusted; still dividend-adjusted, see limitations). A price fetch must cover at least 90% of the universe; caches are written atomically and never silently overwritten.</p></div>
+      <div class="p-val"><p>The 3,000 largest US common stocks by market cap (the Russell 3000 rule, applied to the Nasdaq screener on 2026-10-18) in <code>data/marketcap.csv</code> · daily OHLCV 2020–2025 · VIX and 11 sector ETFs. Every level screen uses point-in-time prices and volumes (split-unadjusted; still dividend-adjusted, see limitations). A price fetch must cover at least 90% of the universe; caches are written atomically and never silently overwritten.</p></div>
     </div>
     <div class="p-row">
       <h3 class="p-key">pair selection</h3>
@@ -477,16 +485,16 @@ pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
   <h2 id="limitations-title">Known limitations</h2>
   <p class="desc">These hold for v32 and should be read with any result it produces.</p>
   <ul class="lims">
-    <li><strong>Survivorship.</strong> The universe is close to current Russell 3000 membership back-filled with prices: of 36 names that failed, delisted or were acquired in 2020–2025, one is present. Pairs that broke because a company failed are missing, which flatters a pairs strategy. Fixing it needs a point-in-time dataset such as CRSP.</li>
+    <li><strong>Survivorship, and an approximate index.</strong> The universe is the 3,000 largest US common stocks by market cap on 2026-10-18 (the Russell 3000 rule applied to the Nasdaq screener, not FTSE Russell’s constituent list), back-filled with 2020–2025 prices. Companies that failed, delisted or were acquired before that date are absent, and pairs that broke because a company failed are missing, which flatters a pairs strategy. Fixing it needs a point-in-time dataset such as CRSP.</li>
     <li><strong>Design choices were made on the same data.</strong> Thresholds, gates and the regime rule were chosen across 32 versions using 2020–2025. The walk-forward is out of sample for pair selection and the ranker, not for those choices. The Deflated Sharpe counts 32 trials (a lower bound), and <code>scripts/parameter_sensitivity.py</code> reports how fragile the chosen thresholds are (PBO).</li>
     <li><strong>Re-selection can drop pairs but not add them</strong> unless <code>PAIRS_RESELECT=full</code> (slow).</li>
     <li><strong>Borrow is general-collateral for every name</strong> (25 bp/yr); hard-to-borrow fees, recalls, short rebates and regulatory fees are not modelled.</li>
     <li><strong>Fills are close-to-close</strong>; no auction, queue or intraday modelling. Capacity is reported as average ADV participation rather than simulated.</li>
     <li><strong>Ranker features include pair statistics estimated on the formation window</strong> that also produces its earliest training labels. The ranker only orders same-day candidates, and its out-of-sample AUC is reported.</li>
     <li><strong>The “transformer” sees one 30-feature vector</strong> — a sequence of length one — so it is functionally a residual MLP. Its scores are not bit-identical across CPU thread counts or devices.</li>
-    <li><strong>Sector features are coarse.</strong> The sector map covers about 315 of 2,542 symbols; the rest get neutral sector inputs. Pairs are not restricted to one industry.</li>
+    <li><strong>Sector features are coarse.</strong> The sector map covers 286 of the 3,000 symbols; the rest get neutral sector inputs. Pairs are not restricted to one industry.</li>
     <li><strong>The 126-day re-selection check has little power.</strong> At n ≈ 87 bars (asymptotic MacKinnon p-values) the rule p ≤ 0.30 passes 27% of non-cointegrated pairs and only 32–63% of truly cointegrated ones (half-life 14 down to 5 days), so it removes many healthy pairs at every re-selection. It is kept as the documented v8 design; <code>RESEL_RECENT_MAX_P = 1.0</code> turns it off.</li>
-    <li><strong>The price cache used through v31 was built with a full-sample penny-stock screen</strong>, and its fill step also wrote forward-filled prices into rows where the vendor returned none. v32 does neither, but a cache built before v32 keeps both until it is re-fetched. Its universe coverage is also unchecked: v31 wrote no fetch manifest (and dropped some symbols on purpose), so such a run records <code>universe_coverage: null</code> plus the fraction of the universe the cache holds; a cache holding less than half the universe is refused unless <code>PAIRS_ALLOW_PARTIAL_FETCH=1</code> (which makes the run a variant).</li>
+    <li><strong>The price cache used through v31 was built with a full-sample penny-stock screen</strong>, and its fill step also wrote forward-filled prices into rows where the vendor returned none. v32 does neither, but a cache built before v32 keeps both until it is re-fetched. Its universe coverage is also unchecked: v31 wrote no fetch manifest (and dropped some symbols on purpose), so such a run records <code>universe_coverage: null</code> plus the fraction of the universe the cache holds; a cache holding less than half the universe is refused unless <code>PAIRS_ALLOW_PARTIAL_FETCH=1</code> (which makes the run a variant). The v32 study run used a freshly fetched v32 cache, so none of this applies to its results.</li>
     <li><strong>“Point-in-time” prices undo splits, not dividends.</strong> The cached closes are dividend-adjusted, so early prices are understated by the yield of later dividends (a few percent a year for high-yield names) in the $5 price and dollar-volume screens.</li>
   </ul>
   <p class="note">Literature context: Do &amp; Faff (2010, <cite>Financial Analysts Journal</cite>; 2012, <cite>Journal of Financial Research</cite>) find that simple distance-method pairs trading became largely unprofitable after 2002 once trading costs are counted. That is indirect support for a negative result here, not a test of this strategy.</p>
@@ -495,11 +503,13 @@ pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
 <section class="section" id="reproduce" aria-labelledby="reproduce-title">
   <p class="sec-label">06 · Reproduce and test</p>
   <h2 id="reproduce-title">Reproducing and testing</h2>
-  <p class="desc">The study needs <code>data/marketcap.csv</code> (the study universe; required and not redistributed — the loader stops with instructions rather than substituting another universe) and the price cache, which is local to the author; a cache fetched fresh from Yahoo Finance is not guaranteed to match it. <code>PAIRS_SEED</code> (default 42) seeds Python, NumPy and torch and is recorded, with the git commit, in every export’s provenance block. The ranker’s scores are not bit-identical across CPU thread counts or devices.</p>
+  <p class="desc">The universe is rebuilt with <code>scripts/build_universe.py</code> (the 3,000 largest US common stocks by market cap from the Nasdaq screener, with its as-of date recorded) and prices are fetched from Yahoo’s chart API on the first run; a later fetch will not match the 2026-10-18 cache bit-for-bit, because vendors revise history. <code>PAIRS_SEED</code> (default 42) seeds Python, NumPy and torch and is recorded, with the git commit, in every export’s provenance block. The ranker’s scores are not bit-identical across CPU thread counts or devices.</p>
   <pre tabindex="0" aria-label="Commands to run the study and publish its numbers"><code>pip install -r requirements.txt          # Python 3.12; or: pip install -e ".[dev]"
 mkdir -p logs outputs
 
-# the study (needs data/marketcap.csv; the price cache is fetched if absent)
+# the universe: the 3,000 largest US common stocks by market cap (Nasdaq screener)
+python scripts/build_universe.py
+# the study (prices are fetched from Yahoo’s chart API and cached on the first run)
 python -m pairs_trading.main 2&gt;&amp;1 | tee logs/backtest.log
 
 # publish: fill every marked number in README.md and index.html, then verify them
@@ -538,7 +548,7 @@ PAIRS_FILL=open python -m pairs_trading.main &gt; logs/backtest_open.log 2&gt;&a
   <dl class="grid2">
     <div class="g2"><dt>Version</dt><dd>v32.0.0 <span>2026-10-12 · engineering log v6 → v32</span></dd></div>
     <div class="g2"><dt>Stack</dt><dd>Python 3.12 · PyTorch 2.13 <span>NumPy · pandas · SciPy · statsmodels · scikit-learn · yfinance</span></dd></div>
-    <div class="g2"><dt>Universe</dt><dd>Russell 3000 constituents <span>2,542 symbols in the universe file · 300 most liquid enter pair search · 2020–2025</span></dd></div>
+    <div class="g2"><dt>Universe</dt><dd>3,000 largest US stocks <span>3,000 symbols in the universe file · 97% fetched · 300 most liquid enter pair search · 2020–2025</span></dd></div>
     <div class="g2"><dt>Tests</dt><dd>300+ hermetic tests <span>89% line coverage · end-to-end pipeline run in CI</span></dd></div>
   </dl>
 </section>
@@ -546,14 +556,12 @@ PAIRS_FILL=open python -m pairs_trading.main &gt; logs/backtest_open.log 2&gt;&a
 <section class="section" id="next" aria-labelledby="next-title">
   <p class="sec-label">07 · Next</p>
   <h2 id="next-title">What happens next</h2>
-  <p class="desc">To finish v32 (from the v32 entry of the engineering log):</p>
+  <p class="desc">The v32 study has been run (2026-10-18) and its numbers published. Still open from the engineering log:</p>
   <ol class="steps">
-    <li>Run <code>python -m pairs_trading.main</code> on the study data (<code>data/marketcap.csv</code> and the price cache).</li>
-    <li>Run <code>python scripts/check_published_numbers.py --write</code>, then <code>python scripts/make_og_image.py</code>.</li>
-    <li>Write the conclusion from the numbers — v31.1’s “no edge” is not assumed.</li>
-    <li>Optional: <code>scripts/parameter_sensitivity.py</code> (PBO of the chosen thresholds) and the <code>PAIRS_USE_TRANSFORMER=0</code> / <code>PAIRS_FILL=open</code> sensitivity runs.</li>
+    <li><code>scripts/parameter_sensitivity.py</code> on the study data: the probability that the chosen entry/target/stop thresholds are an artefact of search (PBO).</li>
+    <li>The <code>PAIRS_USE_TRANSFORMER=0</code> and <code>PAIRS_FILL=open</code> sensitivity runs (the ranker’s out-of-sample AUC of 0.51 already says it adds nothing).</li>
   </ol>
-  <h3 id="beyond-title">Beyond the re-run</h3>
+  <h3 id="beyond-title">Beyond this study</h3>
   <p class="desc">Each of these answers a limitation listed above; none is promised to change the answer.</p>
   <ul class="plain">
     <li><strong>Survivorship-free data:</strong> repeat the study on a point-in-time, delisting-inclusive universe such as CRSP.</li>
@@ -601,7 +609,7 @@ PAIRS_FILL=open python -m pairs_trading.main &gt; logs/backtest_open.log 2&gt;&a
       <tr><th scope="row">v28–v29</th><td>significance layer and baselines; t+1 entry fills</td></tr>
       <tr><th scope="row">v30</th><td>leakage audit: survivorship confirmed, selection-clean window tagging</td></tr>
       <tr><th scope="row">v31–v31.1</th><td>pre-launch audit: inverted stop-loss, same-bar exits, future re-selections in the walk-forward and more (its results are withdrawn)</td></tr>
-      <tr><th scope="row">v32</th><td>full audit (≈270 confirmed findings): engine, Kalman model, accounting, walk-forward, costs, ranker, benchmarks and outputs rebuilt; synthetic known-answer validation; v31.1 figures withdrawn pending a re-run</td></tr>
+      <tr><th scope="row">v32</th><td>full audit (≈270 confirmed findings): engine, Kalman model, accounting, walk-forward, costs, ranker, benchmarks and outputs rebuilt; synthetic known-answer validation; study re-run: still no edge (out-of-sample pooled Sharpe −0.33, p = 0.56; ranker AUC 0.51)</td></tr>
     </tbody>
   </table>
 </section>

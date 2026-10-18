@@ -1,5 +1,5 @@
 # Pairs Trading System — Progress Reference Document
-Last updated: 2026-10-12 (v32 — full audit and engine rebuild; v31.1 figures withdrawn pending a re-run)
+Last updated: 2026-10-18 (v32 — full audit, engine rebuild and study re-run: no edge)
 
 > Entries are chronological and are kept as written at the time, including claims later
 > found wrong; the newest entry (v32, at the end) supersedes earlier ones where they disagree.
@@ -3050,10 +3050,26 @@ error is exposure to zero-mean returns.
 300+ hermetic tests (v31.1: 109), 89% line coverage (v31.1: 29%), including a full
 `run_complete_system` run on a synthetic market in a temporary directory.
 
-### To finish v32
+### Study run (2026-10-18)
 
-1. `python -m pairs_trading.main` on the study data (`data/marketcap.csv` + cache).
-2. `python scripts/check_published_numbers.py --write`, then `python scripts/make_og_image.py`.
-3. Write the conclusion from the numbers — v31.1's "no edge" is not assumed.
-4. Optional: `scripts/parameter_sensitivity.py` (PBO of the chosen thresholds) and the
-   `PAIRS_USE_TRANSFORMER=0` / `PAIRS_FILL=open` sensitivity runs.
+The original universe file was never in git, and yfinance's cookie handshake is now
+rate-limited, so v32 rebuilt both inputs: `scripts/build_universe.py` takes the 3,000
+largest US common stocks by market cap from the Nasdaq screener (the Russell 3000 rule;
+smallest $143M), and prices come from Yahoo's chart API read directly (the endpoint
+yfinance uses). 2,999 symbols requested, 97.1% fetched without error; 300 most liquid
+enter the pair search (44,850 pairs, 35,491 past the correlation screen).
+
+| Measure | v32 |
+|---|---|
+| Main backtest (Jul 2023 – Dec 2025) | −0.30%, Sharpe −0.07, 161 trades, Newey-West p = 0.92 |
+| Walk-forward OOS (11 windows) | −0.158%/window, pooled Sharpe −0.33, 3 of 11 positive, p = 0.56 (daily) / 0.48 (windows) |
+| Deflated Sharpe (32 trials) | 1.4% main, 0.4% OOS |
+| Gatev distance method | +0.57%, Sharpe +0.07; difference −0.14, p = 0.88 |
+| Random-pair control | strategy at the 28th percentile of 200 draws |
+| Benjamini-Hochberg | 1 of 35,491 pairs survives q < 0.05 |
+| Ranker | OOS AUC 0.514 (main), 0.510 pooled walk-forward; 11 of 11 windows trained |
+| Fund profiles | +0.04% (institutional) to −3.27% (fundamental L/S) |
+
+Conclusion: the same as v31.1, now on code that passes known-answer, causality and
+accounting tests — no detectable edge after realistic execution and costs. Still open:
+`scripts/parameter_sensitivity.py` (PBO) and the ranker-off / open-fill sensitivity runs.
