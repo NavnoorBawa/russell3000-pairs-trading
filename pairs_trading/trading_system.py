@@ -43,6 +43,9 @@ from pairs_trading.position_sizer import FixedPrimeFundPositionSizer
 from pairs_trading.risk_manager import FixedPrimeFundRiskManager
 from pairs_trading.transaction_costs import EnhancedPrimeFundTransactionCostModel
 from pairs_trading.significance import annualized_sharpe
+from pairs_trading.study_config import (
+    CALENDARS, Calendar, Profile, describe as describe_study, get_calendar, get_profile,
+)
 from pairs_trading.json_export import (
     build_run_config, export_fund_comparison_to_json, export_headline_metrics,
     export_testing_results_to_json, log_run_config,
@@ -53,10 +56,11 @@ logger = logging.getLogger(__name__)
 
 TRADING_DAYS_PER_YEAR = 252
 
-# Study calendar (fixed by design; see README "Architecture").
-PAIR_SELECTION_CUTOFF = '2022-12-31'   # initial pair universe uses data <= this date
-MAIN_MODEL_TRAIN_END = '2023-06-30'    # ranking model for the main backtest
-MAIN_BACKTEST_START = '2023-07-01'
+# The development calendar's dates (study_config.CALENDARS['dev']), kept as module
+# constants for callers; the engine itself reads the calendar it was built with.
+PAIR_SELECTION_CUTOFF = CALENDARS['dev'].selection_cutoff    # initial pairs use data <= this
+MAIN_MODEL_TRAIN_END = CALENDARS['dev'].model_train_end      # ranking model, main backtest
+MAIN_BACKTEST_START = CALENDARS['dev'].backtest_start
 
 
 def resolve_fill_column(value: str) -> str:
@@ -163,24 +167,39 @@ class CompleteFixedRussell3000TradingSystem:
     # Ranking-model training samples (see build_outcome_samples).
     LABEL_STEP, LABEL_MAX_SAMPLES = 2, 15000
 
-    def __init__(self, initial_capital: float = 100000000):
+    def __init__(self, initial_capital: float = 100000000, profile=None, calendar=None):
+        """`profile`/`calendar`: study_config objects or names (default: environment or the
+        study_config defaults)."""
         self.initial_capital = initial_capital
         self.current_capital = initial_capital
+        self.profile: Profile = profile if isinstance(profile, Profile) else get_profile(profile)
+        self.calendar: Calendar = calendar if isinstance(calendar, Calendar) else get_calendar(calendar)
 
-        self.data_processor = EnhancedRussell3000DataProcessor()
-        self.pair_selector = FixedPrimeFundPairSelector()
-        # The one learned component: a transformer that scores signal quality and is used
-        # for opportunity RANKING only (multi_agent_system.py). The attribute keeps its
+        self.data_processor = EnhancedRussell3000DataProcessor(
+            start_date=self.calendar.data_start, end_date=self.calendar.data_end,
+            data_file=self.calendar.price_cache, macro_file=self.calendar.macro_cache)
+        self.pair_selector = self._new_pair_selector()
+        # The one learned component: a model that scores signal quality and is used for
+        # opportunity RANKING only (multi_agent_system.py). The attribute keeps its
         # historical name for API compatibility; this is not reinforcement learning.
-        self.rl_agent = FixedTransformerMultiAgentSystem()
+        self.rl_agent = self._new_ranker()
         self.position_sizer = FixedPrimeFundPositionSizer()
         self.risk_manager = FixedPrimeFundRiskManager(initial_capital=initial_capital)
-        self.cost_model = EnhancedPrimeFundTransactionCostModel()
+        self.cost_model = EnhancedPrimeFundTransactionCostModel(
+            borrow_rate=self.profile.borrow_rate,
+            pb_financing_spread=self.profile.pb_financing_spread)
 
         self.processed_data = {}
         self.selected_pairs = []
         self.spread_data = {}
         self.macro_data = {}
+        # Point-in-time membership (profile universe 'pit_iwv'; universe.PITUniverse) and the
+        # ticker -> Fama-French 49 industry map (profile same_industry). None when unused.
+        self.pit_universe = None
+        self.industries: Optional[Dict[str, str]] = None
+        # Survivorship, measured: at each formation date, the point-in-time members and how
+        # many of them (and how much index weight) have no free price history.
+        self.universe_coverage_log: List[Dict] = []
         # v32: per-pair Kalman state (lp1, lp2, beta, alpha, spread) on the pair's common
         # trading dates. It is a deterministic function of the two price series, so it is
         # computed once and shared by re-selection, both backtests and the label builder
@@ -195,7 +214,18 @@ class CompleteFixedRussell3000TradingSystem:
         self.daily_returns = []
         self.portfolio_metrics = {}
 
-        logger.info("Russell 3000 pairs-trading system initialised")
+        logger.info(f"Russell 3000 pairs-trading system initialised: profile {self.profile.name}, "
+                    f"calendar {self.calendar.name}")
+
+    def _new_pair_selector(self) -> FixedPrimeFundPairSelector:
+        selector = FixedPrimeFundPairSelector()
+        selector.max_universe = self.profile.max_universe
+        industries = getattr(self, 'industries', None)        # loaded with the universe
+        selector.industry_of = industries if self.profile.same_industry else None
+        return selector
+
+    def _new_ranker(self) -> FixedTransformerMultiAgentSystem:
+        return FixedTransformerMultiAgentSystem(ranker=self.profile.ranker)
 
     # ════════════════════════════════════════════════════════════════════════════
     # Spread model
@@ -591,7 +621,7 @@ class CompleteFixedRussell3000TradingSystem:
             # v32: eligibility uses only data known at the cutoff (>= 100 training days);
             # a full-sample ">= 200 bars" rule used to require post-cutoff observations.
             like = spread.index[0]
-            cutoff = _align_ts(PAIR_SELECTION_CUTOFF, like)
+            cutoff = _align_ts(self.calendar.selection_cutoff, like)
             train = spread[spread.index <= cutoff]
             test = spread[spread.index > cutoff]
             if len(train) >= 100 and len(test) >= 1:
@@ -693,7 +723,7 @@ class CompleteFixedRussell3000TradingSystem:
         schedule = sorted(((_align_ts(s, like), m) for s, m in (model_schedule or [])),
                           key=lambda x: x[0])
 
-        scales = self._regime_scales(full_dates)
+        scales = self._regime_scales(full_dates) if self.profile.regime_gate else np.ones(n_cal)
         reduced_cum = np.concatenate([[0], np.cumsum(scales < 1.0)])
         regime_counts: Dict[float, int] = {}
 
@@ -705,6 +735,9 @@ class CompleteFixedRussell3000TradingSystem:
         daily_dates: List = []
         daily_equity: List[float] = []
         daily_gross: List[float] = []            # gross exposure / equity, positions held
+        daily_gross_ret: List[float] = []        # pre-cost MTM P&L / previous equity
+        daily_cost_ret: List[float] = []         # costs booked that day / previous equity
+        daily_positions: List[int] = []          # positions held through the day
         pair_loss_streak: Dict[str, int] = {}
         pair_cooloff_from: Dict[str, pd.Timestamp] = {}
         quality_opportunities = 0
@@ -724,17 +757,23 @@ class CompleteFixedRussell3000TradingSystem:
 
             # 1) Mark open positions to market and book today's costs.
             equity_prev = equity
-            day_pnl = 0.0
+            day_pnl = day_gross_pnl = day_cost = 0.0
             for t in open_trades:
-                day_pnl += t['path'].get(k, 0.0) - t['costs_by_k'].get(k, 0.0)
+                g, c = t['path'].get(k, 0.0), t['costs_by_k'].get(k, 0.0)
+                day_pnl += g - c
+                day_gross_pnl += g
+                day_cost += c
             equity += day_pnl
             r_day = day_pnl / equity_prev if equity_prev > 0 else 0.0
             daily_returns.append(r_day)
             daily_dates.append(date)
             daily_equity.append(equity)
-            daily_gross.append(sum(t['gross_notional'] for t in open_trades
-                                   if t['entry_k'] <= k < t['exit_k']) / equity_prev
+            held = [t for t in open_trades if t['entry_k'] <= k < t['exit_k']]
+            daily_gross.append(sum(t['gross_notional'] for t in held) / equity_prev
                                if equity_prev > 0 else 0.0)
+            daily_gross_ret.append(day_gross_pnl / equity_prev if equity_prev > 0 else 0.0)
+            daily_cost_ret.append(day_cost / equity_prev if equity_prev > 0 else 0.0)
+            daily_positions.append(len(held))
 
             # 2) Positions whose exit filled today close; their outcome is known only now.
             still_open = []
@@ -782,7 +821,7 @@ class CompleteFixedRussell3000TradingSystem:
             # 4) Regime gate. Persistent stress (> 20% of the last 63 days at reduced
             # scale) blocks new entries; otherwise the scale multiplies position size.
             lo = max(0, k - self.REGIME_LOOKBACK + 1)
-            if k >= self.REGIME_LOOKBACK - 1 and \
+            if self.profile.regime_gate and k >= self.REGIME_LOOKBACK - 1 and \
                     (reduced_cum[k + 1] - reduced_cum[lo]) / (k - lo + 1) > self.REGIME_MAX_REDUCED_FRAC:
                 _reject('regime_hard_stop_day')
                 k += 1
@@ -1018,6 +1057,10 @@ class CompleteFixedRussell3000TradingSystem:
                                        last_trade_k - first_k + 1, halted_on=halted_on,
                                        halt_reason=halt_reason, rejects=rejects)
         out.update(self._utilisation_metrics(records, daily_returns, daily_gross, daily_equity))
+        # Daily decomposition (net = gross - costs, both per previous-day equity) for the
+        # cost-sensitivity and implementation-shortfall diagnostics (anatomy.py).
+        out.update({'daily_gross_returns': daily_gross_ret, 'daily_cost_returns': daily_cost_ret,
+                    'daily_gross_exposure': daily_gross, 'daily_open_positions': daily_positions})
         return out
 
     def _utilisation_metrics(self, trades, daily_returns, daily_gross, daily_equity) -> Dict:
@@ -1245,8 +1288,8 @@ class CompleteFixedRussell3000TradingSystem:
 
     def _train_ranker(self, agent: FixedTransformerMultiAgentSystem, pairs, end, start=None) -> None:
         agent.pair_statistics = self.pair_selector.pair_statistics
-        if not agent.use_signal_transformer:
-            logger.info("Ranker: PAIRS_USE_TRANSFORMER=0 — classical-only ranking (quality = 1.0)")
+        if agent.ranker == 'none':
+            logger.info("Ranker: none — classical-only ranking (quality = 1.0)")
             return
         X, y = self.build_outcome_samples(pairs, end=end, start=start, agent=agent)
         agent.train_on_samples(X, y)
@@ -1277,7 +1320,7 @@ class CompleteFixedRussell3000TradingSystem:
 
     def run_walk_forward_validation(self, train_window_days: int = 252, test_window_days: int = 63,
                                     episodes_per_window: int = None, pair_windows: Dict = None,
-                                    pair_selection_cutoff: str = PAIR_SELECTION_CUTOFF) -> Dict:
+                                    pair_selection_cutoff: str = None) -> Dict:
         """Walk-forward validation as ONE continuous out-of-sample simulation.
 
         The calendar is cut into 252-day train / 63-day test windows. For every window
@@ -1297,7 +1340,9 @@ class CompleteFixedRussell3000TradingSystem:
         every re-selection so far — including pairs later re-tested and dropped.
 
         `episodes_per_window` is accepted for backward compatibility and ignored.
+        `pair_selection_cutoff` defaults to the calendar's.
         """
+        pair_selection_cutoff = pair_selection_cutoff or self.calendar.selection_cutoff
         logger.info("=" * 60)
         logger.info("WALK-FORWARD VALIDATION (continuous OOS simulation, per-window refits)")
         logger.info(f"  Train window: {train_window_days} days | Test window: {test_window_days} days")
@@ -1332,7 +1377,7 @@ class CompleteFixedRussell3000TradingSystem:
                 continue
             visible = sorted({pk for key, ws in universe.items()
                               if key is None or _naive(key) <= _naive(tr_e) for pk in ws})
-            agent = FixedTransformerMultiAgentSystem()
+            agent = self._new_ranker()
             self._train_ranker(agent, visible, end=tr_e, start=tr_s)
             schedule.append((te_s, agent))
             eligible.append((w_idx, tr_s, tr_e, te_s, te_e))
@@ -1425,6 +1470,9 @@ class CompleteFixedRussell3000TradingSystem:
             'oos_daily_returns': list(rets),
             'oos_daily_dates': list(result['daily_dates']),
             'all_window_daily_returns': list(rets),
+            'oos_daily_detail': {k: list(result.get(k, [])) for k in (
+                'daily_gross_returns', 'daily_cost_returns', 'daily_gross_exposure',
+                'daily_open_positions')},
         }
         logger.info("=" * 60)
         logger.info("WALK-FORWARD SUMMARY")
@@ -1446,24 +1494,30 @@ class CompleteFixedRussell3000TradingSystem:
     # Quarterly pair re-selection
     # ════════════════════════════════════════════════════════════════════════════
 
-    def build_rolling_pair_schedule(self, all_test_dates: list, reselect_every: int = 90) -> Dict:
-        """Quarterly re-selection of the initial candidate pool.
+    def build_rolling_pair_schedule(self, all_test_dates: list, reselect_every: int = None) -> Dict:
+        """Periodic re-selection of the tradeable pairs (the profile's scheme).
 
-        Every `reselect_every` trading days the candidate pairs (selected on data up to
-        the pair-selection cutoff) are re-tested on a rolling 2-year window ending on the
-        re-selection date, plus a recent-window check (126 calendar days, ~87 trading
-        days). Everything uses data dated <= the re-selection date.
+        Every `reselect_every` trading days (default: the profile's), on the trailing
+        window of profile.formation_calendar_days ending on the re-selection date:
+          pool  the candidate pairs selected at the pair-selection cutoff are re-tested
+                (v32: 2-year window), plus a recent-window check (126 calendar days,
+                ~87 trading days); no new pair can enter.
+          full  the complete selection is re-run (v33: 3-year window, every 126 days).
+        Everything uses data dated <= the re-selection date.
         """
-        logger.info(f"Building quarterly pair schedule (every {reselect_every} trading days)...")
+        reselect_every = reselect_every or self.profile.reselect_every
+        window_days = self.profile.formation_calendar_days
+        logger.info(f"Building the pair schedule (every {reselect_every} trading days, "
+                    f"{window_days}-calendar-day formation window)...")
         schedule_dates = [all_test_dates[i] for i in range(0, len(all_test_dates), reselect_every)]
         candidate_pairs = list(self.spread_data.keys())
-        full_search = os.environ.get('PAIRS_RESELECT', 'pool').lower() == 'full'
+        full_search = self.profile.reselect == 'full'
         if full_search:
-            logger.info("  PAIRS_RESELECT=full: the complete pair search is re-run on each trailing "
-                        "2-year window (new pairs can enter; runtime scales with the universe)")
+            logger.info("  Re-selection 'full': the complete pair search is re-run on each trailing "
+                        "window (new pairs can enter; runtime scales with the universe)")
         else:
             logger.info(f"  Candidate pool: {len(candidate_pairs)} pairs selected on data to "
-                        f"{PAIR_SELECTION_CUTOFF} (re-tested only; no new pairs can enter)")
+                        f"{self.calendar.selection_cutoff} (re-tested only; no new pairs can enter)")
 
         pair_windows = {}
         for resel_date in schedule_dates:
@@ -1477,8 +1531,8 @@ class CompleteFixedRussell3000TradingSystem:
                 if d1 is None or d2 is None:
                     continue
                 cut = _align_ts(resel_date, d1.index[0])
-                w1 = d1[(d1.index > cut - pd.Timedelta(days=730)) & (d1.index <= cut)]
-                w2 = d2[(d2.index > cut - pd.Timedelta(days=730)) & (d2.index <= cut)]
+                w1 = d1[(d1.index > cut - pd.Timedelta(days=window_days)) & (d1.index <= cut)]
+                w2 = d2[(d2.index > cut - pd.Timedelta(days=window_days)) & (d2.index <= cut)]
                 if len(w1) < 100 or len(w2) < 100:
                     continue
                 is_coint, p_long = self.pair_selector.test_cointegration(w1, w2)
@@ -1526,16 +1580,18 @@ class CompleteFixedRussell3000TradingSystem:
         return pair_windows
 
     def _full_reselection(self, resel_date) -> Dict:
-        """Run the complete selection on the trailing 2-year window ending at resel_date."""
+        """Run the complete selection on the trailing formation window ending at resel_date."""
+        window_days = self.profile.formation_calendar_days
+        members = self._formation_members(resel_date)
         window_data = {}
         for sym, df in self.processed_data.items():
-            if len(df.index) == 0:
+            if len(df.index) == 0 or (members is not None and sym not in members):
                 continue
             cut = _align_ts(resel_date, df.index[0])
-            w = df[(df.index > cut - pd.Timedelta(days=730)) & (df.index <= cut)]
+            w = df[(df.index > cut - pd.Timedelta(days=window_days)) & (df.index <= cut)]
             if len(w) >= 100:
                 window_data[sym] = w
-        selector = FixedPrimeFundPairSelector()
+        selector = self._new_pair_selector()
         pairs = selector.find_quality_pairs(window_data)
         spreads = {p: self._pair_spread(*p) for p in pairs}
         spreads = {p: sp for p, sp in spreads.items() if not sp.empty}
@@ -1550,11 +1606,11 @@ class CompleteFixedRussell3000TradingSystem:
                                     [self.pair_window_stats[k] for k in keys]) if keys else None
 
     # ════════════════════════════════════════════════════════════════════════════
-    # Fund-type replay
+    # Cost-schedule replay
     # ════════════════════════════════════════════════════════════════════════════
 
     def run_fund_type_comparison(self, main_results: Dict, main_daily_dates: list = None) -> Dict:
-        """Replay the main backtest's trades under five fund cost/sizing profiles.
+        """Replay the main backtest's trades under five archetypal cost/sizing schedules.
 
         Signals, entry/exit dates and each trade's daily mark-to-market path (per $1 of
         gross notional) are taken from the main backtest; only the economics change:
@@ -1675,8 +1731,6 @@ class CompleteFixedRussell3000TradingSystem:
                 'profile_key': profile_key,
                 'profile_name': profile.name,
                 'description': profile.description,
-                'example_firms': profile.example_firms,
-                'gross_leverage_label': profile.gross_leverage_label,
                 'max_gross_leverage': round(max_gross, 3),
                 'commission_bps': profile.commission_bps,
                 'bid_ask_bps': profile.bid_ask_bps,
@@ -1715,7 +1769,7 @@ class CompleteFixedRussell3000TradingSystem:
         logger.info("\n" + "=" * 90)
         logger.info(f"{'FUND TYPE COMPARISON — SUMMARY':^90}")
         logger.info("=" * 90)
-        logger.info(f"{'Fund Type':<30} {'Return%':>10} {'Sharpe':>8} {'MaxDD%':>8} "
+        logger.info(f"{'Cost schedule':<30} {'Return%':>10} {'Sharpe':>8} {'MaxDD%':>8} "
                     f"{'WinRate%':>10} {'Cost%':>10} {'Peak gross':>11}")
         logger.info("-" * 90)
         for r in comparison.values():
@@ -1824,9 +1878,49 @@ class CompleteFixedRussell3000TradingSystem:
     # Orchestration
     # ════════════════════════════════════════════════════════════════════════════
 
+    def _study_symbols(self) -> List[str]:
+        """The symbols whose prices the run needs.
+
+        'marketcap': the universe file (data/marketcap.csv). 'pit_iwv': every point-in-time
+        member of any IWV snapshot in force between the selection cutoff and the end of the
+        calendar's data, i.e. every name some formation date of this run can select.
+        """
+        if self.profile.universe != 'pit_iwv':
+            return self.data_processor.load_symbols()
+        from pairs_trading.universe import PITUniverse, industry_map
+        self.pit_universe = PITUniverse()
+        first = self.pit_universe.snapshot_asof(self.calendar.selection_cutoff)
+        last = pd.Timestamp(self.calendar.data_end)
+        dates = [s['period_date'] for s in self.pit_universe.snapshots()
+                 if first <= pd.Timestamp(s['period_date']) <= last]
+        symbols = sorted({t for d in dates for t in self.pit_universe.members_asof(d)})
+        logger.info(f"Point-in-time universe: {len(symbols)} distinct members across {len(dates)} "
+                    f"IWV snapshots ({dates[0]} -> {dates[-1]})")
+        if self.profile.same_industry:
+            self.industries = industry_map()
+            self.pair_selector = self._new_pair_selector()
+        return symbols
+
+    def _formation_members(self, date) -> Optional[set]:
+        """Point-in-time members on a formation date (None: no membership restriction).
+
+        Records the date's survivorship gap: members without free price history.
+        """
+        if self.pit_universe is None:
+            return None
+        members = set(self.pit_universe.members_asof(date))
+        cov = self.pit_universe.coverage(self.processed_data.keys(), date)
+        self.universe_coverage_log.append({
+            'formation_date': str(pd.Timestamp(date).date()),
+            **{k: v for k, v in cov.items() if k != 'missing_symbols'}})
+        logger.info(f"  formation {pd.Timestamp(date).date()}: {cov['members']} members "
+                    f"(snapshot {cov['snapshot']}), {cov['missing']} without price history "
+                    f"({cov['missing_value_weight']:.1%} of index weight)")
+        return members
+
     def load_study_data(self) -> None:
         """Universe, price cache and macro data, then the run's provenance block."""
-        symbols = self.data_processor.load_symbols()
+        symbols = self._study_symbols()
         self.processed_data = self.data_processor.load_or_fetch_data(symbols)
         self.macro_data = self.data_processor.load_macro_data()
         self._pair_state_cache = {}
@@ -1834,28 +1928,56 @@ class CompleteFixedRussell3000TradingSystem:
         log_run_config(build_run_config(system_info={
             'total_symbols_processed': len(self.processed_data),
             'initial_capital': self.initial_capital,
+            'study': describe_study(self.profile, self.calendar),
+            'price_cache': self.calendar.price_cache,
             'universe_coverage': getattr(self.data_processor, 'universe_coverage', None),
-            'universe_cached_fraction': getattr(self.data_processor, 'universe_cached_fraction', None)}))
+            'universe_cached_fraction': getattr(self.data_processor, 'universe_cached_fraction', None),
+            'universe_not_found_fraction': getattr(self.data_processor, 'universe_not_found_fraction', None)}))
+
+    def share_loaded_data(self, other: 'CompleteFixedRussell3000TradingSystem') -> None:
+        """Use another system's loaded universe, prices and macro data (same calendar).
+
+        Lets several designs be prepared on one load of the price cache (variant runs);
+        everything derived from a design (pairs, spreads, schedules) stays per system.
+        """
+        if other.calendar != self.calendar:
+            raise ValueError(f"calendars differ: {other.calendar.name} vs {self.calendar.name}")
+        self.processed_data = other.processed_data
+        self.macro_data = other.macro_data
+        self.data_processor = other.data_processor
+        self._pair_state_cache = other._pair_state_cache   # a pure function of two price series
+        if self.profile.universe == other.profile.universe:
+            self.pit_universe = other.pit_universe
+        elif self.profile.universe == 'pit_iwv':
+            raise ValueError("a point-in-time profile cannot share a non-point-in-time load")
+        if self.profile.same_industry:
+            if other.industries is None:
+                from pairs_trading.universe import industry_map
+                other.industries = industry_map()
+            self.industries = other.industries
+        self.pair_selector = self._new_pair_selector()
 
     def prepare_study(self):
         """Everything before the backtests, on the loaded data.
 
-        Pair selection on formation data (to PAIR_SELECTION_CUTOFF), the main ranking
-        model (outcomes complete by MAIN_MODEL_TRAIN_END; skipped when
-        PAIRS_USE_TRANSFORMER=0) and the quarterly re-selection schedule. Returns
+        Pair selection on formation data (to the calendar's selection cutoff), the main
+        ranking model (outcomes complete by the calendar's model_train_end; skipped when
+        the profile's ranker is 'none') and the re-selection schedule. Returns
         (test_spreads, pair_windows, last_test_date). Shared by run_complete_system and
         scripts/parameter_sensitivity.py, so both trade exactly the same universe.
         """
         # Pair selection on data up to the cutoff only (selecting on 2020-2025 data would
         # pick pairs because they cointegrated during the test period).
+        cutoff = self.calendar.selection_cutoff
+        members = self._formation_members(cutoff)
         train_only_data = {}
         for sym, df in self.processed_data.items():
-            if len(df.index) == 0:
+            if len(df.index) == 0 or (members is not None and sym not in members):
                 continue
-            filtered = df[df.index <= _align_ts(PAIR_SELECTION_CUTOFF, df.index[0])]
+            filtered = df[df.index <= _align_ts(cutoff, df.index[0])]
             if len(filtered) >= 100:
                 train_only_data[sym] = filtered
-        logger.info(f"Pair selection on {len(train_only_data)} symbols with data up to {PAIR_SELECTION_CUTOFF}")
+        logger.info(f"Pair selection on {len(train_only_data)} symbols with data up to {cutoff}")
         self.selected_pairs = self.pair_selector.find_quality_pairs(train_only_data)
 
         for pair in self.selected_pairs:
@@ -1864,15 +1986,15 @@ class CompleteFixedRussell3000TradingSystem:
                 self.spread_data[pair] = spread
         train_spreads, test_spreads = self.prepare_time_split_data()
 
-        # Ranking model for the main backtest: trained on outcomes complete by 2023-06-30;
-        # the main backtest starts 2023-07-01.
-        logger.info(f"Training the ranking model on outcomes complete by {MAIN_MODEL_TRAIN_END}")
-        self._train_ranker(self.rl_agent, list(self.spread_data), end=MAIN_MODEL_TRAIN_END)
+        # Ranking model for the main backtest: trained on outcomes complete by the
+        # calendar's model_train_end (dev: 2023-06-30; the main backtest starts 2023-07-01).
+        logger.info(f"Training the ranking model on outcomes complete by {self.calendar.model_train_end}")
+        self._train_ranker(self.rl_agent, list(self.spread_data), end=self.calendar.model_train_end)
 
         all_test_dates = sorted({d for s in test_spreads.values() for d in s.index})
         if not all_test_dates:
             raise RuntimeError("No test-period data for the selected pairs — nothing to backtest.")
-        pair_windows = self.build_rolling_pair_schedule(all_test_dates, reselect_every=90)
+        pair_windows = self.build_rolling_pair_schedule(all_test_dates)
         # The initial selection is itself a universe known at the cutoff: date it on the last
         # trading day <= cutoff so the walk-forward window whose training ends there is
         # eligible (it was skipped through v31). Later re-selections supersede it.
@@ -1889,22 +2011,28 @@ class CompleteFixedRussell3000TradingSystem:
         self.load_study_data()
         test_spreads, pair_windows, last_test = self.prepare_study()
 
-        logger.info(f"Main backtest {MAIN_BACKTEST_START} -> {last_test}")
+        start = self.calendar.backtest_start
+        logger.info(f"Main backtest {start} -> {last_test}")
         results = self.run_comprehensive_backtest(
-            test_spreads, pair_windows=pair_windows, date_range=(MAIN_BACKTEST_START, last_test))
+            test_spreads, pair_windows=pair_windows, date_range=(start, last_test))
         traded_universe = sorted({pk for ws in pair_windows.values() for pk in ws})
-        p_oos, y_oos = self._ranker_oos_scores(self.rl_agent, traded_universe, start=MAIN_BACKTEST_START)
+        p_oos, y_oos = self._ranker_oos_scores(self.rl_agent, traded_universe, start=start)
         results['ranker_oos'] = (classifier_skill(y_oos, p_oos, self.rl_agent.training_summary.get('base_rate'))
                                  if p_oos is not None else None)
         if results['ranker_oos']:
             r = results['ranker_oos']
-            logger.info(f"Ranker out-of-sample ({r['n']} signals from {MAIN_BACKTEST_START}): "
+            logger.info(f"Ranker out-of-sample ({r['n']} signals from {start}): "
                         f"AUC {r['auc']}, Brier {r['brier']:.4f} vs base-rate {r['brier_base_rate']:.4f}")
 
-        wf_summary = self.run_walk_forward_validation(
-            train_window_days=252, test_window_days=63, pair_windows=pair_windows)
+        if self.calendar.walk_forward:
+            wf_summary = self.run_walk_forward_validation(
+                train_window_days=252, test_window_days=63, pair_windows=pair_windows)
+        else:
+            logger.info(f"Walk-forward validation: not run on the {self.calendar.name} calendar")
+            wf_summary = {}
         results['walk_forward'] = wf_summary
         results['fdr_diagnostic'] = getattr(self.pair_selector, 'fdr_diagnostic', {})
+        results['universe_by_formation'] = list(self.universe_coverage_log)
 
         oos_dates = list(wf_summary.get('oos_daily_dates', []))
         oos_rets = list(wf_summary.get('oos_daily_returns', []))
@@ -1929,6 +2057,12 @@ class CompleteFixedRussell3000TradingSystem:
             logger.error(f"Significance analysis failed: {e}", exc_info=True)
             results.setdefault('pipeline_errors', []).append(f"significance: {e}")
         finally:
+            # The continuous out-of-sample daily series leaves the summary (it is bulky) but
+            # is kept for the export: the site's charts and the variant tests need it.
+            detail = wf_summary.pop('oos_daily_detail', None) or {}
+            if oos_dates and len(oos_dates) == len(oos_rets):
+                results['walk_forward_daily'] = {'dates': [str(pd.Timestamp(d).date()) for d in oos_dates],
+                                                 'returns': oos_rets, **detail}
             wf_summary.pop('oos_daily_returns', None)
             wf_summary.pop('all_window_daily_returns', None)
             wf_summary.pop('oos_daily_dates', None)
@@ -1945,7 +2079,7 @@ class CompleteFixedRussell3000TradingSystem:
                 strategy_series['walk_forward_oos'] = (oos_dates, oos_rets)
             benchmarks = run_benchmarks(
                 self.processed_data, universe,
-                trade_start=MAIN_BACKTEST_START, trade_end=last_test, n_pairs=20,
+                trade_start=start, trade_end=last_test, n_pairs=20,
                 strategy_series=strategy_series)
             if benchmarks:
                 log_benchmark_vs_strategy(benchmarks,
@@ -1959,7 +2093,7 @@ class CompleteFixedRussell3000TradingSystem:
         results['factor_attribution'] = self._factor_attribution(results, oos_dates, oos_rets)
         results['regime_diagnosis'] = self.diagnose_regime_break('2023-04-04', '2023-07-05')
 
-        logger.info("Starting fund-type comparison...")
+        logger.info("Starting the cost-schedule replay...")
         fund_comparison = self.run_fund_type_comparison(results, main_daily_dates=results.get('daily_dates', []))
         results['fund_comparison'] = fund_comparison
         results['ranker_training'] = dict(getattr(self.rl_agent, 'training_summary', {}) or {})
@@ -1976,6 +2110,9 @@ class CompleteFixedRussell3000TradingSystem:
             'data_end': max(ends) if ends else None,
             'universe_coverage': getattr(self.data_processor, 'universe_coverage', None),
             'universe_cached_fraction': getattr(self.data_processor, 'universe_cached_fraction', None),
+            'universe_not_found_fraction': getattr(self.data_processor, 'universe_not_found_fraction', None),
+            'study': describe_study(self.profile, self.calendar),
+            'price_cache': self.calendar.price_cache,
         }
         export_testing_results_to_json(results, system_info)      # sets results['run_config']
         if fund_comparison:

@@ -7,11 +7,16 @@ simulation, significance tests, baseline benchmarks and the fund-cost replay; th
 writes the JSON exports and charts under outputs/ — then prints a summary of the
 results with the headline numbers labelled for what they are.
 
-PAIRS_SEED (default 42) seeds Python, NumPy and torch. The other PAIRS_* switches are
-documented in README "Reproducing"; every export records them in its run_config block.
-A failed run re-raises, so the process exits non-zero.
+    python -m pairs_trading.main [--profile v33|v32] [--calendar dev|holdout2026] [--output-dir DIR]
+
+The profile (what is traded) and calendar (which period) are defined in
+pairs_trading/study_config.py. PAIRS_SEED (default 42) seeds Python, NumPy and, when
+installed, torch. The other PAIRS_* switches are documented in README "Reproducing";
+every export records them in its run_config block. A failed run re-raises, so the
+process exits non-zero.
 """
 
+import argparse
 import os
 import random
 import sys
@@ -20,7 +25,6 @@ import logging
 from typing import Dict, List, Optional
 
 import numpy as np
-import torch
 
 from pairs_trading.config import configure_runtime
 from pairs_trading.trading_system import CompleteFixedRussell3000TradingSystem
@@ -28,6 +32,7 @@ from pairs_trading import json_export, plotting
 from pairs_trading.json_export import (random_control_summary, sharpe_diff_vs_gatev, vs_strategy_entry,
                                        window_test_pvalues)
 from pairs_trading.plotting import format_profit_factor
+from pairs_trading.study_config import CALENDARS, PROFILES
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +62,20 @@ def seed_everything(seed: int) -> None:
     order would depend on it (sets of pairs/symbols) are sorted before they are written,
     and PYTHONHASHSEED is recorded in each export's run_config. torch threading is left
     alone on purpose: set_num_threads(1) would make the ranker slow for no gain on CPU.
+    torch is optional (only the v32 transformer ranker uses it).
     """
     random.seed(seed)
     np.random.seed(seed)
-    torch.manual_seed(seed)                               # seeds CPU and every CUDA device
-    os.environ.setdefault('CUBLAS_WORKSPACE_CONFIG', ':4096:8')   # needed by deterministic cuBLAS
-    torch.use_deterministic_algorithms(True, warn_only=True)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+    try:
+        import torch
+    except ImportError:
+        torch = None
+    if torch is not None:
+        torch.manual_seed(seed)                           # seeds CPU and every CUDA device
+        os.environ.setdefault('CUBLAS_WORKSPACE_CONFIG', ':4096:8')   # deterministic cuBLAS
+        torch.use_deterministic_algorithms(True, warn_only=True)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
     # Record the seed actually used, so run_config shows it even when it was defaulted.
     os.environ['PAIRS_SEED'] = str(seed)
     if os.environ.get('PYTHONHASHSEED') is None:
@@ -230,15 +241,15 @@ def _fdr_line(fdr: Dict) -> List[str]:
 def _fund_section(fc: Dict) -> List[str]:
     if not fc:
         return []
-    lines = [RULE, "FUND-COST REPLAY  same trades, per-profile sizing / costs / kill-switch", RULE,
+    lines = [RULE, "COST-SCHEDULE REPLAY  same trades, archetypal sizing / costs / kill-switch", RULE,
              f"  {'Profile':<30}{'Return':>9}{'Sharpe':>8}{'MaxDD':>9}{'WinRate':>9}{'Costs':>8}"
-             f"{'Peak gross':>11}  {'Label':<18}Kill-switch", "  " + THIN[:108]]
+             f"{'Peak gross':>11}  Kill-switch", "  " + THIN[:90]]
     for p in fc.values():
         lines.append(
             f"  {str(p.get('profile_name', '?')):<30}{_fmt(p.get('total_return_pct'), '+.2f', '%'):>9}"
             f"{_fmt(p.get('sharpe_ratio')):>8}{_fmt(p.get('max_drawdown_pct'), '+.2f', '%'):>9}"
             f"{_fmt(p.get('win_rate_pct'), '.1f', '%'):>9}{_fmt(p.get('total_cost_pct_of_capital'), '.2f', '%'):>8}"
-            f"{_fmt(p.get('max_gross_leverage'), '.2f', 'x'):>11}  {str(p.get('gross_leverage_label', ''))[:17]:<18}"
+            f"{_fmt(p.get('max_gross_leverage'), '.2f', 'x'):>11}  "
             f"{p.get('stopped_on') or '-'}")
     return lines
 
@@ -269,12 +280,13 @@ def format_summary(results: Dict, output_files: Optional[List[str]] = None) -> s
     return '\n'.join(lines)
 
 
-def known_output_files(since: Optional[float] = None, directory: str = json_export.OUTPUT_DIR) -> List[str]:
+def known_output_files(since: Optional[float] = None, directory: str = None) -> List[str]:
     """The pipeline's deterministic output files that exist (modified at/after `since`)."""
     results_name = json_export.DEFAULT_RESULTS_FILENAME
     names = [results_name, results_name[:-5] + '_compact.json', json_export.DEFAULT_FUND_FILENAME,
              os.path.basename(json_export.DEFAULT_HEADLINE_PATH), plotting.BACKTEST_PLOT,
              plotting.RANKER_PLOT, plotting.FUND_PLOT]
+    directory = directory or json_export.output_root()
     out = []
     for name in names:
         path = os.path.join(directory, name)
@@ -324,8 +336,22 @@ def main():
         raise
 
 
-def cli() -> int:
-    """Console entry point: exit status 0 only for a complete run."""
+def cli(argv: Optional[List[str]] = None) -> int:
+    """Console entry point: exit status 0 only for a complete run.
+
+    The flags set the corresponding PAIRS_* variables, so the run's provenance block
+    records them exactly like environment switches.
+    """
+    ap = argparse.ArgumentParser(prog='python -m pairs_trading.main',
+                                 description='Run the pairs-trading study.')
+    ap.add_argument('--profile', choices=sorted(PROFILES), help='study design (default v33)')
+    ap.add_argument('--calendar', choices=sorted(CALENDARS), help='study period (default dev)')
+    ap.add_argument('--output-dir', help='where exports and charts go (default outputs/)')
+    args = ap.parse_args(argv)
+    for flag, var in (('profile', 'PAIRS_PROFILE'), ('calendar', 'PAIRS_CALENDAR'),
+                      ('output_dir', 'PAIRS_OUTPUT_DIR')):
+        if getattr(args, flag):
+            os.environ[var] = getattr(args, flag)
     results = main()
     return 1 if results.get('pipeline_errors') else 0
 

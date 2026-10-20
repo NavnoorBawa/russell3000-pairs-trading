@@ -1,0 +1,231 @@
+{
+  "schema": 1,
+  "version": "32.0.0",
+  "complete": true,
+  "non_default_switches": [],
+  "pipeline_errors": [],
+  "run_config": {
+    "package_version": "32.0.0",
+    "git_commit": "711b18cbd1a657b2dff2b95647e5dbae40320fa4",
+    "git_dirty": false,
+    "run_timestamp_utc": "2026-10-18T09:21:08+00:00",
+    "env": {
+      "PAIRS_SEED": "42",
+      "PAIRS_FILL": null,
+      "PAIRS_USE_TRANSFORMER": null,
+      "PAIRS_RESELECT": null,
+      "PAIRS_DEMO_UNIVERSE": null,
+      "PAIRS_SKIP_REPROCESS": null,
+      "PAIRS_ALLOW_PARTIAL_FETCH": null,
+      "PYTHONHASHSEED": null
+    },
+    "effective": {
+      "fill": "close",
+      "use_transformer_ranker": true,
+      "reselect": "pool"
+    },
+    "data": {
+      "data_start": "2020-01-02",
+      "data_end": "2025-12-31",
+      "backtest_start": "2023-07-03",
+      "backtest_end": "2025-12-31",
+      "n_symbols": 2752,
+      "n_pairs": 1776,
+      "universe_coverage": 0.9713,
+      "universe_cached_fraction": 0.9176,
+      "price_cache": {
+        "path": "data/enhanced_russell_3000_data.pkl",
+        "size_bytes": 1125787270,
+        "mtime_utc": "2026-10-18T08:10:41+00:00",
+        "sha256": "70776501502e08533cf17d46bbf466b26bb9d68233aa467aa1665d4ea5525ea1"
+      }
+    },
+    "versions": {
+      "python": "3.12.3",
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "torch": "2.13.0+cpu",
+      "scipy": "1.15.2",
+      "statsmodels": "0.14.4"
+    },
+    "platform": "Linux-6.18.44-fc-v139-x86_64-with-glibc2.39"
+  },
+  "main": {
+    "period_start": "2023-07-03",
+    "period_end": "2025-12-31",
+    "total_return_pct": -0.3,
+    "sharpe": -0.07,
+    "trades": 161,
+    "win_rate_pct": 47.2,
+    "max_drawdown_pct": -3.0,
+    "exit_reasons": {
+      "end_of_data": 5,
+      "stop": 65,
+      "target": 61,
+      "time": 30
+    },
+    "avg_gross_exposure_pct": 15.1,
+    "annual_turnover_x": 6.0
+  },
+  "ranker": {
+    "trained": true,
+    "train_samples": 15000,
+    "oos_signals": 4000,
+    "oos_auc": 0.514,
+    "wf_pooled_auc": 0.51,
+    "wf_windows_trained": 11
+  },
+  "oos": {
+    "period_start": "2023-02-14",
+    "period_end": "2025-12-12",
+    "windows": 11,
+    "windows_positive": 3,
+    "windows_no_trades": 2,
+    "windows_selection_clean": 11,
+    "windows_skipped": 8,
+    "avg_window_return_pct": -0.158,
+    "median_window_return_pct": -0.143,
+    "pooled_sharpe": -0.33,
+    "total_return_pct": -1.75,
+    "trades": 219,
+    "max_drawdown_pct": -2.35,
+    "window_ids": [
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19
+    ],
+    "window_returns_pct": [
+      -1.682,
+      1.302,
+      -0.143,
+      -0.227,
+      0.088,
+      -0.312,
+      -0.148,
+      -0.12,
+      0.0,
+      -0.733,
+      0.236
+    ],
+    "window_trades": [
+      42,
+      41,
+      34,
+      22,
+      23,
+      31,
+      13,
+      0,
+      0,
+      1,
+      12
+    ]
+  },
+  "significance": {
+    "main": {
+      "ann_sharpe": -0.07,
+      "hac_t": -0.1,
+      "hac_p": 0.917,
+      "psr": 0.4554,
+      "psr_pct": 45.5,
+      "boot_lo": -1.39,
+      "boot_hi": 1.23,
+      "dsr": 0.0136,
+      "dsr_pct": 1.4
+    },
+    "oos_daily": {
+      "ann_sharpe": -0.33,
+      "hac_t": -0.58,
+      "hac_p": 0.559,
+      "psr": 0.2871,
+      "psr_pct": 28.7,
+      "boot_lo": -1.49,
+      "boot_hi": 0.86,
+      "dsr": 0.0038,
+      "dsr_pct": 0.4
+    },
+    "oos_windows": {
+      "n": 11,
+      "mean_pct": -0.158,
+      "t": -0.74,
+      "p": 0.478,
+      "p_one_sided_negative": 0.239,
+      "ci_lo_pct": -0.636,
+      "ci_hi_pct": 0.32,
+      "boot_ci_lo_pct": -0.564,
+      "boot_ci_hi_pct": 0.253,
+      "positive": 3
+    }
+  },
+  "benchmarks": {
+    "gatev": {
+      "total_return_pct": 0.57,
+      "sharpe": 0.07
+    },
+    "random_control": {
+      "median_sharpe": 0.26,
+      "p5_sharpe": -0.53,
+      "p95_sharpe": 1.1,
+      "n_draws": 200,
+      "strategy_percentile": 28.0
+    },
+    "sharpe_diff_vs_gatev": {
+      "diff": -0.14,
+      "p": 0.879,
+      "ci_lo": -1.9,
+      "ci_hi": 1.62
+    }
+  },
+  "fdr": {
+    "pairs_tested": 35491,
+    "significant_raw_p05": 2965,
+    "survive_bh_fdr_q05": 1,
+    "survive_bh_fdr_q10": 1,
+    "final_selected_pairs": 1776
+  },
+  "fund_profiles": {
+    "quant_hf": {
+      "name": "Quantitative Hedge Fund",
+      "total_return_pct": -2.59,
+      "sharpe": -0.27,
+      "max_drawdown_pct": -7.96,
+      "max_gross_leverage": 0.9
+    },
+    "multi_strat": {
+      "name": "Multi-Strategy Pod Shop",
+      "total_return_pct": -2.97,
+      "sharpe": -0.48,
+      "max_drawdown_pct": -6.12,
+      "max_gross_leverage": 0.6
+    },
+    "fundamental_ls": {
+      "name": "Fundamental Long/Short HF",
+      "total_return_pct": -3.27,
+      "sharpe": -1.08,
+      "max_drawdown_pct": -4.17,
+      "max_gross_leverage": 0.3
+    },
+    "institutional": {
+      "name": "Buy-Side Institutional",
+      "total_return_pct": 0.04,
+      "sharpe": 0.03,
+      "max_drawdown_pct": -1.09,
+      "max_gross_leverage": 0.15
+    },
+    "retail": {
+      "name": "Retail / Small Prop Trader",
+      "total_return_pct": -2.38,
+      "sharpe": -1.58,
+      "max_drawdown_pct": -2.52,
+      "max_gross_leverage": 0.15
+    }
+  }
+}

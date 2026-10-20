@@ -5,6 +5,11 @@ PAIRS_USE_TRANSFORMER, PAIRS_RESELECT, PAIRS_SEED, ...). A value exported in the
 that runs pytest (e.g. `PAIRS_FILL=open pytest`) used to change what the tests
 exercised, and a test that set one leaked it into every later test. The session starts
 with none of them set, and each test's changes are undone when it finishes.
+
+The engine, leakage and pipeline tests were written against the v32 design (regime gate
+on, pool re-selection, transformer ranker), so the session runs with PAIRS_PROFILE=v32;
+the v33 profile is exercised by tests that ask for it explicitly (test_study_config.py,
+test_v33_*.py). Either way the profile is pinned: a shell's PAIRS_PROFILE cannot leak in.
 """
 import os
 
@@ -25,7 +30,7 @@ def _restore(snapshot):
 @pytest.fixture(scope='session', autouse=True)
 def _no_inherited_pairs_switches():
     saved = _pairs_env()
-    _restore({})
+    _restore({'PAIRS_PROFILE': 'v32'})
     yield
     _restore(saved)
 

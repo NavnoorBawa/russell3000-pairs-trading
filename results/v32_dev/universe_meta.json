@@ -1,0 +1,8 @@
+{
+ "source": "https://api.nasdaq.com/api/screener/stocks?tableonly=true&limit=10000&download=true",
+ "rule": "top 3000 US common stocks by market cap",
+ "as_of_utc": "2026-10-18",
+ "screener_rows": 7002,
+ "selected": 3000,
+ "smallest_market_cap": 143402190.0
+}

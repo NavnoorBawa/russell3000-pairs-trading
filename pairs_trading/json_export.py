@@ -25,6 +25,7 @@ measured a contribution of exactly 0). The exports say so rather than naming the
 after the transformer.
 """
 
+import dataclasses
 import hashlib
 import importlib.metadata
 import platform
@@ -36,12 +37,13 @@ from pathlib import Path
 from pairs_trading.config import (
     pd, np, os, json, logging, datetime, List, Dict, Optional
 )
+from pairs_trading.study_config import PROFILES, describe as describe_study, get_calendar, get_profile
 
 logger = logging.getLogger(__name__)
 
 PACKAGE_NAME = 'russell3000-pairs-trading'
 REPO_ROOT = Path(__file__).resolve().parents[1]
-OUTPUT_DIR = 'outputs'
+OUTPUT_DIR = 'outputs'          # default; PAIRS_OUTPUT_DIR redirects a run (output_root)
 
 # Output file names. v32: the '_2023_2025_unbiased' name is kept only for backward
 # compatibility with existing consumers; it is not a statement about the period or bias.
@@ -54,8 +56,9 @@ DATA_CACHE_FILE = os.path.join('data', 'enhanced_russell_3000_data.pkl')
 
 # Environment switches that change what a run computes; recorded verbatim (None = unset).
 PROVENANCE_ENV_VARS = (
-    'PAIRS_SEED', 'PAIRS_FILL', 'PAIRS_USE_TRANSFORMER', 'PAIRS_RESELECT', 'PAIRS_DEMO_UNIVERSE',
-    'PAIRS_SKIP_REPROCESS', 'PAIRS_ALLOW_PARTIAL_FETCH', 'PYTHONHASHSEED',
+    'PAIRS_PROFILE', 'PAIRS_CALENDAR', 'PAIRS_SEED', 'PAIRS_FILL', 'PAIRS_USE_TRANSFORMER',
+    'PAIRS_RANKER', 'PAIRS_RESELECT', 'PAIRS_DEMO_UNIVERSE', 'PAIRS_SKIP_REPROCESS',
+    'PAIRS_ALLOW_PARTIAL_FETCH', 'PAIRS_N_JOBS', 'PAIRS_OUTPUT_DIR', 'PYTHONHASHSEED',
 )
 
 STRATEGY_DESCRIPTION = (
@@ -241,8 +244,17 @@ def _atomic_write_json(data, path) -> str:
     return path
 
 
+def output_root() -> str:
+    """The run's output directory (cwd-relative): PAIRS_OUTPUT_DIR, else outputs/.
+
+    One directory per (profile, calendar) run keeps e.g. the v32 and v33 or the dev and
+    holdout exports from overwriting each other.
+    """
+    return os.environ.get('PAIRS_OUTPUT_DIR') or OUTPUT_DIR
+
+
 def _output_path(filename: str, output_dir: Optional[str] = None) -> str:
-    return os.path.join(output_dir or os.path.join(os.getcwd(), OUTPUT_DIR), filename)
+    return os.path.join(output_dir or os.path.join(os.getcwd(), output_root()), filename)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -370,12 +382,18 @@ def build_run_config(results: Optional[Dict] = None, system_info: Optional[Dict]
     v32: exports previously carried no provenance at all, so a published number could not
     be tied to a commit, a fill convention, a seed or a data snapshot — and the README's
     figures drifted from the code for weeks unnoticed. `system_info` may carry
-    'total_symbols_processed', 'pairs_selected', 'data_start', 'data_end'.
+    'total_symbols_processed', 'pairs_selected', 'data_start', 'data_end', 'study' (the
+    study_config.describe record of the run's profile and calendar) and 'price_cache'.
     """
     results = _as_dict(results)
     info = _as_dict(system_info)
     dates = results.get('daily_dates') or []
     fill = str(os.environ.get('PAIRS_FILL', 'close'))
+    study = info.get('study')
+    if not study:
+        study = describe_study(get_profile(), get_calendar())
+    profile = study['profile']
+    data_file = info.get('price_cache') or data_file
     commit = _git('rev-parse', 'HEAD')
     dirty = _git('status', '--porcelain', '--untracked-files=no') if commit else None
     return {
@@ -385,11 +403,15 @@ def build_run_config(results: Optional[Dict] = None, system_info: Optional[Dict]
         'run_timestamp_utc': datetime.now(timezone.utc).isoformat(timespec='seconds'),
         'env': {k: os.environ.get(k) for k in PROVENANCE_ENV_VARS},
         'effective': {
+            'profile': profile['name'],
+            'calendar': study['calendar']['name'],
             'fill': 'open' if fill.lower() == 'open' else 'close',   # trading_system.resolve_fill_column
-            'use_transformer_ranker': os.environ.get('PAIRS_USE_TRANSFORMER', '1') != '0',
-            # trading_system.build_rolling_pair_schedule
-            'reselect': 'full' if os.environ.get('PAIRS_RESELECT', 'pool').lower() == 'full' else 'pool',
+            'ranker': profile['ranker'],
+            'use_transformer_ranker': profile['ranker'] == 'transformer',
+            'reselect': profile['reselect'],
+            'regime_gate': profile['regime_gate'],
         },
+        'study': study,
         'data': {
             'data_start': _date_str(info.get('data_start')),
             'data_end': _date_str(info.get('data_end')),
@@ -402,6 +424,8 @@ def build_run_config(results: Optional[Dict] = None, system_info: Optional[Dict]
             # fraction of the universe file present in the price cache (always measurable;
             # below coverage when symbols were deliberately excluded for short/invalid data)
             'universe_cached_fraction': _r(info.get('universe_cached_fraction'), 4),
+            # universe symbols with no price history at the vendor (delisted): survivorship
+            'universe_not_found_fraction': _r(info.get('universe_not_found_fraction'), 4),
             'price_cache': file_fingerprint(data_file),
         },
         'versions': {
@@ -433,7 +457,7 @@ def log_run_config(cfg: Dict) -> None:
         logger.info('  price cache: %s, %.1f MB, mtime %s, sha256 %s', cache['path'],
                     cache['size_bytes'] / 1e6, cache['mtime_utc'], cache['sha256'][:16])
     else:
-        logger.info('  price cache: not found at %s', DATA_CACHE_FILE)
+        logger.info('  price cache: not found')
     logger.info('  versions: %s', cfg.get('versions'))
 
 
@@ -562,7 +586,13 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
     n_trades = int(results.get('total_trades', len(trades)) or 0)
 
     wf = {k: v for k, v in _as_dict(results.get('walk_forward')).items()
-          if k not in ('oos_daily_returns', 'all_window_daily_returns')}   # bulky daily series
+          if k not in ('oos_daily_returns', 'all_window_daily_returns', 'oos_daily_dates',
+                       'oos_daily_detail')}   # bulky daily series (exported below)
+    wf_daily = _as_dict(results.get('walk_forward_daily'))
+
+    def _day(source: Dict, series: str, i: int, nd: int, scale: float = 1.0):
+        values = source.get(series) or []
+        return _r(values[i], nd, scale) if i < len(values) else None
 
     export_data = {
         'metadata': {
@@ -619,8 +649,22 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
                 'daily_return_pct': _r(equity_curve['returns'][i], 6, 100),
                 'cumulative_return_pct': _r(equity_curve['cumulative_returns'][i], 4, 100),
                 'drawdown_pct': _r(equity_curve['drawdowns'][i], 4, 100),
+                # net = gross - costs (each per previous-day equity)
+                'gross_return_pct': _day(results, 'daily_gross_returns', i, 6, 100),
+                'cost_pct': _day(results, 'daily_cost_returns', i, 6, 100),
+                'gross_exposure_pct': _day(results, 'daily_gross_exposure', i, 3, 100),
+                'open_positions': _int(_day(results, 'daily_open_positions', i, 0)),
             }
             for i in range(len(equity_curve['values']))
+        ],
+        # The continuous walk-forward out-of-sample series (one simulation, per-window refits).
+        'walk_forward_daily': [
+            {'date': d, 'daily_return_pct': _r(r, 6, 100),
+             'gross_return_pct': _day(wf_daily, 'daily_gross_returns', i, 6, 100),
+             'cost_pct': _day(wf_daily, 'daily_cost_returns', i, 6, 100),
+             'gross_exposure_pct': _day(wf_daily, 'daily_gross_exposure', i, 3, 100),
+             'open_positions': _int(_day(wf_daily, 'daily_open_positions', i, 0))}
+            for i, (d, r) in enumerate(zip(wf_daily.get('dates') or [], wf_daily.get('returns') or []))
         ],
         'all_trades': [_export_trade(i, t) for i, t in enumerate(trades)],
         'monthly_performance': calculate_monthly_performance(daily_returns, equity_curve),
@@ -635,6 +679,9 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
         'significance': _as_dict(results.get('significance')),
         'benchmarks': _as_dict(results.get('benchmarks')),
         'fdr_diagnostic': _as_dict(results.get('fdr_diagnostic')),
+        # point-in-time universe at each formation date: members, and those without free
+        # price history (count and index weight) — the survivorship gap, measured
+        'universe_by_formation': list(results.get('universe_by_formation') or []),
         'factor_attribution': _as_dict(results.get('factor_attribution')),
         # The learned ranker: how it was trained, and its out-of-sample skill (AUC 0.5 =
         # no information) on signals after its training window; walk-forward per-window
@@ -905,14 +952,14 @@ def calculate_zscore_bucket_statistics(trades: List[Dict]) -> Dict:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Fund-type comparison export
+# Cost-schedule replay export
 # ──────────────────────────────────────────────────────────────────────────────
 
 def export_fund_comparison_to_json(comparison_results: Dict,
                                    output_filename: str = DEFAULT_FUND_FILENAME,
                                    run_config: Optional[Dict] = None,
                                    output_dir: Optional[str] = None) -> str:
-    """Export the fund-type replay (per-profile metrics, cost tables, equity curves).
+    """Export the cost-schedule replay (per-schedule metrics, cost tables, equity curves).
 
     Returns the written path, or '' when there is nothing to export (no profiles).
     Serialisation errors propagate (v32; they used to be logged and swallowed).
@@ -942,7 +989,6 @@ def export_fund_comparison_to_json(comparison_results: Dict,
         ('borrow_rate_gc_pct', 'Borrow Rate, GC, short leg (%/yr)'),
         ('financing_spread_pct', 'Financing Spread (%/yr)'),
         ('base_position_pct', 'Base Position (% equity)'),
-        ('gross_leverage_label', 'Gross Leverage (profile label)'),
         ('max_gross_leverage', 'Peak Gross Leverage (realised)'),
         ('trades_stopped_early', 'Stopped by Drawdown Kill-Switch'),
         ('stopped_on', 'Kill-Switch Date'),
@@ -973,11 +1019,11 @@ def export_fund_comparison_to_json(comparison_results: Dict,
         'metadata': {
             'export_date_utc': run_config.get('run_timestamp_utc'),
             'description': (
-                'Fund-type replay: the main backtest\'s trades (same signals, entry/exit dates '
-                'and daily mark-to-market paths) re-sized and re-costed under each profile\'s '
-                'economics. Leverage labels are descriptive: the replay does not model '
-                'concurrency limits or margin, and max_gross_leverage reports the peak gross '
-                'exposure actually run.'),
+                'Cost-schedule replay: the main backtest\'s trades (same signals, entry/exit '
+                'dates and daily mark-to-market paths) re-sized and re-costed under five '
+                'archetypal cost schedules (pairs_trading/fund_profiles.py). The schedules are '
+                'illustrative parameter sets, not any firm\'s terms; the replay does not model '
+                'margin, and max_gross_leverage reports the peak gross exposure actually run.'),
             'profiles': list(comparison_results),
             'initial_capital_usd': capital,
             'field_notes': {k: FIELD_NOTES[k] for k in ('drawdowns', 'profit_factor')},
@@ -1103,16 +1149,32 @@ MIN_UNIVERSE_COVERAGE = 0.90                        # data_processor.MIN_FETCH_C
 
 
 def non_default_switches(run_config: Optional[Dict]) -> List[str]:
-    """Run switches that differ from the headline configuration (empty = headline run)."""
+    """Run switches that make a run differ from its named profile (empty = a clean run).
+
+    A clean run executes a study_config profile exactly as defined (any calendar). An
+    override of a profile field (PAIRS_RESELECT, PAIRS_USE_TRANSFORMER=0, PAIRS_RANKER),
+    another fill convention, another seed, a debugging flag or a partial price cache
+    makes it a variant, and the publication checker refuses its numbers by default.
+    """
     rc = run_config or {}
     eff, env = rc.get('effective') or {}, rc.get('env') or {}
     out = []
     if eff.get('fill', 'close') != 'close':
         out.append(f"PAIRS_FILL={eff.get('fill')}")
-    if eff.get('use_transformer_ranker', True) is not True:
-        out.append('PAIRS_USE_TRANSFORMER=0')
-    if eff.get('reselect', 'pool') != 'pool':
-        out.append(f"PAIRS_RESELECT={eff.get('reselect')}")
+    profile = ((rc.get('study') or {}).get('profile')) or {}
+    if profile:
+        defined = PROFILES.get(profile.get('name'))
+        if defined is None:
+            out.append(f"profile={profile.get('name')} (not a defined profile)")
+        else:
+            for key, value in dataclasses.asdict(defined).items():
+                if profile.get(key) != value:
+                    out.append(f"{key}={profile.get(key)}")
+    else:                                    # an export from before study profiles
+        if eff.get('use_transformer_ranker', True) is not True:
+            out.append('PAIRS_USE_TRANSFORMER=0')
+        if eff.get('reselect', 'pool') != 'pool':
+            out.append(f"PAIRS_RESELECT={eff.get('reselect')}")
     seed = env.get('PAIRS_SEED')
     if seed is not None:
         try:
@@ -1238,8 +1300,7 @@ def build_headline_metrics(results: Dict, system_info: Dict = None,
     }
 
 
-def export_headline_metrics(results: dict, system_info: dict,
-                            path: str = DEFAULT_HEADLINE_PATH) -> str:
+def export_headline_metrics(results: dict, system_info: dict, path: str = None) -> str:
     """Write the small, stable, machine-readable headline snapshot; return its path.
 
     v32 (new): README.md and index.html mark every headline number with its key in this
@@ -1272,7 +1333,7 @@ def export_headline_metrics(results: dict, system_info: dict,
     fund_profiles is populated.
     """
     doc = build_headline_metrics(results, system_info)
-    out = _atomic_write_json(doc, path)
+    out = _atomic_write_json(doc, path or _output_path('headline_metrics.json'))
     m, o = doc['main'], doc['oos']
     logger.info(f'Headline metrics: {out} — main {m["total_return_pct"]}% / Sharpe {m["sharpe"]} / '
                 f'{m["trades"]} trades; OOS {o["avg_window_return_pct"]}%/window, pooled Sharpe '

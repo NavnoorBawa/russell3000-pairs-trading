@@ -58,7 +58,7 @@ def _headline():
                        'sharpe_diff_vs_gatev': {'diff': None, 'p': None}},
         'fdr': {'pairs_tested': 36524, 'significant_raw_p05': 3725, 'survive_bh_fdr_q05': 0,
                 'survive_bh_fdr_q10': 0, 'final_selected_pairs': 40},
-        'fund_profiles': {'quant_hf': {'name': 'Quantitative Hedge Fund', 'total_return_pct': -1.46,
+        'fund_profiles': {'quant_hf': {'name': 'Systematic Stat-Arb', 'total_return_pct': -1.46,
                                        'sharpe': -0.57, 'max_drawdown_pct': -2.5, 'max_gross_leverage': 0.54}},
     }
 

@@ -2,7 +2,7 @@
 PAIRS TRADING - TRANSACTION COST MODEL
 ======================================
 Per-execution cost model for the backtest, plus the profile-aware variant used by the
-fund-type replay.
+cost-schedule replay.
 
 Cost of one execution of one leg (dollars):
     commission    cents-per-share x shares (with a per-order minimum)
@@ -66,22 +66,34 @@ class EnhancedPrimeFundTransactionCostModel:
     DEFAULT_DAILY_VOLUME_SHARES = 5e6
     DEFAULT_DAILY_VOLATILITY = 0.02
 
-    def __init__(self):
+    def __init__(self, borrow_rate: float = 0.0025, pb_financing_spread: float = 0.005):
+        """`borrow_rate`/`pb_financing_spread`: annual holding costs (study_config profile;
+        the defaults are v32's)."""
         # Electronic institutional execution: ~0.2 cents/share all-in (0.1-0.5 cps is the
         # quoted range for algorithmic agency execution; IBKR Pro tiered is 0.35 cps).
         self.commission_per_share = 0.002
         self.min_commission_per_trade = 0.50
-        # Square-root impact coefficient Y (patient algorithmic execution ~0.3-0.5;
-        # Almgren et al. 2005 estimate ~0.3 for liquid US stocks) and a safety rail.
+        # Square-root impact coefficient Y in Y x sigma_daily x sqrt(Q / ADV). Fills are
+        # next-day closes, i.e. market-on-close orders in the closing auction: Goyal,
+        # Jegadeesh & Wu (2025, JFQA, Table 3) measure 4.5 bp of auction impact for NYSE
+        # large caps at 1% of ADV (Y ~ 0.28 at sigma_daily 1.6%) and 10.2 bp on Nasdaq
+        # (Y ~ 0.64). Continuous-market estimates run higher (Kyle & Obizhaeva 2016
+        # ~0.6, Toth et al. 2011 "of order one"), so the cost-sensitivity runs repeat the
+        # study at Y = 0.6 and 1.0. (Almgren et al. 2005's 0.314 is their PERMANENT-impact
+        # coefficient, not the temporary cost of a trade.) The cap is a safety rail.
         self.market_impact_coefficient = 0.3
         self.market_impact_cap_bps = 50.0
-        # General-collateral stock-borrow fee: D'Avolio (2002) reports ~25 bp/yr value-
-        # weighted for GC loans; S3 Partners quotes ~30 bp. Specials are not modelled.
-        self.gc_borrow_rate = 0.0025
-        # Prime-broker spread on the short side of a dollar-neutral book (the haircut on
-        # the short rebate); SOFR itself nets between the long debit and the short credit.
-        self.pb_financing_spread = 0.005
-        self.sofr_rate = 0.05                 # reference only (nets out; see module doc)
+        # Stock-borrow fee on short notional. v32: 25 bp/yr general collateral (D'Avolio
+        # 2002: GC loans average ~17 bp, a value-weighted book ~25 bp). v33: the median
+        # buy-side indicative fee, 0.38%/yr (Muravyev, Pearson & Pollet 2025, Table 1).
+        # Specials are not modelled; the cost-sensitivity runs stress every short at 1%
+        # and 3%/yr (the p90 of their fee distribution).
+        self.gc_borrow_rate = float(borrow_rate)
+        # Prime-broker spread on the short half of a dollar-neutral book (v32: 50 bp; SOFR
+        # itself nets between the long debit and the short credit). v33 sets it to zero:
+        # for general-collateral names the haircut on the short rebate IS the borrow fee,
+        # so charging both counted it twice, and the book never runs leverage.
+        self.pb_financing_spread = float(pb_financing_spread)
         logger.info("Transaction cost model: per-share commission, ADV-bucket spread, "
                     "per-stock sqrt impact, GC borrow, PB carry")
 
@@ -209,7 +221,7 @@ class EnhancedPrimeFundTransactionCostModel:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Profile-aware cost calculator (used by the fund-type replay)
+# Profile-aware cost calculator (used by the cost-schedule replay)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def calculate_profile_trade_costs(

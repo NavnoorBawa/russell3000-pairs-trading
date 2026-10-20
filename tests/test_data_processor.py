@@ -235,3 +235,58 @@ def test_chart_api_response_is_shaped_like_yfinance(monkeypatch):
     assert df['Open'].iloc[0] == pytest.approx(120.0 * 62.0 / 124.0)
     assert df['Stock Splits'].tolist() == [0.0, 4.0, 0.0] and df['Dividends'].tolist() == [0.0, 0.0, 0.2]
     assert df['Volume'].tolist() == [1e8, 2e8, 0.0]
+
+
+def test_top_up_fetches_only_never_attempted_symbols(tmp_path, monkeypatch):
+    """A point-in-time universe names stocks the cache never fetched: those (and only those —
+    a recorded failure is not retried) are fetched over the cache's own period and merged,
+    and the manifest is rewritten to describe the merged cache."""
+    import json
+    monkeypatch.setenv('PAIRS_ALLOW_PARTIAL_FETCH', '1')      # 6 of 7 is below the 90% floor
+    path, syms = _write_cache(tmp_path, 4, lambda s: {**{x: 'ok' for x in s}, 'GONE': 'error:HTTPError'})
+    manifest_path = tmp_path / 'cache_manifest.json'
+    m = json.loads(manifest_path.read_text())
+    manifest_path.write_text(json.dumps({**m, 'start': '2020-01-01', 'end': '2021-06-30',
+                                         'cached_symbols': syms}))
+    from pairs_trading.synthetic import make_market
+    extra, _, _ = make_market(n_pairs=1, n_noise=0, seed=9, end='2021-06-30')
+    new = dict(zip(['NEW1', 'NEW2'], extra.values()))
+    dp = _P(start_date='2020-01-01', end_date='2021-06-30', data_file=path)
+    asked = []
+
+    def fake_fetch(symbol):
+        asked.append(symbol)
+        dp.fetch_manifest[symbol] = 'ok'
+        return dp._process_indicators(new[symbol])
+    monkeypatch.setattr(dp, 'fetch_stock_data', fake_fetch)
+    data = dp.load_or_fetch_data(syms + ['GONE', 'NEW1', 'NEW2'], max_workers=1)
+    assert sorted(asked) == ['NEW1', 'NEW2']                       # GONE failed before: not retried
+    assert sorted(data) == sorted(syms + ['NEW1', 'NEW2'])
+    m2 = json.loads(manifest_path.read_text())
+    assert m2['cached_symbols'] == sorted(syms + ['NEW1', 'NEW2'])
+    assert m2['outcomes']['NEW1'] == 'ok' and m2['outcomes']['GONE'] == 'error:HTTPError'
+    assert dp.universe_coverage == pytest.approx(6 / 7)              # only GONE is missing
+    # a cache of another period is never extended
+    dp2 = _P(start_date='2020-01-01', end_date='2026-10-19', data_file=path)
+    with pytest.raises(RuntimeError, match='another period'):
+        dp2.load_or_fetch_data(syms + ['NEW3'], max_workers=1)
+
+
+def test_a_symbol_the_vendor_does_not_know_is_final_and_not_a_fetch_failure(tmp_path, monkeypatch):
+    """HTTP 404 (a delisted stock) is recorded as 'not_found' after ONE request, and counts
+    as a data limit (reported as the not-found fraction), not as a failed fetch."""
+    import json
+
+    class _R:
+        status_code = 404
+    calls = []
+    monkeypatch.setattr('requests.get', lambda *a, **k: calls.append(1) or _R())
+    dp = _P()
+    assert dp.fetch_stock_data('SIVB') is None
+    assert dp.fetch_manifest['SIVB'] == 'not_found' and len(calls) == 1
+    path, syms = _write_cache(tmp_path, 4, lambda s: {**{x: 'ok' for x in s}, 'SIVB': 'not_found'})
+    dp2 = _P(data_file=path)
+    monkeypatch.delenv('PAIRS_ALLOW_PARTIAL_FETCH', raising=False)
+    assert sorted(dp2.load_or_fetch_data(syms + ['SIVB'])) == syms
+    assert dp2.universe_coverage == 1.0 and dp2.universe_not_found_fraction == pytest.approx(0.2)
+    assert json.loads((tmp_path / 'cache_manifest.json').read_text())['outcomes']['SIVB'] == 'not_found'

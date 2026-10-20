@@ -1,0 +1,34 @@
+{
+ "purpose": "The declared family of strategy variants for the data-snooping tests (Hansen SPA / White Reality Check, Romano-Wolf stepdown, model confidence set, PBO, deflated Sharpe with an effective number of trials). Declared before any variant was run; scripts/variant_family.py runs exactly this list. Results are reported whatever they are, and the primary design (profile v33) is NOT re-chosen from them: a preferred variant could only ever be tested on fresh data.",
+ "declared_utc": "2026-10-20",
+ "base": {"profile": "v33", "calendar": "dev"},
+ "series": "main-backtest daily net returns on the dev calendar (entries 2023-07-01 -> 2025-12-31, open positions run off), one column per variant; days a variant is flat count as zero return",
+ "grid": {
+  "why": "the three hand-set trading thresholds, which were chosen across versions on this same data",
+  "ENTRY_Z": [1.5, 1.8, 2.1],
+  "EXIT_Z": [0.25, 0.5, 0.75],
+  "STOP_Z": [1.0, 1.5, 2.0]
+ },
+ "toggles": [
+  {"name": "regime_gate_on", "why": "the v10/v11 gate fitted on now-test windows", "profile": {"regime_gate": true}},
+  {"name": "cusum_gate_on", "why": "entry gate tried in earlier versions", "engine": {"USE_CUSUM_GATE": true}},
+  {"name": "hurst_gate_on", "why": "entry gate tried in earlier versions", "engine": {"USE_HURST_GATE": true}},
+  {"name": "no_rolling_corr_floor", "why": "decoupling filter (20-day correlation >= 0.20) removed", "engine": {"MIN_ROLLING_CORR": -1.0}},
+  {"name": "ref_bars_40", "why": "z-score reference window, shorter", "engine": {"REF_STATS_BARS": 40}},
+  {"name": "ref_bars_90", "why": "z-score reference window, longer", "engine": {"REF_STATS_BARS": 90}},
+  {"name": "ranker_gbm", "why": "the learned ranker (gradient-boosted trees) switched on", "profile": {"ranker": "gbm"}},
+  {"name": "open_fills", "why": "t+1 open instead of t+1 close fills", "env": {"PAIRS_FILL": "open"}},
+  {"name": "all_pairs", "why": "no same-industry restriction", "profile": {"same_industry": false}},
+  {"name": "universe_300", "why": "v32's 300 most liquid names", "profile": {"max_universe": 300}},
+  {"name": "reform_every_63", "why": "quarterly instead of half-yearly re-formation", "profile": {"reselect_every": 63}}
+ ],
+ "tests": {
+  "benchmarks": ["zero (cash; returns are excess of cash)", "Gatev distance method daily series"],
+  "spa": "Hansen (2005) SPA, studentized (omega_k from the stationary-bootstrap kernel), lower/consistent/upper p-values; White (2000) Reality Check as the non-studentized upper p-value",
+  "stepdown": "Romano-Wolf (2005) StepM with Romano & Wolf (2016) adjusted p-values, studentized within each resample",
+  "mcs": "Hansen, Lunde & Nason (2011) model confidence set, size 0.10, statistics T_R and T_max, on volatility-normalised returns",
+  "pbo": "Bailey, Borwein, Lopez de Prado & Zhu (2017) CSCV, 10 blocks",
+  "dsr": "deflated Sharpe with N = the entropy effective rank of the variants' correlation matrix and the empirical variance of the variants' Sharpe ratios; DSR-vs-N curve",
+  "bootstrap": "stationary bootstrap (Politis & Romano 1994), 10,000 resamples, seed 42, block length = ceil of the largest Politis-White stationary length across the series (fixed before running)"
+ }
+}

@@ -5,7 +5,7 @@ Charts of a completed study run, written to deterministic file names under outpu
                              dollars, on real dates), drawdown, per-trade net P&L
   * plot_ranker_training  -> outputs/ranker_training.png    per-epoch BCE loss of the
                              transformer entry ranker, against a constant predictor
-  * plot_fund_comparison  -> outputs/fund_comparison.png    fund-cost replay by profile
+  * plot_fund_comparison  -> outputs/fund_comparison.png    cost-schedule replay by archetype
 
 v32: through v31 every call wrote a new timestamped PNG into outputs/, so charts from
 different runs (and different code versions) piled up side by side. Each chart now has
@@ -48,10 +48,10 @@ NEG = '#e34948'
 # Colour and short label follow the profile KEY, never its position in the dict, so a
 # profile keeps its colour when others are added, removed or reordered (v32).
 PROFILE_STYLE = {
-    'quant_hf': ('Quant HF', SERIES[0]),
-    'multi_strat': ('Multi-strat pod', SERIES[1]),
-    'fundamental_ls': ('Fundamental L/S', SERIES[2]),
-    'institutional': ('Buy-side inst.', SERIES[3]),
+    'quant_hf': ('Systematic', SERIES[0]),
+    'multi_strat': ('Multi-manager', SERIES[1]),
+    'fundamental_ls': ('Discretionary L/S', SERIES[2]),
+    'institutional': ('Patient inst.', SERIES[3]),
     'retail': ('Retail', SERIES[4]),
 }
 
@@ -61,7 +61,7 @@ PROFILE_STYLE = {
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _output_path(filename: str) -> str:
-    directory = os.path.join(os.getcwd(), OUTPUT_DIR)
+    directory = os.path.join(os.getcwd(), os.environ.get('PAIRS_OUTPUT_DIR') or OUTPUT_DIR)
     os.makedirs(directory, exist_ok=True)
     return os.path.join(directory, filename)
 
@@ -410,7 +410,7 @@ def plot_training_results(stats) -> Optional[str]:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Fund-type comparison
+# Cost-schedule replay
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _profile_styles(keys) -> Dict[str, tuple]:
@@ -436,7 +436,7 @@ def _profile_capital(pdata: Dict, default: Optional[float]) -> Optional[float]:
 
 def plot_fund_comparison(comparison_results: dict, output_path: str = None,
                          initial_capital: float = None) -> Optional[str]:
-    """Fund-cost replay by profile: return paths, gross vs net, Sharpe, leverage, table.
+    """Cost-schedule replay by archetype: return paths, gross vs net, Sharpe, leverage, table.
 
     v32: colours and labels are keyed by profile key (they were assigned by list
     position, so a reordered or missing profile silently took another's colour and
@@ -463,7 +463,7 @@ def plot_fund_comparison(comparison_results: dict, output_path: str = None,
 
         fig = plt.figure(figsize=(15, 13), facecolor=SURFACE)
         gs = fig.add_gridspec(3, 2, height_ratios=[1.25, 1.0, 1.15], hspace=0.5, wspace=0.22, top=0.9)
-        fig.suptitle("Fund-cost replay of the main backtest's trades",
+        fig.suptitle("Cost-schedule replay of the main backtest's trades",
                      fontsize=14, color=INK, x=0.06, ha='left', y=0.965)
         fig.text(0.06, 0.94, 'Same signals, dates and daily paths; position sizing, costs and '
                  'kill-switch per profile. Leverage labels are descriptive: the realised peak '
@@ -502,7 +502,7 @@ def plot_fund_comparison(comparison_results: dict, output_path: str = None,
         if handles:      # below the axis, so it never covers a path
             ax1.legend(handles, labels, loc='upper left', bbox_to_anchor=(0.0, -0.1), fontsize=8,
                        frameon=False, ncol=min(len(handles), 6))
-        ax1.set_title('Daily marked-to-market return by fund profile', fontsize=11, loc='left')
+        ax1.set_title('Daily marked-to-market return by cost schedule', fontsize=11, loc='left')
 
         # 2) gross vs net total return (neutral tones: colour here is the measure, not the profile)
         ax2 = fig.add_subplot(gs[1, 0])
@@ -580,7 +580,6 @@ def plot_fund_comparison(comparison_results: dict, output_path: str = None,
             ('  market impact', [comp(p, 'market_impact_pct') for p in profiles]),
             ('  borrow', [comp(p, 'borrow_pct') for p in profiles]),
             ('  financing', [comp(p, 'financing_pct') for p in profiles]),
-            ('Leverage (label)', [str(p.get('gross_leverage_label', 'n/a')).split(' (')[0] for p in profiles]),
             ('Peak gross (realised)', [f"{_finite(p.get('max_gross_leverage')):.2f}x"
                                        if _finite(p.get('max_gross_leverage')) is not None else 'n/a'
                                        for p in profiles]),

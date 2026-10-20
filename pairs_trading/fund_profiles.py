@@ -1,20 +1,20 @@
 """
-PAIRS TRADING - FUND PROFILES
-=============================
-Institutional fund profiles for the fund-type replay (trading_system.run_fund_type_comparison).
+PAIRS TRADING - COST-SCHEDULE ARCHETYPES
+========================================
+Five illustrative execution-cost and sizing schedules for the cost-schedule replay
+(trading_system.run_fund_type_comparison): the main backtest's trades re-costed and
+re-sized as an investor with that cost structure would face them.
 
-The leverage labels are descriptive: the replay scales each main-backtest trade by the
-profile's position size, caps new trades per day, and reports the REALISED peak gross
-leverage ('max_gross_leverage'); it does not size the book up to the labelled leverage.
+These are ARCHETYPES, not estimates of any firm's costs: each is a stylised parameter
+set spanning the range of published institutional cost levels (commission schedules,
+square-root impact coefficients, general-collateral borrow fees). No real firm's terms
+are implied. The replay reports the REALISED peak gross leverage of each schedule
+('max_gross_leverage'); it does not lever the book up.
 
-Each profile encodes:
+Each schedule encodes:
   - Transaction cost parameters (commission, bid-ask, market impact, borrow, financing)
-  - Position sizing and leverage assumptions
-  - Risk limits
-
-Sources: Bloomberg 2020 Commission Report, Norges Bank GPFG 2024,
-         Morgan Stanley Prime Brokerage Data (quant avg 645%, multi-strat avg 444%),
-         AQR Trading Costs Research, NBIM Reports 2024.
+  - Position sizing (base and maximum position, new trades per day)
+  - A drawdown kill-switch
 """
 
 from dataclasses import dataclass
@@ -27,7 +27,6 @@ class FundProfile:
     key: str
     name: str
     description: str
-    example_firms: str
 
     # ── Transaction cost parameters (all in bps unless noted) ─────────────────
     commission_bps: float        # per leg, one-way (electronic algo execution)
@@ -46,31 +45,19 @@ class FundProfile:
     max_daily_trades: int        # max new trades entered per day
     max_drawdown_limit: float    # portfolio-level kill-switch (fraction)
 
-    # ── Leverage narrative ────────────────────────────────────────────────────
-    # Gross leverage = total long + short exposure / equity.
-    # In the comparison simulation, a trade at base_position_pct × leverage_scale
-    # is capped at max_position_pct.  The concurrent-position argument maps to
-    # the research numbers:
-    #   avg concurrent open trades ≈ max_daily_trades × avg_holding_days (~5d)
-    #   implied gross leverage = avg_concurrent × base_position_pct
-    gross_leverage_label: str    # human-readable e.g. "~5x"
-
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Five profiles derived from the research documents
+# Five archetypal cost schedules, from the cheapest execution to the most expensive
 # ──────────────────────────────────────────────────────────────────────────────
 FUND_PROFILES: Dict[str, FundProfile] = {
 
-    # ── 1. Quantitative / Stat-Arb Hedge Fund ────────────────────────────────
-    # Renaissance, Two Sigma, D.E. Shaw, PDT Partners
-    # Commission: 0.65 CPS electronic (Bloomberg 2020) → ~1 bps for mid-cap
-    # Leverage: Morgan Stanley PB data — quant avg 645% gross
-    # Market impact: small (tiny per-order size spread across thousands of pairs)
+    # ── 1. Systematic stat-arb book ───────────────────────────────────────────
+    # Electronic algorithmic execution (~0.65 cents/share, ~1 bp on a mid-cap) and
+    # small orders spread across many names; the largest positions of the five.
     'quant_hf': FundProfile(
         key='quant_hf',
-        name='Quantitative Hedge Fund',
-        description='Systematic stat-arb (Renaissance, Two Sigma, D.E. Shaw, PDT)',
-        example_firms='Renaissance Technologies, Two Sigma, D.E. Shaw, PDT Partners',
+        name='Systematic Stat-Arb',
+        description='Systematic stat-arb archetype: electronic execution, large positions',
 
         commission_bps=1.0,
         bid_ask_bps=2.0,
@@ -86,19 +73,14 @@ FUND_PROFILES: Dict[str, FundProfile] = {
         max_position_pct=0.30,      # cap any single position at 30% equity
         max_daily_trades=8,
         max_drawdown_limit=0.20,
-
-        gross_leverage_label='~5-7x'
     ),
 
-    # ── 2. Multi-Strategy Pod Shop ────────────────────────────────────────────
-    # Citadel (Wellington), Millennium, Balyasny, ExodusPoint
-    # Commission: algo blended 1.5 bps
-    # Leverage: Morgan Stanley PB data — multi-strat avg 444%
+    # ── 2. Multi-manager pod ──────────────────────────────────────────────────
+    # Blended algorithmic execution (~1.5 bp) with costs passed through to the book.
     'multi_strat': FundProfile(
         key='multi_strat',
-        name='Multi-Strategy Pod Shop',
-        description='Multi-manager platform (Citadel, Millennium, Balyasny)',
-        example_firms='Citadel (Wellington), Millennium Management, Balyasny, ExodusPoint',
+        name='Multi-Manager Pod',
+        description='Multi-manager pod archetype: blended execution, pass-through costs',
 
         commission_bps=1.5,
         bid_ask_bps=4.0,
@@ -107,26 +89,21 @@ FUND_PROFILES: Dict[str, FundProfile] = {
         borrow_rate_easy=0.0050,
         borrow_rate_general=0.0100,
         borrow_rate_hard=0.0500,
-        financing_spread=0.0100,    # 100 bps/yr (higher PB spread, pass-through model), on the short notional
+        financing_spread=0.0100,    # 100 bps/yr prime-broker spread, on the short notional
         daily_volume_dollars=1e9,
 
         base_position_pct=0.08,
         max_position_pct=0.20,
         max_daily_trades=6,
         max_drawdown_limit=0.15,
-
-        gross_leverage_label='~4x (avg 444%)'
     ),
 
-    # ── 3. Fundamental Long/Short Hedge Fund ──────────────────────────────────
-    # Tiger, Viking, Coatue, Pershing Square
-    # Commission: 2.67 CPS high-touch (Bloomberg 2020) → ~5-10 bps depending on price
-    # Leverage: 120-200% gross (industry standard)
+    # ── 3. Discretionary long/short book ──────────────────────────────────────
+    # High-touch execution (~2.7 cents/share, ~5 bp on a $50 stock) and impatient fills.
     'fundamental_ls': FundProfile(
         key='fundamental_ls',
-        name='Fundamental Long/Short HF',
-        description='Traditional discretionary L/S (Tiger, Viking, Coatue)',
-        example_firms='Tiger Global, Viking Global, Coatue Management, Point72',
+        name='Discretionary Long/Short',
+        description='Discretionary long/short archetype: high-touch execution',
 
         commission_bps=5.0,         # high-touch rate (2.67 CPS on ~$50 stock ≈ 5.3 bps)
         bid_ask_bps=10.0,
@@ -142,25 +119,17 @@ FUND_PROFILES: Dict[str, FundProfile] = {
         max_position_pct=0.10,
         max_daily_trades=4,
         max_drawdown_limit=0.12,
-
-        gross_leverage_label='~1.5-2x'
     ),
 
-    # ── 4. Buy-Side Institutional (Pension / Sovereign Wealth) ───────────────
-    # Norges Bank GPFG, CalSTRS, CPPIB, GIC Singapore
-    # Actual Norges Bank 2024: direct costs 0.42 bps, indirect 1.19 bps, total 1.61 bps
-    # No leverage: 1x gross only
+    # ── 4. Patient institutional (pension-style) book ─────────────────────────
+    # Very patient algorithmic execution in the most liquid names, no leverage.
     'institutional': FundProfile(
         key='institutional',
-        name='Buy-Side Institutional',
-        description='Pension / sovereign wealth fund (Norges Bank, CalSTRS, CPPIB)',
-        example_firms='Norges Bank GPFG ($1.8T), CalSTRS, CPPIB, GIC Singapore',
+        name='Patient Institutional',
+        description='Pension-style archetype: patient algorithmic execution, no leverage',
 
-        # v32: these were 0.42 / 1.19 bps, taken from Norges Bank's 2024 ANNUAL direct /
-        # indirect costs as a share of AUM — a 10x decimal slip ($500M and $1.43B on a
-        # ~$1.2T book are 4.2 and 11.9 bps) and the wrong unit (cost per AUM per year, not
-        # per traded dollar; NBIM's "indirect" cost is market impact, charged separately
-        # below). Per-execution values for a patient large-cap algorithmic trader:
+        # Per-execution values for a patient large-cap algorithmic trader (v32 replaced
+        # annual cost-per-AUM figures that had been entered as per-trade costs):
         commission_bps=1.0,
         bid_ask_bps=1.5,
         market_impact_coeff=0.15,   # low — they execute very patiently via algorithms
@@ -175,22 +144,16 @@ FUND_PROFILES: Dict[str, FundProfile] = {
         max_position_pct=0.05,
         max_daily_trades=3,
         max_drawdown_limit=0.10,
-
-        gross_leverage_label='1x (no leverage)'
     ),
 
-    # ── 5. Retail / Small Prop Trader ─────────────────────────────────────────
-    # Interactive Brokers retail, small family office, boutique prop desk
-    # Commission: IBKR Pro tiered $0.0035/share ≈ 0.7 bps on a $50 stock
-    # No leverage beyond standard 2:1 (1x for this comparison — no portfolio margin)
+    # ── 5. Retail / small proprietary account ────────────────────────────────
+    # A retail broker's tiered rate ($0.0035/share, ~0.7 bp on a $50 stock), wide
+    # effective spreads, expensive borrow and margin; no leverage in this comparison.
     'retail': FundProfile(
         key='retail',
-        name='Retail / Small Prop Trader',
-        description='Retail algo or small family office (Interactive Brokers, small prop)',
-        example_firms='IB retail account, small family office, boutique prop desk',
+        name='Retail / Small Prop',
+        description='Retail or small proprietary account archetype: expensive borrow and margin',
 
-        # v32: was 7.0 bps, 10x the IBKR Pro tiered rate it cited ($0.0035/share is
-        # 0.7 bps on a $50 stock; 7 bps only at $5).
         commission_bps=0.7,
         bid_ask_bps=15.0,           # wider spread — smaller, less liquid names
         market_impact_coeff=2.50,
@@ -205,8 +168,6 @@ FUND_PROFILES: Dict[str, FundProfile] = {
         max_position_pct=0.05,
         max_daily_trades=2,
         max_drawdown_limit=0.15,
-
-        gross_leverage_label='1x (no leverage)'
     ),
 }
 
@@ -226,10 +187,10 @@ def get_profile_summary_table() -> str:
     """Return a readable summary table of all profiles for logging."""
     lines = [
         "\n" + "=" * 100,
-        f"{'FUND TYPE COMPARISON — PROFILE PARAMETERS':^100}",
+        f"{'COST-SCHEDULE REPLAY — ARCHETYPE PARAMETERS':^100}",
         "=" * 100,
         f"{'Profile':<25} {'Commission':>12} {'Bid-Ask':>10} {'MI Cap':>10} {'Borrow (GC)':>15} "
-        f"{'Financing':>12} {'Base Pos%':>10} {'Max Pos%':>10} {'Leverage':>12}",
+        f"{'Financing':>12} {'Base Pos%':>10} {'Max Pos%':>10}",
         "-" * 100,
     ]
     for profile in FUND_PROFILES.values():
@@ -237,7 +198,7 @@ def get_profile_summary_table() -> str:
             f"{profile.name:<25} {profile.commission_bps:>10.2f}bp {profile.bid_ask_bps:>8.2f}bp "
             f"{profile.market_impact_cap_bps:>8.1f}bp {profile.borrow_rate_general*100:>13.2f}%/yr "
             f"{profile.financing_spread*100:>10.2f}%/yr {profile.base_position_pct*100:>8.1f}% "
-            f"{profile.max_position_pct*100:>8.1f}% {profile.gross_leverage_label:>12}"
+            f"{profile.max_position_pct*100:>8.1f}%"
         )
     lines.append("=" * 100)
     return "\n".join(lines)

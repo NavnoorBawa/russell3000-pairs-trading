@@ -126,5 +126,29 @@ def test_every_export_carries_the_same_provenance(pipeline_run):
     assert all(c == first for c in configs.values()), "exports disagree on run_config"
     assert first['data']['data_start'] and first['data']['data_end']
     headline = json.loads((root / 'outputs' / 'headline_metrics.json').read_text(encoding='utf-8'))
-    assert headline['non_default_switches'] == ['PAIRS_USE_TRANSFORMER=0']   # this fixture's switch
+    assert headline['non_default_switches'] == ['ranker=none']   # PAIRS_USE_TRANSFORMER=0 on the v32 profile
     assert headline['complete'] is True
+
+
+def test_v32_profile_reproduces_the_v32_code_exactly(pipeline_run):
+    """Golden master: the session runs the v32 profile (tests/conftest.py), and on this
+    synthetic market it must make exactly the decisions the v32 code (commit fa4c02b) made —
+    same pairs, same trades on the same dates for the same reasons, same P&L. Introducing
+    study profiles (study_config.py) must not change what a v32 run computes."""
+    with open(os.path.join(os.path.dirname(__file__), 'fixtures', 'v32_synthetic_golden.json')) as f:
+        gold = json.load(f)
+    _, system, res = pipeline_run
+    assert system.profile.name == 'v32'
+    assert sorted(map(list, system.selected_pairs)) == gold['selected_pairs']
+    got = [[t['pair'], str(t['signal_date'])[:10], str(t['date'])[:10], str(t['exit_date'])[:10],
+            t['exit_reason']] for t in res['trades']]
+    assert got == [t[:5] for t in gold['trades']]
+    assert [t['net_pnl_pct'] for t in res['trades']] == pytest.approx([t[5] for t in gold['trades']],
+                                                                      rel=1e-9, abs=1e-12)
+    assert res['total_return'] == pytest.approx(gold['total_return'], rel=1e-9)
+    assert res['sharpe_ratio'] == pytest.approx(gold['sharpe_ratio'], rel=1e-9)
+    wf = res['walk_forward']
+    assert wf['total_trades'] == gold['walk_forward']['total_trades']
+    assert [w['total_return_pct'] for w in wf['windows']] == pytest.approx(
+        gold['walk_forward']['window_returns_pct'], abs=1e-4)
+    assert res['fdr_diagnostic'] == gold['fdr_diagnostic']

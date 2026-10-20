@@ -61,7 +61,7 @@ def _write_synthetic_inputs(root: pathlib.Path) -> None:
 
 def run_grid(grid: dict, n_splits: int = 10) -> dict:
     from pairs_trading.significance import pbo_cscv
-    from pairs_trading.trading_system import MAIN_BACKTEST_START, CompleteFixedRussell3000TradingSystem
+    from pairs_trading.trading_system import CompleteFixedRussell3000TradingSystem
 
     system = CompleteFixedRussell3000TradingSystem()
     system.load_study_data()
@@ -75,7 +75,7 @@ def run_grid(grid: dict, n_splits: int = 10) -> dict:
             setattr(system, k, v)                      # instance attributes shadow the class defaults
         t0 = time.time()
         res = system.run_comprehensive_backtest(test_spreads, pair_windows=pair_windows,
-                                                date_range=(MAIN_BACKTEST_START, last_test))
+                                                date_range=(system.calendar.backtest_start, last_test))
         label = ' '.join(f'{k}={v}' for k, v in cfg.items())
         series[label] = pd.Series(res['daily_returns'], index=pd.to_datetime(
             [str(pd.Timestamp(d).date()) for d in res['daily_dates']]), dtype=float)

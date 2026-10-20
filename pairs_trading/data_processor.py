@@ -14,13 +14,20 @@ from pairs_trading.config import (
 logger = logging.getLogger(__name__)
 
 
+class SymbolNotFound(Exception):
+    """The data vendor has no such symbol (HTTP 404): typically a delisted stock."""
+
+
 class EnhancedRussell3000DataProcessor:
     """ENHANCED: Russell 3000 data processor with comprehensive stock loading"""
 
-    def __init__(self, start_date: str = "2020-01-01", end_date: str = "2025-12-31"):
+    def __init__(self, start_date: str = "2020-01-01", end_date: str = "2025-12-31",
+                 data_file: str = "data/enhanced_russell_3000_data.pkl",
+                 macro_file: str = "data/macro_data.pkl"):
         self.start_date = start_date
         self.end_date = end_date
-        self.data_file = "data/enhanced_russell_3000_data.pkl"
+        self.data_file = data_file
+        self.macro_file = macro_file
         self.successful_count = 0
         self.failed_count = 0
         self.fetch_manifest: Dict[str, str] = {}
@@ -28,6 +35,8 @@ class EnhancedRussell3000DataProcessor:
         # fetch manifest, coverage unknown). Recorded in every export's run_config.
         self.universe_coverage: Optional[float] = None
         self.universe_cached_fraction: Optional[float] = None   # cached symbols / universe
+        # Universe symbols the vendor has no history for (delisted): survivorship, measured.
+        self.universe_not_found_fraction: Optional[float] = None
 
         logger.info("ENHANCED Russell 3000 Data Processor initialized")
 
@@ -111,7 +120,9 @@ class EnhancedRussell3000DataProcessor:
         v32: exponential backoff with jitter between attempts (Yahoo rate-limit windows
         last seconds to minutes; the old 0.05-0.15 s jitter burned all retries at once),
         a private RNG for the jitter (worker threads no longer consume the seeded global
-        RNG), and the outcome recorded per symbol in `self.fetch_manifest`.
+        RNG), and the outcome recorded per symbol in `self.fetch_manifest`. A symbol the
+        vendor does not know (HTTP 404, e.g. a stock delisted before the fetch) is final at
+        once ('not_found'): retrying cannot help, and a point-in-time universe has hundreds.
         """
         rng = random.Random(hash(symbol) & 0xFFFFFFFF)
         status = 'error'
@@ -132,6 +143,9 @@ class EnhancedRussell3000DataProcessor:
                 self.successful_count += 1
                 self.fetch_manifest[symbol] = 'ok'
                 return self._process_indicators(data)
+            except SymbolNotFound:
+                status = 'not_found'
+                break
             except Exception as e:
                 status = f'error:{type(e).__name__}'
                 continue
@@ -160,7 +174,7 @@ class EnhancedRussell3000DataProcessor:
                                  'events': 'div,splits', 'includeAdjustedClose': 'true'},
                          headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
         if r.status_code == 404:
-            return pd.DataFrame()
+            raise SymbolNotFound(symbol)
         r.raise_for_status()
         result = (r.json().get('chart') or {}).get('result') or []
         if not result or not result[0].get('timestamp'):
@@ -397,11 +411,11 @@ class EnhancedRussell3000DataProcessor:
         """VIX and sector-ETF closes for the regime gate and macro features.
 
         Returns {'VIX': Series, 'sectors': {etf: Series}} with tz-naive indexes, cached in
-        data/macro_data.pkl. v32: the cache is written only when VIX and every sector ETF
-        were fetched — a failed fetch used to be cached permanently as empty, which
-        silently switched the regime gate off (missing VIX defaults to "calm").
+        self.macro_file (one file per study calendar). v32: the cache is written only when
+        VIX and every sector ETF were fetched — a failed fetch used to be cached permanently
+        as empty, which silently switched the regime gate off (missing VIX defaults to "calm").
         """
-        macro_file = "data/macro_data.pkl"
+        macro_file = self.macro_file
         if os.path.exists(macro_file):
             macro = self._load_pickle_or_raise(macro_file)
             n_sec = len(macro.get('sectors', {}))
@@ -552,9 +566,12 @@ class EnhancedRussell3000DataProcessor:
                     "cache?). Delete it to re-fetch, or set PAIRS_ALLOW_PARTIAL_FETCH=1 to run "
                     "on it as a sensitivity variant.")
             return
+        # 'not_found' (no price history exists at the vendor: delisted) is a data limit, not a
+        # failed fetch; it is reported separately as the universe's not-found fraction.
         bad = sum(1 for s in wanted
-                  if outcomes.get(s) not in ('short', 'invalid')
+                  if outcomes.get(s) not in ('short', 'invalid', 'not_found')
                   and not (outcomes.get(s) == 'ok' and s in cached))
+        self.universe_not_found_fraction = sum(1 for s in wanted if outcomes.get(s) == 'not_found') / len(wanted)
         self.universe_coverage = 1.0 - bad / len(wanted)
         if self.universe_coverage < self.MIN_FETCH_COVERAGE and not allow:
             raise RuntimeError(
@@ -563,6 +580,70 @@ class EnhancedRussell3000DataProcessor:
                 f"{self.MIN_FETCH_COVERAGE:.0%}): it was built from a partial or demo-universe "
                 "fetch. Delete the cache and its manifest to re-fetch, or set "
                 "PAIRS_ALLOW_PARTIAL_FETCH=1 to run on it as a sensitivity variant.")
+
+    def _fetch_many(self, symbols: List[str], max_workers: int) -> Dict[str, pd.DataFrame]:
+        """Fetch `symbols` concurrently; outcomes go to self.fetch_manifest. Sorted dict."""
+        results = {}
+        with tqdm(total=len(symbols), desc="Fetching data", unit="symbol") as pbar:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_symbol = {executor.submit(self.fetch_stock_data, s): s for s in symbols}
+                for future in concurrent.futures.as_completed(future_to_symbol):
+                    symbol = future_to_symbol[future]
+                    try:
+                        data = future.result()
+                        if data is not None:
+                            results[symbol] = data
+                    except Exception as e:
+                        self.fetch_manifest[symbol] = f'error:{type(e).__name__}'
+                    pbar.update(1)
+                    pbar.set_postfix({'ok': len(results)})
+        return dict(sorted(results.items()))
+
+    def _top_up(self, saved_data: Dict[str, pd.DataFrame], wanted: set,
+                max_workers: int = 4) -> Dict[str, pd.DataFrame]:
+        """Fetch universe symbols the cache has never attempted, and add them to it.
+
+        A point-in-time universe (study_config 'pit_iwv') names stocks that the cache,
+        built from the marketcap.csv universe, never fetched. Only symbols ABSENT from the
+        fetch manifest are fetched (a recorded failure is not retried), over the cache's
+        own date range, so the cache never grows into another period. The merged cache
+        and its manifest are rewritten together. A cache without a manifest is left alone.
+        """
+        manifest_path = self.data_file.replace('.pkl', '_manifest.json')
+        if not os.path.exists(manifest_path):
+            return saved_data
+        try:
+            with open(manifest_path) as f:
+                manifest = json.load(f)
+        except (OSError, ValueError):
+            return saved_data                  # _check_cache_coverage reports it
+        outcomes = manifest.get('outcomes') if isinstance(manifest, dict) else None
+        if not isinstance(outcomes, dict):
+            return saved_data
+        missing = sorted(s for s in wanted if s not in outcomes and s not in saved_data)
+        if not missing:
+            return saved_data
+        if (manifest.get('start'), manifest.get('end')) != (self.start_date, self.end_date):
+            raise RuntimeError(f"{manifest_path} describes {manifest.get('start')} -> "
+                               f"{manifest.get('end')}, not this calendar's {self.start_date} -> "
+                               f"{self.end_date}: refusing to add symbols of another period")
+        logger.info(f"Top-up: {len(missing)} universe symbols were never fetched; fetching "
+                    f"{self.start_date} -> {self.end_date}")
+        self.fetch_manifest = {}
+        fetched = self._fetch_many(missing, max_workers)
+        merged = dict(sorted({**saved_data, **fetched}.items()))
+        manifest['outcomes'] = dict(sorted({**outcomes, **self.fetch_manifest}.items()))
+        manifest['cached_symbols'] = sorted(merged)
+        manifest.setdefault('top_ups', []).append(
+            {'fetched_at': pd.Timestamp.now(tz='UTC').isoformat(), 'attempted': len(missing),
+             'fetched': len(fetched)})
+        tmp_manifest = f"{manifest_path}.tmp-{os.getpid()}"
+        with open(tmp_manifest, 'w') as f:
+            json.dump(manifest, f, indent=1)
+        self._atomic_pickle(merged, self.data_file)
+        os.replace(tmp_manifest, manifest_path)
+        logger.info(f"Top-up: {len(fetched)}/{len(missing)} fetched; cache and manifest rewritten")
+        return merged
 
     def load_or_fetch_data(self, symbols: List[str], max_workers: int = 4) -> Dict[str, pd.DataFrame]:
         """Load the price cache (restricted to `symbols`), or fetch and cache it.
@@ -578,6 +659,7 @@ class EnhancedRussell3000DataProcessor:
             # verbatim and `symbols` was ignored, so marketcap.csv had no effect at all
             # whenever the cache existed.
             wanted = set(symbols)
+            saved_data = self._top_up(saved_data, wanted, max_workers=max_workers)
             subset = {s: saved_data[s] for s in sorted(saved_data) if s in wanted}
             if len(subset) < len(saved_data):
                 logger.info(f"Restricted the cache to the universe file: {len(subset)} of "
@@ -589,21 +671,7 @@ class EnhancedRussell3000DataProcessor:
             return self._reprocess_cached_indicators(subset)
 
         logger.info(f"Fetching fresh data for {len(symbols)} symbols")
-        results = {}
-        with tqdm(total=len(symbols), desc="Fetching data", unit="symbol") as pbar:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-                future_to_symbol = {executor.submit(self.fetch_stock_data, s): s for s in symbols}
-                for future in concurrent.futures.as_completed(future_to_symbol):
-                    symbol = future_to_symbol[future]
-                    try:
-                        data = future.result()
-                        if data is not None:
-                            results[symbol] = data
-                    except Exception as e:
-                        self.fetch_manifest[symbol] = f'error:{type(e).__name__}'
-                    pbar.update(1)
-                    pbar.set_postfix({'ok': len(results)})
-        results = dict(sorted(results.items()))
+        results = self._fetch_many(symbols, max_workers)
         attempted = len(symbols)
         errors = sum(1 for v in self.fetch_manifest.values() if v.startswith('error') or v == 'empty')
         coverage = 1.0 - errors / attempted if attempted else 0.0

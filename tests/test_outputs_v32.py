@@ -198,9 +198,12 @@ def test_run_config_records_switches_versions_and_data(monkeypatch, tmp_path):
                               {'total_symbols_processed': 2542, 'pairs_selected': 40,
                                'data_start': pd.Timestamp('2020-01-02', tz=TZ), 'data_end': '2025-06-30'})
     assert cfg['env']['PAIRS_FILL'] == 'OPEN' and cfg['env']['PAIRS_DEMO_UNIVERSE'] is None
-    assert cfg['effective'] == {'fill': 'open', 'use_transformer_ranker': False, 'reselect': 'full'}
+    assert cfg['effective'] == {'profile': 'v32', 'calendar': 'dev', 'fill': 'open', 'ranker': 'none',
+                                'use_transformer_ranker': False, 'reselect': 'full', 'regime_gate': True}
+    assert cfg['study']['profile']['reselect'] == 'full' and cfg['study']['calendar']['name'] == 'dev'
     assert cfg['env']['PAIRS_RESELECT'] == 'FULL'
-    assert je.non_default_switches(cfg) == ['PAIRS_FILL=open', 'PAIRS_USE_TRANSFORMER=0', 'PAIRS_RESELECT=full']
+    # overrides of the named profile's fields are what make a run a variant
+    assert je.non_default_switches(cfg) == ['PAIRS_FILL=open', 'reselect=full', 'ranker=none']
     data = cfg['data']
     assert (data['data_start'], data['data_end']) == ('2020-01-02', '2025-06-30')
     assert (data['backtest_start'], data['backtest_end']) == ('2023-07-03', '2025-06-30')
@@ -593,7 +596,7 @@ def test_plot_fund_comparison(tmp_path, monkeypatch, captured_figures):
         fc[key] = {'profile_name': key, 'total_return_pct': (vals[-1] / 1e8 - 1) * 100, 'final_equity': vals[-1],
                    'sharpe_ratio': -0.5 - i, 'max_drawdown_pct': -1.0, 'win_rate_pct': 40.0,
                    'profit_factor': float('inf'), 'total_trades': 3, 'total_cost_pct_of_capital': 0.2,
-                   'annualized_return_pct': -1.0, 'gross_leverage_label': '1x (no leverage)',
+                   'annualized_return_pct': -1.0,
                    'max_gross_leverage': 0.1 * (i + 1), 'stopped_on': dates[10] if i else None,
                    'cost_components': {'commission_pct': 0.1},
                    'equity_curve': [{'date': d, 'value': v} for d, v in zip(dates, vals)]}

@@ -1,9 +1,16 @@
 """
 PAIRS TRADING - LEARNED SIGNAL-QUALITY RANKER
 =============================================
-Feature assembly for a candidate pair-day and a transformer-encoder classifier that
-scores P(trade is profitable). The score is used for opportunity RANKING only — it never
-opens or blocks a trade on its own (v19-v21 evidence: quality gating degraded OOS).
+Feature assembly for a candidate pair-day and a classifier that scores P(trade is
+profitable). The score is used for opportunity RANKING only — it never opens or blocks a
+trade on its own (v19-v21 evidence: quality gating degraded OOS).
+
+Three rankers (study_config.Profile.ranker):
+  transformer  the v32 transformer-encoder network (torch), over one 30-feature vector;
+  gbm          scikit-learn gradient-boosted trees with fixed, conservative settings —
+               the v33 ablation arm (a 4.8M-parameter network on ~15k rows was the
+               wrong tool for a 30-feature tabular problem);
+  none         classical ranking only (score 1.0): the v33 primary design.
 
 This is NOT reinforcement learning: there is no policy, value function or environment
 loop. v32 removed the 1000-episode "multi-agent training" loop that used to run here —
@@ -17,6 +24,8 @@ import warnings
 from pairs_trading.config import (
     pd, np, stats, logging, Dict, List, SECTOR_MAP, SECTOR_ETFS
 )
+from pairs_trading.study_config import get_profile
+from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.preprocessing import RobustScaler
 
 logger = logging.getLogger(__name__)
@@ -47,24 +56,56 @@ def classifier_skill(y: np.ndarray, p: np.ndarray, prior: float = None) -> Dict:
     }
 
 
+class GradientBoostingScorer:
+    """Gradient-boosted trees behind the scorer interface the engine calls.
+
+    Settings are fixed in advance, not tuned: shallow trees (depth 3), a slow learning
+    rate, 150 rounds and >= 100 samples per leaf, L2 regularisation — a deliberately
+    low-variance model for a few thousand noisy labels. Trees are invariant to the
+    RobustScaler applied upstream, so scaled and raw features give identical scores.
+    """
+
+    def __init__(self, seed: int = 42):
+        self.model = HistGradientBoostingClassifier(
+            max_iter=150, learning_rate=0.05, max_depth=3, min_samples_leaf=100,
+            l2_regularization=1.0, early_stopping=False, random_state=seed)
+
+    def fit(self, X: np.ndarray, y: np.ndarray) -> 'GradientBoostingScorer':
+        self.model.fit(X, (np.asarray(y) > 0.5).astype(int))
+        return self
+
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        return self.model.predict_proba(np.asarray(X, dtype=np.float32))[:, 1]
+
+    def predict_signal_quality(self, state: np.ndarray) -> float:
+        return float(self.predict_proba(np.asarray(state, dtype=np.float32).reshape(1, -1))[0])
+
+
 class FixedTransformerMultiAgentSystem:
-    """Feature extractor + transformer signal-quality ranker (class name kept for API compatibility)."""
+    """Feature extractor + signal-quality ranker (class name kept for API compatibility)."""
 
     MIN_SAMPLES = 400
+    RANKERS = ('transformer', 'gbm', 'none')
 
     # v32: the feature vector has 30 entries. It used to be zero-padded to 38 ("38
     # features" in the README), so inputs 30-37 were constant zeros.
     N_FEATURES = 30
 
-    def __init__(self, state_dim: int = N_FEATURES):
+    def __init__(self, state_dim: int = N_FEATURES, ranker: str = None):
+        """`ranker`: 'transformer', 'gbm' or 'none' (default: the study profile's)."""
         self.state_dim = state_dim
         self.scaler = RobustScaler()
         self.scaler_fitted = False
-        # Stays None until train_on_samples() trains it; while None the ranking score is
-        # 1.0 for every candidate. PAIRS_USE_TRANSFORMER=0 skips training entirely, which
-        # gives the classical-only system on the same code path (the ML ablation).
+        if ranker is None:
+            ranker = get_profile().ranker
+        if ranker not in self.RANKERS:
+            raise ValueError(f"ranker must be one of {self.RANKERS}, got {ranker!r}")
+        self.ranker = ranker
+        # The trained scorer. Stays None until train_on_samples() trains one; while None
+        # the ranking score is 1.0 for every candidate. ranker='none' skips training,
+        # which gives the classical-only system on the same code path (the ML ablation).
         self.signal_transformer = None
-        self.use_signal_transformer = os.environ.get("PAIRS_USE_TRANSFORMER", "1") != "0"
+        self.use_signal_transformer = ranker != 'none'
         # Real pair statistics injected by the system after selection, so the pair-level
         # features match between training and inference.
         self.pair_statistics: Dict = {}
@@ -250,8 +291,8 @@ class FixedTransformerMultiAgentSystem:
         trade the engine would have opened made money. Returns True if a model was trained.
         """
         self.training_summary = {'n_samples': 0 if X_raw is None else int(len(X_raw))}
-        if not self.use_signal_transformer:
-            logger.info("Ranker: PAIRS_USE_TRANSFORMER=0 — not trained (quality = 1.0)")
+        if self.ranker == 'none':
+            logger.info("Ranker: none — not trained (quality = 1.0)")
             return False
         if X_raw is None or y is None or len(X_raw) < self.MIN_SAMPLES:
             logger.info(f"Ranker: {self.training_summary['n_samples']} samples < {self.MIN_SAMPLES} — "
@@ -265,7 +306,15 @@ class FixedTransformerMultiAgentSystem:
             return False
         self.fit_scaler(list(np.asarray(X_raw, dtype=np.float32)))
         X = self.scaler.transform(np.asarray(X_raw, dtype=np.float32)).astype(np.float32)
-        self._train_signal_transformer(X, y, epochs=epochs, batch_size=batch_size)
+        if self.ranker == 'gbm':
+            seed = int(os.environ.get('PAIRS_SEED', 42))
+            self.signal_transformer = GradientBoostingScorer(seed=seed).fit(X, y)
+            self.training_summary.update({'model': 'gbm', 'pos_weight': None})
+            logger.info(f"Ranker: gradient-boosted trees fitted on {len(X)} samples "
+                        f"(base rate {base_rate:.1%})")
+        else:
+            self._train_signal_transformer(X, y, epochs=epochs, batch_size=batch_size)
+            self.training_summary['model'] = 'transformer'
         return self.signal_transformer is not None
 
     def _train_signal_transformer(self, X: np.ndarray, y: np.ndarray,

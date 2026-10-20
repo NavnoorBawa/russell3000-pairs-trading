@@ -39,6 +39,10 @@ class FixedPrimeFundPairSelector:
         # max_universe are kept, which keeps the all-pairs search (n^2/2 tests) bounded.
         self.min_dollar_volume = 10e6
         self.max_universe = 300
+        # Optional ticker -> industry map (study_config profile same_industry): when set,
+        # only pairs whose two legs share an industry are tested (Do & Faff 2010); a symbol
+        # without a classification forms no pair. None tests every pair.
+        self.industry_of = None
 
         self.selected_pairs = []
         self.pair_statistics = {}
@@ -252,6 +256,14 @@ class FixedPrimeFundPairSelector:
             logger.debug(f"PCA residual computation failed: {e}")
             return {}
 
+    def candidate_pairs(self, symbols: List[str]) -> List[Tuple[str, str]]:
+        """Every unordered pair of `symbols` (sorted order), or only same-industry pairs."""
+        pairs = itertools.combinations(sorted(symbols), 2)
+        if self.industry_of is None:
+            return list(pairs)
+        ind = self.industry_of
+        return [(a, b) for a, b in pairs if ind.get(a) and ind.get(a) == ind.get(b)]
+
     def find_quality_pairs(self, processed_data: Dict[str, pd.DataFrame]) -> List[Tuple[str, str]]:
         """Screen symbols, then test every pair of screened symbols; return all that pass.
 
@@ -310,7 +322,7 @@ class FixedPrimeFundPairSelector:
         pca_residuals = self.compute_pca_residuals(processed_data, quality_symbols, n_components=5)
 
         # --- CHANGED: Use itertools to generate ALL unique pairs instead of random sampling ---
-        pairs_to_test = list(itertools.combinations(quality_symbols, 2))
+        pairs_to_test = self.candidate_pairs(quality_symbols)
 
         logger.info(f"Pair selection: testing all {len(pairs_to_test):,} unique pairs")
 
