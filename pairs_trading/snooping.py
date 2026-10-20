@@ -8,8 +8,9 @@ result is seen, and each test below accounts for every member of it.
 Input: a T x K matrix R of per-period returns of K variants on the same dates, and an
 optional benchmark return series (default: zero, "no variant beats cash"). Losses are
 L = -r, so the performance of variant k relative to the benchmark on day t is the return
-differential d_kt = r_kt - r_bench,t (Hansen 2005, Sec. 2). Rows with a non-finite entry
-in any column or in the benchmark are dropped.
+differential d_kt = r_kt - r_bench,t (Hansen 2005, Sec. 2). A benchmark Series is paired
+with a DataFrame R by index; arrays must already be aligned row for row. Rows with a
+non-finite entry in any column or in the benchmark are dropped.
 
 Methods:
   - Stationary bootstrap (Politis & Romano 1994): resamples are concatenations of blocks
@@ -190,7 +191,14 @@ def _resampled_moments(e: np.ndarray, block: float, reps: int, rng, natural_vari
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _differentials(R, benchmark):
-    """(model names, T x K differentials r_k - r_bench) on the rows finite everywhere."""
+    """(model names, T x K differentials r_k - r_bench, zero tolerance) on the rows finite
+    everywhere.
+
+    The tolerance below which a differential's dispersion (or mean) counts as zero is
+    1e-12 of the largest return in R or the benchmark: a variant that equals the
+    benchmark up to rounding (a copy rescaled to unit volatility) has a differential of
+    pure rounding noise, whose t-ratio would otherwise be an arbitrary O(1) number.
+    """
     if isinstance(R, pd.DataFrame):
         names = list(R.columns)
         X = R.to_numpy(dtype=float)
@@ -201,6 +209,8 @@ def _differentials(R, benchmark):
         names = list(range(X.shape[1]))
     if X.ndim != 2 or X.shape[1] < 1:
         raise ValueError("R must be a T x K matrix of returns")
+    if isinstance(benchmark, pd.Series) and isinstance(R, pd.DataFrame):
+        benchmark = benchmark.reindex(R.index)          # pair by date, not by position
     b = np.zeros(X.shape[0]) if benchmark is None else np.asarray(benchmark, dtype=float).ravel()
     if b.shape[0] != X.shape[0]:
         raise ValueError("benchmark must have one return per row of R (align dates first)")
@@ -208,7 +218,8 @@ def _differentials(R, benchmark):
     d = X[keep] - b[keep, None]
     if d.shape[0] < 20:
         raise ValueError(f"need at least 20 finite rows, got {d.shape[0]}")
-    return names, d
+    scale = max(float(np.max(np.abs(X[keep]))), float(np.max(np.abs(b[keep]))), 1e-300)
+    return names, d, 1e-12 * scale
 
 
 def _ratio(num: np.ndarray, den: np.ndarray, tol: float) -> np.ndarray:
@@ -222,11 +233,10 @@ def _ratio(num: np.ndarray, den: np.ndarray, tol: float) -> np.ndarray:
                         np.where(np.abs(num) > tol, np.sign(num) * np.inf, 0.0))
 
 
-def _tolerance(d: np.ndarray) -> float:
-    return 1e-12 * max(float(np.max(np.abs(d))), 1e-300)
-
-
-def _block(d: np.ndarray, block) -> int:
+def _block(d: np.ndarray, block, reps: int) -> int:
+    """The block rule (block=None) or the given block; also checks reps."""
+    if reps < 1:
+        raise ValueError("reps must be at least 1")
     return stationary_block_length(d) if block is None else int(max(1, block))
 
 
@@ -251,17 +261,18 @@ def spa_test(R, benchmark=None, block: int = None, reps: int = 10_000, seed: int
     returns when every variant is far behind.
 
     White (2000) Reality Check: the non-studentized upper p-value,
-      V = max_k sqrt(T) dbar_k,  V* = max_k sqrt(T) (dbar*_k - dbar_k),  p = #{V* > V} / reps.
+      V = max_k sqrt(T) dbar_k,  V* = max_k sqrt(T) (dbar*_k - dbar_k),  p = #{V* >= V} / reps
+    (ties count as exceedances, as in the SPA: a family identical to the benchmark has
+    V = V* = 0 and p = 1, not 0).
     Studentization matters when the variants' volatilities differ: the Reality Check is
     driven by the most volatile variant, the SPA by the most significant one.
 
     block=None applies the block rule (stationary_block_length) to the differentials.
     Returns p-values, the statistics, the best variant (largest t_k) and the settings.
     """
-    names, d = _differentials(R, benchmark)
+    names, d, tol = _differentials(R, benchmark)
     T, K = d.shape
-    block = _block(d, block)
-    tol = _tolerance(d)
+    block = _block(d, block, reps)
     dbar = d.mean(axis=0)
     omega = np.sqrt(np.maximum(stationary_bootstrap_lrv(d, block), 0.0))
     t = _ratio(np.sqrt(T) * dbar, omega, tol)
@@ -285,7 +296,7 @@ def spa_test(R, benchmark=None, block: int = None, reps: int = 10_000, seed: int
     return {
         'pvalues': pvalues,
         'statistic': stat,
-        'reality_check': {'pvalue': float(np.mean(rc_star > rc_stat)), 'statistic': rc_stat},
+        'reality_check': {'pvalue': float(np.mean(rc_star >= rc_stat)), 'statistic': rc_stat},
         'best_model': names[best],
         'best_tstat': float(t[best]),
         'benchmark': 'zero' if benchmark is None else 'series',
@@ -307,21 +318,24 @@ def romano_wolf(R, benchmark=None, block: int = None, reps: int = 10_000, seed: 
     resample,
         t*_k = sqrt(T) (dbar*_k - dbar_k) / sigma*_k,
     with sigma*_k the resample's natural block-bootstrap standard deviation (Götze &
-    Künsch 1996; see _resampled_moments), whose bootstrap expectation matches omega_k.
+    Künsch 1996; see _resampled_moments): sigma*_k^2 has bootstrap expectation close to
+    omega_k^2.
     Adjusted p-values by Romano & Wolf (2016), Algorithm 4.1: with the variants ordered
     t_(1) >= ... >= t_(K) and max*_j = max over the remaining variants (j..K) of t*,
-        p_init_(j) = (#{max*_j > t_(j)} + 1) / (reps + 1),
+        p_init_(j) = (#{max*_j >= t_(j)} + 1) / (reps + 1),
         p_adj_(j) = max(p_init_(j), p_adj_(j-1))    (monotonicity, their Remark 4.1).
     A variant is rejected at FWER alpha iff p_adj <= alpha. 'p_raw' is the unadjusted
-    bootstrap p-value of each variant alone (their eq. 2.1).
+    bootstrap p-value of each variant alone (their eq. 2.1). Ties count as exceedances
+    (Davison & Hinkley 1997, Ch. 4; RW write '>', the same for continuous statistics):
+    a variant identical to the benchmark — one that never trades, against zero — has
+    t = t* = 0 on every resample and must get p = 1, not 1 / (reps + 1).
 
     Returns {'table': DataFrame indexed by model (mean_diff per period, tstat, p_raw,
     p_adjusted, rejected), 'rejected': names, 'alpha', 'n', 'k', 'block', 'reps', 'seed'}.
     """
-    names, d = _differentials(R, benchmark)
+    names, d, tol = _differentials(R, benchmark)
     T, K = d.shape
-    block = _block(d, block)
-    tol = _tolerance(d)
+    block = _block(d, block, reps)
     dbar = d.mean(axis=0)
     omega = np.sqrt(np.maximum(stationary_bootstrap_lrv(d, block), 0.0))
     t = _ratio(np.sqrt(T) * dbar, omega, tol)
@@ -331,10 +345,10 @@ def romano_wolf(R, benchmark=None, block: int = None, reps: int = 10_000, seed: 
 
     order = np.argsort(-t, kind='stable')
     remaining_max = np.maximum.accumulate(t_star[:, order][:, ::-1], axis=1)[:, ::-1]
-    p_init = (np.sum(remaining_max > t[order][None, :], axis=0) + 1.0) / (reps + 1.0)
+    p_init = (np.sum(remaining_max >= t[order][None, :], axis=0) + 1.0) / (reps + 1.0)
     p_adj = np.empty(K)
     p_adj[order] = np.maximum.accumulate(p_init)
-    p_raw = (np.sum(t_star > t[None, :], axis=0) + 1.0) / (reps + 1.0)
+    p_raw = (np.sum(t_star >= t[None, :], axis=0) + 1.0) / (reps + 1.0)
     table = pd.DataFrame({'mean_diff': dbar, 'tstat': t, 'p_raw': p_raw,
                           'p_adjusted': p_adj, 'rejected': p_adj <= alpha},
                          index=pd.Index(names, name='model'))
@@ -370,6 +384,25 @@ def sharpe_losses(R):
     return L
 
 
+def _distinct_columns(L: np.ndarray, rel_tol: float = 1e-9):
+    """Group the columns of L that are equal up to rounding.
+
+    Returns (representatives, rep_of): the first column of each group, in column order,
+    and for every column the position of its group in that list. Columns are equal when
+    they differ nowhere by more than rel_tol times the largest absolute entry of L.
+    """
+    tol = rel_tol * max(float(np.max(np.abs(L))), 1e-300)
+    unique, rep_of = [], []
+    for k in range(L.shape[1]):
+        match = next((g for g, u in enumerate(unique)
+                      if np.max(np.abs(L[:, k] - L[:, u])) <= tol), None)
+        if match is None:
+            match = len(unique)
+            unique.append(k)
+        rep_of.append(match)
+    return unique, rep_of
+
+
 def model_confidence_set(losses, size: float = 0.10, method: str = 'R', block: int = None,
                          reps: int = 10_000, seed: int = 42) -> dict:
     """Hansen, Lunde & Nason (2011) Model Confidence Set at level 1 - size.
@@ -385,9 +418,11 @@ def model_confidence_set(losses, size: float = 0.10, method: str = 'R', block: i
     dropped. block=None applies stationary_block_length to the loss columns.
 
     Two guards around arch 7.2.0:
-      * identical columns (e.g. a variant and a scaled copy, after volatility
-        normalisation) make method 'R' divide 0 by 0 and fail; they are tested once and
-        every copy gets the representative's p-value;
+      * identical columns (a toggle that never fires; a variant and a scaled copy, after
+        volatility normalisation, which agree only to rounding) leave method 'R' a loss
+        differential without dispersion and make it fail; columns equal to within
+        1e-9 of the largest loss are tested once and every copy gets the
+        representative's p-value;
       * HLN define the MCS as {i: p_i >= size}; arch's .included uses p_i > size, so the
         set is formed here from the p-values.
     A wide MCS means "not distinguishable", not "equally good"; report the family.
@@ -411,13 +446,7 @@ def model_confidence_set(losses, size: float = 0.10, method: str = 'R', block: i
         raise ValueError(f"need at least 20 finite rows, got {L.shape[0]}")
     block = stationary_block_length(L) if block is None else int(max(1, block))
 
-    representative, unique = {}, []
-    for k in range(L.shape[1]):
-        key = L[:, k].tobytes()
-        if key not in representative:
-            representative[key] = len(unique)
-            unique.append(k)
-    rep_of = [representative[L[:, k].tobytes()] for k in range(L.shape[1])]
+    unique, rep_of = _distinct_columns(L)
     if len(unique) == 1:
         p_unique = np.ones(1)
     else:

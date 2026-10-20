@@ -128,7 +128,7 @@ def _brute_spa(d, block, reps, seed):
                     ('upper', dbar)):
         t_star = np.maximum((np.sqrt(T) * (star - g) / omega).max(axis=1), 0)
         p[rule] = np.mean(t_star >= stat)
-    rc = np.mean(np.sqrt(T) * (star - dbar).max(axis=1) > np.sqrt(T) * dbar.max())
+    rc = np.mean(np.sqrt(T) * (star - dbar).max(axis=1) >= np.sqrt(T) * dbar.max())
     return p, rc
 
 
@@ -193,6 +193,10 @@ def test_spa_benchmark_alignment_and_validation():
     as_diff = spa_test(R.to_numpy() - bench[:, None], reps=800)
     assert with_bench['pvalues'] == as_diff['pvalues']
     assert with_bench['best_model'] in ('a', 'b', 'c') and with_bench['benchmark'] == 'series'
+    # a benchmark Series is paired with R by date, not by position
+    dated = R.set_axis(pd.bdate_range('2024-01-02', periods=300))
+    shuffled = pd.Series(bench, index=dated.index).sample(frac=1.0, random_state=0)
+    assert spa_test(dated, benchmark=shuffled, reps=800)['pvalues'] == with_bench['pvalues']
     holed = R.copy()
     holed.iloc[5, 1] = np.nan
     assert spa_test(holed, reps=100)['n'] == 299
@@ -213,6 +217,33 @@ def test_identical_and_constant_differentials():
     out = spa_test(sure, reps=300)
     assert out['best_model'] == 0 and out['best_tstat'] == np.inf
     assert out['pvalues']['consistent'] == 0.0
+
+
+def test_a_differential_of_rounding_noise_is_no_evidence():
+    """The benchmark rescaled (here to unit volatility after running it at 1.7x) differs
+    from it only by rounding (|d| <= 4e-16): its t-ratio is 0, not the O(1) ratio of two
+    rounding errors (2.0 on this draw)."""
+    rng = np.random.default_rng(2)
+    b = rng.normal(1.5e-3, 0.01, 750)
+    lev = 1.7 * b
+    bench = b / b.std(ddof=1)
+    R = np.column_stack([lev / lev.std(ddof=1), bench + rng.normal(0.0, 0.5, 750)])
+    assert 0 < np.abs(R[:, 0] - bench).max() < 1e-15
+    rw = romano_wolf(R, benchmark=bench, reps=300)['table']
+    assert rw.loc[0, 'tstat'] == 0.0 and rw.loc[0, 'p_raw'] == 1.0
+    only = spa_test(R[:, :1], benchmark=bench, reps=300)
+    assert only['best_tstat'] == 0.0 and only['pvalues']['consistent'] == 1.0
+
+
+def test_a_variant_that_never_trades_is_not_a_discovery():
+    """Zero returns against the zero benchmark: t = 0 and every bootstrap t* = 0. With
+    strict '>' counts the stepdown gave p = 1 / (reps + 1) and rejected it, and the
+    Reality Check gave p = 0."""
+    flat = np.zeros((400, 1))
+    rw = romano_wolf(flat, reps=500)
+    assert rw['rejected'] == [] and rw['table'].loc[0, 'p_adjusted'] == 1.0
+    spa = spa_test(flat, reps=500)
+    assert spa['reality_check']['pvalue'] == 1.0 and spa['pvalues']['consistent'] == 1.0
 
 
 # ── Romano-Wolf stepdown ─────────────────────────────────────────────────────
@@ -241,7 +272,7 @@ def _brute_romano_wolf(d, block, reps, seed):
     order = np.argsort(-t)
     p_adj, previous = np.empty(K), 0.0
     for j, k in enumerate(order):
-        p_init = (np.sum(t_star[:, order[j:]].max(axis=1) > t[k]) + 1) / (reps + 1)
+        p_init = (np.sum(t_star[:, order[j:]].max(axis=1) >= t[k]) + 1) / (reps + 1)
         previous = max(previous, p_init)
         p_adj[k] = previous
     return t, p_adj
@@ -336,6 +367,22 @@ def test_mcs_survives_duplicate_models():
     assert ('m0_copy' in out['included']) == ('m0' in out['included'])
     single = model_confidence_set(pd.DataFrame({'a': L['m1'], 'b': L['m1']}), reps=100)
     assert single['pvalues'] == {'a': 1.0, 'b': 1.0}
+
+
+@pytest.mark.parametrize('method', ['R', 'max'])
+def test_mcs_survives_a_scaled_copy_after_volatility_normalisation(method):
+    """A variant at 1.5x the size of another has the same Sharpe losses only up to
+    rounding (|diff| ~ 4e-16); arch 7.2.0's method 'R' failed on such a pair (on 11 of
+    20 seeds of this design when only exact copies were merged)."""
+    for seed in range(4):
+        rng = np.random.default_rng(seed)
+        R = pd.DataFrame(rng.normal(2e-4, 0.01, (500, 3)), columns=list('abc'))
+        R['a_x1.5'] = 1.5 * R['a']
+        L = sharpe_losses(R)
+        assert 0 < (L['a'] - L['a_x1.5']).abs().max() < 1e-14
+        out = model_confidence_set(L, method=method, reps=300)
+        assert out['pvalues']['a_x1.5'] == out['pvalues']['a']
+        assert set(out['pvalues']) == set(R.columns)
 
 
 def test_mcs_includes_a_model_whose_pvalue_equals_the_size(monkeypatch):
