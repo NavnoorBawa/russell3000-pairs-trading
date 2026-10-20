@@ -81,8 +81,11 @@ jobs:
 
       - name: Install dev tooling
         # Test/lint tools are deliberately unpinned — they are not part of the
-        # reproducibility claim that requirements.txt encodes.
-        run: pip install pytest pytest-cov ruff
+        # reproducibility claim that requirements.txt encodes. arch is a test-only oracle
+        # (tests/test_reference_implementations.py checks the block-length estimator against
+        # it); its requirements are already met by the pins, so pip's default only-if-needed
+        # strategy leaves the pinned numpy/scipy/pandas/statsmodels untouched.
+        run: pip install pytest pytest-cov ruff arch
 
       - name: Dependency vulnerability scan (pip-audit)
         # CodeQL analyses source code; it does not look at the dependency manifest.
