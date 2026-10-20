@@ -127,6 +127,8 @@ universe: data/marketcap.csv (3,000 largest US common stocks) · daily OHLCV 202
   ├─ Pair selection — formation data to 2022-12-31 only
   │    screens on point-in-time (split-unadjusted) price and dollar volume; 300 most liquid
   │    positive return correlation ≥ 0.25 · two-direction Engle-Granger p < 0.05 (Bonferroni)
+  │    (fast_coint.py: statsmodels' coint re-implemented in numpy, same statistic to ~1e-13, ~20x faster;
+  │    the all-pairs search runs over PAIRS_N_JOBS processes with an identical result)
   │    half-life 4–25 days on the cointegrating spread · heuristic quality score
   │    PCA (5 factors) residual cointegration → quality bonus · Benjamini-Hochberg diagnostic
   │    re-selection every 90 trading days: 2-year re-test + 126-day check (p ≤ 0.30)
@@ -272,6 +274,7 @@ PAIRS_FILL=open python -m pairs_trading.main > logs/backtest_open.log 2>&1      
 | `PAIRS_USE_TRANSFORMER` | 1 | `0` skips ranker training: classical ranking on the same code path |
 | `PAIRS_FILL` | close | `open` fills at the next bar's open instead of its close |
 | `PAIRS_RESELECT` | pool | `full` re-runs the complete pair search at every re-selection |
+| `PAIRS_N_JOBS` | min(4, CPUs) | worker processes for the all-pairs search (`1`: in the main process); the selection is identical for any value |
 | `PAIRS_ALLOW_PARTIAL_FETCH` | unset | `1` accepts price data covering < 90% of the universe (a partial fetch, or loading a v32 cache built from one); such a run is a variant. A pre-v32 cache has no fetch manifest: its coverage cannot be checked, only that it holds at least half the universe |
 | `PAIRS_DEMO_UNIVERSE` | unset | `1` uses an 85-symbol smoke-test universe when `data/marketcap.csv` is absent (does not reproduce the study) |
 | `PAIRS_SKIP_REPROCESS` | unset | `1` loads the price cache verbatim |

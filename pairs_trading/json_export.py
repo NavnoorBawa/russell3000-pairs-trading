@@ -54,7 +54,8 @@ DEFAULT_HEADLINE_PATH = os.path.join(OUTPUT_DIR, 'headline_metrics.json')
 # The price cache data_processor reads (cwd-relative, exactly as the pipeline opens it).
 DATA_CACHE_FILE = os.path.join('data', 'enhanced_russell_3000_data.pkl')
 
-# Environment switches that change what a run computes; recorded verbatim (None = unset).
+# Environment switches a run reads; recorded verbatim (None = unset). All but PAIRS_N_JOBS
+# change what a run computes; PAIRS_N_JOBS only spreads the pair search over processes.
 PROVENANCE_ENV_VARS = (
     'PAIRS_PROFILE', 'PAIRS_CALENDAR', 'PAIRS_SEED', 'PAIRS_FILL', 'PAIRS_USE_TRANSFORMER',
     'PAIRS_RANKER', 'PAIRS_RESELECT', 'PAIRS_DEMO_UNIVERSE', 'PAIRS_SKIP_REPROCESS',
