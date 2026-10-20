@@ -425,9 +425,14 @@ def test_reconstruction_reproduces_the_engines_trades_and_daily_paths(synthetic_
         for day, unit in t['unit_path']:
             engine_daily[panel.calendar.get_loc(pd.Timestamp(day))] += unit * t['position_size']
     np.testing.assert_allclose(rec['daily_gross_usd'], engine_daily, atol=0.01)
-    daily = A.daily_series(exported, trades, rec, panel)
+    # without a daily gross/cost split in the export (v32), the split is rebuilt and checked
+    bare = {**exported, 'daily_equity_curve': [{k: v for k, v in d.items() if k not in ('gross_return_pct', 'cost_pct')}
+                                               for d in exported['daily_equity_curve']]}
+    daily = A.daily_series(bare, trades, rec, panel)
     assert daily['source'] == 'reconstructed' and daily['check']['verified'], daily['check']
     assert daily['check']['implied_cost_usd'] == pytest.approx(res['total_transaction_costs'], abs=1.0)
+    if 'gross_return_pct' in exported['daily_equity_curve'][0]:          # exports that carry it
+        assert A.daily_series(exported, trades, rec, panel)['check']['verified']
 
 
 def test_impact_repricing_reproduces_the_exported_impact(synthetic_run):

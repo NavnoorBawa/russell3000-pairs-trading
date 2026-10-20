@@ -132,7 +132,7 @@ def main(argv=None) -> int:
         earlier = json.loads(pathlib.Path(args.persistence_from).read_text())
         if (earlier.get('source') or {}).get('price_cache', {}).get('sha256') != prices_fp['sha256']:
             raise SystemExit(f"{args.persistence_from} was computed on a different price cache")
-        table = (earlier.get('persistence_detail') or earlier.get('persistence') or {}).get('clegg')
+        table = (earlier.get('persistence_detail') or {}).get('clegg')
         if table:
             persistence[table['universe_cutoff']] = table
     if not args.skip_persistence:
