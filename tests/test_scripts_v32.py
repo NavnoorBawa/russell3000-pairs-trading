@@ -499,3 +499,29 @@ def test_site_and_readme_list_the_same_limitations():
     assert len(readme) == len(page) and len(readme) >= 8, (readme, page)
     norm = [lambda s: re.sub(r'\W+', ' ', s).lower().strip()]
     assert [norm[0](x) for x in readme] == [norm[0](x) for x in page], list(zip(readme, page))
+
+
+def test_cost_sensitivity_reruns_the_same_trades_under_each_scenario(monkeypatch):
+    """Every scenario trades the same signals; costs only move in the declared direction,
+    and the cost model is restored afterwards."""
+    from tests.synthetic_market import build_system, make_market
+    cs = _load('cost_sensitivity')
+    monkeypatch.setenv('PAIRS_PROFILE', 'v33')
+    frames, macro, _ = make_market(n_pairs=4, n_noise=2, seed=3)
+    system = build_system(frames, macro)
+    before = (system.cost_model.market_impact_coefficient, system.cost_model.gc_borrow_rate,
+              system.initial_capital)
+    report = cs.run('v33', 'dev', system=system)
+    rows = {r['label']: r for r in report['scenarios']}
+    assert set(rows) == {'headline'} | {s[1] for s in cs.SCENARIOS}
+    head = rows['headline']
+    assert head['trades'] > 0
+    assert rows['Y=0.6']['total_cost_pct_of_capital'] > head['total_cost_pct_of_capital']
+    assert rows['Y=1.0']['total_cost_pct_of_capital'] > rows['Y=0.6']['total_cost_pct_of_capital']
+    assert rows['borrow 3%']['total_cost_pct_of_capital'] > rows['borrow 1%']['total_cost_pct_of_capital'] \
+        > head['total_cost_pct_of_capital']
+    assert rows['$5B']['avg_max_leg_adv_participation_pct'] > head['avg_max_leg_adv_participation_pct'] \
+        > rows['$10M']['avg_max_leg_adv_participation_pct']
+    assert rows['$5B']['mean_cost_bp_of_gross_notional'] > rows['$10M']['mean_cost_bp_of_gross_notional']
+    assert (system.cost_model.market_impact_coefficient, system.cost_model.gc_borrow_rate,
+            system.initial_capital) == before
