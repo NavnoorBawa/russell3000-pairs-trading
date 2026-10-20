@@ -164,6 +164,11 @@ class CompleteFixedRussell3000TradingSystem:
     # it always bound first (an effective cut of 0.20-0.25), so the documented 0.30 never
     # decided anything.
     RESEL_RECENT_MAX_P = 0.30
+    # Disclosed count of strategy configurations explored across the project's versioned
+    # history (v1-v32, docs/PROGRESS.md); drives the Deflated Sharpe and the Bonferroni
+    # hurdle. A lower bound: configurations tried within a version are not counted (the
+    # declared variant family, results/variant_family/, measures that separately).
+    N_TRIALS = 32
     # Ranking-model training samples (see build_outcome_samples).
     LABEL_STEP, LABEL_MAX_SAMPLES = 2, 15000
 
@@ -2043,10 +2048,7 @@ class CompleteFixedRussell3000TradingSystem:
                 daily_returns=results.get('daily_returns', []),
                 oos_window_returns=[w['total_return_pct'] / 100.0 for w in clean],
                 oos_daily_returns=wf_summary.get('oos_daily_returns', []),
-                # disclosed count of strategy configurations explored across the project's
-                # versioned history (v1-v32, docs/PROGRESS.md); drives the Deflated Sharpe.
-                # A lower bound: configurations tried within a version are not counted.
-                n_trials=32,
+                n_trials=self.N_TRIALS,
             )
             log_significance_report(sig)
             results['significance'] = sig
@@ -2091,6 +2093,14 @@ class CompleteFixedRussell3000TradingSystem:
             results.setdefault('pipeline_errors', []).append(f"benchmarks: {e}")
 
         results['factor_attribution'] = self._factor_attribution(results, oos_dates, oos_rets)
+        try:
+            from pairs_trading.evidence import build_evidence, load_factors
+            factors, fingerprint, error = load_factors()
+            results['evidence'] = build_evidence(results, n_trials=self.N_TRIALS, factors=factors,
+                                                 factor_fingerprint=fingerprint, factor_error=error)
+        except Exception as e:
+            logger.error(f"Evidence layer failed: {e}", exc_info=True)
+            results.setdefault('pipeline_errors', []).append(f"evidence: {e}")
         results['regime_diagnosis'] = self.diagnose_regime_break('2023-04-04', '2023-07-05')
 
         logger.info("Starting the cost-schedule replay...")

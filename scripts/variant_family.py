@@ -21,7 +21,11 @@ re-selection schedule); variants that change selection re-run it.
 
 usage:
   python scripts/variant_family.py run       [--out results/variant_family] [--only NAME ...]
-  python scripts/variant_family.py analyse   [--out results/variant_family]
+  python scripts/variant_family.py analyse   --base-run DIR [--out results/variant_family] [--reps 10000]
+
+`analyse` reads the family matrix written by `run` and the base run's exports (DIR: its
+results JSON, for the Gatev benchmark series, and its cost-schedule JSON) and writes
+snooping.json: scripts/stats_battery.py's battery on the family plus PBO by CSCV.
 """
 import argparse
 import dataclasses
@@ -128,20 +132,45 @@ def run(out_dir: pathlib.Path, only=None) -> None:
     log.warning(f"{len(rows)} variants -> {out_dir / 'daily_returns.csv'}")
 
 
+def analyse(out_dir: pathlib.Path, base_run: pathlib.Path, reps: int = 10_000, seed: int = 42) -> dict:
+    """The data-snooping battery on the declared family (see the module docstring)."""
+    import importlib.util
+    from pairs_trading.significance import pbo_cscv
+    spec = importlib.util.spec_from_file_location('stats_battery', ROOT / 'scripts' / 'stats_battery.py')
+    sb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sb)
+    family = pd.read_csv(out_dir / 'daily_returns.csv', index_col=0)
+    family.index = [str(d)[:10] for d in family.index]
+    published = sb.load_published_series(base_run / 'pairs_trading_results_2023_2025_unbiased.json',
+                                         base_run / 'fund_type_comparison.json')
+    report = sb.run_battery(published['strategy'], family, n_tests=family.shape[1], reps=reps,
+                            seed=seed, benchmark='gatev', benchmark_series=published.get('gatev'))
+    try:
+        report['pbo'] = pbo_cscv(family.to_numpy(), n_splits=10)
+    except ValueError as e:
+        report['pbo'] = {'error': str(e)}
+    report['declared_family'] = {'declaration': str(DECLARATION.relative_to(ROOT)), 'variants': list(family.columns),
+                        'days': int(len(family)), 'base_run': str(base_run)}
+    return report
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('command', choices=('run', 'analyse'))
     ap.add_argument('--out', default=str(ROOT / 'results' / 'variant_family'))
     ap.add_argument('--only', nargs='*', help='run only these variant names (debugging)')
+    ap.add_argument('--base-run', help='analyse: the base run\'s export directory')
+    ap.add_argument('--reps', type=int, default=10_000)
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.WARNING, format='%(message)s')
     out = pathlib.Path(args.out)
     if args.command == 'run':
         run(out, only=args.only)
     else:
-        from pairs_trading.variant_analysis import analyse_family
-        report = analyse_family(out)
-        (out / 'snooping.json').write_text(json.dumps(report, indent=1, allow_nan=False))
+        if not args.base_run:
+            ap.error('analyse needs --base-run')
+        report = analyse(out, pathlib.Path(args.base_run), reps=args.reps)
+        (out / 'snooping.json').write_text(json.dumps(report, indent=1, allow_nan=False, default=float))
     return 0
 
 

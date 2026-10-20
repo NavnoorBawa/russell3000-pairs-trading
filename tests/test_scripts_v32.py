@@ -9,6 +9,7 @@ import os
 import subprocess
 import sys
 
+import numpy as np
 import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -551,3 +552,81 @@ def test_publish_run_copies_exports_with_a_manifest_and_a_clean_log(tmp_path):
     assert m['price_cache'] == {'sha256': 'f00'}
     assert m['files']['results.json']['sha256'] == hashlib.sha256(b'{"x": 1}').hexdigest()
 
+
+
+def test_holdout_evaluation_holm_and_one_sided_test():
+    """The pre-registered decision rule: one-sided HAC t (mean > 0), Holm across strategies."""
+    ev = _load('evaluate_holdout')
+    # Holm (1979): sorted p (0.01, 0.02, 0.04) x (3, 2, 1) = (0.03, 0.04, 0.04), monotone
+    assert ev.holm({'a': 0.04, 'b': 0.01, 'c': 0.02}) == pytest.approx({'a': 0.04, 'b': 0.03, 'c': 0.04})
+    assert ev.holm({'a': 0.5, 'b': 0.6}) == pytest.approx({'a': 1.0, 'b': 1.0})
+    rng = np.random.default_rng(0)
+    up = rng.normal(0.004, 0.01, 200)           # strongly positive mean: rejects
+    down = -up                                  # mirror image: one-sided p near 1, not 0
+    flat = rng.normal(0.0, 0.01, 200)
+    assert ev.one_sided_test(up)['p_one_sided'] < 0.001
+    assert ev.one_sided_test(down)['p_one_sided'] > 0.999
+    rep = ev.evaluate({'up': {'net': list(up)}, 'down': {'net': list(down)}, 'flat': {'net': list(flat)}})
+    s = rep['strategies']
+    assert s['up']['edge_out_of_sample'] and not s['down']['edge_out_of_sample']
+    assert s['up']['p_holm'] == pytest.approx(min(1.0, 3 * s['up']['p_one_sided']))
+    for row in s.values():
+        assert row['days'] == 200 and row['bootstrap_ci_95'][0] < row['sharpe'] < row['bootstrap_ci_95'][1]
+        assert row['min_detectable_sharpe'] > 0 and row['upper_bound_95'] > row['sharpe']
+
+
+def test_variant_family_is_the_declared_one_and_its_analysis_runs(tmp_path):
+    """The run list is exactly the declaration (27-point grid first, then each toggle once),
+    and the snooping battery + PBO run on a family matrix against a published base run."""
+    vf = _load('variant_family')
+    decl = json.loads((vf.DECLARATION).read_text())
+    vs = vf.variants(decl)
+    assert len(vs) == 27 + len(decl['toggles']) == 38
+    assert len({v['name'] for v in vs}) == len(vs)
+    assert all(v['name'].startswith('grid ') for v in vs[:27])
+    assert vs[27]['name'] == decl['toggles'][0]['name']
+    base = os.path.join(REPO, 'results', 'v32_dev')
+    res = json.load(open(os.path.join(base, 'pairs_trading_results_2023_2025_unbiased.json')))
+    days = res['daily_equity_curve']
+    r = np.array([d['daily_return_pct'] / 100 for d in days])
+    rng = np.random.default_rng(0)
+    pd = pytest.importorskip('pandas')
+    pd.DataFrame({f'v{k}': r + rng.normal(0, 5e-4, len(r)) for k in range(4)},
+                 index=[d['date'] for d in days]).to_csv(tmp_path / 'daily_returns.csv', index_label='date')
+    import pathlib
+    rep = vf.analyse(tmp_path, pathlib.Path(base), reps=50)
+    assert rep['declared_family']['variants'] == ['v0', 'v1', 'v2', 'v3']
+    assert 0.0 <= rep['family']['spa_vs_zero']['pvalues']['consistent'] <= 1.0
+    assert 0.0 <= rep['pbo']['pbo'] <= 1.0 and rep['pbo']['n_configurations'] == 4
+
+
+def test_trial_registry_appends_once_per_name(tmp_path):
+    """register_trial: one JSON line per trial with the run's provenance and numbers, the
+    holdout's test outcome, and a refusal to register a name twice (the file is append-only)."""
+    rt = _load('register_trial')
+    reg = tmp_path / 'trial_registry.jsonl'
+    run_dir = os.path.join(REPO, 'results', 'v32_dev')
+    import datetime as dt
+    import pathlib
+    e = rt.register('v32_dev', [run_dir], path=reg, head='abc',
+                    now=dt.datetime(2026, 10, 20, tzinfo=dt.timezone.utc))
+    assert e['registered_utc'] == '2026-10-20T00:00:00+00:00' and e['head'] == 'abc'
+    run = e['runs'][0]
+    head = json.load(open(os.path.join(run_dir, 'headline_metrics.json')))
+    assert run['dir'] == 'results/v32_dev' and run['git_commit'] == head['run_config']['git_commit']
+    assert run['main']['sharpe'] == head['main']['sharpe'] and run['main']['trades'] == head['main']['trades']
+    assert run['price_cache_sha256'] == head['run_config']['data']['price_cache']['sha256']
+    ev = tmp_path / 'evaluation.json'
+    ev.write_text(json.dumps({'alpha': 0.05, 'test': 't', 'strategies': {
+        'v33_pairs': {'days': 198, 'sharpe': 0.4, 't': 0.35, 'p_one_sided': 0.36, 'p_holm': 1.0,
+                      'edge_out_of_sample': False, 'bootstrap_ci_95': [-2, 3]}}}))
+    rt.register('holdout2026', evaluation=ev, prereg_commit='def', head='abc', path=reg)
+    lines = [json.loads(x) for x in reg.read_text().splitlines()]
+    assert [x['name'] for x in lines] == ['v32_dev', 'holdout2026']
+    s = lines[1]['evaluation']['strategies']['v33_pairs']
+    assert s['p_holm'] == 1.0 and s['edge_out_of_sample'] is False and 'bootstrap_ci_95' not in s
+    before = reg.read_text()
+    with pytest.raises(SystemExit, match='already registered'):
+        rt.register('holdout2026', path=reg)
+    assert reg.read_text() == before
+    assert pathlib.Path(rt.REGISTRY).name == 'trial_registry.jsonl'

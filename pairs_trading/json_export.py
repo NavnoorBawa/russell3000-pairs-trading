@@ -37,6 +37,7 @@ from pathlib import Path
 from pairs_trading.config import (
     pd, np, os, json, logging, datetime, List, Dict, Optional
 )
+from pairs_trading.evidence import headline_evidence
 from pairs_trading.study_config import PROFILES, describe as describe_study, get_calendar, get_profile
 
 logger = logging.getLogger(__name__)
@@ -684,6 +685,8 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
         # price history (count and index weight) — the survivorship gap, measured
         'universe_by_formation': list(results.get('universe_by_formation') or []),
         'factor_attribution': _as_dict(results.get('factor_attribution')),
+        # power, hurdles, gross-vs-net, cost curve, multi-factor attribution, cash (evidence.py)
+        'evidence': _as_dict(results.get('evidence')),
         # The learned ranker: how it was trained, and its out-of-sample skill (AUC 0.5 =
         # no information) on signals after its training window; walk-forward per-window
         # figures are in walk_forward_validation.windows[*].ranker_oos.
@@ -1298,7 +1301,20 @@ def build_headline_metrics(results: Dict, system_info: Dict = None,
                   'max_gross_leverage': _r(_as_dict(p).get('max_gross_leverage'), 2)}
             for key, p in funds.items()
         },
+        # what the run can and cannot show (pairs_trading/evidence.py)
+        'evidence': {k: _r(v, 4) for k, v in headline_evidence(_as_dict(results.get('evidence'))).items()},
+        # survivorship, measured: the point-in-time universe at the first formation date
+        'universe': _first_formation(results.get('universe_by_formation')),
     }
+
+
+def _first_formation(log) -> Dict:
+    """Members, members with prices and the missing index weight at the first formation."""
+    first = (log or [{}])[0] or {}
+    return {'formation_date': first.get('formation_date'), 'members': _int(first.get('members')),
+            'with_prices': _int(first.get('with_prices')),
+            'missing_value_weight_pct': _r(first.get('missing_value_weight'), 3, 100),
+            'unmapped_value_weight_pct': _r(first.get('unmapped_value_weight'), 3, 100)}
 
 
 def export_headline_metrics(results: dict, system_info: dict, path: str = None) -> str:
