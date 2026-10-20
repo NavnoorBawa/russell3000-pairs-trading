@@ -19,6 +19,8 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+# ...except the paper's build products, which are committed and checked against the data
+!paper/build/
 
 # Jupyter
 .ipynb_checkpoints/
