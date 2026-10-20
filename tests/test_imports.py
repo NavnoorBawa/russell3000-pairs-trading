@@ -19,6 +19,8 @@ MODULES = [
     "pairs_trading.transaction_costs",
     "pairs_trading.fund_profiles",
     "pairs_trading.significance",
+    "pairs_trading.power",
+    "pairs_trading.snooping",
     "pairs_trading.benchmark",
     "pairs_trading.json_export",
     "pairs_trading.plotting",

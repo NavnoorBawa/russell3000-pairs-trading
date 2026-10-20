@@ -19,6 +19,8 @@ Modules:
   learning — no policy network or value function exists)
 - transformer_encoder.py / transformer_agent.py: the ranking model
 - significance.py / benchmark.py: "is the edge real?" tests and baselines
+- power.py: power, minimum track record and the Sharpe ratios a sample rules out
+- snooping.py: SPA / Reality Check / Romano-Wolf / MCS over a declared variant family
 - json_export.py: JSON exports, run provenance and the headline-metrics snapshot
 - plotting.py: charts written to outputs/
 - main.py: command-line entry point
