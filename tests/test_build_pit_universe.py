@@ -210,6 +210,19 @@ def test_ticker_candidates():
     assert b.ticker_candidates(data) == ['XOM', 'BRK/B']
 
 
+def test_a_retired_numbered_currency_line_is_recovered():
+    """Carnival's CUSIP after its 2026 reorganisation: OpenFIGI lists only the numbered
+    currency lines CCL1USD / CCL1GBX on X1 (cached response); the US record of 'CCL' is the
+    successor issuer. Through v33 the digit kept the line from being a candidate: unmapped."""
+    ccl = _figi(('CCL1USD', 'X1'), ('CCL1GBX', 'X1'), name='CARNIVAL CORP')
+    assert b.choose_listing(ccl['data']) is None
+    assert b.ticker_candidates(ccl['data']) == ['CCL'] and b.pending_tickers(ccl) == ['CCL']
+    e = _resolve(ccl, us_lines={'CCL': [_us('CCL', 'CARNIVAL CORP LTD', 'BBG001S5PL01')]})
+    assert (e['status'], e['ticker'], e['matched_by']) == ('active', 'CCL', 'name')
+    e = _resolve(ccl, us_lines={'CCL': [_us('CCL', 'CENTURY CASINOS', 'SC9')]})     # not the same issuer
+    assert (e['status'], e['ticker']) == ('unmapped', None)
+
+
 def test_query_openfigi_two_passes_cached_and_resumable(tmp_path, monkeypatch):
     bodies = []
 

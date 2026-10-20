@@ -93,8 +93,9 @@ _USD_LINE = re.compile(r'([A-Z][A-Z0-9/.]{0,5})USD')
 # Bloomberg's tickers for retired securities: a placeholder, or the old symbol numbered.
 _PLACEHOLDER = re.compile(r'\d+D')
 _NUMBERED = re.compile(r'([A-Z][A-Z/.]*?)\d+')
-# Bloomberg's currency lines append the trading currency to the ticker (XOMCHF, HONGBP).
-_CCY_LINE = re.compile(r'([A-Z][A-Z/]{0,5}?)(USD|EUR|GBP|GBX|CHF|CAD|RUB|JPY|SEK|NOK|DKK|PLN|MXN|BRL|AUD|HKD|SGD|ZAR)')
+# Bloomberg's currency lines append the trading currency to the ticker (XOMCHF, HONGBP),
+# after the retired-symbol number when there is one (CCL1USD).
+_CCY_LINE = re.compile(r'([A-Z][A-Z0-9/]{0,6}?)(USD|EUR|GBP|GBX|CHF|CAD|RUB|JPY|SEK|NOK|DKK|PLN|MXN|BRL|AUD|HKD|SGD|ZAR)')
 
 _LEGAL_FORM = frozenset({'INC', 'CORP', 'CORPORATION', 'CO', 'COMPANY', 'LTD', 'LIMITED', 'PLC', 'HOLDINGS',
                          'HOLDING', 'HLDGS', 'GROUP', 'THE', 'NEW', 'OLD', 'NV', 'SA', 'AG', 'SE', 'LP', 'LLC',
@@ -228,12 +229,15 @@ def choose_listing(data):
 
 def ticker_candidates(data):
     """Possible US tickers of a security OpenFIGI lists only on non-US lines: each line's
-    ticker less a currency suffix (XOMCHF -> XOM, HONGBP -> HON), in result order."""
+    ticker less a currency suffix (XOMCHF -> XOM, HONGBP -> HON) and less Bloomberg's
+    number of a retired symbol (CCL1USD -> CCL), in result order."""
     out = []
     for d in data:
         t = (d.get('ticker') or '').strip()
         m = _CCY_LINE.fullmatch(t)
         base = m.group(1) if m else t
+        numbered = _NUMBERED.fullmatch(base)
+        base = numbered.group(1).rstrip('/.') if numbered else base
         if re.fullmatch(r'[A-Z]{1,5}(/[A-Z]{1,2})?', base) and base not in out:
             out.append(base)
     return out
