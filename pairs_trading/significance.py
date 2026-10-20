@@ -315,7 +315,9 @@ def politis_white_block_length(x, bootstrap: str = 'circular') -> float:
     n = len(r)
     if n < 8 or _is_constant(r):          # np.std of a constant is rounding noise, not 0
         return 1.0
-    e = r - r.mean()
+    # b depends on the autocovariances only through scale-free ratios, so standardising is
+    # exact and keeps G^2 / g(0)^2 from underflowing for series of tiny magnitude
+    e = (r - r.mean()) / r.std()
     b_max = float(np.ceil(min(3.0 * np.sqrt(n), n / 3.0)))
     k_n = int(max(5, np.ceil(np.sqrt(np.log10(n)))))
     m_max = min(int(np.ceil(np.sqrt(n))) + k_n, n - 2)
