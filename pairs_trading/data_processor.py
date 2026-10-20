@@ -10,12 +10,21 @@ from pairs_trading.config import (
     concurrent, tqdm, List, Dict, Optional,
     MACRO_TICKERS, SECTOR_ETFS
 )
+from pairs_trading.study_config import SealedError, assert_unsealed
 
 logger = logging.getLogger(__name__)
 
 
 class SymbolNotFound(Exception):
     """The data vendor has no such symbol (HTTP 404): typically a delisted stock."""
+
+
+def _last_day(index) -> Optional[pd.Timestamp]:
+    """The last date of an index as a tz-naive day (local wall-clock date), None if empty."""
+    if len(index) == 0:
+        return None
+    ts = pd.Timestamp(index.max())
+    return (ts.tz_localize(None) if ts.tzinfo is not None else ts).normalize()
 
 
 class EnhancedRussell3000DataProcessor:
@@ -146,6 +155,8 @@ class EnhancedRussell3000DataProcessor:
             except SymbolNotFound:
                 status = 'not_found'
                 break
+            except SealedError:
+                raise
             except Exception as e:
                 status = f'error:{type(e).__name__}'
                 continue
@@ -164,8 +175,10 @@ class EnhancedRussell3000DataProcessor:
         v32: called directly. yfinance reads this same endpoint but first performs a
         cookie/crumb handshake that Yahoo now rate-limits (HTTP 429 on every call from a
         shared IP), so a full-universe fetch through yfinance failed on every symbol.
-        yfinance's optional price repair (repair=True) is not reproduced.
+        yfinance's optional price repair (repair=True) is not reproduced. Bars outside
+        [start_date, end_date] are dropped: the vendor's answer does not set the period.
         """
+        assert_unsealed(self.end_date)
         import requests
         start = int(pd.Timestamp(self.start_date, tz='UTC').timestamp())
         end = int(pd.Timestamp(self._fetch_end(), tz='UTC').timestamp())       # exclusive
@@ -208,6 +221,8 @@ class EnhancedRussell3000DataProcessor:
         has_price = df[['Open', 'High', 'Low', 'Close']].notna().any(axis=1)
         has_event = (df['Dividends'] != 0) | (df['Stock Splits'] != 0)
         df = df[has_price | has_event]
+        day = df.index.tz_localize(None)
+        df = df[(day >= pd.Timestamp(self.start_date)) & (day <= pd.Timestamp(self.end_date))].copy()
         df['Volume'] = df['Volume'].fillna(0.0)
         df.index.name = 'Date'
         return df
@@ -418,6 +433,11 @@ class EnhancedRussell3000DataProcessor:
         macro_file = self.macro_file
         if os.path.exists(macro_file):
             macro = self._load_pickle_or_raise(macro_file)
+            ends = [_last_day(s.index) for s in [macro.get('VIX', pd.Series(dtype=float)),
+                                                 *macro.get('sectors', {}).values()] if len(s)]
+            if ends and max(ends) > pd.Timestamp(self.end_date):
+                raise RuntimeError(f"{macro_file} runs to {max(ends).date()}, after this calendar's last "
+                                   f"date {self.end_date}: it belongs to another period")
             n_sec = len(macro.get('sectors', {}))
             logger.info(f"Loaded cached macro data: VIX ({len(macro.get('VIX', []))} days) + "
                         f"{n_sec} sector ETFs")
@@ -428,6 +448,7 @@ class EnhancedRussell3000DataProcessor:
                                "The regime gate treats missing days as calm.")
             return macro
 
+        assert_unsealed(self.end_date)
         logger.info(f"Fetching macro data: {MACRO_TICKERS}")
         macro = {'VIX': pd.Series(dtype=float), 'sectors': {}}
         rng = random.Random(0)
@@ -566,13 +587,7 @@ class EnhancedRussell3000DataProcessor:
                     "cache?). Delete it to re-fetch, or set PAIRS_ALLOW_PARTIAL_FETCH=1 to run "
                     "on it as a sensitivity variant.")
             return
-        # 'not_found' (no price history exists at the vendor: delisted) is a data limit, not a
-        # failed fetch; it is reported separately as the universe's not-found fraction.
-        bad = sum(1 for s in wanted
-                  if outcomes.get(s) not in ('short', 'invalid', 'not_found')
-                  and not (outcomes.get(s) == 'ok' and s in cached))
-        self.universe_not_found_fraction = sum(1 for s in wanted if outcomes.get(s) == 'not_found') / len(wanted)
-        self.universe_coverage = 1.0 - bad / len(wanted)
+        self.universe_coverage, self.universe_not_found_fraction = self._coverage(wanted, cached, outcomes)
         if self.universe_coverage < self.MIN_FETCH_COVERAGE and not allow:
             raise RuntimeError(
                 f"According to its fetch manifest ({manifest_path}), the price cache covers only "
@@ -581,8 +596,43 @@ class EnhancedRussell3000DataProcessor:
                 "fetch. Delete the cache and its manifest to re-fetch, or set "
                 "PAIRS_ALLOW_PARTIAL_FETCH=1 to run on it as a sensitivity variant.")
 
+    @staticmethod
+    def _coverage(wanted, cached, outcomes) -> tuple:
+        """(coverage, not-found fraction) of the universe `wanted` by a cache and its outcomes.
+
+        'not_found' (no price history exists at the vendor: delisted) is a data limit, not a
+        failed fetch; it is reported separately as the universe's not-found fraction.
+        """
+        wanted, cached = set(wanted), set(cached)
+        bad = sum(1 for s in wanted
+                  if outcomes.get(s) not in ('short', 'invalid', 'not_found')
+                  and not (outcomes.get(s) == 'ok' and s in cached))
+        not_found = sum(1 for s in wanted if outcomes.get(s) == 'not_found') / len(wanted)
+        return 1.0 - bad / len(wanted), not_found
+
+    def _check_cache_period(self, saved_data: Dict[str, pd.DataFrame]) -> None:
+        """A price cache belongs to one calendar: its manifest's period must be this one's and
+        no bar may lie after this calendar's last date (the engine does not truncate)."""
+        manifest_path = self.data_file.replace('.pkl', '_manifest.json')
+        try:
+            with open(manifest_path) as f:
+                manifest = json.load(f)
+        except (OSError, ValueError):
+            manifest = None                    # absent, or rejected by _check_cache_coverage
+        if isinstance(manifest, dict) and 'start' in manifest and \
+                (manifest.get('start'), manifest.get('end')) != (self.start_date, self.end_date):
+            raise RuntimeError(f"{manifest_path} describes {manifest.get('start')} -> {manifest.get('end')}, "
+                               f"not this calendar's {self.start_date} -> {self.end_date}: the cache "
+                               "belongs to another period")
+        end = pd.Timestamp(self.end_date)
+        late = sorted(s for s, df in saved_data.items() if len(df) and _last_day(df.index) > end)
+        if late:
+            raise RuntimeError(f"{len(late)} cached symbols have bars after {self.end_date} ({late[:5]}): "
+                               f"{self.data_file} belongs to another period")
+
     def _fetch_many(self, symbols: List[str], max_workers: int) -> Dict[str, pd.DataFrame]:
         """Fetch `symbols` concurrently; outcomes go to self.fetch_manifest. Sorted dict."""
+        assert_unsealed(self.end_date)
         results = {}
         with tqdm(total=len(symbols), desc="Fetching data", unit="symbol") as pbar:
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -607,7 +657,10 @@ class EnhancedRussell3000DataProcessor:
         built from the marketcap.csv universe, never fetched. Only symbols ABSENT from the
         fetch manifest are fetched (a recorded failure is not retried), over the cache's
         own date range, so the cache never grows into another period. The merged cache
-        and its manifest are rewritten together. A cache without a manifest is left alone.
+        and its manifest are rewritten together, and only when the merged cache passes the
+        coverage rule: a top-up that falls short (rate limiting, say) changes nothing, so a
+        re-run fetches the same symbols again instead of finding their failures recorded as
+        final. A cache without a manifest is left alone.
         """
         manifest_path = self.data_file.replace('.pkl', '_manifest.json')
         if not os.path.exists(manifest_path):
@@ -632,7 +685,14 @@ class EnhancedRussell3000DataProcessor:
         self.fetch_manifest = {}
         fetched = self._fetch_many(missing, max_workers)
         merged = dict(sorted({**saved_data, **fetched}.items()))
-        manifest['outcomes'] = dict(sorted({**outcomes, **self.fetch_manifest}.items()))
+        merged_outcomes = {**outcomes, **self.fetch_manifest}
+        coverage, _ = self._coverage(wanted, merged, merged_outcomes)
+        if coverage < self.MIN_FETCH_COVERAGE and os.environ.get('PAIRS_ALLOW_PARTIAL_FETCH') != '1':
+            raise RuntimeError(
+                f"Top-up: {len(fetched)}/{len(missing)} fetched, the merged cache would cover only "
+                f"{coverage:.1%} of the universe (threshold {self.MIN_FETCH_COVERAGE:.0%}). The cache and "
+                "its manifest were NOT changed: re-run later to fetch these symbols again.")
+        manifest['outcomes'] = dict(sorted(merged_outcomes.items()))
         manifest['cached_symbols'] = sorted(merged)
         manifest.setdefault('top_ups', []).append(
             {'fetched_at': pd.Timestamp.now(tz='UTC').isoformat(), 'attempted': len(missing),
@@ -659,6 +719,7 @@ class EnhancedRussell3000DataProcessor:
             # verbatim and `symbols` was ignored, so marketcap.csv had no effect at all
             # whenever the cache existed.
             wanted = set(symbols)
+            self._check_cache_period(saved_data)
             saved_data = self._top_up(saved_data, wanted, max_workers=max_workers)
             subset = {s: saved_data[s] for s in sorted(saved_data) if s in wanted}
             if len(subset) < len(saved_data):

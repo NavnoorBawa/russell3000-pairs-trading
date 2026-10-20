@@ -13,6 +13,11 @@ listing-venue maps, read from the committed reference files:
   directory (scripts/build_reference_data.py).
 
 Pure: no network, files are read once per path and every result is a fresh copy.
+
+A calendar that reaches into the sealed holdout reads its membership from
+data/<calendar>_reference/ instead (reference_root): the committed snapshots plus the
+unsealed ones, written there by scripts/build_pit_universe.py --sealed-out, so the
+tracked tree never changes while the holdout runs.
 """
 
 import csv
@@ -25,7 +30,10 @@ from typing import Dict, Iterable, List, Optional, Union
 
 import pandas as pd
 
-REFERENCE_DIR = pathlib.Path(__file__).resolve().parents[1] / 'reference'
+from pairs_trading.study_config import SEALED_FROM
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+REFERENCE_DIR = REPO_ROOT / 'reference'
 
 DateLike = Union[str, pd.Timestamp, datetime.date]
 
@@ -127,7 +135,9 @@ class PITUniverse:
         `missing_value_weight` is the index weight of mapped members without prices;
         `unmapped_value_weight` the weight of holdings without a usable ticker (no US listing
         found, or a last ticker that now belongs to another security).
-        Together they are the survivorship gap of a study restricted to `symbols_with_prices`.
+        Together they are the survivorship gap of a study restricted to `symbols_with_prices`;
+        `missing_heaviest` / `unmapped_heaviest` name the ten largest of each by weight, and
+        `snapshot_filed` is when the snapshot became public (its filing date).
         """
         entry = self._entry_asof(date)
         frame = _read_snapshot(str(self.universe_dir / entry['file']))
@@ -142,7 +152,21 @@ class PITUniverse:
             'missing_value_weight': float(weights.loc[missing].sum()),
             'unmapped_value_weight': float(frame.loc[frame['ticker'] == '', 'weight'].sum()),
             'missing_symbols': missing,
+            'snapshot_filed': entry.get('filing_date'),
+            'missing_heaviest': [[t, float(w)] for t, w in
+                                 sorted(weights.loc[missing].items(), key=lambda kv: (-kv[1], kv[0]))[:10]],
+            'unmapped_heaviest': [[n, float(w)] for n, w in
+                                  sorted(frame.loc[frame['ticker'] == '', ['name', 'weight']].itertuples(index=False),
+                                         key=lambda r: (-r[1], r[0]))[:10]],
         }
+
+
+def reference_root(calendar) -> pathlib.Path:
+    """Where a study_config Calendar's point-in-time membership is read from: reference/,
+    or data/<name>_reference/ for a calendar whose data reach the sealed period."""
+    if str(calendar.data_end) < SEALED_FROM:
+        return REFERENCE_DIR
+    return REPO_ROOT / 'data' / f'{calendar.name}_reference'
 
 
 def _map(root: Union[str, os.PathLike, None], filename: str, column: str) -> Dict[str, str]:

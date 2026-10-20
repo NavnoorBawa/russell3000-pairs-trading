@@ -210,6 +210,19 @@ def test_ticker_candidates():
     assert b.ticker_candidates(data) == ['XOM', 'BRK/B']
 
 
+def test_a_retired_numbered_currency_line_is_recovered():
+    """Carnival's CUSIP after its 2026 reorganisation: OpenFIGI lists only the numbered
+    currency lines CCL1USD / CCL1GBX on X1 (cached response); the US record of 'CCL' is the
+    successor issuer. Through v33 the digit kept the line from being a candidate: unmapped."""
+    ccl = _figi(('CCL1USD', 'X1'), ('CCL1GBX', 'X1'), name='CARNIVAL CORP')
+    assert b.choose_listing(ccl['data']) is None
+    assert b.ticker_candidates(ccl['data']) == ['CCL'] and b.pending_tickers(ccl) == ['CCL']
+    e = _resolve(ccl, us_lines={'CCL': [_us('CCL', 'CARNIVAL CORP LTD', 'BBG001S5PL01')]})
+    assert (e['status'], e['ticker'], e['matched_by']) == ('active', 'CCL', 'name')
+    e = _resolve(ccl, us_lines={'CCL': [_us('CCL', 'CENTURY CASINOS', 'SC9')]})     # not the same issuer
+    assert (e['status'], e['ticker']) == ('unmapped', None)
+
+
 def test_query_openfigi_two_passes_cached_and_resumable(tmp_path, monkeypatch):
     bodies = []
 
@@ -272,15 +285,67 @@ def test_offline_build_snapshots_index_and_sealed(tmp_path):
     assert amended[1].startswith('AAA,') and amended[1].endswith(f',{800 / 1200:.9g}')
 
 
-def test_offline_build_is_deterministic_and_never_reads_sealed(tmp_path):
+def test_offline_build_is_deterministic_and_never_reads_sealed(tmp_path, monkeypatch):
+    from pairs_trading.study_config import SealedError
     raw, out = _raw_cache(tmp_path), tmp_path / 'out'
     _map(out)
     b.main(['--offline', '--raw-dir', str(raw), '--out-dir', str(out)])
     first = {p.name: p.read_bytes() for p in out.iterdir()}
     b.main(['--offline', '--raw-dir', str(raw), '--out-dir', str(out)])
     assert {p.name: p.read_bytes() for p in out.iterdir()} == first
+    with pytest.raises(SealedError):                               # not before the pre-registration
+        b.main(['--offline', '--include-sealed', '--raw-dir', str(raw), '--out-dir', str(out)])
+    monkeypatch.setattr(b, 'assert_unsealed', lambda end: None)
     with pytest.raises(SystemExit, match='not cached'):           # the 2026 XML would be required
         b.main(['--offline', '--include-sealed', '--raw-dir', str(raw), '--out-dir', str(out)])
+
+
+def _sealed_xml(raw):
+    acc = '0000000000-26-000004'
+    (raw / f'{acc}.index.json').write_text(json.dumps({'directory': {'item': [{'name': 'primary_doc.xml'}]}}))
+    (raw / f'{acc}.xml').write_bytes(_xml().replace(b'<repPdDate>2020-03-31', b'<repPdDate>2026-03-31'))
+
+
+def test_the_sealed_build_writes_outside_the_committed_tree(tmp_path, monkeypatch):
+    """--sealed-out: committed snapshots copied unchanged, the sealed filing built from the
+    accession listed at the freeze, reference/ untouched; refused while sealed."""
+    from pairs_trading.study_config import SealedError
+    raw, out, dest = _raw_cache(tmp_path), tmp_path / 'out', tmp_path / 'holdout' / 'universe'
+    _map(out)
+    b.main(['--offline', '--raw-dir', str(raw), '--out-dir', str(out)])
+    _sealed_xml(raw)
+    committed = {p.name: p.read_bytes() for p in out.iterdir()}
+    args = ['--offline', '--include-sealed', '--sealed-out', str(dest), '--raw-dir', str(raw), '--out-dir', str(out)]
+    with pytest.raises(SealedError):
+        b.main(args)
+    monkeypatch.setattr(b, 'assert_unsealed', lambda end: None)
+    assert b.main(args) == 0
+    assert {p.name: p.read_bytes() for p in out.iterdir()} == committed
+    index = json.loads((dest / 'index.json').read_text())
+    assert [s['period_date'] for s in index['snapshots']] == ['2020-03-31', '2020-06-30', '2026-03-31']
+    assert index['sealed'] == [] and index['snapshots'][-1]['accession'] == '0000000000-26-000004'
+    for name in ('iwv_2020-03-31.csv', 'iwv_2020-06-30.csv', 'cusip_ticker_map.json'):
+        assert (dest / name).read_bytes() == committed[name]
+    assert (dest / 'iwv_2026-03-31.csv').read_text().splitlines()[1].startswith('AAA,')
+    from pairs_trading.universe import PITUniverse
+    assert str(PITUniverse(dest.parent).snapshot_asof('2026-07-07').date()) == '2026-03-31'
+
+
+def test_the_rehearsal_rebuilds_committed_snapshots_byte_for_byte(tmp_path):
+    """--sealed-from/--through inside the development period: the committed snapshots in that
+    window are rebuilt from their accessions and must equal the committed files."""
+    raw, out, dest = _raw_cache(tmp_path), tmp_path / 'out', tmp_path / 'reh'
+    _map(out)
+    b.main(['--offline', '--raw-dir', str(raw), '--out-dir', str(out)])
+    args = ['--offline', '--include-sealed', '--sealed-out', str(dest), '--sealed-from', '2020-06-01',
+            '--through', '2020-12-31', '--raw-dir', str(raw), '--out-dir', str(out)]
+    assert b.main(args) == 0
+    assert (dest / 'iwv_2020-06-30.csv').read_bytes() == (out / 'iwv_2020-06-30.csv').read_bytes()
+    assert not (dest / 'iwv_2026-03-31.csv').exists()
+    rows = (out / 'iwv_2020-06-30.csv').read_text().replace('AAA,', 'AAB,')
+    (out / 'iwv_2020-06-30.csv').write_text(rows)
+    with pytest.raises(SystemExit, match='differ'):
+        b.main(args)
 
 
 def test_online_build_queries_only_unmapped_identifiers(tmp_path, monkeypatch):

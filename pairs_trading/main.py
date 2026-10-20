@@ -8,6 +8,7 @@ writes the JSON exports and charts under outputs/ — then prints a summary of t
 results with the headline numbers labelled for what they are.
 
     python -m pairs_trading.main [--profile v33|v32] [--calendar dev|holdout2026] [--output-dir DIR]
+                                 [--fetch-only]
 
 The profile (what is traded) and calendar (which period) are defined in
 pairs_trading/study_config.py. PAIRS_SEED (default 42) seeds Python, NumPy and, when
@@ -310,6 +311,7 @@ def main():
     configure_runtime()
     started = time.time()
     try:
+        json_export.record_start_provenance()
         seed = resolve_seed()
         seed_everything(seed)
         logger.info(f"Random seed: {seed}")
@@ -348,11 +350,19 @@ def cli(argv: Optional[List[str]] = None) -> int:
     ap.add_argument('--profile', choices=sorted(PROFILES), help='study design (default v33)')
     ap.add_argument('--calendar', choices=sorted(CALENDARS), help='study period (default dev)')
     ap.add_argument('--output-dir', help='where exports and charts go (default outputs/)')
+    ap.add_argument('--fetch-only', action='store_true',
+                    help="load the run's universe, prices and macro data (fetching what the caches "
+                         "lack), then stop: the holdout runbook's data step")
     args = ap.parse_args(argv)
     for flag, var in (('profile', 'PAIRS_PROFILE'), ('calendar', 'PAIRS_CALENDAR'),
                       ('output_dir', 'PAIRS_OUTPUT_DIR')):
         if getattr(args, flag):
             os.environ[var] = getattr(args, flag)
+    if args.fetch_only:
+        configure_runtime()
+        json_export.record_start_provenance()
+        CompleteFixedRussell3000TradingSystem(initial_capital=INITIAL_CAPITAL).load_study_data()
+        return 0
     results = main()
     return 1 if results.get('pipeline_errors') else 0
 

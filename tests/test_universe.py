@@ -66,6 +66,9 @@ def test_coverage(uni):
     assert cov['missing_symbols'] == ['CCC']
     assert cov['missing_value_weight'] == pytest.approx(0.15)
     assert cov['unmapped_value_weight'] == pytest.approx(0.05)
+    assert cov['snapshot_filed'] == '2020-06-01'
+    assert cov['missing_heaviest'] == [['CCC', pytest.approx(0.15)]]
+    assert cov['unmapped_heaviest'] == [['ESCROW SHARES', pytest.approx(0.05)]]
 
 
 def test_results_are_copies(uni):

@@ -290,3 +290,85 @@ def test_a_symbol_the_vendor_does_not_know_is_final_and_not_a_fetch_failure(tmp_
     assert sorted(dp2.load_or_fetch_data(syms + ['SIVB'])) == syms
     assert dp2.universe_coverage == 1.0 and dp2.universe_not_found_fraction == pytest.approx(0.2)
     assert json.loads((tmp_path / 'cache_manifest.json').read_text())['outcomes']['SIVB'] == 'not_found'
+
+
+# ── the holdout seal and the calendar's period, enforced on data ────────────────
+
+def test_the_sealed_period_is_never_fetched_before_the_preregistration(tmp_path, monkeypatch):
+    """A processor whose period reaches into 2026 refuses every fetch (prices, top-up,
+    macro) unless PAIRS_UNSEAL names the pre-registration commit: no request is sent."""
+    from pairs_trading.study_config import SealedError
+    monkeypatch.setattr('requests.get', lambda *a, **k: pytest.fail('a request was sent'))
+    monkeypatch.setenv('PAIRS_UNSEAL', 'f' * 40)
+    dp = _P(start_date='2023-01-01', end_date='2026-10-19', data_file=str(tmp_path / 'h.pkl'),
+            macro_file=str(tmp_path / 'h_macro.pkl'))
+    with pytest.raises(SealedError):
+        dp.load_or_fetch_data(['AAA', 'BBB'], max_workers=1)
+    with pytest.raises(SealedError):
+        dp.load_macro_data()
+    with pytest.raises(SealedError):
+        dp.fetch_stock_data('AAA')
+    assert not list(tmp_path.iterdir())
+
+
+def test_bars_outside_the_calendar_are_dropped_from_a_download(monkeypatch):
+    """The vendor's answer does not set the period: a bar after end_date is not kept."""
+    import requests
+    ts = [1760621400, 1760707800, 1760967000]           # 2025-10-16, 10-17, 10-20 13:30 UTC
+    payload = {'chart': {'result': [{
+        'meta': {'exchangeTimezoneName': 'America/New_York'}, 'timestamp': ts,
+        'indicators': {'quote': [{c: [10.0, 11.0, 12.0] for c in ('open', 'high', 'low', 'close')}
+                                 | {'volume': [1.0, 1.0, 1.0]}]}}]}}
+
+    class R:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return payload
+    monkeypatch.setattr(requests, 'get', lambda *a, **k: R())
+    df = _P(start_date='2022-01-01', end_date='2025-10-17')._download_history('X')
+    assert [str(d.date()) for d in df.index] == ['2025-10-16', '2025-10-17']
+
+
+def test_a_cache_of_another_period_is_refused(tmp_path):
+    """Bars after the calendar's last date, or a manifest describing another period, stop the
+    load: the engine does not truncate, so such a cache would trade past the calendar."""
+    import json
+    path, syms = _write_cache(tmp_path, 4, lambda s: {x: 'ok' for x in s})     # bars to 2021-06-30
+    with pytest.raises(RuntimeError, match='bars after 2020-12-31'):
+        _P(start_date='2020-01-01', end_date='2020-12-31', data_file=path).load_or_fetch_data(syms)
+    manifest = tmp_path / 'cache_manifest.json'
+    manifest.write_text(json.dumps({**json.loads(manifest.read_text()), 'start': '2019-01-01',
+                                    'end': '2021-06-30', 'cached_symbols': syms}))
+    with pytest.raises(RuntimeError, match='another period'):
+        _P(start_date='2020-01-01', end_date='2021-06-30', data_file=path).load_or_fetch_data(syms)
+
+
+def test_a_short_top_up_changes_nothing_and_a_rerun_retries(tmp_path, monkeypatch):
+    """A top-up that leaves the cache below the coverage rule (rate limiting) writes neither
+    the cache nor the manifest, so the next run asks for the same symbols again."""
+    import json
+    monkeypatch.delenv('PAIRS_ALLOW_PARTIAL_FETCH', raising=False)
+    path, syms = _write_cache(tmp_path, 10, lambda s: {x: 'ok' for x in s})
+    manifest = tmp_path / 'cache_manifest.json'
+    manifest.write_text(json.dumps({**json.loads(manifest.read_text()), 'start': '2020-01-01',
+                                    'end': '2021-06-30', 'cached_symbols': syms}))
+    before = (open(path, 'rb').read(), manifest.read_text())
+    new = ['NEW1', 'NEW2', 'NEW3', 'NEW4', 'NEW5']
+    dp = _P(start_date='2020-01-01', end_date='2021-06-30', data_file=path)
+    asked = []
+
+    def rate_limited(symbol):
+        asked.append(symbol)
+        dp.fetch_manifest[symbol] = 'error:HTTPError'
+    monkeypatch.setattr(dp, 'fetch_stock_data', rate_limited)
+    with pytest.raises(RuntimeError, match='NOT changed'):
+        dp.load_or_fetch_data(syms + new, max_workers=1)
+    assert (open(path, 'rb').read(), manifest.read_text()) == before
+    asked.clear()
+    with pytest.raises(RuntimeError, match='NOT changed'):
+        dp.load_or_fetch_data(syms + new, max_workers=1)
+    assert sorted(asked) == new                                  # retried, not recorded as final
