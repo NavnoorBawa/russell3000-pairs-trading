@@ -550,3 +550,4 @@ def test_publish_run_copies_exports_with_a_manifest_and_a_clean_log(tmp_path):
     assert m['run_config']['git_commit'] == 'abc' and m['study']['profile']['name'] == 'v33'
     assert m['price_cache'] == {'sha256': 'f00'}
     assert m['files']['results.json']['sha256'] == hashlib.sha256(b'{"x": 1}').hexdigest()
+

@@ -668,6 +668,12 @@ def run_benchmarks(processed_data, universe_symbols,
             # the average random portfolio, day by day (its Sharpe is NOT the median draw's)
             'mean_daily_returns': [float(x) for x in rand_m.mean(axis=1)],
             'daily_dates': dates,
+            # the spread of the draws' own paths: cumulative return (%) quantiles per day, so
+            # a chart can show where single random portfolios end up (the mean path cannot)
+            'cumulative_return_pct_quantiles': {
+                f'p{q:02d}': [round(float(x), 4) for x in
+                              np.percentile((np.cumprod(1.0 + rand_m, axis=0) - 1.0) * 100, q, axis=1)]
+                for q in (5, 25, 50, 75, 95)},
         }
 
     out = {

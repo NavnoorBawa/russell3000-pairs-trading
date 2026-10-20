@@ -369,6 +369,14 @@ def test_random_control_is_deterministic_and_reports_a_distribution():
         assert dist['p5'] <= dist['p25'] <= dist['median'] <= dist['p75'] <= dist['p95']
     assert 0.0 <= ra['distance_sharpe_percentile'] <= 100.0
     assert len(ra['mean_daily_returns']) == len(ra['daily_dates'])
+    qs = ra['cumulative_return_pct_quantiles']
+    assert sorted(qs) == ['p05', 'p25', 'p50', 'p75', 'p95']
+    assert all(len(v) == len(ra['daily_dates']) for v in qs.values())
+    assert all(a <= b + 1e-9 for lo, hi in (('p05', 'p25'), ('p25', 'p50'), ('p50', 'p75'), ('p75', 'p95'))
+               for a, b in zip(qs[lo], qs[hi]))
+    # the last day's quantiles are the quantiles of the draws' total returns
+    assert qs['p50'][-1] == pytest.approx(np.median(ra['draw_total_returns_pct']), abs=1e-3)
+    assert qs['p05'][-1] == pytest.approx(np.percentile(ra['draw_total_returns_pct'], 5), abs=1e-3)
 
 
 def test_percentile_helpers():
