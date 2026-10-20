@@ -97,6 +97,11 @@ def test_dsr_curve_matches_deflated_sharpe_and_decreases_with_n():
     assert dsrs == sorted(dsrs, reverse=True) and stars == sorted(stars)
     low_var = dsr_curve(r, [100], var_sr_trials_ann=0.05)[0]
     assert low_var['sr_star_ann'] < curve[3]['sr_star_ann'] and low_var['dsr'] > curve[3]['dsr']
+    # a NaN trial variance (fewer than two trials) or a fractional N must not pass silently
+    with pytest.raises(ValueError):
+        dsr_curve(r, [10], var_sr_trials_ann=float('nan'))
+    with pytest.raises(ValueError):
+        dsr_curve(r, [1.2])
 
 
 # ── hurdles ──────────────────────────────────────────────────────────────────

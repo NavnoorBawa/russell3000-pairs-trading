@@ -855,9 +855,17 @@ def dsr_curve(returns, n_values, var_sr_trials_ann: float = None, periods: int =
     deflated_sharpe_ratio(returns, N, var_sr_trials_ann, periods, variance_at). Returns
     [{'n_trials', 'sr_star_ann', 'dsr'}] in the order of n_values; sr_star_ann is the
     expected maximum annual Sharpe of N null trials the observed Sharpe is tested against.
+    N must be a whole number: the Gumbel approximation of the expected maximum falls
+    towards -inf as N approaches 1 from above, so round an effective number of trials
+    (effective_number_of_trials) up, not down. var_sr_trials_ann, if given, must be
+    finite (trial_sharpe_variance is NaN for fewer than two trials).
     """
+    if var_sr_trials_ann is not None and not np.isfinite(var_sr_trials_ann):
+        raise ValueError("var_sr_trials_ann must be finite (or None for the null default)")
     rows = []
     for N in n_values:
+        if N != int(N):
+            raise ValueError(f"numbers of trials must be whole numbers, got {N}")
         d = deflated_sharpe_ratio(returns, int(N), var_sr_trials_ann, periods, variance_at)
         rows.append({'n_trials': int(N), 'sr_star_ann': d['sr_star_ann'], 'dsr': d['dsr']})
     return rows

@@ -160,9 +160,11 @@ def power_report(returns, periods: int = 252, alpha: float = 0.05, power: float 
                                 (1 - alpha) upper confidence bound.
       per alternative x (annual, in 'alternatives'):
         power                   as min_detectable_sr_ann, evaluated at SR = x.
-        min_trl_years           null (sr0): years of data a strategy whose SR is x needs
-                                for its observed SR to be significant at alpha (inf if
-                                x <= sr0).
+        min_trl_years           null (sr0): years of data after which an observed SR
+                                of x is significant at alpha (inf if x <= sr0). A
+                                strategy whose TRUE SR is x clears that bar only about
+                                half the time; 'power' is the probability at this
+                                sample's length.
         p_sr_at_least           estimate: one-sided p-value of H0: SR >= x,
                                 Phi((SR_hat - x) / se). It is below alpha exactly when x
                                 exceeds upper_bound_ann (test-interval duality).
