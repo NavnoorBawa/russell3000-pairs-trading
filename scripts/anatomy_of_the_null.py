@@ -12,14 +12,14 @@ anatomy.txt (a short summary) next to the results file, or where --out says:
     python scripts/anatomy_of_the_null.py --results R.json --out /tmp/anatomy.json
     python scripts/anatomy_of_the_null.py --skip-persistence     # without the Clegg table
     python scripts/anatomy_of_the_null.py --persistence-from outputs/anatomy.json
-        reuses an earlier output's Clegg table (same price cache and cutoff only)
+        reuses an earlier output's Clegg table (same price cache, cutoff and table design only)
 
 Inputs: data/enhanced_russell_3000_data.pkl (the price cache; its sha256 is compared with
 the run's provenance and recorded; every trade's rebuilt gross P&L is checked against the
 export whatever the hash says), data/macro_data.pkl (sector ETFs: the market proxy) and
 FRED DTB3 (cached under data/external/fred/ with a fingerprint; --offline never fetches).
 The cointegration-persistence table (Clegg 2014) depends on the price cache only: ~45k
-pairs x 5 years of two-direction Engle-Granger tests, run over --n-jobs worker processes
+pairs x 6 years of two-direction Engle-Granger tests, run over --n-jobs worker processes
 (default PAIRS_N_JOBS, else min(4, CPUs)); tens of minutes with statsmodels' coint.
 Output is deterministic for a given --seed.
 """
@@ -134,6 +134,11 @@ def main(argv=None) -> int:
             raise SystemExit(f"{args.persistence_from} was computed on a different price cache")
         table = (earlier.get('persistence_detail') or {}).get('clegg')
         if table:
+            same = (table.get('schema') == anatomy.PERSISTENCE_SCHEMA and table.get('alpha') == anatomy.PERSISTENCE_ALPHA
+                    and table.get('min_common_days') == anatomy.PERSISTENCE_MIN_DAYS
+                    and [r['year'] for r in table.get('years') or []] == list(anatomy.PERSISTENCE_YEARS))
+            if not same:
+                raise SystemExit(f"{args.persistence_from} holds a persistence table of another design; recompute it")
             persistence[table['universe_cutoff']] = table
     if not args.skip_persistence:
         for cutoff in sorted({str(anatomy.formation_schedule(r)[0][0].date()) for r in runs} - set(persistence)):

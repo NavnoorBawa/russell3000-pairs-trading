@@ -29,16 +29,18 @@ the run's own trades and daily equity; nothing here feeds back into the strategy
                   (gambler's ruin, and simulated with the time stop) and on OU spreads
                   with the pairs' formation half-lives.
   persistence     Clegg (2014): of the pairs cointegrated in one calendar year, the share
-                  still cointegrated the next year, against the 5% chance rate; and the
-                  traded pairs' formation and out-of-sample p-values and half-lives with
-                  Kendall's (1954) small-sample correction of the AR(1) coefficient.
+                  still cointegrated the next year, against the 5% nominal chance rate and
+                  the next year's base rate; and the traded pairs' formation and
+                  out-of-sample p-values and half-lives with Kendall's (1954) small-sample
+                  correction of the AR(1) coefficient.
   decay           The same rule on the same traded pairs in their formation window and out
                   of sample, by per-pair re-simulation with the engine's own rule.
   breakdowns      P&L by side, exit reason, |z| bucket, year and month; concentration.
   exposure        Hedge ratios and each trade's net dollar and implied market-beta exposure.
   capacity        Net bp per trade and Sharpe at $10M to $5B, impact re-priced per execution.
   cash            The compounded 3-month T-bill over the window: the engine's equity earns
-                  no interest, so its returns and Sharpe ratios are excess-of-cash figures.
+                  no interest, so its returns and Sharpe ratios are excess-of-cash figures,
+                  up to the bill interest on the book's net dollar exposure (reported).
 
 Units: bp are of a trade's gross notional (position_size_dollars: both legs at the
 signal-day close, $1 of leg 1 against $beta of leg 2), daily returns are fractions of
@@ -84,6 +86,8 @@ GROSS_TOLERANCE_USD = 0.05
 Z_MATCH_TOLERANCE = 0.0025
 PERSISTENCE_ALPHA = 0.05
 PERSISTENCE_YEARS = (2020, 2021, 2022, 2023, 2024)
+# Version of the cointegration_persistence table: a saved table is reused only if it matches.
+PERSISTENCE_SCHEMA = 2
 # A calendar year has ~250 bars; the selector's own 420-day minimum needs ~1.7 years.
 PERSISTENCE_MIN_DAYS = 200
 MARKET_BETA_DAYS = 252
@@ -1022,22 +1026,36 @@ def _share(k: int, n: int, alpha: float) -> Dict:
             'binom_p_vs_chance': float(test.pvalue)}
 
 
+def _against_base_rate(k: int, n: int, base: Optional[float]) -> Optional[float]:
+    """Two-sided binomial p of k successes in n trials against the rate `base`."""
+    if not n or base is None or not 0.0 < base < 1.0:
+        return None
+    return float(sps.binomtest(int(k), int(n), base).pvalue)
+
+
 def cointegration_persistence(prices: Dict[str, pd.DataFrame], symbols: Sequence[str],
                               years: Sequence[int] = PERSISTENCE_YEARS, alpha: float = PERSISTENCE_ALPHA,
                               n_jobs: int = 1) -> Dict:
     """Clegg (2014) persistence of cointegration, year by year.
 
-    For each calendar year Y: every pair of `symbols` whose daily return correlation in
-    Y passes the selector's screen (>= 0.25) is tested for cointegration on Y's log
-    prices with the study's own test, PairSelector.cointegration_pvalue (two-direction
-    Engle-Granger, Bonferroni p = min(1, 2 min(p12, p21)); its size is <= alpha, so
-    `alpha` is an upper bound on the chance rate). Reported: the share with p < alpha,
-    and among those the share still p < alpha in Y + 1 (pairs without
-    PERSISTENCE_MIN_DAYS common days in Y + 1, e.g. a delisted leg, are counted apart),
-    each with a Clopper-Pearson interval and a binomial test against alpha. Pairs share
-    legs, so the binomial intervals overstate the precision. Clegg (2014) found ~5% of
-    S&P 500 pairs cointegrated per year and ~5% of those still cointegrated a year later,
-    the chance rate in both cases.
+    For each calendar year Y of `years` and the year after the last: every pair of
+    `symbols` whose daily return correlation in that year passes the selector's screen
+    (>= 0.25) is tested for cointegration on the year's log prices with the study's own
+    test, PairSelector.cointegration_pvalue (two-direction Engle-Granger, Bonferroni p =
+    min(1, 2 min(p12, p21))); the share with p < alpha is the year's base rate. For each
+    Y of `years`, among the pairs with p < alpha in Y: the share still p < alpha in Y + 1
+    (pairs without PERSISTENCE_MIN_DAYS common days in Y + 1, e.g. a delisted leg, are
+    counted apart), with a Clopper-Pearson interval and binomial tests against alpha and
+    against Y + 1's base rate.
+
+    Two references, because alpha is only the nominal chance rate: MacKinnon's p-values
+    with AIC lag selection are slightly liberal in a year of data, and the Bonferroni
+    combination does not bring the size back under alpha (on 6,000 pairs of independent
+    250-day Gaussian random walks the test rejects 5.7%, standard error 0.3%). The base
+    rate of Y + 1 is the model-free reference: if being cointegrated in Y carried no
+    information about Y + 1, the conditional share would equal it. Pairs share legs, so
+    the binomial intervals overstate the precision. Clegg (2014) found ~5% of S&P 500
+    pairs cointegrated per year and ~5% of those still cointegrated a year later.
     """
     symbols = sorted(symbols)
     threshold = _persistence_selector().correlation_threshold
@@ -1048,26 +1066,42 @@ def cointegration_persistence(prices: Dict[str, pd.DataFrame], symbols: Sequence
         lo, hi = pd.Timestamp(f'{y}-01-01'), pd.Timestamp(f'{y}-12-31')
         return {s: df[(df.index >= lo) & (df.index <= hi)] for s, df in naive.items()}
 
+    screened = {y: _run_tests(year_frames(y), pairs, True, n_jobs) for y in sorted({*years, max(years) + 1})}
+    tested = {y: [(pair, p) for pair, (_, p) in zip(pairs, res) if p is not None] for y, res in screened.items()}
+    base = {y: _share(sum(p < alpha for _, p in t), len(t), alpha) for y, t in tested.items()}
     rows = []
     for y in years:
-        res = _run_tests(year_frames(y), pairs, True, n_jobs)
-        tested = [(pair, p) for pair, (_, p) in zip(pairs, res) if p is not None]
-        sig = [pair for pair, p in tested if p < alpha]
+        sig = [pair for pair, p in tested[y] if p < alpha]
         nxt = _run_tests(year_frames(y + 1), sig, False, n_jobs) if sig else []
         testable = [p for _, p in nxt if p is not None]
-        logger.info(f"Persistence {y}: {len(sig)}/{len(tested)} correlated pairs cointegrated, "
-                    f"{sum(p < alpha for p in testable)}/{len(testable)} still in {y + 1}")
+        k = sum(p < alpha for p in testable)
+        logger.info(f"Persistence {y}: {len(sig)}/{len(tested[y])} correlated pairs cointegrated, "
+                    f"{k}/{len(testable)} still in {y + 1} (base rate {y + 1}: {base[y + 1]['share']})")
         rows.append({'year': int(y), 'next_year': int(y + 1),
-                     'correlated_pairs': int(sum(1 for c, _ in res if c is not None and c >= threshold)),
-                     'cointegrated': _share(len(sig), len(tested), alpha),
-                     'still_cointegrated_next_year': _share(sum(p < alpha for p in testable), len(testable), alpha),
+                     'correlated_pairs': int(sum(1 for c, _ in screened[y] if c is not None and c >= threshold)),
+                     'cointegrated': base[y],
+                     'still_cointegrated_next_year': {
+                         **_share(k, len(testable), alpha),
+                         'next_year_base_rate': base[y + 1]['share'],
+                         'binom_p_vs_next_year_base_rate': _against_base_rate(k, len(testable), base[y + 1]['share'])},
                      'untestable_next_year': int(len(nxt) - len(testable))})
-    k = sum(r['still_cointegrated_next_year']['count'] for r in rows)
-    n = sum(r['still_cointegrated_next_year']['of'] for r in rows)
-    return {'symbols': len(symbols), 'pairs': len(pairs), 'alpha': alpha,
+    return {'schema': PERSISTENCE_SCHEMA, 'symbols': len(symbols), 'pairs': len(pairs), 'alpha': alpha,
             'test': 'two-direction Engle-Granger, Bonferroni p = min(1, 2 min(p12, p21)) (PairSelector.cointegration_pvalue)',
             'correlation_screen': threshold, 'min_common_days': PERSISTENCE_MIN_DAYS, 'years': rows,
-            'pooled_still_cointegrated': _share(k, n, alpha)}
+            'base_rates': [{'year': int(y), **b} for y, b in base.items()],
+            'pooled_still_cointegrated': _pooled_persistence([r['still_cointegrated_next_year'] for r in rows], alpha)}
+
+
+def _pooled_persistence(still: List[Dict], alpha: float) -> Dict:
+    """The years' 'still cointegrated' counts pooled: the share against alpha, and the count
+    against the next-year base rates (expected sum n_Y b_{Y+1}, variance sum n_Y b (1 - b),
+    independent pairs)."""
+    k, n = sum(s['count'] for s in still), sum(s['of'] for s in still)
+    rates = [(s['of'], s['next_year_base_rate']) for s in still if s['of'] and s['next_year_base_rate'] is not None]
+    expected = float(sum(m * b for m, b in rates))
+    var = float(sum(m * b * (1.0 - b) for m, b in rates))
+    return {**_share(k, n, alpha), 'expected_at_next_year_base_rates': expected,
+            'z_vs_next_year_base_rates': _f((k - expected) / np.sqrt(var)) if var > 0 else None}
 
 
 def _window_stats(sel: FixedPrimeFundPairSelector, d1: pd.DataFrame, d2: pd.DataFrame) -> Dict:
@@ -1461,17 +1495,25 @@ def cash_returns(dtb3: pd.Series, dates: Sequence) -> np.ndarray:
     return np.concatenate([[0.0], y * days / 365.0])
 
 
-def excess_of_cash(results: Dict, daily: Dict, dtb3: Optional[pd.Series]) -> Dict:
+def excess_of_cash(results: Dict, daily: Dict, dtb3: Optional[pd.Series],
+                   trades: Optional[pd.DataFrame] = None) -> Dict:
     """Strategy return against cash over the main window, and what the Sharpe measures.
 
     The engine's equity earns no interest (a day's return is the positions' P&L net of
     costs over the previous day's equity), and every Sharpe in the study is the mean
     over the standard deviation of those returns without subtracting a risk-free rate.
-    For a self-financing long-short book that is the excess-of-cash Sharpe: invested in
-    T-bills, the same book would earn r_t + rf_t, whose excess over rf_t is r_t. This
-    recomputes the Sharpe from the daily returns and confirms it equals the exported one;
-    'sharpe_if_cash_were_subtracted' shows the (wrong) figure a second deduction of the
-    T-bill rate would give.
+    For a self-financing, dollar-neutral long-short book that is the excess-of-cash
+    Sharpe: invested in T-bills, the same book would earn r_t + rf_t, whose excess over
+    rf_t is r_t. This recomputes the Sharpe from the daily returns and confirms it equals
+    the exported one; 'sharpe_if_cash_were_subtracted' shows the (wrong) figure a second
+    deduction of the T-bill rate would give.
+
+    A trade with long notional L and short notional S is not dollar-neutral unless the
+    hedge ratio is 1: with the equity in bills and the short proceeds earning the bill
+    rate, its excess-of-cash P&L is the engine's plus rf x (S - L) over the holding.
+    'net_dollar_carry_usd' is that interest summed over the trades (positive when the
+    book was net short on balance), at the daily bill returns from the entry fill to the
+    exit fill: the gap between the engine's returns and strict excess-of-cash returns.
     """
     r = np.asarray(daily['net'], dtype=float)
     reported = _f((results.get('overall_performance') or {}).get('sharpe_ratio'))
@@ -1493,6 +1535,14 @@ def excess_of_cash(results: Dict, daily: Dict, dtb3: Optional[pd.Series]) -> Dic
         'rates_cover_window': bool(last_rate >= daily['dates'][-2]) if len(daily['dates']) > 1 else True,
         'source': 'FRED DTB3 (3-month T-bill, discount basis) as bond-equivalent yield, act/365 daily accrual',
     })
+    if trades is not None and not trades.empty:
+        growth = np.cumprod(1.0 + rc)
+        entry, exit_ = (daily['dates'].get_indexer(pd.DatetimeIndex(trades[c])) for c in ('entry_date', 'exit_date'))
+        if (entry < 0).any() or (exit_ < 0).any():
+            raise ValueError("a fill date is not on the run's daily calendar")
+        carry = (trades['short_notional'] - trades['long_notional']).to_numpy() * (growth[exit_] / growth[entry] - 1.0)
+        out['net_dollar_carry_usd'] = float(carry.sum())
+        out['net_dollar_carry_pct_of_capital'] = float(carry.sum() / daily['equity_prev'][0] * 100.0)
     return out
 
 
@@ -1501,13 +1551,15 @@ def excess_of_cash(results: Dict, daily: Dict, dtb3: Optional[pd.Series]) -> Dic
 # ──────────────────────────────────────────────────────────────────────────────
 
 def site_persistence(clegg: Optional[Dict], traded: Optional[Dict]) -> Optional[Dict]:
-    """The persistence exhibit's data: share still cointegrated per window vs the chance rate."""
+    """The persistence exhibit's data: share still cointegrated per window vs the chance rate
+    (and, per window, the next year's base rate: see cointegration_persistence)."""
     windows = []
     for row in (clegg or {}).get('years') or []:
-        s = row['still_cointegrated_next_year']['share']
-        if s is not None:
-            windows.append({'window': f"{row['year']}→{row['next_year']}", 'pct': s * 100.0,
-                            'pairs': row['still_cointegrated_next_year']['of']})
+        still = row['still_cointegrated_next_year']
+        if still['share'] is not None:
+            base = still.get('next_year_base_rate')
+            windows.append({'window': f"{row['year']}→{row['next_year']}", 'pct': still['share'] * 100.0,
+                            'pairs': still['of'], 'base_pct': base * 100.0 if base is not None else None})
     if traded and traded.get('oos', {}).get('cointegrated', {}).get('share') is not None:
         windows.append({'window': 'Traded pairs, out of sample', 'pct': traded['oos']['cointegrated']['share'] * 100.0,
                         'pairs': traded['oos']['cointegrated']['of']})
@@ -1567,8 +1619,9 @@ def build_anatomy(results: Dict, prices: Dict[str, pd.DataFrame], sectors: Optio
 
     pairs = pair_windows(trades, results)
     stats = traded_pair_stats(pairs, panel)
-    hl_by_pair = dict(zip(pairs['pair'], stats['formation_half_life_selector']))
-    trade_hl = trades['symbol1'].str.cat(trades['symbol2'], sep='-').map(hl_by_pair)
+    hl_by_pair = dict(zip(zip(pairs['symbol1'], pairs['symbol2']), stats['formation_half_life_selector']))
+    trade_hl = pd.Series([hl_by_pair[legs] for legs in zip(trades['symbol1'], trades['symbol2'])],
+                         index=trades.index, dtype=float)
     engine = Engine(initial_capital=capital)
     engine.processed_data = {s: prices[s] for s in set(trades['symbol1']) | set(trades['symbol2'])}
     windows = signal_windows(trades, panel, trade_hl)
@@ -1599,7 +1652,7 @@ def build_anatomy(results: Dict, prices: Dict[str, pd.DataFrame], sectors: Optio
     out['capacity_detail'] = {**cap, 'gross_bp_per_trade': gross_bp['mean'], 'gross_bp_t': gross_bp['t'],
                               'note': 'completeness item: costs re-priced for the same trades; a gross edge '
                                       'indistinguishable from zero is not made an edge by a smaller book'}
-    out['cash'] = excess_of_cash(results, daily, dtb3)
+    out['cash'] = excess_of_cash(results, daily, dtb3, trades)
     return out
 
 
@@ -1647,8 +1700,10 @@ def summary_lines(anatomy: Dict) -> List[str]:
                      f" {num(g('exit_race', 'nulls', 'ou', 'expected_targets'), '.1f')} (z {num(g('exit_race', 'nulls', 'ou', 'z'))})")
     for row in g('persistence_detail', 'clegg', 'years') or []:
         c, s = row['cointegrated'], row['still_cointegrated_next_year']
+        base = s.get('next_year_base_rate')
         lines.append(f"  persistence {row['year']}: {c['count']}/{c['of']} cointegrated ({num(c['share'] and c['share'] * 100, '.1f')}%),"
-                     f" still in {row['next_year']}: {s['count']}/{s['of']} ({num(s['share'] and s['share'] * 100, '.1f')}%)")
+                     f" still in {row['next_year']}: {s['count']}/{s['of']} ({num(s['share'] and s['share'] * 100, '.1f')}%;"
+                     f" {row['next_year']} base rate {num(base and base * 100, '.1f')}%)")
     tp = g('persistence_detail', 'traded_pairs') or {}
     if tp:
         lines.append(f"  traded pairs: p<0.05 formation {num(g('persistence_detail', 'traded_pairs', 'formation', 'cointegrated', 'share'), '.0%')},"
@@ -1679,7 +1734,8 @@ def summary_lines(anatomy: Dict) -> List[str]:
     if cash:
         lines.append(f"  cash: T-bill {num(cash.get('tbill_return_pct'))}% vs strategy {num(cash.get('strategy_return_pct'))}%"
                      f" over the window; Sharpe {num(cash.get('sharpe_reported'))} is excess of cash:"
-                     f" {cash.get('sharpe_is_excess_of_cash')}")
+                     f" {cash.get('sharpe_is_excess_of_cash')}; bill interest on the net dollar exposure"
+                     f" {num(cash.get('net_dollar_carry_pct_of_capital'), '+.3f')}% of capital")
     return lines
 
 
