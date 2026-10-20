@@ -11,7 +11,8 @@ For every filing the script
      primary_doc.xml (located through the filing's index.json), cached under
      data/raw/nport/;
   2. keeps the equity-common holdings (assetCat EC; cash sweeps, money-market funds and
-     index futures are dropped) and weights each by its share of their total value;
+     index futures are dropped) and weights each by its share of their total value
+     (contingent value rights and escrow claims stay in the weights without a ticker);
   3. maps each CUSIP (or, where N-PORT gives none, the ISIN) to a US ticker with OpenFIGI,
      cached in reference/universe/cusip_ticker_map.json;
   4. writes reference/universe/iwv_<period>.csv (ticker, cusip, isin, name, weight) and
@@ -35,6 +36,20 @@ every listing of a share class):
   - a delisted line's ticker may since have been taken by another issuer (Barnes Group's
     B is Barrick's today), so a price history under it would belong to someone else;
     such a mapping is kept as status 'reused' with no ticker.
+Two more sources cover the CUSIPs OpenFIGI no longer resolves, which are mostly not
+delisted at all but replaced by a new CUSIP (a reverse split, a holding-company
+reorganisation, a re-domiciliation: Linde's ISIN until 2023, Cooper's CUSIP until its 2024
+split):
+  - from the 2022-09-30 filing on, N-PORT reports each holding's ticker on the period date.
+    For an identifier OpenFIGI leaves unmapped, or maps only to a delisted XS/XB line
+    (whose ticker Bloomberg froze at an earlier name: CCIVUSD for Lucid, PJCUSD for Piper
+    Sandler), the latest reported ticker goes through the same exchCode-US lookup and
+    same_security test (issuer names include N-PORT's), giving 'active', 'reused' or
+    'delisted' with the reported ticker (matched_by 'reported ticker');
+  - an identifier that is still without a ticker and whose CUSIP is succeeded, in the very
+    next snapshot, by exactly one new CUSIP with the same six-character issuer number and
+    the same issuer name inherits that CUSIP's ticker (issuer_successions; General
+    Electric's CUSIP before its 2021 reverse split). The links are listed in index.json.
 Tickers are normalised to Yahoo style (BRK/B -> BRK-B). The mapping is as of the mapping
 date: a CUSIP maps to the security's latest ticker, the key under which Yahoo serves its
 whole history.
@@ -85,11 +100,22 @@ _NUMBERED = re.compile(r'([A-Z][A-Z/.]*?)\d+')
 # Bloomberg's currency lines append the trading currency to the ticker (XOMCHF, HONGBP).
 _CCY_LINE = re.compile(r'([A-Z][A-Z/]{0,5}?)(USD|EUR|GBP|GBX|CHF|CAD|RUB|JPY|SEK|NOK|DKK|PLN|MXN|BRL|AUD|HKD|SGD|ZAR)')
 
+# Series numerals that tell a sponsor's next vehicle from its first (SPACs, funds).
+_SERIES = frozenset({'II', 'III', 'IV', 'VI', 'VII', 'VIII', 'IX'})
+# Length at which an issuer name may have been cut off (Bloomberg: 28 characters).
+NAME_CUT = 28
 _LEGAL_FORM = frozenset({'INC', 'CORP', 'CORPORATION', 'CO', 'COMPANY', 'LTD', 'LIMITED', 'PLC', 'HOLDINGS',
                          'HOLDING', 'HLDGS', 'GROUP', 'THE', 'NEW', 'OLD', 'NV', 'SA', 'AG', 'SE', 'LP', 'LLC',
                          'CL', 'CLASS'})
+# BlackRock's placeholder CUSIPs for contingent value rights and escrow claims.
+_PLACEHOLDER_CUSIP = re.compile(r'[0-9]{3}(CVR|ESC)[0-9A-Z]{3}')
+# A ticker as N-PORT reports it (Bloomberg style, BRK/B); numeric codes, exchange suffixes
+# (GFF.NY) and when-issued lines (SAFE-W) are not tickers to look up.
+_REPORTED_TICKER = re.compile(r'[A-Z]{1,5}(/[A-Z])?')
 
 ATOM_NS = '{http://www.w3.org/2005/Atom}'
+
+
 # ---------------------------------------------------------------------------------------
 # EDGAR: filing list, headers, holdings
 # ---------------------------------------------------------------------------------------
@@ -141,7 +167,12 @@ def _local(tag):
 
 
 def parse_nport(blob):
-    """Report-period date, series id and every <invstOrSec> of an N-PORT primary_doc.xml."""
+    """Report-period date, series id and every <invstOrSec> of an N-PORT primary_doc.xml.
+
+    A holding's ISIN and ticker are the holding's own <identifiers> (a derivative's
+    reference instrument carries identifiers too, one level down); filings before
+    2022-09-30 report no ticker.
+    """
     root = ET.fromstring(blob)
     gen = next((e for e in root.iter() if _local(e.tag) == 'genInfo'), None)
     if gen is None:
@@ -152,9 +183,11 @@ def parse_nport(blob):
         if _local(sec.tag) != 'invstOrSec':
             continue
         fields = {_local(c.tag): (c.text or '').strip() for c in sec}
-        isin = next((e.get('value') for e in sec.iter() if _local(e.tag) == 'isin'), None)
+        ids = next((c for c in sec if _local(c.tag) == 'identifiers'), ())
+        id_values = {_local(e.tag): (e.get('value') or '').strip() for e in ids}
         holdings.append({'name': fields.get('name', ''), 'title': fields.get('title', ''),
-                         'cusip': fields.get('cusip', ''), 'isin': (isin or '').strip(),
+                         'cusip': fields.get('cusip', ''), 'isin': id_values.get('isin', ''),
+                         'ticker': id_values.get('ticker', ''),
                          'balance': float(fields.get('balance') or 0.0),
                          'val_usd': float(fields.get('valUSD') or 0.0),
                          'asset_cat': fields.get('assetCat', ''), 'inv_country': fields.get('invCountry', '')})
@@ -163,14 +196,28 @@ def parse_nport(blob):
 
 def security_id(holding):
     """(identifier, OpenFIGI idType): the CUSIP, else the ISIN (N-PORT writes 000000000
-    for some foreign-domiciled issuers), else (None, None)."""
+    for some foreign-domiciled issuers), else (None, None).
+
+    BlackRock books contingent value rights and escrow claims left by an acquisition under
+    placeholder CUSIPs ('457CVR017', '361ESC049', with ISINs built on them) and the target's
+    old ticker: they are not listed shares, so they get no identifier to map.
+    """
     cusip = holding['cusip'].upper()
+    isin = holding['isin'].upper()
+    if _PLACEHOLDER_CUSIP.fullmatch(cusip) or _PLACEHOLDER_CUSIP.fullmatch(isin[2:11]):
+        return None, None
     if re.fullmatch(r'[0-9A-Z]{8}[0-9]', cusip) and cusip != '000000000':
         return cusip, 'ID_CUSIP'
-    isin = holding['isin'].upper()
     if re.fullmatch(r'[A-Z]{2}[0-9A-Z]{9}[0-9]', isin):
         return isin, 'ID_ISIN'
     return None, None
+
+
+def reported_ticker(holding):
+    """The holding's N-PORT ticker in Bloomberg style ('BRK/B'), or '' when it reports none
+    or something that is not a ticker (a numeric code, 'GFF.NY', 'SAFE-W')."""
+    t = (holding.get('ticker') or '').strip().upper()
+    return t if _REPORTED_TICKER.fullmatch(t) else ''
 
 
 def equity_securities(holdings):
@@ -182,9 +229,11 @@ def equity_securities(holdings):
         key = sid or f'#{n}'
         if key in out:
             out[key]['val_usd'] += h['val_usd']
+            out[key]['reported_ticker'] = out[key]['reported_ticker'] or reported_ticker(h)
             continue
         out[key] = {'id': sid, 'id_type': id_type, 'cusip': sid if id_type == 'ID_CUSIP' else '',
-                    'isin': h['isin'].upper(), 'name': h['name'], 'val_usd': h['val_usd']}
+                    'isin': h['isin'].upper(), 'name': h['name'], 'val_usd': h['val_usd'],
+                    'reported_ticker': reported_ticker(h)}
     return list(out.values())
 
 
@@ -240,34 +289,52 @@ def issuer_key(name):
     return ''.join(issuer_tokens(name))
 
 
+def _cut_word(words, other):
+    """Whether `words` is `other` cut off inside its last word ('EASTERLY GOVERNMENT
+    PROPERTI' for 'EASTERLY GOVERNMENT PROPERTIES')."""
+    n = len(words)
+    return n >= 2 and len(other) >= n and other[:n - 1] == words[:-1] and other[n - 1].startswith(words[-1])
+
+
 def same_security(record, data):
     """Whether an OpenFIGI record is the security that `data` (one job's results) describes,
     or its successor: the same share-class FIGI, which every listing of a share class
     carries; the same issuer_key; or issuer names of which one opens with all the words of
     the other (Bloomberg abbreviates and appends classes: 'AMC ENTERTAINMENT HOLDINGS INC'
-    vs 'AMC ENTERTAINMENT HLDS-CL A'; but 'RUBICON PROJECT' is not 'RUBICO'). The record
-    always comes from looking up one of the security's own tickers, so the name test only
-    has to tell a successor from an unrelated issuer that has taken the ticker since."""
+    vs 'AMC ENTERTAINMENT HLDS-CL A'; but 'RUBICON PROJECT' is not 'RUBICO', and a sponsor's
+    next vehicle, 'METALS ACQUISITION II', is not 'METALS ACQUISITION'). A name of
+    NAME_CUT characters or more may end inside a word (Bloomberg cuts names at 28, older
+    N-PORT filings at 30). The record always comes from looking up one of the security's
+    own tickers, so the name test only has to tell a successor from an unrelated issuer
+    that has taken the ticker since."""
     if record.get('shareClassFIGI') in {d.get('shareClassFIGI') for d in data} - {None}:
         return True
-    words = issuer_tokens(record.get('name'))
-    for other in {tuple(issuer_tokens(d.get('name'))) for d in data}:
-        short, long_ = sorted((words, list(other)), key=len)
+    name = record.get('name') or ''
+    words = issuer_tokens(name)
+    for other_name in {d.get('name') or '' for d in data}:
+        other = issuer_tokens(other_name)
+        short, long_ = sorted((words, other), key=len)
         if short and (''.join(short) == ''.join(long_)
-                      or (len(''.join(short)) >= 4 and long_[:len(short)] == short)):
+                      or (len(''.join(short)) >= 4 and long_[:len(short)] == short
+                          and not _SERIES.intersection(long_[len(short):]))):
+            return True
+        if ((len(name) >= NAME_CUT and _cut_word(words, other))
+                or (len(other_name) >= NAME_CUT and _cut_word(other, words))):
             return True
     return False
 
 
-def pending_tickers(result):
+def pending_tickers(result, reported=''):
     """Tickers resolve_entry needs looked up on exchCode US for one job result: none when
     OpenFIGI already gives an active US line, the delisted line's ticker when that is all
-    it gives, else the candidates from the security's foreign lines."""
+    it gives, else the candidates from the security's foreign lines; plus the ticker
+    N-PORT reported for the security, if any."""
     data = result.get('data') or []
     pick = choose_listing(data)
     if pick and pick[0].get('exchCode') in ACTIVE_EXCH:
         return []
-    return [pick[1]] if pick else ticker_candidates(data)
+    out = [pick[1]] if pick else ticker_candidates(data)
+    return out + [reported] if reported and reported not in out else out
 
 
 def _entry(record, ticker, id_type, status, matched_by, mapped_on):
@@ -277,7 +344,7 @@ def _entry(record, ticker, id_type, status, matched_by, mapped_on):
             'matched_by': matched_by, 'mapped_on': mapped_on}
 
 
-def resolve_entry(result, id_type, us_lines, mapped_on):
+def resolve_entry(result, id_type, us_lines, mapped_on, reported='', names=()):
     """The cusip_ticker_map.json entry for one OpenFIGI job result.
 
     `us_lines[t]` are the records OpenFIGI returns for ticker t on exchCode US (see
@@ -286,7 +353,31 @@ def resolve_entry(result, id_type, us_lines, mapped_on):
     delisted XS/XB line, whose ticker no US security uses now: the last ticker is kept);
     'reused' (that ticker now belongs to a different security, so its price history is
     not this one's: no ticker); 'unmapped'.
+
+    `reported` is the latest ticker N-PORT gave for the security and `names` its N-PORT
+    issuer names. When OpenFIGI's answer is 'unmapped', or 'delisted' under another
+    ticker, the reported ticker is resolved the same way (matched_by 'reported ticker').
     """
+    entry = _resolve_figi(result, id_type, us_lines, mapped_on)
+    if not reported or entry['status'] not in ('unmapped', 'delisted') or entry['ticker'] == normalise_ticker(reported):
+        return entry
+    data = (result.get('data') or []) + [{'name': n} for n in names]
+    lines = us_lines.get(reported, [])
+    same = next((r for r in lines if same_security(r, data)), None)
+    if same:
+        return _entry(same, same['ticker'], id_type, 'active', 'reported ticker', mapped_on)
+    figi_line = f"; OpenFIGI's delisted line reads {entry['figi_ticker']}" if entry['status'] == 'delisted' else ''
+    entry = dict(entry, matched_by='reported ticker', name=entry['name'] or (names[-1] if names else None))
+    if lines:
+        return dict(entry, status='reused', ticker=None,
+                    note=f"{normalise_ticker(reported)} (N-PORT) now trades as {lines[0].get('name')} "
+                         f"({lines[0].get('figi')}){figi_line}")
+    return dict(entry, status='delisted', ticker=normalise_ticker(reported),
+                note=f'{normalise_ticker(reported)} as reported in N-PORT; no US security uses it now{figi_line}')
+
+
+def _resolve_figi(result, id_type, us_lines, mapped_on):
+    """resolve_entry on OpenFIGI's own answer only."""
     data = result.get('data') or []
     own = 'isin' if id_type == 'ID_ISIN' else 'cusip'
 
@@ -343,28 +434,31 @@ def _post_jobs(jobs, responses, cache_path, api_key):
     return [responses[_job_key(j)] for j in jobs]
 
 
-def query_openfigi(ids, entries, map_path, response_cache, api_key=None, refresh=False):
+def query_openfigi(ids, entries, map_path, response_cache, api_key=None, refresh=False, reported=None):
     """Map [(identifier, idType)] into `entries` and save the map.
 
     Two passes: the identifiers themselves, then exchCode-US ticker lookups for those
-    without an active US line (resolve_entry). Raw responses are cached in
-    `response_cache`, so an interrupted run resumes where it stopped; `refresh` drops
-    the cached responses for these identifiers and every cached ticker lookup first.
+    without an active US line (resolve_entry). `reported[identifier]` is (latest N-PORT
+    ticker, N-PORT issuer names). Raw responses are cached in `response_cache`, so an
+    interrupted run resumes where it stopped; `refresh` drops the cached responses for
+    these identifiers and every cached ticker lookup first.
     """
+    reported = reported or {}
     response_cache = pathlib.Path(response_cache)
     responses = json.loads(response_cache.read_text()) if response_cache.exists() else {}
     if refresh:
         stale = {_job_key({'idType': t, 'idValue': v}) for v, t in ids}
         responses = {k: r for k, r in responses.items() if k not in stale and not k.startswith('TICKER|')}
     results = _post_jobs([{'idType': t, 'idValue': v} for v, t in ids], responses, response_cache, api_key)
-    tickers = sorted({t for r in results for t in pending_tickers(r)})
+    tickers = sorted({t for (sid, _), r in zip(ids, results)
+                      for t in pending_tickers(r, reported.get(sid, ('', ()))[0])})
     looked_up = _post_jobs([{'idType': 'TICKER', 'idValue': t, 'exchCode': 'US'} for t in tickers],
                            responses, response_cache, api_key)
     us_lines = {t: [d for d in (r.get('data') or []) if d.get('exchCode') == 'US' and d.get('ticker')]
                 for t, r in zip(tickers, looked_up)}
     today = datetime.now(timezone.utc).date().isoformat()
     for (sid, id_type), result in zip(ids, results):
-        entries[sid] = resolve_entry(result, id_type, us_lines, today)
+        entries[sid] = resolve_entry(result, id_type, us_lines, today, *reported.get(sid, ('', ())))
     write_map(entries, map_path)
 
 
@@ -380,7 +474,8 @@ def write_map(entries, path):
         ('source', OPENFIGI_URL),
         ('rule', 'exchCode ' + ' > '.join(US_EXCH_PRIORITY) + ' > other US venue > XS/XB ticker less "USD"; '
                  'without an active US line, a candidate ticker whose exchCode-US record has the same '
-                 "share-class FIGI or name; ticker normalised to Yahoo style ('/' and '.' -> '-'); "
+                 'share-class FIGI or name; unmapped, or delisted under another ticker: the latest ticker '
+                 "N-PORT reported, resolved the same way; ticker normalised to Yahoo style ('/' and '.' -> '-'); "
                  'status active | delisted (last ticker kept) | reused (ticker now another security: null) | unmapped'),
         ('n_entries', len(entries)),
         ('n_mapped', sum(1 for e in entries.values() if e.get('ticker'))),
@@ -395,15 +490,72 @@ def write_map(entries, path):
 # Snapshots
 # ---------------------------------------------------------------------------------------
 
-def snapshot_rows(securities, entries):
+def reported_tickers(snapshots):
+    """identifier -> (latest valid N-PORT ticker, N-PORT issuer names in order of appearance),
+    from each snapshot's equity_securities, oldest first."""
+    out = {}
+    for securities in snapshots:
+        for s in securities:
+            if s['id']:
+                ticker, names = out.get(s['id'], ('', ()))
+                out[s['id']] = (s['reported_ticker'] or ticker, names if s['name'] in names else names + (s['name'],))
+    return out
+
+
+def issuer_successions(snapshots, entries):
+    """{old CUSIP: {'successor': new CUSIP, 'ticker': its ticker}} for securities without an
+    active mapping that a new CUSIP of the same issuer replaces.
+
+    `snapshots` is each snapshot's equity_securities, oldest first. A CUSIP's first six
+    characters are its issuer number; a new issue number under the same issuer and issuer
+    name (issuer_key), first held in the snapshot right after the old CUSIP was last held,
+    is the old security after a reverse split, a reclassification or a rename. The link is
+    made only when exactly one such CUSIP has a ticker and no other security held alongside
+    the old CUSIP carries that ticker (two share classes of one issuer never qualify: they
+    are held together). Chains resolve to the latest CUSIP's ticker.
+    """
+    held, first_name, last_name = {}, {}, {}
+    for k, securities in enumerate(snapshots):
+        for s in securities:
+            if s['id_type'] == 'ID_CUSIP':
+                held.setdefault(s['id'], []).append(k)
+                first_name.setdefault(s['id'], issuer_key(s['name']))
+                last_name[s['id']] = issuer_key(s['name'])
+    starting = {}
+    for sid, ks in held.items():
+        starting.setdefault(ks[0], []).append(sid)
+    out = {}
+
+    def ticker(sid):
+        return out[sid]['ticker'] if sid in out else (entries.get(sid) or {}).get('ticker')
+
+    for old in sorted(held, key=lambda sid: (-held[sid][-1], sid)):       # successors first
+        if (entries.get(old) or {}).get('status') == 'active' or not last_name[old]:
+            continue
+        nxt = [new for new in starting.get(held[old][-1] + 1, ())
+               if new[:6] == old[:6] and first_name[new] == last_name[old] and ticker(new)]
+        if len(nxt) != 1:
+            continue
+        t = ticker(nxt[0])
+        if any(s['id'] != old and ticker(s['id']) == t for k in held[old] for s in snapshots[k] if s['id']):
+            continue
+        out[old] = {'successor': nxt[0], 'ticker': t}
+    return out
+
+
+def snapshot_rows(securities, entries, successions=None):
     """CSV rows (ticker, cusip, isin, name, weight) by descending weight; weight = value share."""
     total = sum(s['val_usd'] for s in securities)
     if total <= 0:
         raise ValueError('snapshot has no equity value')
+    successions = successions or {}
     rows = []
     for s in securities:
-        e = entries.get(s['id']) if s['id'] else None
-        rows.append({'ticker': (e or {}).get('ticker') or '', 'cusip': s['cusip'], 'isin': s['isin'],
+        if s['id'] in successions:
+            ticker = successions[s['id']]['ticker']
+        else:
+            ticker = ((entries.get(s['id']) if s['id'] else None) or {}).get('ticker') or ''
+        rows.append({'ticker': ticker, 'cusip': s['cusip'], 'isin': s['isin'],
                      'name': s['name'], 'weight': s['val_usd'] / total})
     rows.sort(key=lambda r: (-r['weight'], r['cusip'], r['isin'], r['name']))
     return rows
@@ -498,9 +650,10 @@ def main(argv=None):
                            folder + name))
 
     entries = read_map(map_path)
+    held = [securities for _, _, securities, _, _ in parsed_all]
     if not args.offline:
         wanted = OrderedDict()
-        for _, _, securities, _, _ in parsed_all:
+        for securities in held:
             for s in securities:
                 if s['id'] and (s['id'] not in entries
                                 or (args.remap_missing and entries[s['id']].get('status') != 'active')):
@@ -508,12 +661,18 @@ def main(argv=None):
         if wanted:
             print(f'OpenFIGI: mapping {len(wanted)} identifiers', flush=True)
             query_openfigi(list(wanted.items()), entries, map_path, args.openfigi_cache,
-                           os.environ.get('OPENFIGI_API_KEY'), refresh=args.remap_missing)
+                           os.environ.get('OPENFIGI_API_KEY'), refresh=args.remap_missing,
+                           reported=reported_tickers(held))
+        held_ids = {s['id'] for securities in held for s in securities if s['id']}
+        if set(entries) - held_ids:                         # identifiers no snapshot holds any more
+            entries = {k: e for k, e in entries.items() if k in held_ids}
+            write_map(entries, map_path)
+    successions = issuer_successions(held, entries)
 
     out.mkdir(parents=True, exist_ok=True)
     snapshots = []
     for f, parsed, securities, sha, url in parsed_all:
-        rows = snapshot_rows(securities, entries)
+        rows = snapshot_rows(securities, entries, successions)
         filename = f"iwv_{parsed['period_date']}.csv"
         write_snapshot(rows, out / filename)
         snapshots.append(snapshot_entry(f, parsed, securities, rows, sha, url, filename))
@@ -528,7 +687,9 @@ def main(argv=None):
                      '(ISIN where N-PORT gives no CUSIP)'),
         ('weight', 'valUSD / total valUSD of the equity-common holdings on the period date'),
         ('membership_rule', 'a snapshot is in force from its period_date until the next snapshot'),
-        ('ticker_map', 'cusip_ticker_map.json (OpenFIGI)'),
+        ('ticker_map', 'cusip_ticker_map.json (OpenFIGI, with the tickers N-PORT reports); a CUSIP listed '
+                       'under "successions" takes its successor CUSIP\'s ticker'),
+        ('successions', OrderedDict((old, successions[old]) for old in sorted(successions))),
         ('sealed_from', SEALED_FROM),
         ('sealed', [OrderedDict([('period_date', f['period_date']), ('filing_date', f['filing_date']),
                                  ('accession', f['accession']), ('form', f['form'])]) for f in sealed]),

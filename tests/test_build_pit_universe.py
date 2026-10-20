@@ -2,8 +2,10 @@
 
 Fixtures: tests/fixtures/nport/filings.atom (an EDGAR Atom feed: two NPORT-P filings, an
 NPORT-P/A that amends the second, an N-CEN and a 2026 filing) and primary_doc.xml (an
-N-PORT document with equity, cash-sweep and futures holdings, a repeated CUSIP, an
-issuer reported by ISIN only and an escrow line without identifiers). No network.
+N-PORT document with equity, cash-sweep and futures holdings, a repeated CUSIP whose
+second line alone reports a ticker, an issuer reported by ISIN only with a numeric
+"ticker", an escrow line without identifiers, and a future whose reference instrument
+carries identifiers of its own). No network.
 """
 import hashlib
 import importlib.util
@@ -45,8 +47,8 @@ def _figi(*records, name='NAME', share_class=None):
                           securityType='Common Stock') for i, r in enumerate(records)]}
 
 
-def _resolve(result, id_type='ID_CUSIP', us_lines=None):
-    return b.resolve_entry(result, id_type, us_lines or {}, '2026-10-20')
+def _resolve(result, id_type='ID_CUSIP', us_lines=None, reported='', names=()):
+    return b.resolve_entry(result, id_type, us_lines or {}, '2026-10-20', reported, names)
 
 
 def _raw_cache(tmp_path):
@@ -84,6 +86,16 @@ def test_parse_nport_reads_period_series_and_every_holding():
     assert len(parsed['holdings']) == 7
     garmin = next(h for h in parsed['holdings'] if h['name'] == 'Garmin Ltd')
     assert garmin['cusip'] == '000000000' and garmin['isin'] == 'CH0114405324' and garmin['val_usd'] == 200.0
+    future = parsed['holdings'][-1]
+    assert (future['ticker'], future['isin']) == ('RTYH0', '')     # not the reference index's identifiers
+    assert parsed['holdings'][0]['ticker'] == 'AAA' and parsed['holdings'][1]['ticker'] == ''
+
+
+def test_reported_ticker_keeps_only_tickers():
+    assert b.reported_ticker({'ticker': 'BRK/B'}) == 'BRK/B'
+    assert b.reported_ticker({'ticker': ' lin '}) == 'LIN'
+    for junk in ('2258480', '2512042D', 'GFF.NY', 'SAFE-W', 'SEG-R-W', '', None):
+        assert b.reported_ticker({'ticker': junk}) == ''
 
 
 def test_equity_only_repeated_lines_summed_isin_fallback():
@@ -91,6 +103,7 @@ def test_equity_only_repeated_lines_summed_isin_fallback():
     assert [s['name'] for s in sec] == ['Alpha Corp', 'Beta Inc', 'Garmin Ltd', 'ESCROW GAMMA RIGHTS']
     beta = sec[1]
     assert beta['id'] == '000000BB7' and beta['val_usd'] == 150.0           # two lines, one security
+    assert [s['reported_ticker'] for s in sec] == ['AAA', 'BBB/A', '', '']   # from either line; no numerics
     assert (sec[2]['id'], sec[2]['id_type'], sec[2]['cusip']) == ('CH0114405324', 'ID_ISIN', '')
     assert sec[3]['id'] is None                                              # unmappable, still weighted
 
@@ -99,6 +112,10 @@ def test_security_id():
     assert b.security_id({'cusip': '037833100', 'isin': 'US0378331005'}) == ('037833100', 'ID_CUSIP')
     assert b.security_id({'cusip': '000000000', 'isin': 'IE00B6330302'}) == ('IE00B6330302', 'ID_ISIN')
     assert b.security_id({'cusip': 'N/A', 'isin': ''}) == (None, None)
+    # BlackRock's placeholders for a CVR and an escrow claim (booked under the target's ticker)
+    assert b.security_id({'cusip': '457CVR017', 'isin': 'US457CVR0178'}) == (None, None)
+    assert b.security_id({'cusip': '000000000', 'isin': 'US361ESC0496'}) == (None, None)
+    assert b.security_id({'cusip': '12662P108', 'isin': 'US12662P1084'}) == ('12662P108', 'ID_CUSIP')   # CVR Energy
 
 
 def test_filing_list_and_header():
@@ -175,6 +192,16 @@ def test_issuer_key_drops_legal_form_but_keeps_share_class():
     assert b.issuer_key(None) == ''
 
 
+def test_same_security_tolerates_cut_off_names():
+    def same(new, old):
+        return b.same_security({'name': new, 'shareClassFIGI': 'NEW'}, [{'name': old}])
+    assert same('EASTERLY GOVERNMENT PROPERTI', 'Easterly Government Properties Inc')   # Bloomberg's 28
+    assert same('OFFICE PROPERTIES INCOME TRUST', 'Office Properties Income Tru')
+    assert not same('EASTERLY GOVERNMENT PROPERTI', 'Easterly Government Services Inc')  # cut, other word
+    assert not same('EASTERLY GOVERNMENT PROPS', 'Easterly Government Properties Inc')  # short: not cut
+    assert not same('RUBICO INC', 'RUBICON PROJECT INC/THE')
+
+
 @pytest.mark.parametrize('old, new, same', [
     ('AMC ENTERTAINMENT HOLDINGS INC', 'AMC ENTERTAINMENT HLDS-CL A', True),   # abbreviated, class appended
     ('EXXON MOBIL CORP', 'EXXONMOBIL HOLDINGS CORP', True),
@@ -184,6 +211,7 @@ def test_issuer_key_drops_legal_form_but_keeps_share_class():
     ('AMC', 'AMCOR PLC', False),
     ('RUBICON PROJECT INC/THE', 'RUBICO INC', False),                          # whole words only
     ('BUNGE LTD', 'BUNGE GLOBAL SA', True),                                    # re-domiciled
+    ('Metals Acquisition Ltd', 'METALS ACQUISITION II-CL A', False),           # the sponsor's next SPAC
 ])
 def test_same_security_by_name(old, new, same):
     assert b.same_security({'name': new, 'shareClassFIGI': 'NEW'}, _figi(('X', 'X1'), name=old)['data']) is same
@@ -203,6 +231,107 @@ def test_delisted_line_kept_continued_or_marked_reused():
     e = _resolve(blk, us_lines={'BLK': [_us('BLK', 'BLACKROCK INC', 'SC6')]})
     assert (e['status'], e['ticker'], e['matched_by']) == ('active', 'BLK', 'name')
     assert b.pending_tickers(_figi(('AAPL', 'US'))) == []
+
+
+def test_reported_ticker_resolves_what_openfigi_cannot():
+    # Cooper's pre-split CUSIP is unknown to OpenFIGI; N-PORT reported COO
+    e = _resolve({'warning': 'No identifier found.'}, us_lines={'COO': [_us('COO', 'COOPER COS INC/THE', 'SC9')]},
+                 reported='COO', names=('Cooper Cos Inc/The',))
+    assert (e['status'], e['ticker'], e['matched_by'], e['figi']) == ('active', 'COO', 'reported ticker', 'BBG-COO')
+    # without N-PORT's issuer name nothing confirms the US record
+    e = _resolve({'warning': 'No identifier found.'}, us_lines={'COO': [_us('COO', 'COOPER COS INC/THE', 'SC9')]},
+                 reported='COO')
+    assert (e['status'], e['ticker']) == ('reused', None)
+    # Lucid's pre-split CUSIP: OpenFIGI's only line is the SPAC's frozen CCIVUSD
+    lucid = _figi(('CCIVUSD', 'XS'), name='LUCID GROUP INC', share_class='SC1')
+    assert b.pending_tickers(lucid, 'LCID') == ['CCIV', 'LCID'] and b.pending_tickers(lucid, 'CCIV') == ['CCIV']
+    e = _resolve(lucid, us_lines={'LCID': [_us('LCID', 'LUCID GROUP INC', 'SC2')]}, reported='LCID')
+    assert (e['status'], e['ticker'], e['matched_by']) == ('active', 'LCID', 'reported ticker')
+    assert _resolve(lucid)['ticker'] == 'CCIV'                              # what OpenFIGI alone gives
+    # a reported ticker no US security uses now is kept as the last ticker
+    ea = _figi(('EA*', 'MM'), ('ERTSEUR', 'X1'), name='ELECTRONIC ARTS INC')
+    e = _resolve(ea, reported='EA', names=('Electronic Arts Inc',))
+    assert (e['status'], e['ticker'], e['matched_by']) == ('delisted', 'EA', 'reported ticker')
+    assert 'as reported in N-PORT' in e['note']
+    # ... unless another security has it now
+    e = _resolve(_figi(('DOCUSD', 'XS'), name='PHYSICIANS REALTY TRUST'), reported='DOCX',
+                 us_lines={'DOCX': [_us('DOCX', 'HEALTHPEAK PROPERTIES INC', 'SC3')]})
+    assert (e['status'], e['ticker']) == ('reused', None) and 'OpenFIGI\'s delisted line reads DOCUSD' in e['note']
+
+
+def test_reported_ticker_never_overrides_an_answer_openfigi_settles():
+    # an active US line wins (Madison Square Garden Entertainment is Sphere Entertainment now)
+    e = _resolve(_figi(('SPHR', 'US'), name='SPHERE ENTERTAINMENT CO'), reported='MSGE',
+                 us_lines={'MSGE': [_us('MSGE', 'MADISON SQUARE GARDEN ENTERT', 'SC4')]})
+    assert (e['ticker'], e['matched_by']) == ('SPHR', 'cusip')
+    assert b.pending_tickers(_figi(('SPHR', 'US')), 'MSGE') == []
+    # a delisted line under the reported ticker, and a reused one, stay as they are
+    twtr = _figi(('TWTRUSD', 'XS'), name='TWITTER INC')
+    assert _resolve(twtr, reported='TWTR') == _resolve(twtr)
+    barnes = _figi(('BUSD', 'XB'), name='BARNES GROUP INC', share_class='SC3')
+    lines = {'B': [_us('B', 'BARRICK MINING CORP', 'SC4')], 'BGX': [_us('BGX', 'BARNES GROUP INC', 'SC3')]}
+    assert _resolve(barnes, us_lines=lines, reported='BGX')['status'] == 'reused'
+
+
+def test_reported_tickers_latest_valid_wins():
+    snaps = [[{'id': 'X', 'reported_ticker': '', 'name': 'Old Name'}],
+             [{'id': 'X', 'reported_ticker': 'AAA', 'name': 'Old Name'}, {'id': None, 'reported_ticker': 'Q', 'name': 'Q'}],
+             [{'id': 'X', 'reported_ticker': 'BBB', 'name': 'New Name'}],
+             [{'id': 'X', 'reported_ticker': '', 'name': 'New Name'}]]
+    assert b.reported_tickers(snaps) == {'X': ('BBB', ('Old Name', 'New Name'))}
+
+
+def _sec(sid, name, id_type='ID_CUSIP'):
+    return {'id': sid, 'id_type': id_type, 'name': name}
+
+
+def _active(ticker):
+    return {'status': 'active', 'ticker': ticker}
+
+
+def test_issuer_succession_links_a_new_cusip_of_the_same_issuer():
+    gone = {'status': 'unmapped', 'ticker': None}
+    snaps = [[_sec('369604103', 'General Electric Co'), _sec('111111AA1', 'Other Co')],
+             [_sec('369604301', 'General Electric Co'), _sec('111111AA1', 'Other Co')]]
+    entries = {'369604103': gone, '369604301': _active('GE'), '111111AA1': _active('OTH')}
+    links = b.issuer_successions(snaps, entries)
+    assert links == {'369604103': {'successor': '369604301', 'ticker': 'GE'}}
+    rows = b.snapshot_rows([dict(_sec('369604103', 'General Electric Co'), cusip='369604103', isin='', val_usd=1.0)],
+                           entries, links)
+    assert rows[0]['ticker'] == 'GE'
+    # a frozen delisted ticker gives way to the successor's
+    stale = dict(entries, **{'369604103': {'status': 'delisted', 'ticker': 'GEX'}})
+    assert b.issuer_successions(snaps, stale)['369604103']['ticker'] == 'GE'
+    assert b.snapshot_rows([dict(_sec('369604103', 'GE'), cusip='369604103', isin='', val_usd=1.0)], stale,
+                           b.issuer_successions(snaps, stale))[0]['ticker'] == 'GE'
+    # chains resolve to the latest CUSIP's ticker
+    chain = [[_sec('222222AA1', 'Chain Inc')], [_sec('222222AB9', 'Chain Inc')], [_sec('222222AC7', 'Chain Inc')]]
+    links = b.issuer_successions(chain, {'222222AA1': gone, '222222AB9': gone, '222222AC7': _active('CHN')})
+    assert {k: v['ticker'] for k, v in links.items()} == {'222222AA1': 'CHN', '222222AB9': 'CHN'}
+
+
+@pytest.mark.parametrize('snaps, entries', [
+    # another issuer number (a holding-company reorganisation creates a new issuer)
+    ([[_sec('313747206', 'Federal Realty')], [_sec('313745101', 'Federal Realty')]], {'313745101': _active('FRT')}),
+    # another issuer name under the same number
+    ([[_sec('123456AA1', 'Alpha Holdings')], [_sec('123456AB9', 'Beta Holdings')]], {'123456AB9': _active('BET')}),
+    # not the very next snapshot
+    ([[_sec('123456AA1', 'Alpha')], [], [_sec('123456AB9', 'Alpha')]], {'123456AB9': _active('ALP')}),
+    # two candidates (share classes appearing together)
+    ([[_sec('123456AA1', 'Alpha')], [_sec('123456AB9', 'Alpha'), _sec('123456AC7', 'Alpha')]],
+     {'123456AB9': _active('ALPA'), '123456AC7': _active('ALPC')}),
+    # the old CUSIP maps by itself
+    ([[_sec('123456AA1', 'Alpha')], [_sec('123456AB9', 'Alpha')]], {'123456AA1': _active('ALP'),
+                                                                     '123456AB9': _active('ALP2')}),
+    # the successor's ticker is another security's alongside the old CUSIP
+    ([[_sec('123456AA1', 'Alpha'), _sec('999999ZZ9', 'Zeta')], [_sec('123456AB9', 'Alpha')]],
+     {'123456AB9': _active('ZZZ'), '999999ZZ9': _active('ZZZ')}),
+    # ISINs carry no issuer number
+    ([[_sec('IE00BZ12WP82', 'Linde PLC', 'ID_ISIN')], [_sec('IE000S9YS762', 'Linde PLC', 'ID_ISIN')]],
+     {'IE000S9YS762': _active('LIN')}),
+])
+def test_issuer_succession_refuses(snaps, entries):
+    assert b.issuer_successions(snaps, entries) == {}
 
 
 def test_ticker_candidates():
@@ -246,6 +375,25 @@ def test_query_openfigi_two_passes_cached_and_resumable(tmp_path, monkeypatch):
     assert [len(j) for _, j in bodies] == [2, 1] and bodies[0][0]['X-OPENFIGI-APIKEY'] == 'k'   # lookups refreshed too
 
 
+def test_query_openfigi_looks_up_reported_tickers(tmp_path, monkeypatch):
+    asked = []
+
+    def fake_get(url, headers=None, data=None, **kw):
+        jobs = json.loads(data)
+        asked.extend(j['idValue'] for j in jobs)
+        return json.dumps([{'data': [_us(j['idValue'], 'COOPER COS INC/THE', 'SC')]} if j['idType'] == 'TICKER'
+                           else {'warning': 'No identifier found.'} for j in jobs]).encode()
+
+    monkeypatch.setattr(b, 'http_get', fake_get)
+    monkeypatch.setattr(b, 'RateLimiter', lambda interval: None)
+    entries = {}
+    b.query_openfigi([('216648402', 'ID_CUSIP'), ('000000019', 'ID_CUSIP')], entries, tmp_path / 'map.json',
+                     tmp_path / 'responses.json', reported={'216648402': ('COO', ('Cooper Cos Inc/The',))})
+    assert asked == ['216648402', '000000019', 'COO']
+    assert (entries['216648402']['ticker'], entries['216648402']['matched_by']) == ('COO', 'reported ticker')
+    assert entries['000000019']['status'] == 'unmapped'
+
+
 # --- the whole build, offline ----------------------------------------------------------------
 
 def test_offline_build_snapshots_index_and_sealed(tmp_path):
@@ -283,6 +431,25 @@ def test_offline_build_is_deterministic_and_never_reads_sealed(tmp_path):
         b.main(['--offline', '--include-sealed', '--raw-dir', str(raw), '--out-dir', str(out)])
 
 
+def test_offline_build_applies_issuer_successions(tmp_path):
+    # Alpha's CUSIP changes between the two snapshots (a reverse split): OpenFIGI no longer
+    # knows the old one, the new one maps to AAA
+    raw, out = _raw_cache(tmp_path), tmp_path / 'out'
+    amended = raw / '0000000000-20-000003.xml'
+    amended.write_bytes(amended.read_bytes().replace(b'000000AA1', b'000000AB9').replace(b'US000000AA11', b'US000000AB92'))
+    out.mkdir()
+    b.write_map({'000000AA1': _resolve({'warning': 'No identifier found.'}),
+                 '000000AB9': _resolve(_figi(('AAA', 'US'))),
+                 '000000BB7': _resolve(_figi(('BBB/A', 'UN'))),
+                 'CH0114405324': _resolve(_figi(('GRMN', 'US')), 'ID_ISIN')}, out / 'cusip_ticker_map.json')
+    b.main(['--offline', '--raw-dir', str(raw), '--out-dir', str(out)])
+    with open(out / 'index.json') as f:
+        index = json.load(f)
+    assert index['successions'] == {'000000AA1': {'successor': '000000AB9', 'ticker': 'AAA'}}
+    first = (out / 'iwv_2020-03-31.csv').read_text().splitlines()
+    assert first[1].startswith('AAA,000000AA1,') and index['snapshots'][0]['n_mapped'] == 3
+
+
 def test_online_build_queries_only_unmapped_identifiers(tmp_path, monkeypatch):
     raw, out = _raw_cache(tmp_path), tmp_path / 'out'
     _map(out, with_all=False)
@@ -295,17 +462,21 @@ def test_online_build_queries_only_unmapped_identifiers(tmp_path, monkeypatch):
 
     asked = []
 
-    def query(jobs, entries, map_path, response_cache, api_key=None, refresh=False):
+    def query(jobs, entries, map_path, response_cache, api_key=None, refresh=False, reported=None):
         asked.append((list(jobs), refresh))
+        assert reported['000000BB7'] == ('BBB/A', ('Beta Inc',))
         for sid, id_type in jobs:
             entries[sid] = _resolve({'warning': 'No identifier found.'}, id_type)
         b.write_map(entries, map_path)
 
     monkeypatch.setattr(b, 'sec_get', sec_get)
     monkeypatch.setattr(b, 'query_openfigi', query)
+    entries = b.read_map(out / 'cusip_ticker_map.json')
+    b.write_map(dict(entries, **{'457CVR017': _resolve(_figi(('INBX', 'US')))}), out / 'cusip_ticker_map.json')
     args = ['--raw-dir', str(raw), '--out-dir', str(out), '--openfigi-cache', str(tmp_path / 'figi.json')]
     b.main(args)
     assert asked == [([('000000BB7', 'ID_CUSIP'), ('CH0114405324', 'ID_ISIN')], False)]
+    assert '457CVR017' not in b.read_map(out / 'cusip_ticker_map.json')   # held by no snapshot: dropped
     b.main(args)
     assert len(asked) == 1                                        # failures are cached too
     b.main(['--remap-missing'] + args)

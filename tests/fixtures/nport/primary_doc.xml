@@ -26,6 +26,7 @@
         <cusip>000000AA1</cusip>
         <identifiers>
           <isin value="US000000AA11"/>
+          <ticker value="AAA"/>
         </identifiers>
         <balance>100.00000000</balance>
         <units>NS</units>
@@ -68,6 +69,7 @@
         <cusip>000000BB7</cusip>
         <identifiers>
           <isin value="US000000BB77"/>
+          <ticker value="BBB/A"/>
         </identifiers>
         <balance>5.00000000</balance>
         <units>NS</units>
@@ -85,6 +87,7 @@
         <cusip>000000000</cusip>
         <identifiers>
           <isin value="CH0114405324"/>
+          <ticker value="2203223"/>
         </identifiers>
         <balance>2.00000000</balance>
         <units>NS</units>
@@ -135,6 +138,7 @@
         <title>E-MINI RUSS 2000  MAR20 XCME 20200320</title>
         <cusip>000000000</cusip>
         <identifiers>
+          <ticker value="RTYH0"/>
           <other otherDesc="BlackRock Identifier" value="RTSH02023"/>
         </identifiers>
         <balance>34.00000000</balance>
@@ -145,6 +149,20 @@
         <assetCat>DE</assetCat>
         <issuerConditional desc="derivative" issuerCat="OTHER"/>
         <invCountry>US</invCountry>
+        <derivativeInfo>
+          <futrDeriv derivCat="FUT">
+            <descRefInstrmnt>
+              <otherRefInst>
+                <issuerName>FTSE Russell</issuerName>
+                <issueTitle>Russell 2000 Index</issueTitle>
+                <identifiers>
+                  <isin value="GB00RUSSELL2"/>
+                  <ticker value="RTY"/>
+                </identifiers>
+              </otherRefInst>
+            </descRefInstrmnt>
+          </futrDeriv>
+        </derivativeInfo>
       </invstOrSec>
     </invstOrSecs>
   </formData>
