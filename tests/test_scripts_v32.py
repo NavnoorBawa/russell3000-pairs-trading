@@ -525,3 +525,28 @@ def test_cost_sensitivity_reruns_the_same_trades_under_each_scenario(monkeypatch
     assert rows['$5B']['mean_cost_bp_of_gross_notional'] > rows['$10M']['mean_cost_bp_of_gross_notional']
     assert (system.cost_model.market_impact_coefficient, system.cost_model.gc_borrow_rate,
             system.initial_capital) == before
+
+
+def test_publish_run_copies_exports_with_a_manifest_and_a_clean_log(tmp_path):
+    import hashlib
+    pr = _load('publish_run')
+    pr.ROOT = tmp_path
+    out = tmp_path / 'outputs'
+    out.mkdir()
+    head = {'schema': 1, 'run_config': {'git_commit': 'abc', 'effective': {'profile': 'v33'},
+                                        'study': {'profile': {'name': 'v33'}},
+                                        'data': {'price_cache': {'sha256': 'f00'}}}}
+    (out / 'headline_metrics.json').write_text(json.dumps(head))
+    (out / 'results.json').write_text('{"x": 1}')
+    (out / 'chart.png').write_bytes(b'png')                      # not an export: not copied
+    log = tmp_path / 'run.log'
+    log.write_text(f"start\nPair testing:  50%|##   | 5/10 [00:01<00:01, 5.0pair/s]\n"
+                   f"wrote {tmp_path}/outputs/results.json\n")
+    dest = pr.publish(out, 'v33_dev', log)
+    assert sorted(p.name for p in dest.iterdir()) == ['MANIFEST.json', 'headline_metrics.json',
+                                                      'results.json', 'run.log']
+    assert (dest / 'run.log').read_text() == "start\nwrote ./outputs/results.json\n"
+    m = json.loads((dest / 'MANIFEST.json').read_text())
+    assert m['run_config']['git_commit'] == 'abc' and m['study']['profile']['name'] == 'v33'
+    assert m['price_cache'] == {'sha256': 'f00'}
+    assert m['files']['results.json']['sha256'] == hashlib.sha256(b'{"x": 1}').hexdigest()
