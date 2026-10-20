@@ -20,8 +20,9 @@ claim on the study's own data and times both:
 usage: python scripts/selector_equivalence.py [--reference fa4c02b] [--n-jobs 1 4]
                                               [--out outputs/selector_equivalence.json]
 Needs data/marketcap.csv and the price cache data/enhanced_russell_3000_data.pkl (nothing
-is fetched). Runtime is dominated by the reference search: ~45 min on one core for the
-44,850 pairs of the 300-symbol universe. Exit status 0 only if every check passes.
+is fetched). Runtime is dominated by the reference selector on one core: ~30 min for the
+44,850 pairs of the 300-symbol universe and ~9 min for the re-selection tests, against
+~1 min each for this tree's (4 CPUs). Exit status 0 only if every check passes.
 """
 import argparse
 import importlib.util

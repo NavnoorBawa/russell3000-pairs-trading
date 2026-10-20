@@ -127,8 +127,9 @@ universe: data/marketcap.csv (3,000 largest US common stocks) · daily OHLCV 202
   ├─ Pair selection — formation data to 2022-12-31 only
   │    screens on point-in-time (split-unadjusted) price and dollar volume; 300 most liquid
   │    positive return correlation ≥ 0.25 · two-direction Engle-Granger p < 0.05 (Bonferroni)
-  │    (fast_coint.py: statsmodels' coint re-implemented in numpy, same statistic to ~1e-13, ~20x faster;
-  │    the all-pairs search runs over PAIRS_N_JOBS processes with an identical result)
+  │    (fast_coint.py: statsmodels' coint re-implemented in numpy, same statistic to ~1e-13, 13-30x faster;
+  │    the all-pairs search runs over PAIRS_N_JOBS processes: the 44,850 pairs in 67 s instead of 30 min,
+  │    the same 1,776 pairs in the same order — scripts/selector_equivalence.py)
   │    half-life 4–25 days on the cointegrating spread · heuristic quality score
   │    PCA (5 factors) residual cointegration → quality bonus · Benjamini-Hochberg diagnostic
   │    re-selection every 90 trading days: 2-year re-test + 126-day check (p ≤ 0.30)
@@ -264,6 +265,7 @@ cp -r outputs outputs_headline           # keep the headline run: every run rewr
 # JSON from a non-default switch unless --allow-variant is given)
 python scripts/synthetic_validation.py   # known-answer checks (~4 min)
 python scripts/parameter_sensitivity.py  # threshold grid + PBO on the study data (slow)
+python scripts/selector_equivalence.py   # pair selection vs v32's statsmodels loop (~50 min)
 PAIRS_USE_TRANSFORMER=0 python -m pairs_trading.main > logs/backtest_noml.log 2>&1   # ranker ablation
 PAIRS_FILL=open python -m pairs_trading.main > logs/backtest_open.log 2>&1          # fill sensitivity
 ```
@@ -313,7 +315,7 @@ fails the build.
 ```
 ├── pairs_trading/   # the system (main.py is the entry point; synthetic.py is test-only)
 ├── tests/           # pytest suite
-├── scripts/         # publication check, social card, synthetic validation, parameter sensitivity
+├── scripts/         # publication check, social card, synthetic validation, parameter sensitivity, selector equivalence
 ├── docs/            # PROGRESS.md (complete engineering log) and research notes
 ├── index.html       # project page
 └── data/ logs/ outputs/   # local only (git-ignored)
