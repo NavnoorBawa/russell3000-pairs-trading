@@ -22,6 +22,15 @@ Methods (all standard, all free, no look-ahead):
   - Ledoit & Wolf (2008) studentized circular-block-bootstrap test of the DIFFERENCE
     between two Sharpe ratios on date-aligned returns (strategy vs a baseline).
   - Small-sample t-test (two- and one-sided) + bootstrap CI on the per-window OOS mean.
+  - Multiple testing across a family of trials: probability of backtest overfitting
+    (CSCV), the effective number of trials (entropy effective rank; equicorrelation),
+    the cross-sectional variance of trial Sharpes, the Deflated Sharpe as a function of
+    the number of trials, and t-ratio hurdles (Harvey-Liu-Zhu, Chordia-Goyal-Saretto,
+    Bonferroni) expressed as annual Sharpe ratios.
+  - Factor attribution with Newey-West errors: one market factor, or several factors
+    (e.g. Fama-French) with each factor's share of the explained variance.
+Power, minimum track record and the Sharpe ratios a sample rules out are in power.py;
+tests over a declared family of variants (SPA, Reality Check, StepM, MCS) in snooping.py.
 
 References:
   Lo (2002) "The Statistics of Sharpe Ratios", Financial Analysts Journal.
@@ -30,6 +39,14 @@ References:
     Journal of Empirical Finance.
   Politis & White (2004) "Automatic Block-Length Selection for the Dependent
     Bootstrap", Econometric Reviews; Patton, Politis & White (2009) "Correction to ...".
+  Roy & Vetterli (2007) "The effective rank: a measure of effective dimensionality",
+    EUSIPCO; López de Prado, Lipton & Zoonekynd (2025) "Sharpe Ratio Inference: A New
+    Standard for Reporting and Decision-Making", ADIA Lab (SSRN 5520741).
+  Harvey & Liu (2015) "Backtesting", Journal of Portfolio Management 42(1); Harvey, Liu
+    & Zhu (2016) "...and the Cross-Section of Expected Returns", RFS 29(1); Chordia,
+    Goyal & Saretto (2020) "Anomalies and False Rejections", RFS 33(5).
+  Newey & West (1987) "A Simple, Positive Semi-Definite, Heteroskedasticity and
+    Autocorrelation Consistent Covariance Matrix", Econometrica 55(3).
 """
 
 from pairs_trading.config import pd, np, logging
@@ -686,7 +703,7 @@ def sharpe_difference_test(returns_a, returns_b, block: int = None, n_boot: int 
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Top-level report
+# Multiple testing across trials
 # ──────────────────────────────────────────────────────────────────────────────
 
 def pbo_cscv(performance: np.ndarray, n_splits: int = 10, periods: int = 252) -> dict:
@@ -747,6 +764,170 @@ def pbo_cscv(performance: np.ndarray, n_splits: int = 10, periods: int = 252) ->
     }
 
 
+def _trial_matrix(R):
+    """(T x N float matrix of the trials with dispersion, number of constant columns).
+
+    Rows with a non-finite entry are dropped. A column without dispersion (a variant that
+    never trades) has a Sharpe of exactly 0, not a draw from the null distribution of
+    trial Sharpes, so it is left out of the trial statistics below.
+    """
+    M = R.to_numpy(dtype=float) if isinstance(R, pd.DataFrame) else np.asarray(R, dtype=float)
+    if M.ndim != 2 or M.shape[1] < 1:
+        raise ValueError("R must be a T x N matrix of trial returns")
+    M = M[np.isfinite(M).all(axis=1)]
+    if M.shape[0] < 3:
+        raise ValueError("need at least 3 finite rows")
+    live = np.array([not _is_constant(M[:, k]) for k in range(M.shape[1])], dtype=bool)
+    return M[:, live], int((~live).sum())
+
+
+def effective_number_of_trials(R) -> dict:
+    """Effective number of independent trials among the N columns of a trial-return matrix.
+
+    Correlated trials (a threshold grid, toggles of one gate) are fewer independent draws
+    than their count. Two estimates from the correlation matrix C of the trial returns:
+      * 'effective_rank': the entropy effective rank of Roy & Vetterli (2007), as in
+        López de Prado, Lipton & Zoonekynd (2025, effective_rank in their code): with
+        p_i = lambda_i / sum(lambda) over the positive eigenvalues of C,
+        N_eff = exp(-sum_i p_i ln p_i) — N for uncorrelated trials, 1 for identical ones;
+      * 'n_eff_avg_corr': N / (1 + (N - 1) rho_bar), rho_bar the average off-diagonal
+        correlation — the number of independent estimates with the variance of the
+        average of N equicorrelated ones. Capped at N: a negative average correlation
+        does not create trials.
+    Either can stand in for n_trials in deflated_sharpe_ratio (with trial_sharpe_variance
+    for var_sr_trials_ann). Both count only trials that left a return series; choices
+    made without one (earlier versions, undocumented tries) are not in the matrix.
+    Columns without dispersion are excluded and counted in 'n_constant'.
+    """
+    M, n_constant = _trial_matrix(R)
+    N = M.shape[1]
+    if N == 0:
+        return {'n_trials': 0, 'n_constant': n_constant, 'effective_rank': _NAN,
+                'avg_correlation': _NAN, 'n_eff_avg_corr': _NAN}
+    if N == 1:
+        return {'n_trials': 1, 'n_constant': n_constant, 'effective_rank': 1.0,
+                'avg_correlation': _NAN, 'n_eff_avg_corr': 1.0}
+    C = np.clip(np.corrcoef(M, rowvar=False), -1.0, 1.0)
+    np.fill_diagonal(C, 1.0)
+    rho_bar = float(C[np.triu_indices(N, 1)].mean())
+    denom = 1.0 + (N - 1) * rho_bar
+    return {
+        'n_trials': int(N),
+        'n_constant': n_constant,
+        'effective_rank': _entropy_effective_rank(C),
+        'avg_correlation': rho_bar,
+        'n_eff_avg_corr': float(min(N, N / denom)) if denom > 0 else float(N),
+    }
+
+
+def _entropy_effective_rank(C: np.ndarray) -> float:
+    """exp(entropy) of the normalised positive eigenvalues of a symmetric matrix C."""
+    lam = np.linalg.eigvalsh(np.asarray(C, dtype=float))
+    lam = lam[lam > 1e-12 * max(float(lam.max()), 1e-300)]
+    p = lam / lam.sum()
+    return float(np.exp(-np.sum(p * np.log(p))))
+
+
+def trial_sharpe_variance(R, periods: int = 252) -> float:
+    """Cross-sectional variance (ddof = 1) of the annualised Sharpe ratios of N trials.
+
+    The empirical V[{SR_n}] of Bailey & López de Prado (2014) for the expected maximum
+    Sharpe of the Deflated Sharpe Ratio: pass it as var_sr_trials_ann to
+    deflated_sharpe_ratio / dsr_curve instead of the null default periods / T. Highly
+    correlated trials have similar Sharpes, so this is smaller than periods / T when the
+    family is redundant — the counterpart of an effective number of trials below N.
+    Rows with a non-finite entry are dropped; constant columns are excluded. NaN for
+    fewer than two trials.
+    """
+    M, _ = _trial_matrix(R)
+    if M.shape[1] < 2:
+        return _NAN
+    sr = M.mean(axis=0) / M.std(axis=0, ddof=1) * np.sqrt(periods)
+    return float(np.var(sr, ddof=1))
+
+
+def dsr_curve(returns, n_values, var_sr_trials_ann: float = None, periods: int = 252,
+              variance_at: str = 'estimate') -> list:
+    """Deflated Sharpe Ratio as a function of the number of trials N.
+
+    The number of trials behind a backtest is never known exactly, so the DSR is reported
+    over a range of N rather than at one guessed value: for each N in n_values,
+    deflated_sharpe_ratio(returns, N, var_sr_trials_ann, periods, variance_at). Returns
+    [{'n_trials', 'sr_star_ann', 'dsr'}] in the order of n_values; sr_star_ann is the
+    expected maximum annual Sharpe of N null trials the observed Sharpe is tested against.
+    """
+    rows = []
+    for N in n_values:
+        d = deflated_sharpe_ratio(returns, int(N), var_sr_trials_ann, periods, variance_at)
+        rows.append({'n_trials': int(N), 'sr_star_ann': d['sr_star_ann'], 'dsr': d['dsr']})
+    return rows
+
+
+def sharpe_hurdles(T: int, n_tests: int = 1, periods: int = 252, alpha: float = 0.05,
+                   rho: float = 0.0) -> dict:
+    """Annual Sharpe ratio a T-period track record needs to clear common t-ratio hurdles.
+
+    With IID returns the t-ratio of the mean is t = SR * sqrt(T), SR per period (Harvey &
+    Liu 2015, eqs. 1-2), so a hurdle t_h is an annual Sharpe of t_h * sqrt(periods / T).
+    With serial correlation the t-ratio uses a long-run (HAC) standard error; rho != 0
+    takes it from an AR(1) with lag-1 autocorrelation rho, scaling every Sharpe hurdle by
+    sqrt((1 + rho) / (1 - rho)) — the SR = 0 variance of power.sharpe_ratio_variance.
+    Hurdles:
+      'single_test'          z_{1-alpha}: one test, one-sided;
+      'hlz'                  t = 3.0, Harvey, Liu & Zhu (2016), abstract and Sec. 3.6;
+      'cgs'                  t = 3.8, Chordia, Goyal & Saretto (2020): the multiple-
+                             testing threshold for time-series alphas;
+      'bonferroni_one_sided' z_{1 - alpha / n_tests}: H1 SR > 0, family-wise level alpha;
+      'bonferroni_two_sided' z_{1 - alpha / (2 n_tests)}: the Bonferroni line of Harvey &
+                             Liu's Profit_Hurdle.m, whose p-values are two-sided (their
+                             eq. 3: a long-short strategy may be traded either way).
+    The haircut Sharpe of Harvey & Liu is undefined for a negative observed Sharpe, which
+    is why the hurdles are reported instead. Holm / BHY hurdles are not ported: they draw
+    the untested strategies from HLZ's factor-zoo model, which does not describe an in-
+    house parameter grid (use snooping.romano_wolf for that). t-hurdles depend on the
+    research context (Chen 2023 argues against raising them); they are reference points.
+    Returns {'n_obs', 'n_tests', 'periods', 'alpha', 'rho',
+    'hurdles': {name: {'t', 'sr_ann'}}}.
+    """
+    if T < 2 or n_tests < 1:
+        raise ValueError("need T >= 2 and n_tests >= 1")
+    if not -1.0 < rho < 1.0:
+        raise ValueError("rho must lie in (-1, 1)")
+    to_sr = np.sqrt(periods / float(T) * (1.0 + rho) / (1.0 - rho))
+    t = {
+        'single_test': float(_sps.norm.ppf(1.0 - alpha)),
+        'hlz': 3.0,
+        'cgs': 3.8,
+        'bonferroni_one_sided': float(_sps.norm.ppf(1.0 - alpha / n_tests)),
+        'bonferroni_two_sided': float(_sps.norm.ppf(1.0 - alpha / (2.0 * n_tests))),
+    }
+    return {
+        'n_obs': int(T), 'n_tests': int(n_tests), 'periods': int(periods), 'alpha': float(alpha),
+        'rho': float(rho),
+        'hurdles': {name: {'t': v, 'sr_ann': float(v * to_sr)} for name, v in t.items()},
+    }
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Factor attribution
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _bartlett_hac_covariance(X: np.ndarray, e: np.ndarray, lags: int) -> np.ndarray:
+    """Newey-West (1987) covariance of OLS coefficients, Bartlett weights 1 - k/(lags+1).
+
+    (X'X)^-1 S (X'X)^-1 with S = sum_{|k|<=lags} w_k sum_t x_t e_t e_{t-k} x_{t-k}', and
+    no small-sample correction (statsmodels' cov_type='HAC' with use_correction=False).
+    """
+    XtX_inv = np.linalg.inv(X.T @ X)
+    Xe = X * e[:, None]
+    S = Xe.T @ Xe
+    for k in range(1, lags + 1):
+        w = 1.0 - k / (lags + 1.0)
+        G = Xe[k:].T @ Xe[:-k]
+        S += w * (G + G.T)
+    return XtX_inv @ S @ XtX_inv
+
+
 def factor_attribution(strategy_returns, market_returns, periods: int = 252) -> dict:
     """Regress daily strategy returns on a market factor: r_t = alpha + beta * m_t + e_t.
 
@@ -770,14 +951,7 @@ def factor_attribution(strategy_returns, market_returns, periods: int = 252) -> 
     coef, *_ = np.linalg.lstsq(X, y, rcond=None)
     e = y - X @ coef
     lags = _newey_west_lags(n)
-    XtX_inv = np.linalg.inv(X.T @ X)
-    Xe = X * e[:, None]
-    S = Xe.T @ Xe
-    for k in range(1, lags + 1):
-        w = 1.0 - k / (lags + 1.0)
-        G = Xe[k:].T @ Xe[:-k]
-        S += w * (G + G.T)
-    V = XtX_inv @ S @ XtX_inv
+    V = _bartlett_hac_covariance(X, e, lags)
     se = np.sqrt(np.maximum(np.diag(V), 1e-30))
     ss_tot = float(((y - y.mean()) ** 2).sum())
     return {
@@ -790,6 +964,83 @@ def factor_attribution(strategy_returns, market_returns, periods: int = 252) -> 
         'lags': int(lags),
     }
 
+
+def factor_attribution_multi(strategy_returns, factors: pd.DataFrame, periods: int = 252,
+                             max_lag: int = None) -> dict:
+    """Time-series regression of strategy returns on several factors, Newey-West errors.
+
+        r_t - RF_t = alpha + sum_j beta_j f_jt + e_t      (OLS)
+
+    factors : DataFrame of per-period factor returns in the same units as the strategy
+              (decimal; Ken French's files are in percent), one column per factor, e.g.
+              Mkt-RF, SMB, HML, RMW, CMA, Mom, ST_Rev, LT_Rev. A column named 'RF' is the
+              risk-free rate, not a regressor: the strategy return is then taken in excess
+              of it, so alpha is measured against cash like the factor premia (the
+              engine's equity earns no interest). Without an 'RF' column returns are used
+              as given.
+    strategy_returns : a Series is aligned with `factors` on the index (inner join); an
+              array must already be aligned row for row. Rows with a non-finite value are
+              dropped.
+    max_lag : Bartlett truncation lag; None uses the Newey-West rule of hac_tstat_mean.
+
+    Returns 'alpha_ann' (alpha x periods) and 'alpha_tstat', 'r2', and per factor
+    {'beta', 'tstat', 'variance_share'}: beta_j Cov(f_j, fitted) / Var(fitted), the
+    covariance decomposition of the explained variance (shares sum to one and are
+    negative for a factor that offsets the others; multiply by r2 for a share of the
+    total variance). Standard errors are those of factor_attribution, without a small-
+    sample correction (equal to statsmodels OLS cov_type='HAC', use_correction=False).
+    """
+    if not isinstance(factors, pd.DataFrame):
+        raise TypeError("factors must be a DataFrame with one column per factor")
+    F = factors.astype(float)
+    if isinstance(strategy_returns, pd.Series):
+        joined = pd.concat([strategy_returns.astype(float).rename('__strategy__'), F],
+                           axis=1, join='inner')
+        y = joined.pop('__strategy__').to_numpy()
+        F = joined
+    else:
+        y = np.asarray(strategy_returns, dtype=float).ravel()
+        if len(y) != len(F):
+            raise ValueError("strategy_returns and factors must have the same length "
+                             "(or pass a Series to align on dates)")
+    names = [c for c in F.columns if c != 'RF']
+    excess = 'RF' in F.columns
+    rf = F['RF'].to_numpy() if excess else np.zeros(len(y))
+    Xf = F[names].to_numpy()
+    ok = np.isfinite(y) & np.isfinite(rf) & np.isfinite(Xf).all(axis=1)
+    y, Xf = (y - rf)[ok], Xf[ok]
+    n, k = Xf.shape
+    lags = _newey_west_lags(n) if max_lag is None else int(max_lag)
+    out = {'n': int(n), 'lags': int(lags), 'excess_of_rf': bool(excess),
+           'alpha_ann': _NAN, 'alpha_tstat': _NAN, 'r2': _NAN,
+           'factors': {f: {'beta': _NAN, 'tstat': _NAN, 'variance_share': _NAN} for f in names}}
+    if k == 0 or n < max(20, k + 2) or any(_is_constant(Xf[:, j]) for j in range(k)):
+        return out
+    X = np.column_stack([np.ones(n), Xf])
+    if np.linalg.matrix_rank(X) < k + 1:
+        return out
+    coef, *_ = np.linalg.lstsq(X, y, rcond=None)
+    e = y - X @ coef
+    se = np.sqrt(np.maximum(np.diag(_bartlett_hac_covariance(X, e, lags)), 1e-30))
+    fitted = Xf @ coef[1:]
+    fc = fitted - fitted.mean()
+    var_fit = float(fc @ fc)
+    ss_tot = float(((y - y.mean()) ** 2).sum())
+    for j, f in enumerate(names):
+        share = coef[j + 1] * float((Xf[:, j] - Xf[:, j].mean()) @ fc) / var_fit if var_fit > 0 else _NAN
+        out['factors'][f] = {'beta': float(coef[j + 1]), 'tstat': float(coef[j + 1] / se[j + 1]),
+                             'variance_share': float(share)}
+    out.update({
+        'alpha_ann': float(coef[0] * periods),
+        'alpha_tstat': float(coef[0] / se[0]),
+        'r2': float(1.0 - (e ** 2).sum() / ss_tot) if ss_tot > 0 else _NAN,
+    })
+    return out
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Top-level report
+# ──────────────────────────────────────────────────────────────────────────────
 
 def significance_report(daily_returns, oos_window_returns=None,
                         oos_daily_returns=None, n_trials: int = 1,
