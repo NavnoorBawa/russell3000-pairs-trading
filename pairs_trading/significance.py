@@ -313,7 +313,7 @@ def politis_white_block_length(x, bootstrap: str = 'circular') -> float:
         raise ValueError("bootstrap must be 'circular' or 'stationary'")
     r = _finite(x)
     n = len(r)
-    if n < 8 or r.std() <= 0:
+    if n < 8 or _is_constant(r):          # np.std of a constant is rounding noise, not 0
         return 1.0
     e = r - r.mean()
     b_max = float(np.ceil(min(3.0 * np.sqrt(n), n / 3.0)))
@@ -565,13 +565,18 @@ def _lw_standard_error(ra: np.ndarray, rb: np.ndarray) -> float:
     grad = _sr_diff_gradient(mu1, mu2, g1, g2)
     V = np.column_stack([ra - mu1, rb - mu2, ra * ra - g1, rb * rb - g2])
     X, Y = V[:-1], V[1:]
-    B = np.linalg.lstsq(X, Y, rcond=None)[0]           # X @ B ~ Y ; VAR matrix A = B.T
-    U, s, Wt = np.linalg.svd(B.T)
-    A = U @ np.diag(np.minimum(s, 0.97)) @ Wt
-    resid = Y - X @ A.T
-    psi = _parzen_hac(resid)
-    D = np.linalg.inv(np.eye(4) - A)
-    psi = D @ psi @ D.T
+    if 1.0 / np.linalg.cond(X.T @ X, 1) < 1e-10:
+        # collinear moments (e.g. rb a multiple of ra): the VAR(1) is not identified, so,
+        # as Wolf's computeSEpw_Sharpe does when rcond(X'X) < 1e-10, skip prewhitening
+        psi = _parzen_hac(V)
+    else:
+        B = np.linalg.lstsq(X, Y, rcond=None)[0]       # X @ B ~ Y ; VAR matrix A = B.T
+        U, s, Wt = np.linalg.svd(B.T)
+        A = U @ np.diag(np.minimum(s, 0.97)) @ Wt
+        resid = Y - X @ A.T
+        psi = _parzen_hac(resid)
+        D = np.linalg.inv(np.eye(4) - A)
+        psi = D @ psi @ D.T
     var = float(grad @ psi @ grad) / T
     return float(np.sqrt(var)) if var > 0 else 0.0
 
@@ -638,9 +643,11 @@ def sharpe_difference_test(returns_a, returns_b, block: int = None, n_boot: int 
         return out
 
     se = _lw_standard_error(a, b)
-    if se <= 1e-12 * max(abs(diff), 1e-12):
+    if se <= 1e-6 / np.sqrt(T):
         # the two Sharpe ratios move in lockstep (e.g. b is a positive multiple of a):
-        # the difference has no sampling variance, so it is whatever was observed
+        # the difference has no sampling variance, so it is whatever was observed. (A
+        # Sharpe ratio's own standard error is of order 1/sqrt(T); an SE a millionth of
+        # that is rounding noise in the delta-method variance, not sampling variance.)
         out.update({'se': 0.0, 'tstat': _NAN, 'ci_lo': out['diff'], 'ci_hi': out['diff'],
                     'pvalue': 1.0 if abs(diff) < 1e-12 else 0.0})
         return out
@@ -756,11 +763,11 @@ def factor_attribution(strategy_returns, market_returns, periods: int = 252) -> 
     alpha is reported annualised (x periods). Inputs must be date-aligned (see
     align_return_series).
     """
-    y = _finite(strategy_returns)
+    y = np.asarray(strategy_returns, dtype=float)
     x = np.asarray(market_returns, dtype=float)
     n = min(len(y), len(x))
-    y, x = np.asarray(strategy_returns, dtype=float)[:n], x[:n]
-    ok = np.isfinite(y) & np.isfinite(x)
+    y, x = y[:n], x[:n]
+    ok = np.isfinite(y) & np.isfinite(x)                # drop rows missing in EITHER series
     y, x = y[ok], x[ok]
     n = len(y)
     if n < 20 or np.std(x) <= 0:

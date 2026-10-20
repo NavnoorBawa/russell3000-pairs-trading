@@ -1,0 +1,83 @@
+tests/reference/ledoit_wolf_2008_returns.csv
+============================================
+
+What it is
+----------
+The two data sets of the empirical applications in
+
+    Ledoit, O. and Wolf, M. (2008). Robust performance hypothesis testing with the
+    Sharpe ratio. Journal of Empirical Finance 15, 850-859.
+
+120 monthly log returns, in percent, in excess of the risk-free rate, 01/1994-12/2003.
+
+    column   series                                    variable in retSharpe.mat
+    ffidx    Fidelity (FFIDX)                          retAgg(:,1)    "Mutual funds"
+    fdegx    Fidelity Aggressive Growth (FDEGX)        retAgg(:,2)    "Mutual funds"
+    jmg      JMG Capital Partners                      retHedge(:,1)  "Hedge funds"
+    coast    Coast Enhanced Income                     retHedge(:,2)  "Hedge funds"
+
+    month    row number 1..120 (the .mat file carries no dates)
+
+The paper states the mutual-fund prices came from Yahoo! Finance and the hedge-fund
+returns from the CISDM database. This file redistributes them exactly as Michael Wolf
+redistributes them in his reference package (below), under that package's licence.
+
+Source
+------
+Michael Wolf, "Robust inference for differences of Sharpe ratios", MATLAB package,
+September 2026 version, file SharpeMatlab/retSharpe.mat:
+    https://www.uzh.ch/dam/jcr:bc6a4f15-7957-4768-bc1b-1d6abc46497c/SharpeMatlab.zip
+linked from https://www.econ.uzh.ch/en/people/faculty/wolf/publications.html
+Downloaded 2026-10-20.
+    SharpeMatlab.zip  sha256 b78a934c3175bb67ca54fdd7b8da9ba586247b51f76e0c0f522be56eaab4fdc2
+    retSharpe.mat     sha256 1a5ca9faf6ac21d26fb33c18ae9392db474b8eb76f39be28ce512ad3826f58ba
+
+Conversion: scipy.io.loadmat, each IEEE double written with Python repr() (exact
+round trip, checked when the file was written). No other processing.
+
+The same package's routines computeSE_Sharpe, computeSEpw_Sharpe, computePSI_Sharpe,
+computeAlpha_Sharpe, GammaHat, kernelType and ar2 are ported to Python inside
+tests/test_reference_implementations.py (the reference oracle for the project's
+Ledoit-Wolf standard error); that port is covered by the notice below as well.
+
+Published numbers the tests check (Ledoit & Wolf 2008)
+------------------------------------------------------
+Table 2 (mean, standard deviation, first-order autocorrelation; returns in percent):
+    Fidelity                     0.511   4.760   -0.010
+    Fidelity Aggressive Growth   0.098   9.161    0.090
+    Coast Enhanced Income        0.245   0.168    0.152
+    JMG Capital Partners         1.228   1.211    0.435
+Table 3 (two-sided p-values in percent for H0: equal Sharpe ratios):
+                   HAC    HAC_PW   Boot-TS
+    Mutual funds   6.3    6.7      9.2   (block 4, M = 4999)
+    Hedge funds   14.7   25.4     29.4   (block 6, M = 4999)
+(HAC and HAC_PW in the paper use the Quadratic-Spectral kernel; see Remark 4.1 for the
+Parzen kernel, which the project uses.)
+
+Licence of the source package (reproduced verbatim from SharpeMatlab/LICENSE.txt)
+---------------------------------------------------------------------------------
+Copyright (c) 2026 Michael Wolf
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

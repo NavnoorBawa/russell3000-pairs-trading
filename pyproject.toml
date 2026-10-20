@@ -29,7 +29,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-cov", "ruff>=0.5"]
+# arch: test-only oracle for the block-length estimator (tests/test_reference_implementations.py);
+# hypothesis: property-based tests (tests/test_properties.py).
+dev = ["pytest>=8", "pytest-cov", "ruff>=0.5", "arch", "hypothesis"]
 
 [project.scripts]
 pairs-trading = "pairs_trading.main:cli"
