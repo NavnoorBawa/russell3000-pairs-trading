@@ -1,0 +1,934 @@
+{
+ "claims": {
+  "alpha_negative": true,
+  "alpha_not_significant": true,
+  "best_month_exceeds_total": true,
+  "best_schedule_cheapest": true,
+  "beta_main_not_significant": true,
+  "beta_oos_significant": true,
+  "beta_small": true,
+  "bh_survivors_few": true,
+  "borderline_at_sharpe_1": true,
+  "break_even_below_one": true,
+  "cannot_reject_sharpe_half": true,
+  "chance_accounts_for_most": true,
+  "clearing_windows_contain_best_month": true,
+  "dsr_low": true,
+  "every_interval_spans_zero": true,
+  "excess_cointegration": true,
+  "flat_run_exists": true,
+  "gatev_above_strategy": true,
+  "gross_below_cost": true,
+  "gross_not_significant": true,
+  "gross_pnl_below_costs": true,
+  "gross_split_pending": true,
+  "holdout_sealed": true,
+  "impact_largest_cost": true,
+  "inside_random_spread": true,
+  "iwv_gap_shrinks": true,
+  "kurtosis_fat": true,
+  "long_gained_short_lost": true,
+  "main_ci_spans_zero": true,
+  "main_negative": true,
+  "mde_above_ucb": true,
+  "most_hedge_ratios_below_one": true,
+  "multi_factor_pending": true,
+  "no_schedule_significant": true,
+  "not_different_from_gatev": true,
+  "oos_ci_spans_zero": true,
+  "oos_negative": true,
+  "ranker_no_skill": true,
+  "rejects_sharpe_1": true,
+  "rejects_sharpe_1_5_and_2": true,
+  "residual_pending": true,
+  "schedules_some_lose_rest_break_even": true,
+  "short_loss_near_long_gain": true,
+  "sides_carry_their_sign": true,
+  "snooping_pending": true,
+  "stops_lost_more_than_targets_earned": true,
+  "ucb_about_one": true,
+  "ucb_below_one": true,
+  "universe_not_point_in_time": true,
+  "validation_pending": true
+ },
+ "colors": {
+  "accent": "#1d4f91",
+  "axis": "#c3c2b7",
+  "div-mid": "#f0efec",
+  "grid": "#e6e5df",
+  "ink": "#141413",
+  "ink-2": "#52514e",
+  "ink-3": "#67665f",
+  "neg": "#e34948",
+  "neutral-series": "#898781",
+  "ord-1": "#86b6ef",
+  "ord-2": "#5598e7",
+  "ord-3": "#2a78d6",
+  "ord-4": "#1c5cab",
+  "pos": "#2a78d6",
+  "rule": "#e1e0d9",
+  "rule-2": "#c9c8be",
+  "series-1": "#2a78d6",
+  "series-2": "#eb6834",
+  "series-3": "#1baf7a",
+  "sunk": "#f1f0ec"
+ },
+ "figures": {
+  "anatomy": "build/figures/anatomy.svg",
+  "capacity": null,
+  "costcurve": null,
+  "decay": null,
+  "distribution": "build/figures/distribution.svg",
+  "dsr": "build/figures/dsr.svg",
+  "equity": "build/figures/equity.svg",
+  "exitrace": null,
+  "factors": "build/figures/factors.svg",
+  "forest": "build/figures/forest.svg",
+  "funnel": "build/figures/funnel.svg",
+  "holdout": null,
+  "monthly": "build/figures/monthly.svg",
+  "persistence": null,
+  "pvalues": null,
+  "randomnull": "build/figures/randomnull.svg",
+  "residual": null,
+  "rolling": "build/figures/rolling.svg",
+  "schedules": "build/figures/schedules.svg",
+  "snapshots": "build/figures/snapshots.svg",
+  "timeline": "build/figures/timeline.svg",
+  "universe": null,
+  "validation": null,
+  "walkforward": "build/figures/walkforward.svg",
+  "waterfall": "build/figures/waterfall.svg"
+ },
+ "flags": {
+  "cost_split": false,
+  "holdout_complete": false,
+  "iwv": true,
+  "multi_factor": false,
+  "preregistered": false,
+  "random_band": false,
+  "residual": false,
+  "snooping": false,
+  "universe_pit": false,
+  "validation": false,
+  "wf_daily": false
+ },
+ "layout": {
+  "column_gap_mm": 6.0,
+  "text_width_mm": 162.0
+ },
+ "m": {
+  "benchmarks.gatev.sharpe": "+0.07",
+  "benchmarks.gatev.total_return_pct": "+0.57%",
+  "benchmarks.random_control.median_sharpe": "0.26",
+  "benchmarks.random_control.n_draws": "200",
+  "benchmarks.random_control.p5_sharpe": "−0.53",
+  "benchmarks.random_control.p95_sharpe": "1.10",
+  "benchmarks.random_control.strategy_percentile": "28",
+  "benchmarks.sharpe_diff_vs_gatev.diff": "−0.14",
+  "benchmarks.sharpe_diff_vs_gatev.p": "0.879",
+  "fdr.final_selected_pairs": "1,776",
+  "fdr.pairs_tested": "35,491",
+  "fdr.significant_raw_p05": "2,965",
+  "fdr.survive_bh_fdr_q05": "1",
+  "fund_profiles.fundamental_ls.total_return_pct": "−3.27%",
+  "fund_profiles.institutional.total_return_pct": "+0.04%",
+  "main.annual_turnover_x": "6.0×",
+  "main.avg_gross_exposure_pct": "15.1%",
+  "main.exit_reasons.end_of_data": "5",
+  "main.exit_reasons.stop": "65",
+  "main.exit_reasons.target": "61",
+  "main.exit_reasons.time": "30",
+  "main.max_drawdown_pct": "−3.00%",
+  "main.sharpe": "−0.07",
+  "main.total_return_pct": "−0.30%",
+  "main.trades": "161",
+  "main.win_rate_pct": "47.2%",
+  "oos.avg_window_return_pct": "−0.158%",
+  "oos.pooled_sharpe": "−0.33",
+  "oos.total_return_pct": "−1.75%",
+  "oos.trades": "219",
+  "oos.windows": "11",
+  "oos.windows_no_trades": "2",
+  "oos.windows_positive": "3",
+  "paper.best_month": "July 2024",
+  "paper.beta_below_one": "148",
+  "paper.boot_block_main": "3",
+  "paper.boot_block_oos": "2",
+  "paper.boot_resamples": "5,000",
+  "paper.clean": "clean",
+  "paper.clear_first_end_long": "21 November 2024",
+  "paper.clear_last_end_long": "8 January 2025",
+  "paper.commit": "711b18cbd1a6",
+  "paper.commit_short": "711b18c",
+  "paper.data_end_long": "31 December 2025",
+  "paper.data_first_year": "2020",
+  "paper.data_start_long": "2 January 2020",
+  "paper.data_years": "2020–2025",
+  "paper.declared_long": "20 October 2026",
+  "paper.diff_oos": "−0.16",
+  "paper.diff_oos_p": "0.859",
+  "paper.flat_from": "December 2024",
+  "paper.flat_to": "May 2025",
+  "paper.formation_cutoff_long": "31 December 2022",
+  "paper.formation_cutoff_short": "31 Dec 2022",
+  "paper.formation_year": "2022",
+  "paper.holdout.hi": null,
+  "paper.holdout.lo": null,
+  "paper.holdout.p": null,
+  "paper.holdout.sharpe": null,
+  "paper.holdout_power.kurtosis": "6.7",
+  "paper.holdout_power.mde_126": "3.8",
+  "paper.holdout_power.mde_189": "3.1",
+  "paper.holdout_power.mde_252": "2.7",
+  "paper.holdout_power.mde_normal_126": "3.5",
+  "paper.holdout_power.mde_normal_189": "2.9",
+  "paper.holdout_power.mde_normal_252": "2.5",
+  "paper.holdout_power.rho": "0.07",
+  "paper.holdout_power.skew": "0.17",
+  "paper.holdout_start_long": "2 January 2026",
+  "paper.holdout_year": "2026",
+  "paper.iwv.equity_max": "2,895",
+  "paper.iwv.equity_min": "2,581",
+  "paper.iwv.first_long": "30 September 2019",
+  "paper.iwv.last_long": "31 December 2025",
+  "paper.iwv.n": "26",
+  "paper.iwv.sealed_from_long": "1 January 2026",
+  "paper.iwv.unmapped_max_pct": "4.1%",
+  "paper.iwv.unmapped_min_pct": "0.6%",
+  "paper.iwv_first_year": "2019",
+  "paper.iwv_last_year": "2025",
+  "paper.iwv_unmapped_first_pct": "4.1%",
+  "paper.iwv_unmapped_last_pct": "0.6%",
+  "paper.long_net_long": "75",
+  "paper.long_trades": "78",
+  "paper.names_file": "3,000",
+  "paper.names_prices": "2,752",
+  "paper.oos_end_month": "December 2025",
+  "paper.oos_start_month": "February 2023",
+  "paper.paper_date_long": "20 October 2026",
+  "paper.percentile_ordinal": "28th",
+  "paper.period_end_long": "31 December 2025",
+  "paper.period_end_month": "December 2025",
+  "paper.period_start_long": "3 July 2023",
+  "paper.period_start_month": "July 2023",
+  "paper.prereg_status": "not yet filed",
+  "paper.proxy": "equal-weight daily return of 11 sector SPDR ETFs",
+  "paper.residual.hi": null,
+  "paper.residual.lo": null,
+  "paper.residual.p": null,
+  "paper.residual.ret_pct": null,
+  "paper.residual.sharpe": null,
+  "paper.residual.trades": null,
+  "paper.results_path": "results/v32_dev/pairs_trading_results_2023_2025_unbiased.json",
+  "paper.run_date_long": "18 October 2026",
+  "paper.run_dir": "results/v32_dev",
+  "paper.run_time": "2026-10-18 09:21 UTC",
+  "paper.sched_best_id": "A",
+  "paper.sched_best_ret": "+0.04%",
+  "paper.sched_worst_id": "C",
+  "paper.sched_worst_ret": "−3.27%",
+  "paper.schedules_even_word": "one",
+  "paper.schedules_lose_word": "four",
+  "paper.schedules_n_word": "five",
+  "paper.short_net_short": "74",
+  "paper.short_trades": "83",
+  "paper.snooping.effective_trials": null,
+  "paper.snooping.mcs_included": null,
+  "paper.snooping.pbo_pct": null,
+  "paper.snooping.reality_check_p": null,
+  "paper.snooping.romano_wolf_rejected": null,
+  "paper.snooping.spa_p": null,
+  "paper.universe_as_of_long": "18 October 2026",
+  "paper.universe_top": "300",
+  "paper.v32_borrow_bp": "25",
+  "paper.v32_financing_bp": "50",
+  "paper.v32_reselect_every": "90",
+  "paper.v33_borrow_pct": "0.38%",
+  "paper.v33_formation_years": "3",
+  "paper.v33_reselect_every": "126",
+  "paper.v33_universe_top": "500",
+  "paper.version": "32.0.0",
+  "paper.versions_count": "32",
+  "paper.years": "2023–2025",
+  "ranker.oos_auc": "0.514",
+  "ranker.wf_pooled_auc": "0.510",
+  "significance.main.ann_sharpe": "−0.07",
+  "significance.main.boot_hi": "+1.23",
+  "significance.main.boot_lo": "−1.39",
+  "significance.main.dsr_pct": "1.4%",
+  "significance.main.hac_p": "0.917",
+  "significance.main.hac_t": "−0.10",
+  "significance.main.psr_pct": "45.5%",
+  "significance.oos_daily.ann_sharpe": "−0.33",
+  "significance.oos_daily.boot_hi": "+0.86",
+  "significance.oos_daily.boot_lo": "−1.49",
+  "significance.oos_daily.dsr_pct": "0.4%",
+  "significance.oos_daily.hac_p": "0.559",
+  "significance.oos_daily.hac_t": "−0.58",
+  "significance.oos_daily.psr_pct": "28.7%",
+  "significance.oos_windows.ci_hi_pct": "+0.320%",
+  "significance.oos_windows.ci_lo_pct": "−0.636%",
+  "significance.oos_windows.p": "0.478",
+  "significance.oos_windows.t": "−0.74",
+  "study.dev.factors.alpha.0.t": "−0.24",
+  "study.dev.factors.alpha.1.t": "−0.80",
+  "study.dev.facts.adv_participation_pct": "1.01%",
+  "study.dev.facts.alpha_main_pct": "−0.25%",
+  "study.dev.facts.alpha_oos_pct": "−0.84%",
+  "study.dev.facts.best_month_pct": "+2.14%",
+  "study.dev.facts.beta_main": "0.010",
+  "study.dev.facts.beta_main_t": "1.81",
+  "study.dev.facts.beta_oos": "0.016",
+  "study.dev.facts.beta_oos_t": "2.17",
+  "study.dev.facts.bid_ask_usd_k": "230.4",
+  "study.dev.facts.borrow_usd_k": "46.5",
+  "study.dev.facts.break_even_x": "0.69×",
+  "study.dev.facts.capital_musd": "100",
+  "study.dev.facts.commission_usd_k": "36.4",
+  "study.dev.facts.cost_bp": "12.5",
+  "study.dev.facts.cost_bp_capital": "96.3",
+  "study.dev.facts.cost_bp_notional": "12.93",
+  "study.dev.facts.cost_usd_k": "962.7",
+  "study.dev.facts.coverage_pct": "97.1%",
+  "study.dev.facts.days": "628",
+  "study.dev.facts.dsr_trials": "32",
+  "study.dev.facts.exposure_max_pct": "29.99%",
+  "study.dev.facts.financing_usd_k": "92.1",
+  "study.dev.facts.flat_days": "207",
+  "study.dev.facts.flat_pct": "33%",
+  "study.dev.facts.gate_blocked_days": "248",
+  "study.dev.facts.gatev_hi": "+1.27",
+  "study.dev.facts.gatev_lo": "−1.15",
+  "study.dev.facts.gross_bp": "+11.4",
+  "study.dev.facts.gross_bp_capital": "66.3",
+  "study.dev.facts.gross_t": "0.37",
+  "study.dev.facts.gross_usd_k": "662.6",
+  "study.dev.facts.hold_days": "12.6",
+  "study.dev.facts.impact_share_pct": "57.9%",
+  "study.dev.facts.kurtosis": "6.7",
+  "study.dev.facts.long_gain_usd_m": "1.55",
+  "study.dev.facts.main_days": "628",
+  "study.dev.facts.market_impact_usd_k": "557.2",
+  "study.dev.facts.min_trl_years_0_5": "10.8",
+  "study.dev.facts.min_trl_years_1": "2.7",
+  "study.dev.facts.months": "30",
+  "study.dev.facts.months_positive": "7",
+  "study.dev.facts.net_bp": "−1.1",
+  "study.dev.facts.net_bp_capital": "−30.0",
+  "study.dev.facts.net_usd_k": "−300.1",
+  "study.dev.facts.oos_days": "711",
+  "study.dev.facts.oos_overlap_days": "616",
+  "study.dev.facts.p_sr_ge_0_5": "0.184",
+  "study.dev.facts.p_sr_ge_1": "0.046",
+  "study.dev.facts.pairs_traded": "100",
+  "study.dev.facts.positions_max": "8",
+  "study.dev.facts.rolling_clear_zero": "30",
+  "study.dev.facts.rolling_max": "+3.4",
+  "study.dev.facts.rolling_min": "−2.8",
+  "study.dev.facts.rolling_windows": "503",
+  "study.dev.facts.sharpe_critical": "1.04",
+  "study.dev.facts.sharpe_mde": "1.58",
+  "study.dev.facts.sharpe_se": "0.63",
+  "study.dev.facts.sharpe_ucb": "0.97",
+  "study.dev.facts.short_loss_usd_m": "1.85",
+  "study.dev.facts.skew": "0.17",
+  "study.dev.facts.stop_loss_usd_m": "9.80",
+  "study.dev.facts.target_gain_usd_m": "8.18",
+  "study.dev.facts.trades": "161",
+  "study.dev.facts.win_hi_pct": "54.9%",
+  "study.dev.facts.win_lo_pct": "39.6",
+  "study.dev.facts.wins": "76",
+  "study.dev.funnel.bh_q10": "1",
+  "study.dev.funnel.pairs.1.expected": "1,775",
+  "study.dev.rolling_sharpe.window": "126",
+  "study.dev.snooping.grid_points": "27",
+  "study.dev.snooping.toggles": "11"
+ },
+ "meta": {
+  "builder": "scripts/build_paper.py",
+  "commit": "711b18cbd1a657b2dff2b95647e5dbae40320fa4",
+  "headline": "results/v32_dev/headline_metrics.json",
+  "headline_sha256": "93471564009554007e8bff1f6a67a02f7f2db96b99d76ad8bd3e5a57b5183b0e",
+  "paper_date": "2026-10-20",
+  "study_sha256": "1d30c35b7ed630394e8528ef7c3f989750c77d95ecb435c1f969b190881c30f1",
+  "universe_index_sha256": "c64cc39c6431a8da4aee409914dd3a993f750ea42f71548c22b67ec35d398323"
+ },
+ "pending": {
+  "capacity": "Pending: evidence layer.",
+  "costcurve": "Pending: v33 development run.",
+  "decay": "Pending: evidence layer.",
+  "exitrace": "Pending: evidence layer.",
+  "holdout": "Sealed.",
+  "persistence": "Pending: evidence layer.",
+  "pvalues": "Pending: v33 development run.",
+  "residual": "Pending: v33 development run.",
+  "universe": "Pending: v33 development run.",
+  "validation": "Pending: committed validation run."
+ },
+ "schema": 1,
+ "tables": {
+  "alternatives": [
+   [
+    "0.5",
+    "0.184",
+    "10.8"
+   ],
+   [
+    "1.0",
+    "0.046",
+    "2.7"
+   ],
+   [
+    "1.5",
+    "0.007",
+    "1.2"
+   ],
+   [
+    "2.0",
+    "0.001",
+    "0.7"
+   ]
+  ],
+  "forest": [
+   [
+    "Main backtest, net",
+    "−0.07",
+    "−1.39",
+    "+1.23",
+    "628",
+    "circular block bootstrap (5000 resamples, block 3 days)"
+   ],
+   [
+    "Walk-forward OOS, net",
+    "−0.33",
+    "−1.49",
+    "+0.86",
+    "711",
+    "circular block bootstrap (5000 resamples, block 2 days)"
+   ],
+   [
+    "Gatev distance method, net",
+    "+0.07",
+    "−1.15",
+    "+1.27",
+    "628",
+    "circular block bootstrap (5000 resamples, block 3 days)"
+   ],
+   [
+    "Main minus Gatev",
+    "−0.14",
+    "−1.90",
+    "+1.62",
+    "628",
+    "Ledoit-Wolf studentized block bootstrap"
+   ],
+   [
+    "Walk-forward OOS minus Gatev",
+    "−0.16",
+    "−2.00",
+    "+1.68",
+    "616",
+    "Ledoit-Wolf studentized block bootstrap"
+   ],
+   [
+    "Random pairs (median draw)",
+    "+0.26",
+    "−0.53",
+    "+1.10",
+    "—",
+    "5th-95th percentile of 200 draws (a spread across draws, not a confidence interval)"
+   ]
+  ],
+  "holdout_power": [
+   [
+    "126",
+    "3.8",
+    "3.5"
+   ],
+   [
+    "189",
+    "3.1",
+    "2.9"
+   ],
+   [
+    "252",
+    "2.7",
+    "2.5"
+   ]
+  ],
+  "hypotheses": [
+   [
+    "H1",
+    "v33 pairs (pre-registered design)",
+    "net mean return > 0",
+    "sealed",
+    "sealed",
+    "—"
+   ],
+   [
+    "H2",
+    "Avellaneda–Lee residual reversion",
+    "net mean return > 0",
+    "sealed",
+    "sealed",
+    "—"
+   ],
+   [
+    "H3",
+    "v32 as published, frozen",
+    "net mean return > 0",
+    "sealed",
+    "sealed",
+    "—"
+   ]
+  ],
+  "manifest": [
+   [
+    "Commit",
+    "711b18cbd1a6 (clean)"
+   ],
+   [
+    "Run",
+    "2026-10-18 09:21 UTC"
+   ],
+   [
+    "Price cache",
+    "sha256 70776501502e08533cf17d46bbf466b26bb9d68233aa467aa1665d4ea5525ea1"
+   ],
+   [
+    "Headline JSON",
+    "results/v32_dev/headline_metrics.json, sha256 93471564009554007e8bff1f6a67a02f7f2db96b99d76ad8bd3e5a57b5183b0e"
+   ],
+   [
+    "Site data",
+    "assets/study.json, sha256 1d30c35b7ed630394e8528ef7c3f989750c77d95ecb435c1f969b190881c30f1"
+   ],
+   [
+    "Universe",
+    "Nasdaq screener, 18 October 2026; 97.1% fetched"
+   ],
+   [
+    "Seed",
+    "PAIRS_SEED=42"
+   ],
+   [
+    "Stack",
+    "python 3.12.3 · numpy 1.26.4 · pandas 2.2.3 · scipy 1.15.2 · statsmodels 0.14.4 · torch 2.13.0+cpu"
+   ]
+  ],
+  "profiles": [
+   [
+    "Universe",
+    "today’s 3,000 largest US stocks by market cap",
+    "point-in-time members (IWV N-PORT)"
+   ],
+   [
+    "Pair search",
+    "300 most liquid names, all pairs",
+    "500 most liquid names, same Fama–French 49 industry"
+   ],
+   [
+    "Re-selection",
+    "re-test the 2022 pool every 90 trading days",
+    "full re-formation every 126 trading days on the trailing 3 years"
+   ],
+   [
+    "Regime gate",
+    "on",
+    "off (a declared variant)"
+   ],
+   [
+    "Ranker",
+    "learned classifier orders same-day candidates",
+    "none (classical ranking; ablation arm)"
+   ],
+   [
+    "Borrow and financing",
+    "25 bp borrow + 50 bp financing a year",
+    "one 0.38% fee a year"
+   ]
+  ],
+  "schedules": [
+   [
+    "A",
+    "1.0",
+    "1.5",
+    "4",
+    "0.10",
+    "0.00",
+    "2–5",
+    "+0.04%",
+    "0.03",
+    "−1.09%",
+    "0.22",
+    "0.15",
+    "161"
+   ],
+   [
+    "B",
+    "0.7",
+    "15.0",
+    "80",
+    "6.00",
+    "3.00",
+    "2–5",
+    "−2.38%",
+    "−1.58",
+    "−2.52%",
+    "2.57",
+    "0.15",
+    "152"
+   ],
+   [
+    "C",
+    "5.0",
+    "10.0",
+    "50",
+    "2.00",
+    "1.50",
+    "4–10",
+    "−3.27%",
+    "−1.08",
+    "−4.17%",
+    "3.74",
+    "0.30",
+    "161"
+   ],
+   [
+    "D",
+    "1.5",
+    "4.0",
+    "20",
+    "1.00",
+    "1.00",
+    "8–20",
+    "−2.97%",
+    "−0.48",
+    "−6.12%",
+    "3.88",
+    "0.60",
+    "161"
+   ],
+   [
+    "E",
+    "1.0",
+    "2.0",
+    "12",
+    "0.60",
+    "0.50",
+    "12–30",
+    "−2.59%",
+    "−0.27",
+    "−7.96%",
+    "3.88",
+    "0.90",
+    "161"
+   ]
+  ],
+  "significance": [
+   [
+    "Annualised Sharpe ratio",
+    "−0.07",
+    "−0.33"
+   ],
+   [
+    "Newey–West t (mean ≠ 0)",
+    "−0.10",
+    "−0.58"
+   ],
+   [
+    "Newey–West p",
+    "0.917",
+    "0.559"
+   ],
+   [
+    "Probabilistic Sharpe, P(SR > 0)",
+    "45.5%",
+    "28.7%"
+   ],
+   [
+    "Deflated Sharpe (32 trials)",
+    "1.4%",
+    "0.4%"
+   ],
+   [
+    "Block-bootstrap 95% interval",
+    "[−1.39, +1.23]",
+    "[−1.49, +0.86]"
+   ],
+   [
+    "Gatev distance method, Sharpe [95% interval]",
+    "+0.07 [−1.15, +1.27]",
+    "—"
+   ],
+   [
+    "Strategy minus Gatev (Ledoit–Wolf p)",
+    "−0.14 (0.879)",
+    "—"
+   ]
+  ],
+  "snooping": [
+   [
+    "Hansen SPA p (consistent)",
+    "pending"
+   ],
+   [
+    "White Reality Check p",
+    "pending"
+   ],
+   [
+    "Romano–Wolf: variants rejected at 5%",
+    "pending"
+   ],
+   [
+    "Model confidence set (90%): variants kept",
+    "pending"
+   ],
+   [
+    "Effective number of trials",
+    "pending"
+   ],
+   [
+    "Probability of backtest overfitting",
+    "pending"
+   ]
+  ],
+  "sources": [
+   [
+    "results/v32_dev/fund_type_comparison.json",
+    "67c0da54b13d57570064fa4619d9505d4199786fb226b27ee86f4f6211249372"
+   ],
+   [
+    "results/v32_dev/headline_metrics.json",
+    "93471564009554007e8bff1f6a67a02f7f2db96b99d76ad8bd3e5a57b5183b0e"
+   ],
+   [
+    "results/v32_dev/pairs_trading_results_2023_2025_unbiased.json",
+    "0d2e376fdbac5de777aa33187938d9e0d23ef76207f4cdc92de93ce260f9e876"
+   ],
+   [
+    "results/v32_dev/universe_meta.json",
+    "af2bc3d41d0b2cee0381c6479baa144d1a743cde7f78dc266de3bddac20116b5"
+   ],
+   [
+    "results/variant_family/declaration.json",
+    "028b1a29935565931fbe191ac578d8f2756d36b1ddc1d7ecb4833b8f7ca66add"
+   ],
+   [
+    "reference/universe/index.json",
+    "c64cc39c6431a8da4aee409914dd3a993f750ea42f71548c22b67ec35d398323"
+   ]
+  ],
+  "validation": [
+   [
+    "Planted cointegrated pairs (OU spreads, half-life 5–14 days)",
+    "a large positive gross edge",
+    "pending"
+   ],
+   [
+    "Correlated, not cointegrated pairs (random-walk spread), forced into the universe",
+    "no edge; a positive mean would be look-ahead",
+    "pending"
+   ],
+   [
+    "Kalman hedge ratio against the true slope",
+    "recover it",
+    "pending"
+   ],
+   [
+    "Pair selection with planted pairs among unrelated names",
+    "find them; admit at most 5% of unrelated pairs",
+    "pending"
+   ]
+  ],
+  "variants": [
+   [
+    "ENTRY_Z",
+    "grid values 1.50, 1.80, 2.10"
+   ],
+   [
+    "EXIT_Z",
+    "grid values 0.25, 0.50, 0.75"
+   ],
+   [
+    "STOP_Z",
+    "grid values 1.00, 1.50, 2.00"
+   ],
+   [
+    "regime_gate_on",
+    "the v10/v11 gate fitted on now-test windows"
+   ],
+   [
+    "cusum_gate_on",
+    "entry gate tried in earlier versions"
+   ],
+   [
+    "hurst_gate_on",
+    "entry gate tried in earlier versions"
+   ],
+   [
+    "no_rolling_corr_floor",
+    "decoupling filter (20-day correlation ≥ 0.20) removed"
+   ],
+   [
+    "ref_bars_40",
+    "z-score reference window, shorter"
+   ],
+   [
+    "ref_bars_90",
+    "z-score reference window, longer"
+   ],
+   [
+    "ranker_gbm",
+    "the learned ranker (gradient-boosted trees) switched on"
+   ],
+   [
+    "open_fills",
+    "t+1 open instead of t+1 close fills"
+   ],
+   [
+    "all_pairs",
+    "no same-industry restriction"
+   ],
+   [
+    "universe_300",
+    "v32's 300 most liquid names"
+   ],
+   [
+    "reform_every_63",
+    "quarterly instead of half-yearly re-formation"
+   ]
+  ],
+  "windows": [
+   [
+    "9",
+    "2022-02-11",
+    "2023-02-14",
+    "2023-05-15",
+    "−1.682%",
+    "−2.50",
+    "42",
+    "0.511"
+   ],
+   [
+    "10",
+    "2022-05-13",
+    "2023-05-16",
+    "2023-08-15",
+    "+1.302%",
+    "2.39",
+    "41",
+    "0.506"
+   ],
+   [
+    "11",
+    "2022-08-15",
+    "2023-08-16",
+    "2023-11-13",
+    "−0.143%",
+    "−0.27",
+    "34",
+    "0.557"
+   ],
+   [
+    "12",
+    "2022-11-11",
+    "2023-11-14",
+    "2024-02-14",
+    "−0.227%",
+    "−0.44",
+    "22",
+    "0.565"
+   ],
+   [
+    "13",
+    "2023-02-14",
+    "2024-02-15",
+    "2024-05-15",
+    "+0.088%",
+    "0.20",
+    "23",
+    "0.518"
+   ],
+   [
+    "14",
+    "2023-05-16",
+    "2024-05-16",
+    "2024-08-15",
+    "−0.312%",
+    "−0.46",
+    "31",
+    "0.517"
+   ],
+   [
+    "15",
+    "2023-08-16",
+    "2024-08-16",
+    "2024-11-13",
+    "−0.148%",
+    "−0.33",
+    "13",
+    "0.503"
+   ],
+   [
+    "16",
+    "2023-11-14",
+    "2024-11-14",
+    "2025-02-18",
+    "−0.120%",
+    "—",
+    "0",
+    "0.525"
+   ],
+   [
+    "17",
+    "2024-02-15",
+    "2025-02-19",
+    "2025-05-19",
+    "0.000%",
+    "—",
+    "0",
+    "0.560"
+   ],
+   [
+    "18",
+    "2024-05-16",
+    "2025-05-20",
+    "2025-08-19",
+    "−0.733%",
+    "−2.80",
+    "1",
+    "0.487"
+   ],
+   [
+    "19",
+    "2024-08-16",
+    "2025-08-20",
+    "2025-11-17",
+    "+0.236%",
+    "0.50",
+    "12",
+    "0.497"
+   ]
+  ]
+ },
+ "why": {
+  "paper.holdout.hi": "pending (sealed until the pre-registration is filed)",
+  "paper.holdout.lo": "pending (sealed until the pre-registration is filed)",
+  "paper.holdout.p": "pending (sealed until the pre-registration is filed)",
+  "paper.holdout.sharpe": "pending (sealed until the pre-registration is filed)",
+  "paper.residual.hi": "pending (v33 development run)",
+  "paper.residual.lo": "pending (v33 development run)",
+  "paper.residual.p": "pending (v33 development run)",
+  "paper.residual.ret_pct": "pending (v33 development run)",
+  "paper.residual.sharpe": "pending (v33 development run)",
+  "paper.residual.trades": "pending (v33 development run)",
+  "paper.snooping.effective_trials": "pending (v33 development run)",
+  "paper.snooping.mcs_included": "pending (v33 development run)",
+  "paper.snooping.pbo_pct": "pending (v33 development run)",
+  "paper.snooping.reality_check_p": "pending (v33 development run)",
+  "paper.snooping.romano_wolf_rejected": "pending (v33 development run)",
+  "paper.snooping.spa_p": "pending (v33 development run)"
+ }
+}

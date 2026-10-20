@@ -1,0 +1,35 @@
+{
+ "inputs": {
+  "paper/build/figures/anatomy.svg": "218850133bf31c02c7c68f04825abdfea50e108938495a94374a5a7c77cec592",
+  "paper/build/figures/distribution.svg": "834558daaaab0b8360588b9e5842b9fa15596187108143ccbf3bf82de8474566",
+  "paper/build/figures/dsr.svg": "84c33b2e043a7e0c45b9928d1439724412b6d1eb94aec34e09ac97c6b57254d5",
+  "paper/build/figures/equity.svg": "b85fd6d1c720beb3c72f8fe6dee847a008a88a8b71ac4bbb108e18142ac5a975",
+  "paper/build/figures/factors.svg": "721a7fc3b1fa42c6de96aa6e774be54ebee78a32ab19d6f233d3eee9e95e616c",
+  "paper/build/figures/forest.svg": "b9fd8716f48b2e48072bc72e47ac46ff2665b25b33966119477799465dba9919",
+  "paper/build/figures/funnel.svg": "63c7d372c8c217088e6b5d9f23cca16cdb8f212fa78159a617cfffdf0459c124",
+  "paper/build/figures/monthly.svg": "ca8045b7a0d2a7821c14daa129ebc15bee3c25776823dff952b49191b97c8bad",
+  "paper/build/figures/randomnull.svg": "8fb5e8334dc55a6859353abbcc60850e884737bfa3aa8ee884d36571260af6c2",
+  "paper/build/figures/rolling.svg": "b52b6c05cfd37a7b403af9484befc45e4adc8f95151bd5ef3995ddd4a3959d74",
+  "paper/build/figures/schedules.svg": "404e8fafb8f9b794e1fc3585aff3729c1417db5838a6ab16a9320162993aeabf",
+  "paper/build/figures/snapshots.svg": "81fd0376e17806570471fa27a375212d50e905d8e443a39790914dab34159c3e",
+  "paper/build/figures/timeline.svg": "935e87a649cdc0152444d13e7052557cf4311cb44a467e0a2f1351971c9291a5",
+  "paper/build/figures/walkforward.svg": "fe1b044ddf0bfa8f33b060602d8df5d99833cdbf53b5dd4ff815a78a22c5a915",
+  "paper/build/figures/waterfall.svg": "f21cea970998093e51560bfa17e499962882319ce46c509c74c029076791a3aa",
+  "paper/build/paper_data.json": "d757dff528ceda4687e87ef00829e60bbf0ca5c76d67d9b92ea14985576a27a0",
+  "paper/fonts/IBMPlexMono-Regular.ttf": "884b41e7d9a8c0da2ab93b4dbb8b40a79d9089d4125c2bcb9e12dccdae68c5d4",
+  "paper/fonts/IBMPlexSans-Italic.ttf": "dfb110b92a0c71bfcf84cb40e8e1cb0c37043556a5160bd2d3d910de4faabaf5",
+  "paper/fonts/IBMPlexSans-Medium.ttf": "fe65f4a5bfdd7782de90619f60c9e43f846ecb1f9aecffdd8066a5b54d2aae40",
+  "paper/fonts/IBMPlexSans-Regular.ttf": "04a337ef63910efd570e626437f792d83c73af8d5457573e7ccdd85713dea6fc",
+  "paper/fonts/IBMPlexSans-SemiBold.ttf": "37abda0b80ff4f66469202a0e4012fc769152a73dda8cba96c385d81500dc14b",
+  "paper/fonts/IBMPlexSerif-Italic.ttf": "d8f43ba4ecefa3c2606a6e608e7f7f1f708e98c5d5e9e4586390e9ea5af148a3",
+  "paper/fonts/IBMPlexSerif-Regular.ttf": "cf9b95014c561adb3215a83a2121071db032a9e6482e5064839eb2da7bf08630",
+  "paper/fonts/IBMPlexSerif-SemiBold.ttf": "b81d99aed4f0534734303aee4dc606f15e9adc26f37a4b3b1ca8dff65c4e8461",
+  "paper/main.typ": "35e52a8536ad688fbb73df454e975931057cdbae675aa45cb51bef8fbfeedad0",
+  "paper/references.bib": "af4145cc70aabdaf7d7246fb70c7620c71421b16eb9709604a4042f39c560843"
+ },
+ "pdf_sha256": "64b91a9d8a46acddc7cc71c8a5a87783f2163137035d4d653470649192594060",
+ "tools": {
+  "matplotlib": "3.10.1",
+  "typst": "0.15.0"
+ }
+}
