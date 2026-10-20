@@ -19,8 +19,15 @@ For every filing the script
 
 Sealed holdout. A snapshot dated 2026 or later carries every holding's market value, that
 is a 2026 price for every member, and 2026 is the pre-registered holdout. Such filings are
-listed in index.json under 'sealed' but not downloaded unless --include-sealed is given
-(after the pre-registration is committed).
+listed in index.json under 'sealed' but not downloaded unless --include-sealed is given,
+which study_config.assert_unsealed allows only after the pre-registration is committed
+(PAIRS_UNSEAL). The holdout run builds them with --sealed-out DIR: the committed snapshots
+are copied there unchanged (never rebuilt, so a later amendment cannot alter them), the
+filings listed under 'sealed' at the freeze are built from those exact accessions, new
+identifiers are mapped into DIR's copy of the map, and reference/ is not written. With
+--sealed-from DATE --through DATE (the dress rehearsal, inside the development period),
+the committed snapshots between those dates are rebuilt there instead and must come out
+byte-identical.
 
 Ticker choice from an OpenFIGI response: exchCode US (the US composite), then UN, UW, UQ,
 UA, UR, UP, UV; then any other US venue; then, for a security OpenFIGI only lists on
@@ -44,6 +51,8 @@ OpenFIGI allows 25 requests/min of 10 jobs without a key; OPENFIGI_API_KEY raise
 The outputs are deterministic given the caches: --offline rebuilds them byte for byte.
 
 usage: python scripts/build_pit_universe.py [--offline] [--include-sealed] [--remap-missing]
+       python scripts/build_pit_universe.py --include-sealed --sealed-out DIR [--sealed-from DATE]
+                                            [--through DATE] [--offline]
 """
 import argparse
 import csv
@@ -52,6 +61,7 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import sys
 import xml.etree.ElementTree as ET
 from collections import Counter, OrderedDict
@@ -61,6 +71,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from pairs_trading.external_data import RateLimiter, http_get, sec_get, write_atomic  # noqa: E402
+from pairs_trading.study_config import assert_unsealed  # noqa: E402
 from pairs_trading.universe import normalise_ticker  # noqa: E402
 
 TRUST_CIK = 1100663
@@ -459,17 +470,118 @@ def latest_per_period(filings):
     return list(by_period.values())
 
 
+def _parse_filing(f, raw, offline):
+    """(filing, parsed document, equity securities, XML sha256, source URL) of one filing."""
+    folder = folder_url(f['accession'])
+    name = primary_doc_name(_cached(raw / f"{f['accession']}.index.json", folder + 'index.json', offline))
+    blob = _cached(raw / f"{f['accession']}.xml", folder + name, offline)
+    parsed = parse_nport(blob)
+    if parsed['series_id'] != SERIES_ID or parsed['period_date'] != f['period_date']:
+        raise SystemExit(f"{f['accession']}: document says series {parsed['series_id']}, period "
+                         f"{parsed['period_date']}; header says {SERIES_ID}, {f['period_date']}")
+    return f, parsed, equity_securities(parsed['holdings']), hashlib.sha256(blob).hexdigest(), folder + name
+
+
+def _map_new_identifiers(parsed_all, entries, map_path, args, remap=False):
+    """Query OpenFIGI for the identifiers `entries` lacks (online builds only)."""
+    wanted = OrderedDict()
+    for _, _, securities, _, _ in parsed_all:
+        for s in securities:
+            if s['id'] and (s['id'] not in entries
+                            or (remap and entries[s['id']].get('status') != 'active')):
+                wanted[s['id']] = s['id_type']
+    if wanted:
+        print(f'OpenFIGI: mapping {len(wanted)} identifiers', flush=True)
+        query_openfigi(list(wanted.items()), entries, map_path, args.openfigi_cache,
+                       os.environ.get('OPENFIGI_API_KEY'), refresh=remap)
+
+
+def build_sealed(args):
+    """--sealed-out: the committed snapshots plus the sealed ones, in a directory of their own.
+
+    The committed index (--out-dir) is read, never written. Snapshots dated before
+    --sealed-from are copied byte for byte; every filing dated from it on (through --through)
+    that the committed index lists, under 'sealed' or as a snapshot, is built from that
+    accession, and a rebuilt committed snapshot must equal the committed file. Exits
+    non-zero otherwise.
+    """
+    raw, committed, dest = pathlib.Path(args.raw_dir), pathlib.Path(args.out_dir), pathlib.Path(args.sealed_out)
+    if dest.resolve() == committed.resolve():
+        raise SystemExit('--sealed-out must not be the committed reference directory')
+    index = json.loads((committed / 'index.json').read_text())
+    keep = [s for s in index['snapshots'] if s['period_date'] < args.sealed_from]
+    targets = [s for s in index['snapshots'] + index['sealed']
+               if args.sealed_from <= s['period_date'] <= (args.through or '9999-12-31')]
+    if not targets:
+        raise SystemExit(f'the committed index lists no filing dated {args.sealed_from} -> {args.through}')
+    assert_unsealed(max(t['period_date'] for t in targets))
+    dest.mkdir(parents=True, exist_ok=True)
+    for stale in dest.glob('iwv_*.csv'):
+        stale.unlink()
+    for s in keep:
+        shutil.copyfile(committed / s['file'], dest / s['file'])
+    entries = read_map(committed / 'cusip_ticker_map.json')
+    map_path = dest / 'cusip_ticker_map.json'
+    write_map(entries, map_path)
+    parsed_all = []
+    for t in targets:
+        f = {k: t[k] for k in ('accession', 'filing_date', 'form', 'period_date')}
+        if t.get('supersedes'):
+            f['supersedes'] = t['supersedes']
+        hdr = _cached(raw / f"{f['accession']}.hdr", folder_url(f['accession'])
+                      + f"{f['accession']}-index-headers.html", args.offline).decode('latin-1')
+        meta = parse_header(hdr)
+        if SERIES_ID not in meta['series'] or meta['period_date'] != f['period_date']:
+            raise SystemExit(f"{f['accession']}: header says {meta}, the committed index {f['period_date']}")
+        parsed_all.append(_parse_filing(f, raw, args.offline))
+    if not args.offline:
+        _map_new_identifiers(parsed_all, entries, map_path, args)
+    built, differ = [], []
+    for f, parsed, securities, sha, url in parsed_all:
+        rows = snapshot_rows(securities, entries)
+        filename = f"iwv_{parsed['period_date']}.csv"
+        write_snapshot(rows, dest / filename)
+        built.append(snapshot_entry(f, parsed, securities, rows, sha, url, filename))
+        if (committed / filename).exists() and (committed / filename).read_bytes() != (dest / filename).read_bytes():
+            differ.append(filename)
+    out = OrderedDict(index)
+    out['sealed'] = []
+    out['snapshots'] = keep + built
+    out['sealed_build'] = OrderedDict([('sealed_from', args.sealed_from), ('committed_index', str(committed)),
+                                       ('built', [s['period_date'] for s in built])])
+    write_atomic(dest / 'index.json', json.dumps(out, indent=1) + '\n')
+    for s in built:
+        print(f"{s['period_date']:<11} {s['filing_date']:<11} {s['n_holdings']:>8} {s['n_equity']:>7} "
+              f"{s['n_mapped']:>7} {s['mapped_value_share']:>11.2%}")
+    if differ:
+        raise SystemExit(f'rebuilt snapshots differ from the committed ones: {differ}')
+    print(f'{len(keep)} committed snapshots copied, {len(built)} built -> {dest}')
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('--offline', action='store_true', help='rebuild from data/raw/nport and the committed map only')
     ap.add_argument('--include-sealed', action='store_true',
                     help=f'also download snapshots dated {SEALED_FROM} or later (the sealed holdout)')
+    ap.add_argument('--sealed-out', metavar='DIR',
+                    help='with --include-sealed: write the committed and the sealed snapshots to DIR '
+                         '(reference/ is not written)')
+    ap.add_argument('--sealed-from', default=SEALED_FROM, metavar='DATE',
+                    help=f'with --sealed-out: build filings dated from DATE on (default {SEALED_FROM})')
+    ap.add_argument('--through', metavar='DATE', help='with --sealed-out: and dated no later than DATE')
     ap.add_argument('--remap-missing', action='store_true',
                     help='query OpenFIGI again for identifiers without an active US listing')
     ap.add_argument('--openfigi-cache', default=str(ROOT / 'data' / 'raw' / 'openfigi' / 'responses.json'))
     ap.add_argument('--raw-dir', default=str(ROOT / 'data' / 'raw' / 'nport'))
     ap.add_argument('--out-dir', default=str(ROOT / 'reference' / 'universe'))
     args = ap.parse_args(argv)
+    if args.sealed_out:
+        if not args.include_sealed or args.remap_missing:
+            raise SystemExit('--sealed-out needs --include-sealed and excludes --remap-missing')
+        return build_sealed(args)
+    if args.include_sealed:
+        assert_unsealed(SEALED_FROM)
     raw, out = pathlib.Path(args.raw_dir), pathlib.Path(args.out_dir)
     map_path = out / 'cusip_ticker_map.json'
 
@@ -485,30 +597,11 @@ def main(argv=None):
     sealed = [f for f in filings if f['period_date'] >= SEALED_FROM and not args.include_sealed]
     active = [f for f in filings if f not in sealed]
 
-    parsed_all = []
-    for f in active:
-        folder = folder_url(f['accession'])
-        name = primary_doc_name(_cached(raw / f"{f['accession']}.index.json", folder + 'index.json', args.offline))
-        blob = _cached(raw / f"{f['accession']}.xml", folder + name, args.offline)
-        parsed = parse_nport(blob)
-        if parsed['series_id'] != SERIES_ID or parsed['period_date'] != f['period_date']:
-            raise SystemExit(f"{f['accession']}: document says series {parsed['series_id']}, period "
-                             f"{parsed['period_date']}; header says {SERIES_ID}, {f['period_date']}")
-        parsed_all.append((f, parsed, equity_securities(parsed['holdings']), hashlib.sha256(blob).hexdigest(),
-                           folder + name))
+    parsed_all = [_parse_filing(f, raw, args.offline) for f in active]
 
     entries = read_map(map_path)
     if not args.offline:
-        wanted = OrderedDict()
-        for _, _, securities, _, _ in parsed_all:
-            for s in securities:
-                if s['id'] and (s['id'] not in entries
-                                or (args.remap_missing and entries[s['id']].get('status') != 'active')):
-                    wanted[s['id']] = s['id_type']
-        if wanted:
-            print(f'OpenFIGI: mapping {len(wanted)} identifiers', flush=True)
-            query_openfigi(list(wanted.items()), entries, map_path, args.openfigi_cache,
-                           os.environ.get('OPENFIGI_API_KEY'), refresh=args.remap_missing)
+        _map_new_identifiers(parsed_all, entries, map_path, args, remap=args.remap_missing)
 
     out.mkdir(parents=True, exist_ok=True)
     snapshots = []
