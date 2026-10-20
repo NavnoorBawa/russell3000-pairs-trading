@@ -12,13 +12,15 @@ Reads the study's JSON exports and reports, for the main-backtest daily returns:
   * the Deflated Sharpe Ratio as a function of the number of trials;
 
 and, for a family of daily return series on common dates, Hansen's SPA and White's
-Reality Check against zero and against the Gatev baseline, the Romano-Wolf stepdown,
-the Model Confidence Set on volatility-normalised losses, and the effective number of
-trials. The family is a CSV given with --family (dates in the first column, one column
-per declared variant), or else the series the exports already hold: the strategy, the
-Gatev distance method, the random-pair control mean and the fund-cost replays. The
-replays re-cost the strategy's own trades, so that default family illustrates the
-mechanics; it is not a declared variant family.
+Reality Check against zero and against the Gatev baseline (on raw returns and on returns
+scaled to unit volatility, i.e. on a Sharpe scale), the Romano-Wolf stepdown, the Model
+Confidence Set on volatility-normalised losses, and the effective number of trials. The
+family is a CSV given with --family (dates in the first column, one column per declared
+variant; the Gatev series is taken from the exports if the CSV lacks it), or else the
+series the exports already hold: the strategy, the Gatev distance method, the
+random-pair control mean and the fund-cost replays. The replays re-cost the strategy's
+own trades, so that default family illustrates the mechanics; it is not a declared
+variant family.
 
 usage:
   python scripts/stats_battery.py                                 # outputs/ of the last run
@@ -33,6 +35,7 @@ import json
 import pathlib
 import sys
 
+import numpy as np
 import pandas as pd
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -79,17 +82,28 @@ def load_published_series(results_path, funds_path=None) -> pd.DataFrame:
 
 
 def run_battery(strategy: pd.Series, family: pd.DataFrame, n_tests: int = 32, reps: int = 10_000,
-                seed: int = 42, benchmark: str = 'gatev') -> dict:
-    """The full battery; `family` rows with a missing value in any column are dropped."""
+                seed: int = 42, benchmark: str = 'gatev', benchmark_series: pd.Series = None) -> dict:
+    """The full battery; `family` rows with a missing value in any column are dropped.
+
+    The SPA against the benchmark uses the family column named `benchmark`, else
+    `benchmark_series` (e.g. the Gatev series of the exports next to a declared family
+    CSV) on the family's dates. It is run on raw returns (does any variant earn more
+    than the benchmark?) and on returns scaled to unit volatility (does any variant have
+    a higher Sharpe ratio?): SPA compares means, so on raw returns a variant run at
+    higher volatility than the benchmark is favoured or penalised by its leverage.
+    """
     r = strategy.dropna()
     power = power_report(r.to_numpy())
+    rho = power['rho']
     out = {
         'power': power,
         'hurdles': sharpe_hurdles(len(r), n_tests),
-        'hurdles_ar1': sharpe_hurdles(len(r), n_tests, rho=power['rho']),
+        'hurdles_ar1': sharpe_hurdles(len(r), n_tests, rho=rho) if np.isfinite(rho) else None,
         'dsr_curve': dsr_curve(r.to_numpy(), DSR_TRIALS),
     }
     fam = family.dropna()
+    if fam.empty:
+        raise ValueError("the family has no date on which every member has a return")
     out['family'] = {
         'members': list(fam.columns), 'n_days': int(len(fam)),
         'first_day': fam.index[0], 'last_day': fam.index[-1],
@@ -98,10 +112,16 @@ def run_battery(strategy: pd.Series, family: pd.DataFrame, n_tests: int = 32, re
         'romano_wolf_vs_zero': _stepdown_records(romano_wolf(fam, reps=reps, seed=seed)),
         'mcs': model_confidence_set(sharpe_losses(fam), size=0.10, method='R', reps=reps, seed=seed),
     }
-    if benchmark in fam.columns and fam.shape[1] > 1:
-        others = fam.drop(columns=benchmark)
-        out['family'][f'spa_vs_{benchmark}'] = spa_test(others, benchmark=fam[benchmark].to_numpy(),
-                                                       reps=reps, seed=seed)
+    if benchmark in fam.columns:
+        bench, others = fam[benchmark], fam.drop(columns=benchmark)
+    elif benchmark_series is not None:
+        bench, others = benchmark_series.reindex(fam.index), fam
+    else:
+        return out
+    if others.shape[1] > 0 and bench.notna().sum() >= 20:
+        out['family'][f'spa_vs_{benchmark}'] = spa_test(others, benchmark=bench, reps=reps, seed=seed)
+        out['family'][f'spa_vs_{benchmark}_unit_vol'] = spa_test(
+            others / others.std(ddof=1), benchmark=bench / bench.std(ddof=1), reps=reps, seed=seed)
     return out
 
 
@@ -121,9 +141,10 @@ def _summary(out: dict) -> str:
         "  " + " | ".join(f"SR {x:g}: power {a['power']:.2f}, p(SR>=x) {a['p_sr_at_least']:.3f}, "
                           f"BF {a['bayes_factor_null_vs_alt']:.1f}" for x, a in alts.items()),
         "  hurdles (IID): " + ", ".join(f"{k} {v['sr_ann']:.2f}" for k, v in out['hurdles']['hurdles'].items()),
-        "  hurdles (AR(1)): " + ", ".join(f"{k} {v['sr_ann']:.2f}"
-                                          for k, v in out['hurdles_ar1']['hurdles'].items()),
     ]
+    if out['hurdles_ar1'] is not None:
+        lines.append("  hurdles (AR(1)): " + ", ".join(f"{k} {v['sr_ann']:.2f}"
+                                                       for k, v in out['hurdles_ar1']['hurdles'].items()))
     fam = out['family']
     spa = fam['spa_vs_zero']
     lines += [
@@ -159,7 +180,8 @@ def main(argv=None):
         family = pd.read_csv(args.family, index_col=0)
         family.index = [str(d)[:10] for d in family.index]
     out = run_battery(published['strategy'], family, n_tests=args.n_tests, reps=args.reps,
-                      seed=args.seed, benchmark=args.benchmark)
+                      seed=args.seed, benchmark=args.benchmark,
+                      benchmark_series=published.get(args.benchmark))
     out['inputs'] = {'results': args.results, 'funds': args.funds, 'family': args.family,
                      'reps': args.reps, 'seed': args.seed}
     _atomic_write_json(out, args.out)

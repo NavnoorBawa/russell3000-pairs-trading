@@ -50,6 +50,7 @@ def test_battery_on_published_style_exports(tmp_path, capsys):
     assert fam['members'] == ['strategy', 'gatev', 'random_mean', 'fund_institutional', 'fund_retail']
     assert fam['n_days'] == len(dates) - 5                   # common dates; first fund return is NaN
     assert fam['spa_vs_gatev']['k'] == 4 and fam['spa_vs_zero']['k'] == 5
+    assert fam['spa_vs_gatev_unit_vol']['k'] == 4
     assert len(fam['romano_wolf_vs_zero']['table']) == 5
     assert set(fam['mcs']['pvalues']) == set(fam['members'])
     assert 'SPA vs gatev' in capsys.readouterr().out
@@ -67,3 +68,35 @@ def test_battery_on_a_declared_family_csv(tmp_path):
     out = json.loads(out_path.read_text())
     assert out['family']['members'] == list('abcd')
     assert out['family']['spa_vs_a']['k'] == 3
+    # a declared family without the Gatev column is tested against the exported series
+    battery.main(['--results', str(res_path), '--family', str(tmp_path / 'family.csv'),
+                  '--reps', '150', '--out', str(out_path)])
+    fam = json.loads(out_path.read_text())['family']
+    assert fam['spa_vs_gatev']['k'] == 4 and fam['spa_vs_gatev']['n'] == len(dates)
+
+
+def test_unit_volatility_spa_compares_sharpe_ratios():
+    """The benchmark run at 1.7x its size: the raw-return SPA sees a larger mean, the
+    unit-volatility SPA the same Sharpe ratio. After rescaling, the differential is pure
+    rounding noise (|d| <= 4e-16) and must not count as evidence: judged against its own
+    scale it had t = 2.0 and p = 0.045 here."""
+    rng = np.random.default_rng(2)
+    dates = [d.strftime('%Y-%m-%d') for d in pd.bdate_range('2024-01-02', periods=750)]
+    base = pd.Series(rng.normal(1.5e-3, 0.01, 750), index=dates)
+    fam = pd.DataFrame({'gatev': base, 'levered': 1.7 * base})
+    out = battery.run_battery(base, fam, reps=1000)['family']
+    assert out['spa_vs_gatev']['pvalues']['consistent'] < 0.01
+    assert out['spa_vs_gatev_unit_vol']['best_tstat'] == 0.0
+    assert out['spa_vs_gatev_unit_vol']['pvalues']['consistent'] == 1.0
+
+
+def test_battery_on_a_flat_strategy(tmp_path):
+    """No trades, no dispersion: the power report is NaN and the AR(1) hurdles are
+    skipped instead of failing the run."""
+    dates = [d.strftime('%Y-%m-%d') for d in pd.bdate_range('2026-01-02', periods=60)]
+    flat = pd.Series(0.0, index=dates)
+    fam = pd.DataFrame({'strategy': flat, 'other': np.random.default_rng(3).normal(0.0, 0.01, 60)},
+                       index=dates)
+    out = battery.run_battery(flat, fam, reps=100)
+    assert out['hurdles_ar1'] is None and np.isnan(out['power']['upper_bound_ann'])
+    assert 'hurdles (AR(1))' not in battery._summary(out)
