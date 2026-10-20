@@ -25,15 +25,14 @@ is fetched). Runtime is dominated by the reference selector on one core: ~30 min
 ~1 min each for this tree's (4 CPUs). Exit status 0 only if every check passes.
 """
 import argparse
-import importlib.util
 import json
 import logging
 import os
 import pathlib
 import subprocess
 import sys
-import tempfile
 import time
+import types
 
 import numpy as np
 import pandas as pd
@@ -59,13 +58,10 @@ def _git(*args) -> str:
 
 
 def reference_selector_class(rev: str):
-    """FixedPrimeFundPairSelector as of git revision `rev`, imported from a temporary module."""
+    """FixedPrimeFundPairSelector as of git revision `rev`, from an in-memory module."""
     source = _git('show', f'{rev}:pairs_trading/pair_selector.py')
-    path = pathlib.Path(tempfile.mkdtemp(prefix='selector_equivalence_')) / 'pair_selector_reference.py'
-    path.write_text(source + '\n')
-    spec = importlib.util.spec_from_file_location('pair_selector_reference', path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    module = types.ModuleType('pair_selector_reference')
+    exec(compile(source, f'{rev}:pairs_trading/pair_selector.py', 'exec'), module.__dict__)
     return module.FixedPrimeFundPairSelector
 
 

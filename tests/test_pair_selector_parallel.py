@@ -6,8 +6,8 @@ identical, value for value and type for type, whatever the number of workers; th
 is split into a few tasks that each carry only their own symbols' data.
 """
 import itertools
-import os
 
+import joblib
 import numpy as np
 import pandas as pd
 import pytest
@@ -214,7 +214,9 @@ def test_a_failing_later_test_keeps_the_pairs_p_value(market):
 
 def test_n_jobs_switch(monkeypatch):
     monkeypatch.delenv('PAIRS_N_JOBS', raising=False)
-    assert resolve_n_jobs() == min(4, os.cpu_count() or 1)
+    assert resolve_n_jobs() == min(4, joblib.cpu_count())
+    monkeypatch.setattr(pair_selector, 'cpu_count', lambda: 2)     # e.g. a 2-CPU container quota
+    assert resolve_n_jobs() == 2
     monkeypatch.setenv('PAIRS_N_JOBS', '3')
     assert resolve_n_jobs() == 3
     assert FixedPrimeFundPairSelector().n_jobs == 3

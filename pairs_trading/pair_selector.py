@@ -8,7 +8,7 @@ score, and the Benjamini-Hochberg FDR diagnostic.
 
 import os
 
-from joblib import Parallel, delayed
+from joblib import Parallel, cpu_count, delayed
 from threadpoolctl import threadpool_limits
 
 from pairs_trading.config import (
@@ -34,10 +34,15 @@ _MIN_PAIRS_PER_TASK = 250
 
 
 def resolve_n_jobs() -> int:
-    """PAIRS_N_JOBS as a positive int (default min(4, CPU count)); a malformed value is an error."""
+    """PAIRS_N_JOBS as a positive int; a malformed value is an error.
+
+    The default is min(4, the CPUs this process may use): joblib's count honours the CPU
+    affinity mask and a container's CPU quota, which os.cpu_count() ignores (it reports
+    the host's CPUs).
+    """
     raw = os.environ.get('PAIRS_N_JOBS')
     if raw is None:
-        return min(4, os.cpu_count() or 1)
+        return min(4, cpu_count())
     try:
         n_jobs = int(raw)
     except ValueError:

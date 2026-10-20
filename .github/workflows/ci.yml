@@ -77,7 +77,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install numpy pandas scipy scikit-learn statsmodels matplotlib seaborn tqdm yfinance requests
+          pip install numpy pandas scipy scikit-learn joblib threadpoolctl statsmodels matplotlib seaborn tqdm yfinance requests
 
       - name: Install dev tooling
         # Test/lint tools are deliberately unpinned — they are not part of the
