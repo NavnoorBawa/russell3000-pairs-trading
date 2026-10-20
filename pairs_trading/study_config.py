@@ -123,6 +123,14 @@ CALENDARS = {
         selection_cutoff='2025-12-31', model_train_end='2025-12-31',
         backtest_start='2026-01-02', walk_forward=False,
         price_cache='data/holdout2026_prices.pkl', macro_cache='data/holdout2026_macro.pkl'),
+    # The holdout calendar shifted one year back, inside the development period: the
+    # dress rehearsal of scripts/run_holdout.sh (fresh cache, both profiles, the residual
+    # arm, evaluation, publishing) before the one real run. It sees no 2026 data.
+    'rehearsal2025': Calendar(
+        name='rehearsal2025', data_start='2022-01-01', data_end='2025-10-17',
+        selection_cutoff='2024-12-31', model_train_end='2024-12-31',
+        backtest_start='2025-01-02', walk_forward=False,
+        price_cache='data/rehearsal2025_prices.pkl', macro_cache='data/rehearsal2025_macro.pkl'),
 }
 
 

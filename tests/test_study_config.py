@@ -35,6 +35,19 @@ def test_holdout_calendar_is_disjoint_from_the_development_period():
     assert not hold.walk_forward
 
 
+def test_rehearsal_calendar_is_the_holdout_shifted_back_one_year():
+    dev, hold, reh = sc.CALENDARS['dev'], sc.CALENDARS['holdout2026'], sc.CALENDARS['rehearsal2025']
+    assert reh.data_end <= dev.data_end                  # inside the development period
+    assert reh.price_cache not in (dev.price_cache, hold.price_cache)
+    shift = lambda d: pd.Timestamp(d) - pd.DateOffset(years=1)   # noqa: E731
+    assert pd.Timestamp(reh.data_start) == shift(hold.data_start)
+    assert pd.Timestamp(reh.selection_cutoff) == shift(hold.selection_cutoff)
+    assert pd.Timestamp(reh.backtest_start) == shift(hold.backtest_start)
+    assert reh.walk_forward == hold.walk_forward
+    # the holdout's last close (Mon 2026-10-19) one year back falls on a Sunday: last Friday
+    assert pd.Timestamp(reh.data_end) == shift(hold.data_end) - pd.Timedelta(days=2)
+
+
 def test_v32_profile_is_the_v32_design():
     v32 = sc.PROFILES['v32']
     assert (v32.universe, v32.max_universe, v32.same_industry) == ('marketcap', 300, False)
