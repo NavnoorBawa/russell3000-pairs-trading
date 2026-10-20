@@ -24,14 +24,17 @@ of the file and the page shows that section as pending, with the reason):
     {dev}/headline_metrics.json            the run's published numbers (checker's source)
     {dev}/pairs_trading_results_*.json     the full export (not its _compact twin): daily
                                            equity, trades, walk-forward windows,
-                                           significance, benchmarks, universe coverage
+                                           significance, benchmarks, universe coverage and,
+                                           from v33 on, the evidence block (AR(1) power
+                                           report, multi-factor attribution)
     {dev}/fund_type_comparison.json        cost-schedule replay of the same trades
     {dev}/universe_meta.json               the universe file's as-of date and size
     {dev}/stats_battery.json               power report and DSR curve (scripts/stats_battery.py)
     {dev}/anatomy.json                     evidence layer (see ANATOMY_KEYS)
     results/variant_family/declaration.json, snooping.json   data-snooping tests
     results/residual_dev/headline_metrics.json               Avellaneda-Lee arm
-    results/holdout2026/headline_metrics.json                pre-registered 2026 holdout
+    results/holdout2026/evaluation.json                      pre-registered 2026 holdout
+                                                             (scripts/evaluate_holdout.py)
     results/validation/synthetic_validation.json             known-answer checks
 
 Output: deterministic (sorted keys, rounded floats, no wall-clock time), so a rebuild of
@@ -74,6 +77,15 @@ COST_STEPS = (('commission', 'Commission'), ('bid_ask', 'Half-spread'),
               ('market_impact', 'Market impact'), ('borrow', 'Borrow'), ('financing', 'Financing'))
 # Keys of {dev}/anatomy.json (written by the evidence layer) passed through unchanged.
 ANATOMY_KEYS = ('shortfall', 'exit_race', 'decay', 'persistence', 'capacity', 'pvalue_hist')
+# Ken French daily factors as the evidence block names them, in the order shown.
+FACTOR_LABELS = {'Mkt-RF': 'Market', 'SMB': 'Size (SMB)', 'HML': 'Value (HML)', 'RMW': 'Profitability (RMW)',
+                 'CMA': 'Investment (CMA)', 'Mom': 'Momentum', 'ST_Rev': 'Short-term reversal',
+                 'LT_Rev': 'Long-term reversal'}
+# The pre-registered holdout's strategies, as scripts/run_holdout.sh names them for
+# scripts/evaluate_holdout.py, with the hypothesis each one tests.
+HOLDOUT_ARMS = (('v33_pairs', 'H1', 'v33 pairs (pre-registered design)'),
+                ('avellaneda_lee', 'H2', 'Avellaneda–Lee residual reversion'),
+                ('v32_pairs', 'H3', 'v32 as published, frozen'))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -355,11 +367,11 @@ def power_from_returns(r):
     }
 
 
-def power_from_battery(battery):
-    """The same fields from scripts/stats_battery.py's power report (AR(1)-aware)."""
-    p = battery['power']
+def power_from_report(p, source):
+    """The same fields from a power.power_report (AR(1)-aware): the stats battery's
+    ('power' in stats_battery.json) or the run's own evidence block ('evidence.main')."""
     return {
-        'method': 'stats battery: non-normal AR(1) Sharpe variance; one-sided 5% test, 80% power',
+        'method': f'{source}: non-normal AR(1) Sharpe variance; one-sided 5% test, 80% power',
         'n': p['n'], 'sharpe': _r(p['sr_ann']), 'se': _r(p['se_ann']), 'critical': _r(p['critical_sr_ann']),
         'mde': _r(p['min_detectable_sr_ann']), 'ucb': _r(p['upper_bound_ann']),
         'skew': _r(p['skew']), 'kurtosis': _r(p['kurtosis']),
@@ -380,8 +392,12 @@ def dsr_curve(r, battery=None):
     return rows
 
 
-def forest(res, gatev_daily_pct):
-    """Sharpe ratios with their 95% intervals, one row per series or comparison."""
+def forest(res, gatev_daily_pct, gross_daily_pct=None):
+    """Sharpe ratios with their 95% intervals, one row per series or comparison.
+
+    The run's significance block covers the net series; the gross-of-cost series (exports
+    from v33 on) and the Gatev baseline get the same block bootstrap here.
+    """
     sig = res.get('significance') or {}
     bench = res.get('benchmarks') or {}
     rows = []
@@ -395,14 +411,19 @@ def forest(res, gatev_daily_pct):
                          'method': f"circular block bootstrap ({ci.get('n_boot')} resamples, "
                                    f"block {ci.get('block')} days)"})
 
-    battery_row('main', 'Main backtest, net', 'main_backtest')
-    battery_row('oos', 'Walk-forward OOS, net', 'oos_daily')
-    if gatev_daily_pct is not None:
-        r = np.asarray(gatev_daily_pct, dtype=float) / 100.0
-        ci = block_bootstrap_sharpe_ci(r, periods=PERIODS)       # same method and seed as above
-        rows.append({'key': 'gatev', 'label': 'Gatev distance method, net', 'kind': 'ci',
+    def bootstrap_row(key, label, daily_pct):
+        r = np.asarray(daily_pct, dtype=float) / 100.0
+        ci = block_bootstrap_sharpe_ci(r, periods=PERIODS)       # same method and seed as the run's
+        rows.append({'key': key, 'label': label, 'kind': 'ci',
                      'sharpe': _r(ci['point']), 'lo': _r(ci['lo']), 'hi': _r(ci['hi']), 'days': len(r),
                      'method': f"circular block bootstrap ({ci['n_boot']} resamples, block {ci['block']} days)"})
+
+    battery_row('main', 'Main backtest, net', 'main_backtest')
+    if gross_daily_pct is not None:
+        bootstrap_row('gross', 'Main backtest, gross of costs', gross_daily_pct)
+    battery_row('oos', 'Walk-forward OOS, net', 'oos_daily')
+    if gatev_daily_pct is not None:
+        bootstrap_row('gatev', 'Gatev distance method, net', gatev_daily_pct)
     for key, label, src in (('diff_main', 'Main minus Gatev', _get(bench, 'vs_strategy', 'main_backtest')),
                             ('diff_oos', 'Walk-forward OOS minus Gatev', _get(bench, 'vs_strategy', 'walk_forward_oos'))):
         d = (src or {}).get('sharpe_difference_vs_distance') or {}
@@ -467,24 +488,46 @@ def waterfall(trades, net_usd):
 
 
 def factor_rows(res):
-    """Factor loadings with 95% intervals (beta +- 1.96 beta/t, Newey-West t)."""
+    """Factor loadings with 95% intervals (beta +- 1.96 beta/t, Newey-West t), and alphas.
+
+    Exports from v33 on carry a multi-factor attribution in their evidence block
+    (evidence.factors.{main, walk_forward_oos}: Fama-French five factors, momentum,
+    short- and long-term reversal); when it is there the exhibit shows it. Otherwise the
+    single market-proxy beta of factor_attribution is shown. `market` always holds the
+    market-proxy betas, which the page's text quotes.
+    """
     fa = res.get('factor_attribution') or {}
-    rows, alphas = [], []
-    for key, label in (('main_backtest', 'Main backtest'), ('walk_forward_oos', 'Walk-forward OOS')):
-        f = fa.get(key)
-        if not f:
+    ev = _get(res, 'evidence', 'factors') or {}
+    series = (('main_backtest', 'main', 'Main backtest'), ('walk_forward_oos', 'walk_forward_oos', 'Walk-forward OOS'))
+    multi = {key: ev[ev_key] for key, ev_key, _ in series
+             if isinstance(ev.get(ev_key), dict) and ev[ev_key].get('factors')}
+
+    def loading(series_label, name, v):
+        b, t = v.get('beta'), v.get('tstat')
+        se = abs(b / t) if b is not None and t not in (None, 0) else None
+        ok = se is not None and math.isfinite(se)
+        return {'series': series_label, 'name': name, 'beta': _r(b, 5), 't': _r(t, 3),
+                'lo': _r(b - 1.96 * se, 5) if ok else None, 'hi': _r(b + 1.96 * se, 5) if ok else None}
+
+    rows, alphas, market = [], [], []
+    for key, _, label in series:
+        f = fa.get(key) or {}
+        if f.get('beta') is not None:
+            market.append(loading(label, 'Market proxy', {'beta': f['beta'], 'tstat': f.get('beta_tstat')}))
+        src = multi.get(key) if multi else f
+        if not src:
             continue
-        loadings = f.get('factors') or ({'Market proxy': {'beta': f.get('beta'), 'tstat': f.get('beta_tstat')}}
-                                        if f.get('beta') is not None else {})
-        for name, v in loadings.items():
-            b, t = v.get('beta'), v.get('tstat')
-            se = abs(b / t) if b is not None and t not in (None, 0) else None
-            rows.append({'series': label, 'name': name, 'beta': _r(b, 5), 't': _r(t, 3),
-                         'lo': _r(b - 1.96 * se, 5) if se else None, 'hi': _r(b + 1.96 * se, 5) if se else None})
-        alphas.append({'series': label, 'alpha_ann_pct': _r(100 * f['alpha_ann'], 4) if f.get('alpha_ann') is not None else None,
-                       't': _r(f.get('alpha_tstat'), 3), 'r2': _r(f.get('r2'), 4), 'n': f.get('n')})
-    return {'proxy': fa.get('market_proxy'), 'rows': rows, 'alpha': alphas,
-            'multi_factor': any('factors' in (fa.get(k) or {}) for k in ('main_backtest', 'walk_forward_oos'))}
+        if multi:
+            loads = src['factors']
+            names = [n for n in FACTOR_LABELS if n in loads] + sorted(n for n in loads if n not in FACTOR_LABELS)
+            rows.extend(loading(label, FACTOR_LABELS.get(n, n), loads[n]) for n in names)
+        else:
+            rows.extend(m for m in market if m['series'] == label)
+        alphas.append({'series': label, 'alpha_ann_pct': _r(100 * src['alpha_ann'], 4) if src.get('alpha_ann') is not None else None,
+                       't': _r(src.get('alpha_tstat'), 3), 'r2': _r(src.get('r2'), 4), 'n': src.get('n')})
+    proxy = ('Fama–French five factors, momentum, short- and long-term reversal (Ken French data library)'
+             if multi else fa.get('market_proxy'))
+    return {'proxy': proxy, 'rows': rows, 'alpha': alphas, 'market': market, 'multi_factor': bool(multi)}
 
 
 def cost_curve(daily):
@@ -578,10 +621,14 @@ def facts(res, dev):
     best = max(months, key=lambda m: m['return_pct']) if months else None
     alt = {a['sharpe']: a for a in power['alternatives']}
     group = {g['label']: g for k in ('by_exit', 'by_side') for g in groups[k]}
-    factor = {(r['series'], r['name']): r for r in fac['rows']}
-    alpha = {a['series']: a for a in fac['alpha']}
-    beta_main = factor.get(('Main backtest', 'Market proxy')) or {}
-    beta_oos = factor.get(('Walk-forward OOS', 'Market proxy')) or {}
+    market = {r['series']: r for r in fac['market']}
+    fa = res.get('factor_attribution') or {}
+
+    def proxy_alpha(key):         # the market-proxy regression's alpha, % a year (the text quotes it)
+        a = _get(fa, key, 'alpha_ann')
+        return _r(100 * a, 4) if a is not None else None
+    beta_main = market.get('Main backtest') or {}
+    beta_oos = market.get('Walk-forward OOS') or {}
     k = lambda usd: _r(usd / 1e3, 1) if usd is not None else None    # noqa: E731  ($ thousands)
     m = lambda usd: _r(usd / 1e6, 2) if usd is not None else None    # noqa: E731  ($ millions)
     forest_rows = {row['key']: row for row in dev['forest']}
@@ -625,8 +672,7 @@ def facts(res, dev):
         'months': len(months), 'months_positive': sum(1 for m in months if m['return_pct'] > 0),
         'beta_main': beta_main.get('beta'), 'beta_main_t': beta_main.get('t'),
         'beta_oos': beta_oos.get('beta'), 'beta_oos_t': beta_oos.get('t'),
-        'alpha_main_pct': _get(alpha, 'Main backtest', 'alpha_ann_pct'),
-        'alpha_oos_pct': _get(alpha, 'Walk-forward OOS', 'alpha_ann_pct'),
+        'alpha_main_pct': proxy_alpha('main_backtest'), 'alpha_oos_pct': proxy_alpha('walk_forward_oos'),
         'coverage_pct': _r(100 * _get(res, 'run_config', 'data', 'universe_coverage', default=float('nan')), 1),
         'gatev_lo': _get(forest_rows, 'gatev', 'lo'), 'gatev_hi': _get(forest_rows, 'gatev', 'hi'),
         'rolling_windows': len(roll['dates']),
@@ -646,6 +692,32 @@ def headline_summary(h):
             'hi': _get(h, 'significance', 'main', 'boot_hi'), 'p': _get(h, 'significance', 'main', 'hac_p'),
             'period': [_get(h, 'main', 'period_start'), _get(h, 'main', 'period_end')],
             'commit': _get(h, 'run_config', 'git_commit')}
+
+
+def holdout_section(evaluation):
+    """The pre-registered 2026 test from scripts/evaluate_holdout.py's report, or 'sealed'.
+
+    One row per strategy: the hypothesis it tests, its net Sharpe with the block-bootstrap
+    95% interval, the one-sided Newey-West test and its Holm-adjusted p-value (the decision
+    rule), and what the record could detect. Strategies the runbook does not name keep
+    their own key as a label, after the three registered ones.
+    """
+    if evaluation is None:
+        return {'status': 'sealed', 'calendar_start': '2026-01-02'}
+    strategies = evaluation.get('strategies') or {}
+    known = {key: (h, label) for key, h, label in HOLDOUT_ARMS}
+    order = [k for k, _, _ in HOLDOUT_ARMS if k in strategies] + sorted(k for k in strategies if k not in known)
+    arms = []
+    for key in order:
+        s = strategies[key]
+        h, label = known.get(key, (None, key))
+        lo, hi = (list(s.get('bootstrap_ci_95') or []) + [None, None])[:2]
+        arms.append({'key': key, 'hypothesis': h, 'label': label, 'sharpe': _r(s.get('sharpe')), 'lo': _r(lo), 'hi': _r(hi),
+                     't': _r(s.get('t'), 3), 'p_one_sided': _r(s.get('p_one_sided')), 'p_holm': _r(s.get('p_holm')),
+                     'edge': s.get('edge_out_of_sample'), 'days': s.get('days'), 'trades': s.get('trades'),
+                     'ret_pct': _r(s.get('total_return_pct')), 'ucb': _r(s.get('upper_bound_95')),
+                     'mde': _r(s.get('min_detectable_sharpe')), 'period': s.get('period')})
+    return {'status': 'complete', 'alpha': evaluation.get('alpha'), 'test': evaluation.get('test'), 'arms': arms}
 
 
 def snooping(declaration, results):
@@ -706,7 +778,7 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
     declaration = src.load(results_root / 'variant_family' / 'declaration.json')
     snoop = src.load(results_root / 'variant_family' / 'snooping.json')
     residual = src.load(results_root / 'residual_dev' / 'headline_metrics.json')
-    holdout = src.load(results_root / 'holdout2026' / 'headline_metrics.json')
+    holdout = src.load(results_root / 'holdout2026' / 'evaluation.json')
     known = src.load(results_root / 'validation' / 'synthetic_validation.json')
 
     run = res.get('run_config') or {}
@@ -714,7 +786,13 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
     daily = daily_series(res)
     gatev = gatev_series(res)
     r_main = np.asarray(daily['net'], dtype=float) / 100.0
-    power = power_from_battery(battery) if battery and battery.get('power') else power_from_returns(r_main)
+    evidence = res.get('evidence') or {}
+    if battery and battery.get('power'):
+        power = power_from_report(battery['power'], 'stats battery')
+    elif _get(evidence, 'main', 'min_detectable_sr_ann') is not None:
+        power = power_from_report(evidence['main'], "the run's evidence block")
+    else:
+        power = power_from_returns(r_main)
     wf = walk_forward(res)
     trades = res.get('all_trades') or []
     groups = trade_groups(trades)
@@ -723,7 +801,7 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
     fac = factor_rows(res)
     months, annual = monthly_table(res)
     rnd = _get(res, 'benchmarks', 'random_control') or {}
-    stamps = [run.get('run_timestamp_utc')] + [_get(x, 'run_config', 'run_timestamp_utc') for x in (residual, holdout)]
+    stamps = [run.get('run_timestamp_utc'), _get(residual, 'run_config', 'run_timestamp_utc')]
 
     dev_out = {
         'run': {
@@ -748,7 +826,7 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
         'walk_forward': wf,
         'monthly': months, 'annual': annual,
         'rolling_sharpe': rolling_sharpe(daily['dates'], daily['net']),
-        'forest': forest(res, gatev['net'] if gatev else None),
+        'forest': forest(res, gatev['net'] if gatev else None, daily['gross']),
         'power': power,
         'dsr_curve': dsr_curve(r_main, battery),
         'waterfall': steps,
@@ -773,8 +851,7 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
             'sources': dict(sorted(src.hashes.items())),
         },
         'dev': dev_out,
-        'holdout': ({'status': 'complete', **headline_summary(holdout)} if holdout
-                    else {'status': 'sealed', 'calendar_start': '2026-01-02'}),
+        'holdout': holdout_section(holdout),
         'residual': headline_summary(residual) if residual else None,
         'validation': validation(known),
     }

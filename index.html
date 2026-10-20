@@ -156,24 +156,28 @@
   <div class="tbl-wrap" role="region" aria-label="Pre-registered hypotheses" tabindex="0">
     <table class="tbl">
       <caption>Hypotheses of the pre-registration, filed before any 2026 price is fetched. Test: one-sided Newey–West t on daily net returns, Holm-adjusted across the three at 5%.</caption>
-      <thead><tr><th scope="col"><span class="vh">Hypothesis</span></th><th scope="col">Arm</th><th scope="col">Hypothesis</th><th scope="col" class="r">Sharpe</th><th scope="col" class="r">p (Holm)</th><th scope="col">Decision</th></tr></thead>
+      <thead><tr><th scope="col"><span class="vh">Label</span></th><th scope="col">Arm</th><th scope="col">Hypothesis</th><th scope="col" class="r">Sharpe</th><th scope="col" class="r">p (Holm)</th><th scope="col">Decision</th></tr></thead>
       <tbody>
-        <tr><th scope="row">H1</th><td>v33 pairs (pre-registered design)</td><td>net mean return &gt; 0</td><td class="r muted">sealed</td><td class="r muted">sealed</td><td class="muted">—</td></tr>
-        <tr><th scope="row">H2</th><td>Avellaneda–Lee residual reversion</td><td>net mean return &gt; 0</td><td class="r muted">sealed</td><td class="r muted">sealed</td><td class="muted">—</td></tr>
-        <tr><th scope="row">H3</th><td>v32 as published, frozen</td><td>net mean return &gt; 0</td><td class="r muted">sealed</td><td class="r muted">sealed</td><td class="muted">—</td></tr>
+        <tr><th scope="row">H1</th><td>v33 pairs (pre-registered design)</td><td>net mean return &gt; 0</td><td class="r muted" data-holdout="v33_pairs:sharpe">sealed</td><td class="r muted" data-holdout="v33_pairs:p_holm">sealed</td><td class="muted" data-holdout="v33_pairs:decision">—</td></tr>
+        <tr><th scope="row">H2</th><td>Avellaneda–Lee residual reversion</td><td>net mean return &gt; 0</td><td class="r muted" data-holdout="avellaneda_lee:sharpe">sealed</td><td class="r muted" data-holdout="avellaneda_lee:p_holm">sealed</td><td class="muted" data-holdout="avellaneda_lee:decision">—</td></tr>
+        <tr><th scope="row">H3</th><td>v32 as published, frozen</td><td>net mean return &gt; 0</td><td class="r muted" data-holdout="v32_pairs:sharpe">sealed</td><td class="r muted" data-holdout="v32_pairs:p_holm">sealed</td><td class="muted" data-holdout="v32_pairs:decision">—</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="note">About nine months of data can detect only a large Sharpe ratio: the holdout is a falsification check, not a proof of an edge. Running v32 alone first would spend the holdout, so v33 is frozen before any 2026 price is fetched, and both run once.</p>
+  <p class="note">About nine months of data can detect only a large Sharpe ratio: the holdout is a falsification check, not a proof of an edge. Running v32 alone first would spend the holdout, so v33 is frozen before any 2026 price is fetched, and every arm runs once.</p>
 
   <figure class="exhibit is-pending" id="ex-1" data-exhibit="holdout">
     <figcaption class="ex-head">
       <span class="ex-label">Exhibit 1</span>
-      <span class="ex-title">Cumulative net return on the 2026 holdout, by arm</span>
-      <span class="ex-sub">Daily, from 2 January 2026; v33 pairs, Avellaneda–Lee and v32 frozen, same costs</span>
+      <span class="ex-title">Net Sharpe ratio of each pre-registered strategy on the 2026 holdout</span>
+      <span class="ex-sub">Annualised, with 95% block-bootstrap intervals; daily net returns from 2 January 2026, same costs for every arm</span>
     </figcaption>
     <div class="ex-chart">
-      <div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg><p><strong>Sealed.</strong> The pre-registration (docs/PREREGISTRATION.md) is committed before any 2026 price is fetched; this exhibit fills from results/holdout2026/ after the single run.</p></div>
+      <div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg><p><strong>Sealed.</strong> The pre-registration (docs/PREREGISTRATION.md) is committed before any 2026 price is fetched; this exhibit and the table above fill from results/holdout2026/evaluation.json after the single run.</p></div>
+    </div>
+    <div class="ex-foot when-drawn">
+      <p><span class="k">Notes</span> The decision rests on the one-sided Newey–West test, Holm-adjusted across the three arms (table above); the intervals describe the estimates and are not the test.</p>
+      <p><span class="k">Source</span> results/holdout2026/evaluation.json (scripts/evaluate_holdout.py).</p>
     </div>
     <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
   </figure>
@@ -217,7 +221,7 @@
   <figure class="exhibit" id="ex-4" data-exhibit="monthly">
     <figcaption class="ex-head">
       <span class="ex-label">Exhibit 4</span>
-      <span class="ex-title">One month carries the result: July 2024 earned <span data-metric="study.dev.facts.best_month_pct">+2.14</span>%, more than the whole period</span>
+      <span class="ex-title">One month carries the result: July 2024 earned <span data-metric="study.dev.facts.best_month_pct">+2.14</span>%; the whole period returned <span data-metric="main.total_return_pct">−0.30%</span></span>
       <span class="ex-sub">Monthly net return, % of capital; the year column compounds the months shown</span>
     </figcaption>
     <div class="ex-chart" role="img" aria-label="Calendar heatmap of monthly net returns, years in rows and months in columns, values printed in each cell."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
@@ -327,7 +331,7 @@
     </figcaption>
     <div class="ex-chart" role="img" aria-label="Horizontal waterfall from gross P&amp;L through commission, half-spread, market impact, borrow and financing to net P&amp;L."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
     <div class="ex-foot">
-      <p><span class="k">Notes</span> The bars close exactly on the change in the book's value. Gross is <span data-metric="study.dev.facts.gross_bp_capital">66.3</span> bp of starting capital, costs <span data-metric="study.dev.facts.cost_bp_capital">96.3</span> bp, net <span data-metric="study.dev.facts.net_bp_capital">−30.0</span> bp; per round trip, costs are <span data-metric="study.dev.facts.cost_bp_notional">12.93</span> bp of traded gross notional. The signal-close paper P&amp;L and the cost of the one-day delay are separated from v33 on.</p>
+      <p><span class="k">Notes</span> The bars close exactly on the change in the book's value. Gross is <span data-metric="study.dev.facts.gross_bp_capital">66.3</span> bp of starting capital, costs <span data-metric="study.dev.facts.cost_bp_capital">96.3</span> bp, net <span data-metric="study.dev.facts.net_bp_capital">−30.0</span> bp; per round trip, costs are <span data-metric="study.dev.facts.cost_bp_notional">12.93</span> bp of traded gross notional weighted by size (<span data-metric="study.dev.facts.cost_bp">12.5</span> bp for the average trade, as in the Summary). The signal-close paper P&amp;L and the cost of the one-day delay are separated from v33 on.</p>
       <p><span class="k">Source</span> results/v32_dev, all_trades[].cost_breakdown_dollars and the final portfolio value.</p>
     </div>
     <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
@@ -355,6 +359,10 @@
         <span class="ex-sub">0× to 2× costs, with the break-even multiple marked</span>
       </figcaption>
       <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: v33 dev run.</strong> Needs each day's gross and cost split, which the v32 export does not separate. On trade sums the break-even multiple is <span data-metric="study.dev.facts.break_even_x">0.69</span>×.</p></div></div>
+      <div class="ex-foot when-drawn">
+        <p><span class="k">Notes</span> Each day's net return is rebuilt as gross minus k times that day's modelled costs, with the trades held fixed; break-even is where the line crosses zero.</p>
+        <p><span class="k">Source</span> The run's daily gross and cost series; computed by scripts/build_site_data.py.</p>
+      </div>
       <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
     </figure>
     <figure class="exhibit is-pending ex-compact" id="ex-12" data-exhibit="exitrace">
@@ -364,6 +372,10 @@
         <span class="ex-sub">Observed exits and the count expected under the null</span>
       </figcaption>
       <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: evidence layer.</strong> Fills from the run's anatomy.json (exit_race).</p></div></div>
+      <div class="ex-foot when-drawn">
+        <p><span class="k">Notes</span> The expected counts are those of a spread with no mean reversion: a driftless random walk between the target and stop bands.</p>
+        <p><span class="k">Source</span> The run's anatomy.json (exit_race).</p>
+      </div>
       <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
     </figure>
     <figure class="exhibit is-pending ex-compact" id="ex-13" data-exhibit="decay">
@@ -373,6 +385,10 @@
         <span class="ex-sub">Gross bp per trade, formation period against the trading period</span>
       </figcaption>
       <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: evidence layer.</strong> Fills from the run's anatomy.json (decay).</p></div></div>
+      <div class="ex-foot when-drawn">
+        <p><span class="k">Notes</span> Gross bp per trade of the same rule on the same pairs, in the formation window that selected them and in the trading period, with 95% intervals.</p>
+        <p><span class="k">Source</span> The run's anatomy.json (decay).</p>
+      </div>
       <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
     </figure>
     <figure class="exhibit is-pending ex-compact" id="ex-14" data-exhibit="persistence">
@@ -382,6 +398,10 @@
         <span class="ex-sub">Share still cointegrated in later windows, against the 5% chance rate</span>
       </figcaption>
       <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: evidence layer.</strong> Fills from the run's anatomy.json (persistence).</p></div></div>
+      <div class="ex-foot when-drawn">
+        <p><span class="k">Notes</span> A pair is still cointegrated in a later window when its Engle–Granger p-value there is below 0.05; unrelated pairs pass at that rate by chance.</p>
+        <p><span class="k">Source</span> The run's anatomy.json (persistence).</p>
+      </div>
       <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
     </figure>
   </div>
@@ -428,6 +448,10 @@
         <span class="ex-sub">Net bp per trade as notional scales</span>
       </figcaption>
       <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: evidence layer.</strong> A break-even size computed on an insignificant gross edge would suggest an edge that has not been shown, so the curve is drawn for a stated hypothetical edge.</p></div></div>
+      <div class="ex-foot when-drawn">
+        <p><span class="k">Notes</span> Drawn for a stated hypothetical gross edge, not the study's estimate, which is not significant.</p>
+        <p><span class="k">Source</span> The run's anatomy.json (capacity).</p>
+      </div>
       <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
     </figure>
     <div class="pending-card">
@@ -449,6 +473,7 @@
         <span class="ex-title">The only loading measured so far is a small market beta, significant out of sample</span>
         <span class="ex-sub">Beta to the sector-ETF market proxy with 95% interval (Newey–West)</span>
       </figcaption>
+      <div class="ex-legend" data-legend></div>
       <div class="ex-chart" role="img" aria-label="Dot plot of the market beta of the main backtest and of the walk-forward with 95% intervals and a zero line."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
       <div class="ex-foot">
         <p><span class="k">Notes</span> Proxy: equal-weight daily return of 11 sector SPDR ETFs. Factor rows for FF5, momentum and reversal fill when the v33 export carries them.</p>
@@ -497,6 +522,10 @@
         <span class="ex-sub">Histogram, 20 bins, with the height expected if no pair were cointegrated</span>
       </figcaption>
       <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: v33 dev run.</strong> The v32 export keeps the counts above but not the p-values themselves.</p></div></div>
+      <div class="ex-foot when-drawn">
+        <p><span class="k">Notes</span> Under the null that no pair is cointegrated the p-values are uniform: every bin holds the same number of pairs.</p>
+        <p><span class="k">Source</span> The run's fdr_diagnostic.pvalue_histogram.</p>
+      </div>
       <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
     </figure>
   </div>
@@ -513,6 +542,10 @@
       <span class="ex-sub">Net Sharpe ratio with 95% interval, same universe and costs</span>
     </figcaption>
     <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: v33 dev run.</strong> Fills from results/residual_dev/ when the arm has run on the development calendar.</p></div></div>
+    <div class="ex-foot when-drawn">
+      <p><span class="k">Notes</span> Same universe, calendar, next-day fills and cost model as the pairs strategy; parameters as published by Avellaneda and Lee (2010).</p>
+      <p><span class="k">Source</span> results/residual_dev/.</p>
+    </div>
     <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
   </figure>
 </section>
@@ -528,131 +561,139 @@
       <span class="ex-sub">Emphasised boxes mark the two look-ahead boundaries: the formation cutoff and the next-day fill</span>
     </figcaption>
     <div class="dg-wrap">
-<svg class="dg dg-wide" viewBox="0 0 880 306" role="img" aria-labelledby="pw-t pw-d" focusable="false">
+<svg class="dg dg-wide" viewBox="0 0 880 360" role="img" aria-labelledby="pw-t pw-d" focusable="false">
 <title id="pw-t">Study pipeline</title>
 <desc id="pw-d">Selection on formation data only: data, universe, formation. Trading, causal on data to day t: Kalman spread model, signal, next-day execution, costs, daily accounting. Evidence after the run: walk-forward, significance tests, baselines.</desc>
 <defs><marker id="arr-w" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" class="dg-arrowhead"/></marker></defs>
-<text class="dg-t" x="0" y="34">Selection</text>
-<text class="dg-s" x="0" y="50">formation data only</text>
-<rect class="dg-box" x="166" y="4" width="124" height="76" rx="3"/>
-<text class="dg-t" x="176" y="23">Data</text>
-<text class="dg-s dg-small" x="176" y="41">Daily prices 2020–2025</text>
-<text class="dg-s dg-small" x="176" y="55">VIX, 11 sector ETFs</text>
-<rect class="dg-box" x="312" y="4" width="124" height="76" rx="3"/>
-<text class="dg-t" x="322" y="23">Universe</text>
-<text class="dg-s dg-small" x="322" y="41">3,000 largest US stocks</text>
-<text class="dg-s dg-small" x="322" y="55">point-in-time screens</text>
-<text class="dg-s dg-small" x="322" y="69">300 most liquid</text>
-<line class="dg-link" x1="292" x2="309" y1="42.0" y2="42.0" marker-end="url(#arr-w)"/>
-<rect class="dg-box dg-box-key" x="458" y="4" width="124" height="76" rx="3"/>
-<text class="dg-t" x="468" y="23">Formation</text>
-<text class="dg-s dg-small" x="468" y="41">Engle–Granger p &lt; 0.05</text>
-<text class="dg-s dg-small" x="468" y="55">half-life 4–25 days</text>
-<text class="dg-s dg-small" x="468" y="69">data to 31 Dec 2022</text>
-<line class="dg-link" x1="438" x2="455" y1="42.0" y2="42.0" marker-end="url(#arr-w)"/>
-<text class="dg-t" x="0" y="144">Trading</text>
-<text class="dg-s" x="0" y="160">causal: data to day t</text>
-<rect class="dg-box" x="166" y="114" width="124" height="76" rx="3"/>
-<text class="dg-t" x="176" y="133">Spread model</text>
-<text class="dg-s dg-small" x="176" y="151">two-state Kalman</text>
-<text class="dg-s dg-small" x="176" y="165">hedge ratio β</text>
-<text class="dg-s dg-small" x="176" y="179">and intercept</text>
-<rect class="dg-box" x="312" y="114" width="124" height="76" rx="3"/>
-<text class="dg-t" x="322" y="133">Signal</text>
-<text class="dg-s dg-small" x="322" y="151">β-locked z-score</text>
-<text class="dg-s dg-small" x="322" y="165">enter |z| ≥ 1.8</text>
-<text class="dg-s dg-small" x="322" y="179">target 0.5, stop +1.5</text>
-<line class="dg-link" x1="292" x2="309" y1="152.0" y2="152.0" marker-end="url(#arr-w)"/>
-<rect class="dg-box dg-box-key" x="458" y="114" width="124" height="76" rx="3"/>
-<text class="dg-t" x="468" y="133">Execution</text>
-<text class="dg-s dg-small" x="468" y="151">signal at close t</text>
-<text class="dg-s dg-small" x="468" y="165">fill at close t+1</text>
-<text class="dg-s dg-small" x="468" y="179">no shared legs</text>
-<line class="dg-link" x1="438" x2="455" y1="152.0" y2="152.0" marker-end="url(#arr-w)"/>
-<rect class="dg-box" x="604" y="114" width="124" height="76" rx="3"/>
-<text class="dg-t" x="614" y="133">Costs</text>
-<text class="dg-s dg-small" x="614" y="151">commission, spread</text>
-<text class="dg-s dg-small" x="614" y="165">√ impact per stock</text>
-<text class="dg-s dg-small" x="614" y="179">borrow, financing</text>
-<line class="dg-link" x1="584" x2="601" y1="152.0" y2="152.0" marker-end="url(#arr-w)"/>
-<rect class="dg-box" x="750" y="114" width="124" height="76" rx="3"/>
-<text class="dg-t" x="760" y="133">Accounting</text>
-<text class="dg-s dg-small" x="760" y="151">daily mark-to-market</text>
-<text class="dg-s dg-small" x="760" y="165">30% gross cap</text>
-<text class="dg-s dg-small" x="760" y="179">kill switch</text>
-<line class="dg-link" x1="730" x2="747" y1="152.0" y2="152.0" marker-end="url(#arr-w)"/>
-<text class="dg-t" x="0" y="254">Evidence</text>
-<text class="dg-s" x="0" y="270">after the run</text>
-<rect class="dg-box" x="166" y="224" width="124" height="76" rx="3"/>
-<text class="dg-t" x="176" y="243">Walk-forward</text>
-<text class="dg-s dg-small" x="176" y="261">11 windows, one</text>
-<text class="dg-s dg-small" x="176" y="275">continuous simulation</text>
-<text class="dg-s dg-small" x="176" y="289">ranker refit per window</text>
-<rect class="dg-box" x="312" y="224" width="124" height="76" rx="3"/>
-<text class="dg-t" x="322" y="243">Significance</text>
-<text class="dg-s dg-small" x="322" y="261">HAC t, bootstrap CI</text>
-<text class="dg-s dg-small" x="322" y="275">PSR, deflated Sharpe</text>
-<text class="dg-s dg-small" x="322" y="289">Ledoit–Wolf test</text>
-<line class="dg-link" x1="292" x2="309" y1="262.0" y2="262.0" marker-end="url(#arr-w)"/>
-<rect class="dg-box" x="458" y="224" width="124" height="76" rx="3"/>
-<text class="dg-t" x="468" y="243">Baselines</text>
-<text class="dg-s dg-small" x="468" y="261">Gatev distance rule</text>
-<text class="dg-s dg-small" x="468" y="275">200 random-pair draws</text>
-<text class="dg-s dg-small" x="468" y="289">same costs, t+1 fills</text>
-<line class="dg-link" x1="438" x2="455" y1="262.0" y2="262.0" marker-end="url(#arr-w)"/>
-<path class="dg-link" d="M520.0,82 V97.0 H228.0 V111" marker-end="url(#arr-w)"/>
-<path class="dg-link" d="M812.0,192 V207.0 H228.0 V221" marker-end="url(#arr-w)"/>
+<text class="dg-t" x="16" y="16">Selection<tspan class="dg-s" dx="8">formation data only</tspan></text>
+<rect class="dg-box" x="16" y="26" width="156" height="76" rx="3"/>
+<text class="dg-t" x="26" y="46">Data</text>
+<text class="dg-s dg-small" x="26" y="64">Daily prices 2020–2025</text>
+<text class="dg-s dg-small" x="26" y="78">VIX, 11 sector ETFs</text>
+<rect class="dg-box" x="192" y="26" width="156" height="76" rx="3"/>
+<text class="dg-t" x="202" y="46">Universe</text>
+<text class="dg-s dg-small" x="202" y="64">3,000 largest US stocks</text>
+<text class="dg-s dg-small" x="202" y="78">point-in-time screens</text>
+<text class="dg-s dg-small" x="202" y="92">300 most liquid</text>
+<line class="dg-link" x1="174" x2="189" y1="64.0" y2="64.0" marker-end="url(#arr-w)"/>
+<rect class="dg-box dg-box-key" x="368" y="26" width="156" height="76" rx="3"/>
+<text class="dg-t" x="378" y="46">Formation</text>
+<text class="dg-s dg-small" x="378" y="64">Engle–Granger p &lt; 0.05</text>
+<text class="dg-s dg-small" x="378" y="78">half-life 4–25 days</text>
+<text class="dg-s dg-small" x="378" y="92">data to 31 Dec 2022</text>
+<line class="dg-link" x1="350" x2="365" y1="64.0" y2="64.0" marker-end="url(#arr-w)"/>
+<text class="dg-t" x="16" y="142">Trading<tspan class="dg-s" dx="8">causal: data to day t</tspan></text>
+<rect class="dg-box" x="16" y="152" width="156" height="76" rx="3"/>
+<text class="dg-t" x="26" y="172">Spread model</text>
+<text class="dg-s dg-small" x="26" y="190">two-state Kalman</text>
+<text class="dg-s dg-small" x="26" y="204">hedge ratio β</text>
+<text class="dg-s dg-small" x="26" y="218">and intercept</text>
+<rect class="dg-box" x="192" y="152" width="156" height="76" rx="3"/>
+<text class="dg-t" x="202" y="172">Signal</text>
+<text class="dg-s dg-small" x="202" y="190">β-locked z-score</text>
+<text class="dg-s dg-small" x="202" y="204">enter |z| ≥ 1.8</text>
+<text class="dg-s dg-small" x="202" y="218">target 0.5, stop +1.5</text>
+<line class="dg-link" x1="174" x2="189" y1="190.0" y2="190.0" marker-end="url(#arr-w)"/>
+<rect class="dg-box dg-box-key" x="368" y="152" width="156" height="76" rx="3"/>
+<text class="dg-t" x="378" y="172">Execution</text>
+<text class="dg-s dg-small" x="378" y="190">signal at close t</text>
+<text class="dg-s dg-small" x="378" y="204">fill at close t+1</text>
+<text class="dg-s dg-small" x="378" y="218">no shared legs</text>
+<line class="dg-link" x1="350" x2="365" y1="190.0" y2="190.0" marker-end="url(#arr-w)"/>
+<rect class="dg-box" x="544" y="152" width="156" height="76" rx="3"/>
+<text class="dg-t" x="554" y="172">Costs</text>
+<text class="dg-s dg-small" x="554" y="190">commission, spread</text>
+<text class="dg-s dg-small" x="554" y="204">√ impact per stock</text>
+<text class="dg-s dg-small" x="554" y="218">borrow, financing</text>
+<line class="dg-link" x1="526" x2="541" y1="190.0" y2="190.0" marker-end="url(#arr-w)"/>
+<rect class="dg-box" x="720" y="152" width="156" height="76" rx="3"/>
+<text class="dg-t" x="730" y="172">Accounting</text>
+<text class="dg-s dg-small" x="730" y="190">daily mark-to-market</text>
+<text class="dg-s dg-small" x="730" y="204">30% gross cap</text>
+<text class="dg-s dg-small" x="730" y="218">kill switch</text>
+<line class="dg-link" x1="702" x2="717" y1="190.0" y2="190.0" marker-end="url(#arr-w)"/>
+<text class="dg-t" x="16" y="268">Evidence<tspan class="dg-s" dx="8">after the run</tspan></text>
+<rect class="dg-box" x="16" y="278" width="156" height="76" rx="3"/>
+<text class="dg-t" x="26" y="298">Walk-forward</text>
+<text class="dg-s dg-small" x="26" y="316">11 test windows of</text>
+<text class="dg-s dg-small" x="26" y="330">one continuous run,</text>
+<text class="dg-s dg-small" x="26" y="344">ranker refit per window</text>
+<rect class="dg-box" x="192" y="278" width="156" height="76" rx="3"/>
+<text class="dg-t" x="202" y="298">Significance</text>
+<text class="dg-s dg-small" x="202" y="316">HAC t, bootstrap CI</text>
+<text class="dg-s dg-small" x="202" y="330">PSR, deflated Sharpe</text>
+<text class="dg-s dg-small" x="202" y="344">Ledoit–Wolf test</text>
+<line class="dg-link" x1="174" x2="189" y1="316.0" y2="316.0" marker-end="url(#arr-w)"/>
+<rect class="dg-box" x="368" y="278" width="156" height="76" rx="3"/>
+<text class="dg-t" x="378" y="298">Baselines</text>
+<text class="dg-s dg-small" x="378" y="316">Gatev distance rule</text>
+<text class="dg-s dg-small" x="378" y="330">200 random-pair draws</text>
+<text class="dg-s dg-small" x="378" y="344">same costs, t+1 fills</text>
+<line class="dg-link" x1="350" x2="365" y1="316.0" y2="316.0" marker-end="url(#arr-w)"/>
+<path class="dg-link" d="M446.0,104 V114 H5 V190.0 H13" marker-end="url(#arr-w)"/>
+<path class="dg-link" d="M798.0,230 V240 H5 V316.0 H13" marker-end="url(#arr-w)"/>
 </svg>
-<svg class="dg dg-compact" viewBox="0 0 360 780" role="img" aria-labelledby="pc-t pc-d" focusable="false">
+<svg class="dg dg-compact" viewBox="0 0 360 906" role="img" aria-labelledby="pc-t pc-d" focusable="false">
 <title id="pc-t">Study pipeline</title>
 <desc id="pc-d">Selection on formation data only: data, universe, formation. Trading, causal on data to day t: Kalman spread model, signal, next-day execution, costs, daily accounting. Evidence after the run: walk-forward, significance tests, baselines.</desc>
 <defs><marker id="arr-c" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" class="dg-arrowhead"/></marker></defs>
-<text class="dg-t" x="4" y="18">Selection<tspan class="dg-s" dx="6">formation data only</tspan></text>
-<rect class="dg-box" x="4" y="28" width="352" height="50" rx="3"/>
-<text class="dg-t" x="14" y="47">Data</text>
-<text class="dg-s dg-small" x="14" y="65">Daily prices 2020–2025, VIX, 11 sector ETFs</text>
-<line class="dg-link" x1="28" x2="28" y1="80" y2="89" marker-end="url(#arr-c)"/>
-<rect class="dg-box" x="4" y="92" width="352" height="50" rx="3"/>
-<text class="dg-t" x="14" y="111">Universe</text>
-<text class="dg-s dg-small" x="14" y="129">3,000 largest US stocks, point-in-time screens, 300 most liquid</text>
-<line class="dg-link" x1="28" x2="28" y1="144" y2="153" marker-end="url(#arr-c)"/>
-<rect class="dg-box dg-box-key" x="4" y="156" width="352" height="50" rx="3"/>
-<text class="dg-t" x="14" y="175">Formation</text>
-<text class="dg-s dg-small" x="14" y="193">Engle–Granger p &lt; 0.05, half-life 4–25 days, data to 31 Dec 2022</text>
-<text class="dg-t" x="4" y="234">Trading<tspan class="dg-s" dx="6">causal: data to day t</tspan></text>
-<line class="dg-link" x1="28" x2="28" y1="208" y2="241" marker-end="url(#arr-c)"/>
-<rect class="dg-box" x="4" y="244" width="352" height="50" rx="3"/>
-<text class="dg-t" x="14" y="263">Spread model</text>
-<text class="dg-s dg-small" x="14" y="281">two-state Kalman, hedge ratio β, and intercept</text>
-<line class="dg-link" x1="28" x2="28" y1="296" y2="305" marker-end="url(#arr-c)"/>
-<rect class="dg-box" x="4" y="308" width="352" height="50" rx="3"/>
-<text class="dg-t" x="14" y="327">Signal</text>
-<text class="dg-s dg-small" x="14" y="345">β-locked z-score, enter |z| ≥ 1.8, target 0.5, stop +1.5</text>
-<line class="dg-link" x1="28" x2="28" y1="360" y2="369" marker-end="url(#arr-c)"/>
-<rect class="dg-box dg-box-key" x="4" y="372" width="352" height="50" rx="3"/>
-<text class="dg-t" x="14" y="391">Execution</text>
-<text class="dg-s dg-small" x="14" y="409">signal at close t, fill at close t+1, no shared legs</text>
-<line class="dg-link" x1="28" x2="28" y1="424" y2="433" marker-end="url(#arr-c)"/>
-<rect class="dg-box" x="4" y="436" width="352" height="50" rx="3"/>
-<text class="dg-t" x="14" y="455">Costs</text>
-<text class="dg-s dg-small" x="14" y="473">commission, spread, √ impact per stock, borrow, financing</text>
-<line class="dg-link" x1="28" x2="28" y1="488" y2="497" marker-end="url(#arr-c)"/>
-<rect class="dg-box" x="4" y="500" width="352" height="50" rx="3"/>
-<text class="dg-t" x="14" y="519">Accounting</text>
-<text class="dg-s dg-small" x="14" y="537">daily mark-to-market, 30% gross cap, kill switch</text>
-<text class="dg-t" x="4" y="578">Evidence<tspan class="dg-s" dx="6">after the run</tspan></text>
-<line class="dg-link" x1="28" x2="28" y1="552" y2="585" marker-end="url(#arr-c)"/>
-<rect class="dg-box" x="4" y="588" width="352" height="50" rx="3"/>
-<text class="dg-t" x="14" y="607">Walk-forward</text>
-<text class="dg-s dg-small" x="14" y="625">11 windows, one, continuous simulation, ranker refit per window</text>
-<line class="dg-link" x1="28" x2="28" y1="640" y2="649" marker-end="url(#arr-c)"/>
-<rect class="dg-box" x="4" y="652" width="352" height="50" rx="3"/>
-<text class="dg-t" x="14" y="671">Significance</text>
-<text class="dg-s dg-small" x="14" y="689">HAC t, bootstrap CI, PSR, deflated Sharpe, Ledoit–Wolf test</text>
-<line class="dg-link" x1="28" x2="28" y1="704" y2="713" marker-end="url(#arr-c)"/>
-<rect class="dg-box" x="4" y="716" width="352" height="50" rx="3"/>
-<text class="dg-t" x="14" y="735">Baselines</text>
-<text class="dg-s dg-small" x="14" y="753">Gatev distance rule, 200 random-pair draws, same costs, t+1 fills</text>
+<text class="dg-t" x="14" y="18">Selection<tspan class="dg-s" dx="6">formation data only</tspan></text>
+<rect class="dg-box" x="14" y="28" width="342" height="62" rx="3"/>
+<text class="dg-t" x="24" y="47">Data</text>
+<text class="dg-s dg-small" x="24" y="65">Daily prices 2020–2025</text>
+<text class="dg-s dg-small" x="24" y="80">VIX, 11 sector ETFs</text>
+<line class="dg-link" x1="40" x2="40" y1="92" y2="101" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="14" y="104" width="342" height="62" rx="3"/>
+<text class="dg-t" x="24" y="123">Universe</text>
+<text class="dg-s dg-small" x="24" y="141">3,000 largest US stocks, point-in-time screens,</text>
+<text class="dg-s dg-small" x="24" y="156">300 most liquid</text>
+<line class="dg-link" x1="40" x2="40" y1="168" y2="177" marker-end="url(#arr-c)"/>
+<rect class="dg-box dg-box-key" x="14" y="180" width="342" height="62" rx="3"/>
+<text class="dg-t" x="24" y="199">Formation</text>
+<text class="dg-s dg-small" x="24" y="217">Engle–Granger p &lt; 0.05, half-life 4–25 days,</text>
+<text class="dg-s dg-small" x="24" y="232">data to 31 Dec 2022</text>
+<text class="dg-t" x="14" y="272">Trading<tspan class="dg-s" dx="6">causal: data to day t</tspan></text>
+<path class="dg-link" d="M40,244 V252 H5 V313.0 H11" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="14" y="282" width="342" height="62" rx="3"/>
+<text class="dg-t" x="24" y="301">Spread model</text>
+<text class="dg-s dg-small" x="24" y="319">two-state Kalman filter:</text>
+<text class="dg-s dg-small" x="24" y="334">hedge ratio β and intercept</text>
+<line class="dg-link" x1="40" x2="40" y1="346" y2="355" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="14" y="358" width="342" height="62" rx="3"/>
+<text class="dg-t" x="24" y="377">Signal</text>
+<text class="dg-s dg-small" x="24" y="395">β-locked z-score, enter |z| ≥ 1.8,</text>
+<text class="dg-s dg-small" x="24" y="410">target 0.5, stop +1.5</text>
+<line class="dg-link" x1="40" x2="40" y1="422" y2="431" marker-end="url(#arr-c)"/>
+<rect class="dg-box dg-box-key" x="14" y="434" width="342" height="62" rx="3"/>
+<text class="dg-t" x="24" y="453">Execution</text>
+<text class="dg-s dg-small" x="24" y="471">signal at close t, fill at close t+1,</text>
+<text class="dg-s dg-small" x="24" y="486">no shared legs</text>
+<line class="dg-link" x1="40" x2="40" y1="498" y2="507" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="14" y="510" width="342" height="62" rx="3"/>
+<text class="dg-t" x="24" y="529">Costs</text>
+<text class="dg-s dg-small" x="24" y="547">commission, spread, √ impact per stock,</text>
+<text class="dg-s dg-small" x="24" y="562">borrow, financing</text>
+<line class="dg-link" x1="40" x2="40" y1="574" y2="583" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="14" y="586" width="342" height="62" rx="3"/>
+<text class="dg-t" x="24" y="605">Accounting</text>
+<text class="dg-s dg-small" x="24" y="623">daily mark-to-market, 30% gross cap,</text>
+<text class="dg-s dg-small" x="24" y="638">kill switch</text>
+<text class="dg-t" x="14" y="678">Evidence<tspan class="dg-s" dx="6">after the run</tspan></text>
+<path class="dg-link" d="M40,650 V658 H5 V719.0 H11" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="14" y="688" width="342" height="62" rx="3"/>
+<text class="dg-t" x="24" y="707">Walk-forward</text>
+<text class="dg-s dg-small" x="24" y="725">11 test windows of one continuous run,</text>
+<text class="dg-s dg-small" x="24" y="740">ranker refit per window</text>
+<line class="dg-link" x1="40" x2="40" y1="752" y2="761" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="14" y="764" width="342" height="62" rx="3"/>
+<text class="dg-t" x="24" y="783">Significance</text>
+<text class="dg-s dg-small" x="24" y="801">HAC t, bootstrap CI, PSR, deflated Sharpe,</text>
+<text class="dg-s dg-small" x="24" y="816">Ledoit–Wolf test</text>
+<line class="dg-link" x1="40" x2="40" y1="828" y2="837" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="14" y="840" width="342" height="62" rx="3"/>
+<text class="dg-t" x="24" y="859">Baselines</text>
+<text class="dg-s dg-small" x="24" y="877">Gatev distance rule, 200 random-pair draws,</text>
+<text class="dg-s dg-small" x="24" y="892">same costs, t+1 fills</text>
 </svg>
 </div>
   </figure>
@@ -804,6 +845,10 @@
       <span class="ex-sub">Planted edge against the forced null, with 95% intervals</span>
     </figcaption>
     <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: committed validation run.</strong> CI runs the check on every push; the site shows a run once its JSON is committed under results/validation/.</p></div></div>
+    <div class="ex-foot when-drawn">
+      <p><span class="k">Notes</span> Intervals are ±1.96 standard errors of the pooled gross return per trade across the synthetic markets.</p>
+      <p><span class="k">Source</span> results/validation/synthetic_validation.json (scripts/synthetic_validation.py).</p>
+    </div>
     <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
   </figure>
 </section>

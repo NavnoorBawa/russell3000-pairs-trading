@@ -161,6 +161,8 @@
       .then(function (data) {
         study = data;
         redrawAll();
+        // label room is measured in the web font: draw again once it has loaded, if it had not
+        if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(redrawAll);
         if ('ResizeObserver' in window) {
           var pending = new Set(), frame = null;
           var ro = new ResizeObserver(function (entries) {
