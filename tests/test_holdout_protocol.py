@@ -82,7 +82,14 @@ def test_a_strategy_that_never_trades_is_not_rejected_and_the_report_is_written(
     assert ev.main(_args(tmp_path, v33, v32, res)) == 0
     rep = json.loads((tmp_path / 'evaluation.json').read_text(), parse_constant=pytest.fail)
     flat = rep['strategies']['v32_pairs']
-    assert flat['t'] == 0.0 and flat['p_one_sided'] == 0.5 and flat['edge_out_of_sample'] is False
+    assert flat['t'] == 0.0 and flat['p_one_sided'] == 0.5
+    # S3 is reported but tested in no family (its universe is ranked inside the test period)
+    assert flat['role'] == 'descriptive' and flat['p_holm'] is None and flat['edge_out_of_sample'] is None
+    assert rep['family'] == ['v33_pairs', 'avellaneda_lee']
+    for k in rep['family']:
+        s = rep['strategies'][k]
+        assert s['role'] == 'confirmatory' and s['p_holm'] == pytest.approx(min(1.0, 2 * s['p_one_sided'])) \
+            or s['p_holm'] >= s['p_one_sided']
     assert flat['psr'] is None and flat['sharpe_se'] is None and flat['bootstrap_ci_95'] == [None, None]
     assert rep['inputs']['runs']['v32_pairs']['sha256'][ev.RESULTS_FILE]
 
@@ -99,7 +106,7 @@ def test_every_strategy_gets_the_promised_report(tmp_path):
     assert set(s) == set(ev.REGISTERED)
     for row in s.values():
         assert row['vs_gatev']['diff'] is not None and row['random_pair']['percentile'] is not None
-        assert row['min_detectable_sharpe_alpha'] == pytest.approx(0.05 / 3)
+        assert row['min_detectable_sharpe_alpha'] == pytest.approx(0.05 / 2)    # Holm's first step, H1 and H2
         assert row['min_detectable_sharpe'] > row['min_detectable_sharpe_single_test'] > 0
     assert s['v33_pairs']['exposure'] == {'avg_gross_pct_of_equity': 20.0, 'max_gross_pct_of_equity': 30.0,
                                           'days_with_open_positions': 200}

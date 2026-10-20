@@ -145,7 +145,7 @@ def test_null_results_print_as_pending_never_as_a_number(built):
                        ('validation', [r[2] for r in paper['tables']['validation']])):
         assert all(c == 'pending' for c in cells), key
     # the sealed holdout has no result column at all, only the arms and their hypotheses
-    assert all(len(r) == 3 and r[0].startswith('H') for r in paper['tables']['hypotheses'])
+    assert [r[0] for r in paper['tables']['hypotheses']] == ['H1', 'H2', 'S3'] and all(len(r) == 3 for r in paper['tables']['hypotheses'])
     for name, path in paper['figures'].items():
         assert (path is None) == (name in paper['pending'])
 

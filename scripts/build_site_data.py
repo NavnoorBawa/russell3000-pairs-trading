@@ -85,7 +85,7 @@ FACTOR_LABELS = {'Mkt-RF': 'Market', 'SMB': 'Size (SMB)', 'HML': 'Value (HML)', 
 # scripts/evaluate_holdout.py, with the hypothesis each one tests.
 HOLDOUT_ARMS = (('v33_pairs', 'H1', 'v33 pairs (pre-registered design)'),
                 ('avellaneda_lee', 'H2', 'Avellaneda–Lee residual reversion'),
-                ('v32_pairs', 'H3', 'v32 as published, frozen'))
+                ('v32_pairs', None, 'v32 as published, frozen (descriptive)'))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -714,7 +714,8 @@ def holdout_section(evaluation):
         lo, hi = (list(s.get('bootstrap_ci_95') or []) + [None, None])[:2]
         arms.append({'key': key, 'hypothesis': h, 'label': label, 'sharpe': _r(s.get('sharpe')), 'lo': _r(lo), 'hi': _r(hi),
                      't': _r(s.get('t'), 3), 'p_one_sided': _r(s.get('p_one_sided')), 'p_holm': _r(s.get('p_holm')),
-                     'edge': s.get('edge_out_of_sample'), 'days': s.get('days'), 'trades': s.get('trades'),
+                     'edge': s.get('edge_out_of_sample'), 'role': s.get('role', 'confirmatory'),
+                     'days': s.get('days'), 'trades': s.get('trades'),
                      'ret_pct': _r(s.get('total_return_pct')), 'ucb': _r(s.get('upper_bound_95')),
                      'mde': _r(s.get('min_detectable_sharpe')), 'period': s.get('period')})
     return {'status': 'complete', 'alpha': evaluation.get('alpha'), 'test': evaluation.get('test'), 'arms': arms}

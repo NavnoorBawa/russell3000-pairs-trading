@@ -330,7 +330,7 @@
   [
    "holdout",
    "The 2026 holdout",
-   "Each arm's net Sharpe ratio, Holm-adjusted p-value and decision (H1–H3), and its cumulative return",
+   "Each arm's net Sharpe ratio, Holm-adjusted p-value and decision (H1 and H2; the v32 arm descriptive), and its cumulative return",
    "The pre-registration, then a single run on 2026 data"
   ]
  ],
@@ -418,12 +418,13 @@
   "paper.holdout.p": null,
   "paper.holdout.sharpe": null,
   "paper.holdout_power.kurtosis": "6.7",
-  "paper.holdout_power.mde_126": "3.8",
-  "paper.holdout_power.mde_189": "3.1",
-  "paper.holdout_power.mde_252": "2.7",
-  "paper.holdout_power.mde_normal_126": "3.5",
-  "paper.holdout_power.mde_normal_189": "2.9",
-  "paper.holdout_power.mde_normal_252": "2.5",
+  "paper.holdout_power.mde_126": "4.3",
+  "paper.holdout_power.mde_200": "3.4",
+  "paper.holdout_power.mde_252": "3.0",
+  "paper.holdout_power.mde_normal_126": "4.0",
+  "paper.holdout_power.mde_normal_200": "3.2",
+  "paper.holdout_power.mde_normal_252": "2.8",
+  "paper.holdout_power.registered_days": "200",
   "paper.holdout_power.rho": "0.07",
   "paper.holdout_power.skew": "0.17",
   "paper.holdout_start_long": "2 January 2026",
@@ -720,18 +721,18 @@
   "holdout_power": [
    [
     "126",
-    "3.8",
-    "3.5"
+    "4.3",
+    "4.0"
    ],
    [
-    "189",
-    "3.1",
-    "2.9"
+    "200",
+    "3.4",
+    "3.2"
    ],
    [
     "252",
-    "2.7",
-    "2.5"
+    "3.0",
+    "2.8"
    ]
   ],
   "hypotheses": [
@@ -746,9 +747,9 @@
     "mean daily net return > 0"
    ],
    [
-    "H3",
+    "S3",
     "v32 as published, frozen",
-    "mean daily net return > 0"
+    "reported, not tested"
    ]
   ],
   "manifest": [
@@ -1073,7 +1074,7 @@
    ],
    [
     "index.html",
-    "346fa14296c80995f57ce0c82243de796dffa6d995a64b6d939324465b83814f"
+    "887ef32af50a44688c288955c73f05cbae85cea9ee3a5bbc408e75e495dadfb3"
    ]
   ],
   "validation": [

@@ -274,9 +274,10 @@ def test_optional_arms_fill_their_sections(tmp_path, v32_res):
     study = bsd.build(_run_dir(tmp_path, v32_res), results_root=root)
     holdout = study['holdout']
     assert holdout['status'] == 'complete' and holdout['alpha'] == 0.05
-    # the registered order (H1 v33, H2 Avellaneda-Lee, H3 v32), whatever the report's order
+    # the registered order (H1 v33, H2 Avellaneda-Lee, then the descriptive v32 arm), whatever
+    # the report's order
     assert [(a['key'], a['hypothesis']) for a in holdout['arms']] == [
-        ('v33_pairs', 'H1'), ('avellaneda_lee', 'H2'), ('v32_pairs', 'H3')]
+        ('v33_pairs', 'H1'), ('avellaneda_lee', 'H2'), ('v32_pairs', None)]
     v33 = holdout['arms'][0]
     assert (v33['sharpe'], v33['lo'], v33['hi'], v33['p_holm'], v33['edge']) == (0.8, -0.7, 2.3, 0.45, False)
     headline = json.loads((V32 / 'headline_metrics.json').read_text(encoding='utf-8'))

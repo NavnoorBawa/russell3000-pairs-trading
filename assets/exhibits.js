@@ -1101,7 +1101,8 @@
     });
     var alpha = H.alpha === null || H.alpha === undefined ? 0.05 : H.alpha;
     H.arms.forEach(function (a) {
-      var decision = a.p_holm === null || a.p_holm === undefined ? '–' :
+      var decision = a.role === 'descriptive' ? 'Not tested (descriptive)' :
+        a.p_holm === null || a.p_holm === undefined ? '–' :
         (a.p_holm < alpha ? 'Rejects zero at ' + num(100 * alpha, 0) + '%' : 'Does not reject zero');
       var cells = {sharpe: signed(a.sharpe, 2), p_holm: num(a.p_holm, 3), decision: decision};
       Object.keys(cells).forEach(function (k) {

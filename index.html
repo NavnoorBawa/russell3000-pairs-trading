@@ -155,12 +155,12 @@
   <p class="lede">Every design choice in this study was made on 2020–2025 data over 32 versions, so the development period cannot test those choices. The decisive test therefore runs on data none of them has seen: trading days from 2 January 2026. No 2026 stock price has been fetched. The protocol is committed first; each arm then runs once, and its result is published whatever it is.</p>
   <div class="tbl-wrap" role="region" aria-label="Pre-registered hypotheses" tabindex="0">
     <table class="tbl">
-      <caption>Hypotheses of the pre-registration, filed before any 2026 price is fetched. Test: one-sided Newey–West t on daily net returns, Holm-adjusted across the three at 5%.</caption>
+      <caption>Hypotheses of the pre-registration, filed before any 2026 price is fetched. Test: one-sided Newey–West t on daily net returns, Holm-adjusted across H1 and H2 at 5%. The frozen v32 arm is reported but not tested: its universe is ranked on market values inside the test period.</caption>
       <thead><tr><th scope="col"><span class="vh">Label</span></th><th scope="col">Arm</th><th scope="col">Hypothesis</th><th scope="col" class="r">Sharpe</th><th scope="col" class="r">p (Holm)</th><th scope="col">Decision</th></tr></thead>
       <tbody>
         <tr><th scope="row">H1</th><td>v33 pairs (pre-registered design)</td><td>net mean return &gt; 0</td><td class="r muted" data-holdout="v33_pairs:sharpe">sealed</td><td class="r muted" data-holdout="v33_pairs:p_holm">sealed</td><td class="muted" data-holdout="v33_pairs:decision">—</td></tr>
         <tr><th scope="row">H2</th><td>Avellaneda–Lee residual reversion</td><td>net mean return &gt; 0</td><td class="r muted" data-holdout="avellaneda_lee:sharpe">sealed</td><td class="r muted" data-holdout="avellaneda_lee:p_holm">sealed</td><td class="muted" data-holdout="avellaneda_lee:decision">—</td></tr>
-        <tr><th scope="row">H3</th><td>v32 as published, frozen</td><td>net mean return &gt; 0</td><td class="r muted" data-holdout="v32_pairs:sharpe">sealed</td><td class="r muted" data-holdout="v32_pairs:p_holm">sealed</td><td class="muted" data-holdout="v32_pairs:decision">—</td></tr>
+        <tr><th scope="row">S3</th><td>v32 as published, frozen</td><td>reported, not tested</td><td class="r muted" data-holdout="v32_pairs:sharpe">sealed</td><td class="r muted" data-holdout="v32_pairs:p_holm">sealed</td><td class="muted" data-holdout="v32_pairs:decision">—</td></tr>
       </tbody>
     </table>
   </div>
@@ -176,7 +176,7 @@
       <div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg><p><strong>Sealed.</strong> The pre-registration (docs/PREREGISTRATION.md) is committed before any 2026 price is fetched; this exhibit and the table above fill from results/holdout2026/evaluation.json after the single run.</p></div>
     </div>
     <div class="ex-foot when-drawn">
-      <p><span class="k">Notes</span> The decision rests on the one-sided Newey–West test, Holm-adjusted across the three arms (table above); the intervals describe the estimates and are not the test.</p>
+      <p><span class="k">Notes</span> The decision rests on the one-sided Newey–West test, Holm-adjusted across the two tested arms (table above); the intervals describe the estimates and are not the test.</p>
       <p><span class="k">Source</span> results/holdout2026/evaluation.json (scripts/evaluate_holdout.py).</p>
     </div>
     <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>

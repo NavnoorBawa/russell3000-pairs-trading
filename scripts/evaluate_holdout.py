@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """The pre-registered test on the 2026 holdout (docs/PREREGISTRATION.md), and its report.
 
-For each strategy k: H0_k mean daily net return <= 0 against H1_k > 0, tested with the
-one-sided Newey-West t-test (significance.hac_tstat_mean, its own lag rule; one-sided
-p = 1 - Phi(t)), Holm-Bonferroni across the strategies at familywise alpha = 0.05. A
-strategy shows an edge out of sample only if its Holm-adjusted p is below alpha.
+For each confirmatory strategy k (S1, v33 pairs; S2, Avellaneda-Lee): H0_k mean daily net
+return <= 0 against H1_k > 0, tested with the one-sided Newey-West t-test
+(significance.hac_tstat_mean, its own lag rule; one-sided p = 1 - Phi(t)), Holm-Bonferroni
+across the confirmatory strategies at familywise alpha = 0.05. A strategy shows an edge out
+of sample only if its Holm-adjusted p is below alpha. S3 (v32 as published) is reported with
+the same statistics but tested in no family: its universe is ranked on market values of
+2026-10-18, inside the test period, so a rejection could be survivorship rather than edge.
 
 Also reported for each, whatever the outcome: net and gross return, annualised Sharpe with
 its standard error (non-normal, AR(1)) and the Lo (2002) autocorrelation-adjusted Sharpe,
@@ -54,6 +57,7 @@ ALPHA = 0.05
 RESULTS_FILE = 'pairs_trading_results_2023_2025_unbiased.json'   # historical name, any period
 HOLDOUT = 'holdout2026'
 REGISTERED = ('v33_pairs', 'avellaneda_lee', 'v32_pairs')       # S1, S2, S3
+CONFIRMATORY = ('v33_pairs', 'avellaneda_lee')                  # the Holm family; S3 descriptive
 BASELINE_ARM = 'v33_pairs'          # whose baselines the residual strategy is compared with
 
 
@@ -240,12 +244,20 @@ def check_runs(runs: dict, calendar: str = HOLDOUT, expect_commit: str = None) -
     return bad
 
 
+def confirmatory_family(names) -> list:
+    """The strategies Holm runs across: the registered confirmatory ones when any is present
+    (the holdout and its rehearsal), otherwise every strategy given."""
+    family = [k for k in names if k in CONFIRMATORY]
+    return family or list(names)
+
+
 def evaluate(runs: dict) -> dict:
     """runs: {strategy_id: {'net': [...], 'gross': [...], 'trades': n, ...}}."""
     for k, v in runs.items():
         if not np.all(np.isfinite(np.asarray(v['net'], dtype=float))):
             raise ValueError(f"{k}: the daily net returns are not all finite")
-    rows = {k: {**describe(v['net'], v.get('gross'), v.get('trades'), n_tests=len(runs)),
+    family = confirmatory_family(runs)
+    rows = {k: {**describe(v['net'], v.get('gross'), v.get('trades'), n_tests=len(family)),
                 **{x: v[x] for x in ('exposure', 'vs_gatev', 'random_pair', 'universe_by_formation',
                                      'commit', 'dates') if x in v}}
             for k, v in runs.items()}
@@ -257,11 +269,14 @@ def evaluate(runs: dict) -> dict:
         dates = row.pop('dates', None)
         if dates:
             row['period'] = [dates[0], dates[-1]]
-    adj = holm({k: r['p_one_sided'] for k, r in rows.items()})
+    adj = holm({k: rows[k]['p_one_sided'] for k in family})
     for k, r in rows.items():
-        r['p_holm'] = adj[k]
-        r['edge_out_of_sample'] = bool(adj[k] < ALPHA)
-    return {'alpha': ALPHA, 'test': 'one-sided Newey-West t (mean daily net return > 0), Holm across strategies',
+        if k in adj:
+            r.update(role='confirmatory', p_holm=adj[k], edge_out_of_sample=bool(adj[k] < ALPHA))
+        else:       # reported, not tested: no adjusted p and no decision
+            r.update(role='descriptive', p_holm=None, edge_out_of_sample=None)
+    return {'alpha': ALPHA, 'family': family,
+            'test': 'one-sided Newey-West t (mean daily net return > 0), Holm across the confirmatory strategies',
             'strategies': rows}
 
 
@@ -293,9 +308,10 @@ def main(argv=None) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=1, allow_nan=False, default=float))
     for k, r in report['strategies'].items():
+        decision = (f"Holm p {r['p_holm']:.3f}{'  EDGE' if r['edge_out_of_sample'] else ''}"
+                    if r['role'] == 'confirmatory' else 'descriptive, not tested')
         print(f"{k:>16}: {r['days']} days, net {r['total_return_pct']:+.2f}%, Sharpe {r['sharpe']:+.2f}, "
-              f"t {r['t']:+.2f}, p(one-sided) {r['p_one_sided']:.3f}, Holm p {r['p_holm']:.3f}"
-              f"{'  EDGE' if r['edge_out_of_sample'] else ''}")
+              f"t {r['t']:+.2f}, p(one-sided) {r['p_one_sided']:.3f}, {decision}")
     if not report['inputs']['period_matches_calendar']:
         print(f"note: trading dates {dates[0]} -> {dates[-1]}, calendar {cal.backtest_start} -> {cal.data_end}")
     print(f"-> {out}")

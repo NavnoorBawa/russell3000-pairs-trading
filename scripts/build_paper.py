@@ -72,7 +72,8 @@ MEASURE_MM = 130.0                      # running text: about 75 characters of 1
 COLUMN_GAP_MM = 6.0
 BOOT_SEED, BOOT_RESAMPLES = 42, 5000    # the run's own bootstrap settings (seed, resamples)
 _Z95, _Z80 = 1.6448536269514722, 0.8416212335729143   # one-sided 5% test, 80% power
-HOLDOUT_DAYS = (126, 189, 252)          # about six, nine and twelve months of trading days
+HOLDOUT_DAYS = (126, 200, 252)          # six months, the registered calendar (2026-01-02 to 2026-10-19), a year
+HOLM_FIRST_ALPHA = 0.05 / 2             # Holm's first step across the two confirmatory arms
 MONTHS = ('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September',
           'October', 'November', 'December')
 WORDS = ('no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten')
@@ -286,7 +287,8 @@ def _clearing_windows(dev):
 
 
 def holdout_power(daily_net_pct, days=HOLDOUT_DAYS):
-    """Minimum detectable annual Sharpe of a holdout of n days (one-sided 5%, 80% power).
+    """Minimum detectable annual Sharpe of a holdout of n days (80% power, one-sided at
+    HOLM_FIRST_ALPHA: the level the better of the two confirmatory arms must reach).
 
     Two return shapes: the development returns' (skew, non-excess kurtosis, lag-1
     autocorrelation; the non-normal AR(1) variance of pairs_trading.power) and i.i.d.
@@ -299,8 +301,9 @@ def holdout_power(daily_net_pct, days=HOLDOUT_DAYS):
     rows = []
     for n in days:
         rows.append({'days': n,
-                     'mde_shape': pw.minimum_detectable_sharpe(0.0, n, rep['skew'], rep['kurtosis'], rho) * ann,
-                     'mde_normal': pw.minimum_detectable_sharpe(0.0, n) * ann})
+                     'mde_shape': pw.minimum_detectable_sharpe(0.0, n, rep['skew'], rep['kurtosis'], rho,
+                                                               alpha=HOLM_FIRST_ALPHA) * ann,
+                     'mde_normal': pw.minimum_detectable_sharpe(0.0, n, alpha=HOLM_FIRST_ALPHA) * ann})
     return {'skew': rep['skew'], 'kurtosis': rep['kurtosis'], 'rho': rho, 'rows': rows}
 
 
@@ -558,6 +561,7 @@ def derived(inp):
                  'sealed_from_long': long_date(snaps['sealed_from'])} if snaps else None),
         'holdout_power_rows': power['rows'],
         'holdout_power': {'rho': power['rho'], 'skew': power['skew'], 'kurtosis': power['kurtosis'],
+                          'registered_days': HOLDOUT_DAYS[1],
                           **{f"mde_{r['days']}": r['mde_shape'] for r in power['rows']},
                           **{f"mde_normal_{r['days']}": r['mde_normal'] for r in power['rows']}},
         'v33_universe_top': PROFILES['v33'].max_universe,
@@ -720,7 +724,7 @@ METRICS = {
     'paper.long_net_long': '.0', 'paper.short_net_short': '.0', 'paper.boot_resamples': ',.0',
     'paper.boot_block_main': '.0', 'paper.boot_block_oos': '.0', 'paper.diff_oos': '.2', 'paper.diff_oos_p': '.3',
     'paper.sched_best_ret': '+.2%', 'paper.sched_worst_ret': '.2%',
-    'paper.holdout_power.rho': '.2', 'paper.holdout_power.skew': '.2', 'paper.holdout_power.kurtosis': '.1',
+    'paper.holdout_power.registered_days': '.0', 'paper.holdout_power.rho': '.2', 'paper.holdout_power.skew': '.2', 'paper.holdout_power.kurtosis': '.1',
     **{f'paper.holdout_power.mde_{n}': '.1' for n in HOLDOUT_DAYS},
     **{f'paper.holdout_power.mde_normal_{n}': '.1' for n in HOLDOUT_DAYS},
     'paper.holdout.sharpe': '.2', 'paper.holdout.lo': '.2', 'paper.holdout.hi': '+.2', 'paper.holdout.p': '.3',
@@ -989,7 +993,7 @@ def tables(data, m):
     design = 'pre-registered design' if P['prereg_status'] == 'filed' else 'design proposed for pre-registration'
     hypotheses = [['H1', f'v33 pairs ({design})', 'mean daily net return > 0'],
                   ['H2', 'Avellaneda–Lee residual reversion', 'mean daily net return > 0'],
-                  ['H3', 'v32 as published, frozen', 'mean daily net return > 0']]
+                  ['S3', 'v32 as published, frozen', 'reported, not tested']]
     snooping = [['Hansen SPA p (consistent)', cell('paper.snooping.spa_p')],
                 ['White Reality Check p', cell('paper.snooping.reality_check_p')],
                 ['Romano–Wolf: variants rejected at 5%', cell('paper.snooping.romano_wolf_rejected')],
@@ -1943,7 +1947,7 @@ FORTHCOMING = (
      'The second strategy family\'s development-period net Sharpe ratio and 95% interval, beside the pairs strategy',
      'Its run on the development calendar'),
     ('holdout', 'The 2026 holdout',
-     "Each arm's net Sharpe ratio, Holm-adjusted p-value and decision (H1–H3), and its cumulative return",
+     "Each arm's net Sharpe ratio, Holm-adjusted p-value and decision (H1 and H2; the v32 arm descriptive), and its cumulative return",
      'The pre-registration, then a single run on 2026 data'),
 )
 
