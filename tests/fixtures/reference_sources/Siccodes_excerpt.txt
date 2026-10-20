@@ -1,0 +1,15 @@
+ 1 Agric  Agriculture
+          0100-0199 Agricultural production - crops
+          2048-2048 Prepared feeds for animals
+
+36 Softw  Computer Software 
+          7370-7372 Services - computer programming and data processing	  
+          7375-7375 Information retrieval services
+
+48 Fin    Trading
+          6200-6299 Security and commodity brokers, dealers, exchanges & services
+          6798-6798 REIT
+
+49 Other  Almost Nothing
+          4950-4959 Sanitary services
+          4990-4991 Cogeneration - SM power producer

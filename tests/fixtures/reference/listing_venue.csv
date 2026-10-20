@@ -1,0 +1,4 @@
+ticker,venue,etf_flag,as_of
+AAA,NYSE,N,2026-10-20
+CCC,Nasdaq,N,2026-10-20
+XLK,NYSE Arca,Y,2026-10-20

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?><edgarSubmission xmlns="http://www.sec.gov/edgar/nport" xmlns:com="http://www.sec.gov/edgar/common" xmlns:ncom="http://www.sec.gov/edgar/nportcommon" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sec.gov/edgar/nport eis_NPORT_Filer.xsd">
+  <headerData>
+    <submissionType>NPORT-P</submissionType>
+    <filerInfo>
+      <seriesClassInfo>
+        <seriesId>S000004341</seriesId>
+        <classId>C000012071</classId>
+      </seriesClassInfo>
+    </filerInfo>
+  </headerData>
+  <formData>
+    <genInfo>
+      <regName>iShares Trust</regName>
+      <regCik>0001100663</regCik>
+      <seriesName>iShares Russell 3000 ETF</seriesName>
+      <seriesId>S000004341</seriesId>
+      <repPdEnd>2021-03-31</repPdEnd>
+      <repPdDate>2020-03-31</repPdDate>
+      <isFinalFiling>N</isFinalFiling>
+    </genInfo>
+    <invstOrSecs>
+      <invstOrSec>
+        <name>Alpha Corp</name>
+        <lei>N/A</lei>
+        <title>Alpha Corp</title>
+        <cusip>000000AA1</cusip>
+        <identifiers>
+          <isin value="US000000AA11"/>
+        </identifiers>
+        <balance>100.00000000</balance>
+        <units>NS</units>
+        <curCd>USD</curCd>
+        <valUSD>500.00000000</valUSD>
+        <pctVal>0.2</pctVal>
+        <payoffProfile>Long</payoffProfile>
+        <assetCat>EC</assetCat>
+        <issuerCat>CORP</issuerCat>
+        <invCountry>US</invCountry>
+        <isRestrictedSec>N</isRestrictedSec>
+        <fairValLevel>1</fairValLevel>
+        <securityLending>
+          <isCashCollateral>N</isCashCollateral>
+          <isNonCashCollateral>N</isNonCashCollateral>
+          <isLoanByFund>N</isLoanByFund>
+        </securityLending>
+      </invstOrSec>
+      <invstOrSec>
+        <name>Beta Inc</name>
+        <lei>N/A</lei>
+        <title>Beta Inc Class A</title>
+        <cusip>000000BB7</cusip>
+        <identifiers>
+          <isin value="US000000BB77"/>
+        </identifiers>
+        <balance>10.00000000</balance>
+        <units>NS</units>
+        <curCd>USD</curCd>
+        <valUSD>100.00000000</valUSD>
+        <payoffProfile>Long</payoffProfile>
+        <assetCat>EC</assetCat>
+        <issuerCat>CORP</issuerCat>
+        <invCountry>US</invCountry>
+      </invstOrSec>
+      <invstOrSec>
+        <name>Beta Inc</name>
+        <lei>N/A</lei>
+        <title>Beta Inc Class A</title>
+        <cusip>000000BB7</cusip>
+        <identifiers>
+          <isin value="US000000BB77"/>
+        </identifiers>
+        <balance>5.00000000</balance>
+        <units>NS</units>
+        <curCd>USD</curCd>
+        <valUSD>50.00000000</valUSD>
+        <payoffProfile>Long</payoffProfile>
+        <assetCat>EC</assetCat>
+        <issuerCat>CORP</issuerCat>
+        <invCountry>US</invCountry>
+      </invstOrSec>
+      <invstOrSec>
+        <name>Garmin Ltd</name>
+        <lei>N/A</lei>
+        <title>Garmin Ltd</title>
+        <cusip>000000000</cusip>
+        <identifiers>
+          <isin value="CH0114405324"/>
+        </identifiers>
+        <balance>2.00000000</balance>
+        <units>NS</units>
+        <curCd>USD</curCd>
+        <valUSD>200.00000000</valUSD>
+        <payoffProfile>Long</payoffProfile>
+        <assetCat>EC</assetCat>
+        <issuerCat>CORP</issuerCat>
+        <invCountry>CH</invCountry>
+      </invstOrSec>
+      <invstOrSec>
+        <name>ESCROW GAMMA RIGHTS</name>
+        <lei>N/A</lei>
+        <title>ESCROW GAMMA RIGHTS</title>
+        <cusip>N/A</cusip>
+        <identifiers>
+          <other otherDesc="BlackRock Identifier" value="ESC000001"/>
+        </identifiers>
+        <balance>7.00000000</balance>
+        <units>NS</units>
+        <curCd>USD</curCd>
+        <valUSD>50.00000000</valUSD>
+        <payoffProfile>Long</payoffProfile>
+        <assetCat>EC</assetCat>
+        <issuerConditional desc="escrow" issuerCat="OTHER"/>
+        <invCountry>US</invCountry>
+      </invstOrSec>
+      <invstOrSec>
+        <name>BlackRock Funds III</name>
+        <lei>5493008LW2651I1QB503</lei>
+        <title>BlackRock Cash Funds: Institutional, SL Agency Shares</title>
+        <cusip>066922519</cusip>
+        <identifiers>
+          <isin value="US0669225197"/>
+        </identifiers>
+        <balance>1000.00000000</balance>
+        <units>NS</units>
+        <curCd>USD</curCd>
+        <valUSD>1000.00000000</valUSD>
+        <payoffProfile>Long</payoffProfile>
+        <assetCat>STIV</assetCat>
+        <issuerCat>RF</issuerCat>
+        <invCountry>US</invCountry>
+      </invstOrSec>
+      <invstOrSec>
+        <name>Chicago Mercantile Exchange</name>
+        <lei>SNZ2OJLFK8MNNCLQOF39</lei>
+        <title>E-MINI RUSS 2000  MAR20 XCME 20200320</title>
+        <cusip>000000000</cusip>
+        <identifiers>
+          <other otherDesc="BlackRock Identifier" value="RTSH02023"/>
+        </identifiers>
+        <balance>34.00000000</balance>
+        <units>NC</units>
+        <curCd>USD</curCd>
+        <valUSD>42.00000000</valUSD>
+        <payoffProfile>N/A</payoffProfile>
+        <assetCat>DE</assetCat>
+        <issuerConditional desc="derivative" issuerCat="OTHER"/>
+        <invCountry>US</invCountry>
+      </invstOrSec>
+    </invstOrSecs>
+  </formData>
+</edgarSubmission>

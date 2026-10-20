@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+  <feed xmlns="http://www.w3.org/2005/Atom">
+    <company-info>
+      <cik>0001100663</cik>
+      <conformed-name>iSHARES TRUST</conformed-name>
+    </company-info>
+    <entry>
+      <category label="form type" scheme="https://www.sec.gov/" term="NPORT-P" />
+      <content type="text/xml">
+        <accession-number>0000000000-26-000004</accession-number>
+        <filing-date>2026-05-26</filing-date>
+        <filing-href>https://www.sec.gov/Archives/edgar/data/1100663/000000000026000004/0000000000-26-000004-index.htm</filing-href>
+        <filing-type>NPORT-P</filing-type>
+      </content>
+      <title>NPORT-P  - Monthly Portfolio Investments Report on Form N-PORT (Public)</title>
+    </entry>
+    <entry>
+      <category label="form type" scheme="https://www.sec.gov/" term="NPORT-P/A" />
+      <content type="text/xml">
+        <accession-number>0000000000-20-000003</accession-number>
+        <filing-date>2020-09-15</filing-date>
+        <filing-type>NPORT-P/A</filing-type>
+      </content>
+    </entry>
+    <entry>
+      <category label="form type" scheme="https://www.sec.gov/" term="NPORT-P" />
+      <content type="text/xml">
+        <accession-number>0000000000-20-000002</accession-number>
+        <filing-date>2020-08-27</filing-date>
+        <filing-type>NPORT-P</filing-type>
+      </content>
+    </entry>
+    <entry>
+      <category label="form type" scheme="https://www.sec.gov/" term="N-CEN" />
+      <content type="text/xml">
+        <accession-number>0000000000-20-000009</accession-number>
+        <filing-date>2020-07-10</filing-date>
+        <filing-type>N-CEN</filing-type>
+      </content>
+    </entry>
+    <entry>
+      <category label="form type" scheme="https://www.sec.gov/" term="NPORT-P" />
+      <content type="text/xml">
+        <accession-number>0000000000-20-000001</accession-number>
+        <filing-date>2020-06-01</filing-date>
+        <filing-type>NPORT-P</filing-type>
+      </content>
+    </entry>
+  </feed>

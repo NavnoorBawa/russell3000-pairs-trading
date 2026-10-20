@@ -1,0 +1,14 @@
+Nasdaq Traded|Symbol|Security Name|Listing Exchange|Market Category|ETF|Round Lot Size|Test Issue|Financial Status|CQS Symbol|NASDAQ Symbol|NextShares
+Y|A|Agilent Technologies, Inc. Common Stock|N| |N|100|N||A|A|N
+Y|AAPL|Apple Inc. - Common Stock|Q|Q|N|40|N|N||AAPL|N
+Y|BF.B|Brown Forman Inc Class B Common Stock|N| |N|100|N||BF.B|BF.B|N
+Y|BFH$A|Bread Financial Holdings, Inc. Depositary Shares|N| |N|100|N||BFHpA|BFH-A|N
+Y|DDS|Dillard's, Inc. Common Stock|F| |N|40|N||DDS|DDS|N
+Y|IBKR|Interactive Brokers Group, Inc. - Class A Common Stock|Q|Q|N|100|N|N||IBKR|N
+Y|IEXA|IEX listed example Common Stock|V| |N|100|N||IEXA|IEXA|N
+Y|XLK|Technology Select Sector SPDR Fund|P| |Y|100|N||XLK|XLK|N
+Y|CBOE1|Cboe-listed example ETF|Z| |Y|100|N||CBOE1|CBOE1|N
+Y|SEB|Seaboard Corporation Common Stock|A| |N|10|N||SEB|SEB|N
+Y|ZXIET|IEX Test Company Test Symbol Three for IEX|V| |N|100|Y||ZXIET|ZXIET|N
+Y|MTEST|NYSE Texas, Inc. TEST Common Stock|M| |N|100|Y||MTEST|MTEST|N
+File Creation Time: 1020202608:17|||||
