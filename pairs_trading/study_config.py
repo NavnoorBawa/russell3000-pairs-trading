@@ -205,21 +205,29 @@ def preregistration_commit(repo=None) -> Optional[str]:
     return commits[0] if ancestor is not None and ancestor.returncode == 0 else None
 
 
+_UNSEALED = set()          # (repo, PAIRS_UNSEAL) already checked in this process
+
+
 def assert_unsealed(end_date: str, repo=None) -> None:
     """Refuse data dated on or after SEALED_FROM unless the holdout has been unsealed.
 
     Unsealed means PAIRS_UNSEAL equals the commit that added docs/PREREGISTRATION.md, an
     ancestor of HEAD; scripts/run_holdout.sh sets it after checking that commit. Every
-    fetch of prices, macro series or N-PORT holdings for such a period goes through here.
+    fetch of prices, macro series or N-PORT holdings for such a period goes through here
+    (once per symbol: a passed check is remembered for the process).
     """
     if str(end_date)[:10] < SEALED_FROM:
         return
+    key = (str(repo or REPO_ROOT), os.environ.get('PAIRS_UNSEAL'))
+    if key in _UNSEALED:
+        return
     commit = preregistration_commit(repo)
-    if commit is None or os.environ.get('PAIRS_UNSEAL') != commit:
+    if commit is None or key[1] != commit:
         raise SealedError(
             f"data up to {str(end_date)[:10]} lies in the sealed holdout (from {SEALED_FROM}). It is "
             f"fetched only by scripts/run_holdout.sh, after {PREREGISTRATION} is committed "
             f"(pre-registration commit: {commit or 'none'}).")
+    _UNSEALED.add(key)
 
 
 def describe(profile: Profile, calendar: Calendar) -> dict:
