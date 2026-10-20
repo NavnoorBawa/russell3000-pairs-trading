@@ -6,13 +6,82 @@ Symbol screens, correlation filter, two-direction Engle-Granger cointegration
 score, and the Benjamini-Hochberg FDR diagnostic.
 """
 
+import os
+
+from joblib import Parallel, delayed
+from threadpoolctl import threadpool_limits
+
 from pairs_trading.config import (
     pd, np, stats, logging, itertools, tqdm,
-    List, Dict, Tuple, PCA
+    List, Dict, Optional, Tuple, PCA
 )
-from statsmodels.tsa.stattools import coint
+from pairs_trading.fast_coint import engle_granger
 
 logger = logging.getLogger(__name__)
+
+# Every column the per-pair tests read; the all-pairs search ships only these to workers.
+PAIR_TEST_COLUMNS = ('Close', 'Returns')
+# The all-pairs search is split into rectangular blocks of the pair matrix: about 8 tasks
+# per worker, so the pool stays busy to the end, and at least 250 pairs per task, so the
+# ~10 ms cost of sending a task (its symbols' columns, not the whole universe) stays
+# below 1% of the ~2-3 ms of tests per pair.
+_TASKS_PER_JOB = 8
+_MIN_PAIRS_PER_TASK = 250
+
+
+def resolve_n_jobs() -> int:
+    """PAIRS_N_JOBS as a positive int (default min(4, CPU count)); a malformed value is an error."""
+    raw = os.environ.get('PAIRS_N_JOBS')
+    if raw is None:
+        return min(4, os.cpu_count() or 1)
+    try:
+        n_jobs = int(raw)
+    except ValueError:
+        n_jobs = 0
+    if n_jobs < 1:
+        raise ValueError(f"PAIRS_N_JOBS must be a positive integer, got {raw!r}")
+    return n_jobs
+
+
+def pair_blocks(n_symbols: int, n_jobs: int) -> List[List[Tuple[int, int]]]:
+    """Partition of the pairs (i, j), i < j < n_symbols, into tasks of the all-pairs search.
+
+    The symbol list is cut into B contiguous groups and each task is one group pair
+    (a <= b): the pairs with i in group a and j in group b, in itertools.combinations
+    order. A task needs only the two groups' data. B is the largest value that keeps
+    >= _MIN_PAIRS_PER_TASK pairs per task, stopping once there are
+    _TASKS_PER_JOB * n_jobs tasks.
+    """
+    n_pairs = n_symbols * (n_symbols - 1) // 2
+    n_groups = 1
+    while n_groups < n_symbols:
+        n_tasks = (n_groups + 1) * (n_groups + 2) // 2
+        if n_pairs < _MIN_PAIRS_PER_TASK * n_tasks:
+            break
+        n_groups += 1
+        if n_tasks >= _TASKS_PER_JOB * n_jobs:
+            break
+    edges = np.linspace(0, n_symbols, n_groups + 1).round().astype(int)
+    blocks = []
+    for a in range(n_groups):
+        for b in range(a, n_groups):
+            block = [(i, j) for i in range(edges[a], edges[a + 1])
+                     for j in range(max(i + 1, edges[b]), edges[b + 1])]
+            if block:
+                blocks.append(block)
+    return blocks
+
+
+def _test_pair_block(selector: 'FixedPrimeFundPairSelector', frames: Dict[str, pd.DataFrame],
+                     pca_frames: Dict[str, pd.DataFrame], pairs: List[Tuple[str, str]]) -> List:
+    """[(pair, selector._test_pair(...))] for the pairs of one task, BLAS single-threaded.
+
+    One BLAS thread in every task, in this process or in a worker, so a pair's floating-
+    point results cannot depend on how many threads the linear algebra was given.
+    """
+    with threadpool_limits(limits=1):
+        return [((s1, s2), selector._test_pair(frames[s1], frames[s2], pca_frames.get(s1), pca_frames.get(s2)))
+                for s1, s2 in pairs]
 
 
 class FixedPrimeFundPairSelector:
@@ -39,6 +108,9 @@ class FixedPrimeFundPairSelector:
         # max_universe are kept, which keeps the all-pairs search (n^2/2 tests) bounded.
         self.min_dollar_volume = 10e6
         self.max_universe = 300
+        # The all-pairs search runs in n_jobs worker processes (PAIRS_N_JOBS; 1 = in this
+        # process). The selection does not depend on it: see find_quality_pairs.
+        self.n_jobs = resolve_n_jobs()
 
         self.selected_pairs = []
         self.pair_statistics = {}
@@ -94,10 +166,14 @@ class FixedPrimeFundPairSelector:
         tests restores a valid, conservative p-value while keeping the "test both
         directions" intent. v32: factored out so every caller (initial selection, the
         quarterly re-test and its recent-window check) uses the same definition.
+
+        Each direction is statsmodels' coint(y0, y1) (trend='c', autolag='aic') computed by
+        pairs_trading.fast_coint.engle_granger: the same statistic to rounding (~1e-13),
+        ~20x faster; degenerate inputs are handed to statsmodels itself.
         """
         try:
-            _, p12, _ = coint(log_prices1, log_prices2)
-            _, p21, _ = coint(log_prices2, log_prices1)
+            _, p12 = engle_granger(log_prices1, log_prices2)
+            _, p21 = engle_granger(log_prices2, log_prices1)
         except Exception:
             return 1.0
         if not (np.isfinite(p12) and np.isfinite(p21)):
@@ -262,9 +338,13 @@ class FixedPrimeFundPairSelector:
         p < 0.05 (Bonferroni), half-life 4-25 days, quality score > 0.4. All passing
         pairs are returned, ranked by quality score. Symbols are processed in sorted
         order, so the traded orientation of every pair (which leg is regressed on which)
-        is deterministic.
+        is deterministic. The pair tests run over n_jobs worker processes
+        (_test_all_pairs); the result is identical for any n_jobs.
         """
 
+        # A new search starts without the previous one's outputs (the selector itself is
+        # sent to the pair-test workers).
+        self.selected_pairs, self.pair_statistics, self.fdr_diagnostic = [], {}, {}
         symbols = sorted(processed_data)
         logger.info(f"Pair selection: screening {len(symbols)} symbols")
 
@@ -300,7 +380,6 @@ class FixedPrimeFundPairSelector:
             logger.warning(f"Only {len(quality_symbols)} symbols pass the screens; the pair "
                            "universe is small")
         if len(quality_symbols) < 2:
-            self.selected_pairs, self.pair_statistics, self.fdr_diagnostic = [], {}, {}
             self.last_quality_symbols = list(quality_symbols)
             return []
 
@@ -309,85 +388,24 @@ class FixedPrimeFundPairSelector:
         # PCA residuals (idiosyncratic test). Pairs passing both get a quality bonus.
         pca_residuals = self.compute_pca_residuals(processed_data, quality_symbols, n_components=5)
 
-        # --- CHANGED: Use itertools to generate ALL unique pairs instead of random sampling ---
-        pairs_to_test = list(itertools.combinations(quality_symbols, 2))
+        n_pairs = len(quality_symbols) * (len(quality_symbols) - 1) // 2
+        logger.info(f"Pair selection: testing all {n_pairs:,} unique pairs "
+                    f"({self.n_jobs} worker{'s' if self.n_jobs > 1 else ''})")
+        outcomes = self._test_all_pairs(processed_data, quality_symbols, pca_residuals)
 
-        logger.info(f"Pair selection: testing all {len(pairs_to_test):,} unique pairs")
-
+        # Collected in itertools.combinations order, whatever order the tasks finished in.
         valid_pairs = []
         _all_coint_pvalues = []   # every correlation-passing pair's coint p-value (for FDR)
-
-        # Use tqdm for progress bar
-        test_progress = tqdm(pairs_to_test, desc="Pair testing", unit="pair")
-
-        for symbol1, symbol2 in test_progress:
-            try:
-                if symbol1 == symbol2:
-                    continue
-
-                data1 = processed_data[symbol1]
-                data2 = processed_data[symbol2]
-
-                common_dates = data1.index.intersection(data2.index)
-                if len(common_dates) < self.min_common_days:
-                    continue
-
-                correlation = self.calculate_correlation(data1, data2)
-                if correlation < self.correlation_threshold:
-                    continue
-
-                is_cointegrated, coint_pvalue = self.test_cointegration(data1, data2)
-                if coint_pvalue is not None and np.isfinite(coint_pvalue):
-                    _all_coint_pvalues.append(coint_pvalue)   # collect for FDR diagnostic
-                if not is_cointegrated:
-                    continue
-
-                half_life = self.calculate_half_life(data1, data2)
-                if not (self.min_half_life <= half_life <= self.max_half_life):
-                    continue
-
-                # v19: PCA idiosyncratic cointegration test.
-                # Tests whether the residual spread (after stripping 5 systematic factors)
-                # is also cointegrated. Pairs passing this are genuinely idiosyncratic.
-                pca_cointegrated = False
-                if symbol1 in pca_residuals and symbol2 in pca_residuals:
-                    try:
-                        pca_ok, _ = self.test_cointegration(
-                            pca_residuals[symbol1], pca_residuals[symbol2]
-                        )
-                        pca_cointegrated = pca_ok
-                    except Exception:
-                        pass
-
-                quality_score = self._calculate_balanced_quality_score(
-                    correlation, coint_pvalue, half_life, data1, data2,
-                    pca_cointegrated=pca_cointegrated
-                )
-
-                if quality_score > 0.4:
-                    valid_pairs.append({
-                        'symbols': (symbol1, symbol2),
-                        'stats': {
-                            'correlation': correlation,
-                            'cointegration_pvalue': coint_pvalue,
-                            'half_life': half_life,
-                            'quality_score': quality_score,
-                            'pca_cointegrated': pca_cointegrated,
-                        },
-                        'score': quality_score
-                    })
-
-                test_progress.set_postfix({
-                    'Quality_Pairs': len(valid_pairs),
-                    'Rate': f'{len(valid_pairs)/test_progress.n*100:.1f}%' if hasattr(test_progress, 'n') and test_progress.n > 0 else '0%'
-                })
-
-            except Exception:
-                continue
+        for pair in itertools.combinations(quality_symbols, 2):
+            coint_pvalue, pair_stats = outcomes[pair]
+            if coint_pvalue is not None:
+                _all_coint_pvalues.append(coint_pvalue)
+            if pair_stats is not None:
+                valid_pairs.append({'symbols': pair, 'stats': pair_stats,
+                                    'score': pair_stats['quality_score']})
 
         valid_pairs.sort(key=lambda x: x['score'], reverse=True)
 
-        # --- CHANGED: Return ALL valid pairs instead of limiting to max_pairs ---
         selected_pairs = [p['symbols'] for p in valid_pairs]
 
         self.selected_pairs = selected_pairs
@@ -448,6 +466,104 @@ class FixedPrimeFundPairSelector:
                            f"Half_Life={stats_dict['half_life']:.1f}d")
 
         return self.selected_pairs
+
+    def _pair_tasks(self, processed_data: Dict[str, pd.DataFrame], quality_symbols: List[str],
+                    pca_residuals: Dict[str, pd.DataFrame]) -> List[Tuple[Dict, Dict, List]]:
+        """The all-pairs search as tasks (frames, pca_frames, pairs), one per pair_blocks block.
+
+        A task carries its pairs and, for only the symbols in them, the PAIR_TEST_COLUMNS
+        and the PCA residuals: the universe is never sent whole, nor a pair's data per pair.
+        """
+        frames = {s: processed_data[s][[c for c in PAIR_TEST_COLUMNS if c in processed_data[s].columns]]
+                  for s in quality_symbols}
+        tasks = []
+        for block in pair_blocks(len(quality_symbols), self.n_jobs):
+            pairs = [(quality_symbols[i], quality_symbols[j]) for i, j in block]
+            names = sorted({s for pair in pairs for s in pair})
+            tasks.append(({s: frames[s] for s in names},
+                          {s: pca_residuals[s] for s in names if s in pca_residuals}, pairs))
+        return tasks
+
+    def _test_all_pairs(self, processed_data: Dict[str, pd.DataFrame], quality_symbols: List[str],
+                        pca_residuals: Dict[str, pd.DataFrame]) -> Dict[Tuple[str, str], Tuple]:
+        """{pair: _test_pair outcome} for every pair of quality_symbols, over n_jobs processes.
+
+        Every task (see _pair_tasks) runs the same function on the same values with one
+        BLAS thread, so each pair's outcome, and with it the selection, its order,
+        pair_statistics and the FDR p-values, is identical for any n_jobs. With n_jobs = 1
+        or a single task, the tasks run in this process.
+        """
+        tasks = self._pair_tasks(processed_data, quality_symbols, pca_residuals)
+        if self.n_jobs > 1 and len(tasks) > 1:
+            results = Parallel(n_jobs=self.n_jobs, return_as='generator_unordered')(
+                delayed(_test_pair_block)(self, *task) for task in tasks)
+        else:
+            results = (_test_pair_block(self, *task) for task in tasks)
+
+        outcomes, n_quality = {}, 0
+        with tqdm(total=sum(len(task[2]) for task in tasks), desc="Pair testing", unit="pair") as progress:
+            for block_outcomes in results:
+                outcomes.update(block_outcomes)
+                n_quality += sum(1 for _, (_, pair_stats) in block_outcomes if pair_stats is not None)
+                progress.update(len(block_outcomes))
+                progress.set_postfix({'Quality_Pairs': n_quality})
+        return outcomes
+
+    def _test_pair(self, data1: pd.DataFrame, data2: pd.DataFrame, pca1: Optional[pd.DataFrame] = None,
+                   pca2: Optional[pd.DataFrame] = None) -> Tuple[Optional[float], Optional[Dict]]:
+        """The pair tests of find_quality_pairs for one pair, in order.
+
+        Returns (p, stats). p is the Bonferroni cointegration p-value when the pair reached
+        the cointegration test (common dates and correlation passed) and p is finite, else
+        None: it enters the FDR diagnostic. stats is the pair's statistics dict when every
+        test passes, else None. pca1 / pca2 are the legs' PCA-residual frames (None when a
+        leg has none). An exception ends the pair's tests; a p-value already obtained is kept.
+        """
+        pvalue = None
+        try:
+            common_dates = data1.index.intersection(data2.index)
+            if len(common_dates) < self.min_common_days:
+                return None, None
+
+            correlation = self.calculate_correlation(data1, data2)
+            if correlation < self.correlation_threshold:
+                return None, None
+
+            is_cointegrated, coint_pvalue = self.test_cointegration(data1, data2)
+            if coint_pvalue is not None and np.isfinite(coint_pvalue):
+                pvalue = coint_pvalue
+            if not is_cointegrated:
+                return pvalue, None
+
+            half_life = self.calculate_half_life(data1, data2)
+            if not (self.min_half_life <= half_life <= self.max_half_life):
+                return pvalue, None
+
+            # v19: PCA idiosyncratic cointegration test.
+            # Tests whether the residual spread (after stripping 5 systematic factors)
+            # is also cointegrated. Pairs passing this are genuinely idiosyncratic.
+            pca_cointegrated = False
+            if pca1 is not None and pca2 is not None:
+                try:
+                    pca_cointegrated, _ = self.test_cointegration(pca1, pca2)
+                except Exception:
+                    pass
+
+            quality_score = self._calculate_balanced_quality_score(
+                correlation, coint_pvalue, half_life, data1, data2,
+                pca_cointegrated=pca_cointegrated
+            )
+            if quality_score > 0.4:
+                return pvalue, {
+                    'correlation': correlation,
+                    'cointegration_pvalue': coint_pvalue,
+                    'half_life': half_life,
+                    'quality_score': quality_score,
+                    'pca_cointegrated': pca_cointegrated,
+                }
+        except Exception:
+            pass
+        return pvalue, None
 
     def _calculate_balanced_quality_score(self, correlation: float, coint_pvalue: float,
                                         half_life: float, data1: pd.DataFrame, data2: pd.DataFrame,

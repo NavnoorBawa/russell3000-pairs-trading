@@ -19,6 +19,8 @@ dependencies = [
     "pandas",
     "scipy",
     "scikit-learn",
+    "joblib",
+    "threadpoolctl",
     "statsmodels",
     "torch",
     "matplotlib",
