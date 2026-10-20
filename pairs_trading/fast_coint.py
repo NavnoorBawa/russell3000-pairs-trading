@@ -34,8 +34,8 @@ _COLLINEAR_R2 = 1.0 - 100.0 * np.sqrt(np.finfo(np.double).eps)
 # given condition number (tests/test_fast_coint.py) the largest AIC (magnitude 1e2-3e4)
 # and t differences were ~1e-12 and ~1e-13 at cond ~10, 3e-10 and 5e-11 at 1e4, and up to
 # 1e-5 and 2e-8 at 1e7, past the AIC margin, where a lag choice could differ. On the
-# study's formation data no design exceeded cond 27 (89,700 Engle-Granger directions on
-# log prices, as many on PCA residuals and on 126-day windows).
+# study's formation data no design exceeded cond 27 (the 89,700 Engle-Granger directions
+# of the 300-symbol search, as many on the last 126 days, 85,556 on PCA residuals).
 _R2_MARGIN = 1e-9
 _AIC_MARGIN = 1e-6
 _MAX_CONDITION = 1e4
