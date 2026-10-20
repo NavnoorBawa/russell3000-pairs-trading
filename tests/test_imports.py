@@ -23,6 +23,7 @@ MODULES = [
     "pairs_trading.json_export",
     "pairs_trading.plotting",
     "pairs_trading.trading_system",
+    "pairs_trading.residual_statarb",
     "pairs_trading.main",
 ]
 
