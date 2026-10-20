@@ -18,6 +18,13 @@ by its index, e.g. oos.window_returns_pct.0. For every marker:
   * the JSON value, shown at the marker's own precision, must equal the marker text:
     '−1.23' matches any value within half a unit of the last shown digit of −1.23.
 
+Numbers the site derives from the results (the cost waterfall, power of the Sharpe test,
+...) live in assets/study.json, built by scripts/build_site_data.py. A key starting with
+'study.' resolves into that file (study.dev.facts.gross_bp -> its dev.facts.gross_bp),
+checked exactly like a headline key, provided the file was built from the headline JSON
+being checked (its meta.headline_sha256 must equal that JSON's sha256); otherwise every
+'study.' marker fails, because its number would come from another run.
+
 Every file must also carry a marker for each key in REQUIRED_KEYS (disable with
 --allow-missing-markers while the docs are being re-marked). Markers inside Markdown
 code spans / fenced code blocks are ignored, so the docs can show the syntax itself.
@@ -41,6 +48,7 @@ log was missing, and never looked at the significance, fund or benchmark tables.
 """
 
 import argparse
+import hashlib
 import html
 import json
 import math
@@ -52,6 +60,8 @@ from html.parser import HTMLParser
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEFAULT_JSON = ROOT / 'outputs' / 'headline_metrics.json'
 DEFAULT_FILES = (ROOT / 'README.md', ROOT / 'index.html')
+DEFAULT_SITE_JSON = ROOT / 'assets' / 'study.json'
+SITE_NAMESPACE = 'study'            # markers 'study.KEY' resolve into the site data
 SUPPORTED_SCHEMA = 1
 
 # Every published file must mark at least these headline numbers.
@@ -287,17 +297,51 @@ def write_text(data, text, is_markdown=False):
 # Checking
 # ──────────────────────────────────────────────────────────────────────────────
 
+def load_site_data(site_path, headline_path):
+    """(site data, None) if `site_path` was built from `headline_path`, else (None, reason)."""
+    site_path = pathlib.Path(site_path)
+    if not site_path.exists():
+        return None, f'{_display(site_path)} not found (build it with scripts/build_site_data.py)'
+    try:
+        site = json.loads(site_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError) as e:
+        return None, f'cannot read {_display(site_path)}: {e}'
+    want = hashlib.sha256(pathlib.Path(headline_path).read_bytes()).hexdigest()
+    got = (site.get('meta') or {}).get('headline_sha256') if isinstance(site, dict) else None
+    if got != want:
+        return None, (f'{_display(site_path)} was built from another headline JSON (sha256 '
+                      f'{str(got)[:12]}, checking against {want[:12]}); rebuild it with '
+                      f'scripts/build_site_data.py')
+    return site, None
+
+
+def with_site_data(data, site):
+    """The headline data with the site data mounted under SITE_NAMESPACE."""
+    if SITE_NAMESPACE in data:
+        raise ValueError(f'the headline JSON has a top-level {SITE_NAMESPACE!r} key')
+    return {**data, SITE_NAMESPACE: site}
+
+
 def check_text(data, text, name, required=REQUIRED_KEYS, allow_missing_markers=False,
-               is_markdown=False):
-    """Check one document. Returns (n_compared, failures, warnings, keys_seen)."""
+               is_markdown=False, unavailable=None):
+    """Check one document. Returns (n_compared, failures, warnings, keys_seen).
+
+    unavailable: {namespace: reason} for data that cannot be checked (a stale or missing
+    site file); each marker in such a namespace fails, reported once per file.
+    """
     markers, errors = extract_markers(text, is_markdown=is_markdown)
     failures = [f'{name}:{line}: {msg}' for line, msg in errors]
     warnings = []
     compared = 0
     seen = set()
+    blocked = {ns: 0 for ns in (unavailable or {})}
     for key, body, line in markers:
         where = f'{name}:{line}: {key}'
         seen.add(key)
+        ns = key.split('.', 1)[0]
+        if ns in blocked:
+            blocked[ns] += 1
+            continue
         try:
             value = resolve_key(data, key)
         except KeyError:
@@ -319,6 +363,9 @@ def check_text(data, text, name, required=REQUIRED_KEYS, allow_missing_markers=F
         if not matches(float(value), shown, decimals):
             failures.append(f'{where}: page shows {body.strip()!r}, JSON has {value!r} '
                             f'(= {float(value):.{decimals}f} at the shown precision)')
+    for ns, count in blocked.items():
+        if count:
+            failures.append(f'{name}: {count} {ns}.* marker(s) cannot be checked: {unavailable[ns]}')
     missing = [k for k in required if k not in seen]
     if missing:
         msg = f'{name}: no marker for required key(s): {", ".join(missing)}'
@@ -349,6 +396,8 @@ def main(argv=None):
                     help='report required keys without a marker as warnings, not failures')
     ap.add_argument('--allow-variant', action='store_true',
                     help='accept a JSON from a sensitivity run (non-default PAIRS_* switches)')
+    ap.add_argument('--site-json', default=None,
+                    help='site data for study.* markers (default: assets/study.json in the repository)')
     ap.add_argument('--write', action='store_true',
                     help='rewrite every marked value from the JSON (keeping each marker\'s '
                          'precision and sign style), then check')
@@ -389,6 +438,16 @@ def main(argv=None):
     commit = rc.get('git_commit')
     print(f'Headline metrics: {_display(json_path)} (version {data.get("version")}, run '
           f'{rc.get("run_timestamp_utc", "?")}, commit {commit[:12] if commit else "n/a"})')
+    site_path = pathlib.Path(args.site_json) if args.site_json else DEFAULT_SITE_JSON
+    site, site_problem = load_site_data(site_path, json_path)
+    unavailable = {SITE_NAMESPACE: site_problem} if site_problem else None
+    if site is not None:
+        try:
+            data = with_site_data(data, site)
+        except ValueError as e:
+            print(f'ERROR: {_display(json_path)}: {e}', file=sys.stderr)
+            return 2
+        print(f'Site data: {_display(site_path)} (built from this headline JSON)')
 
     total, per_file, failures, warnings = 0, [], [], []
     for path in files:
@@ -408,7 +467,7 @@ def main(argv=None):
             print(f'Wrote {n_written} value(s) into {name}')
             text = new_text
         n, f, w, _ = check_text(data, text, name, allow_missing_markers=args.allow_missing_markers,
-                                is_markdown=_is_markdown(path))
+                                is_markdown=_is_markdown(path), unavailable=unavailable)
         if args.verbose:
             for key, body, line in extract_markers(text, is_markdown=_is_markdown(path))[0]:
                 print(f'  {name}:{line}: {key} = {body.strip()!r}')

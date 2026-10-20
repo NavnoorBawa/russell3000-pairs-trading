@@ -87,17 +87,27 @@ def test_exports_are_strict_json(pipeline_run):
 
 def test_published_markers_resolve_against_a_real_run(pipeline_run):
     """Every number marked in the real README.md / index.html names a key that a real run
-    writes to headline_metrics.json, every required headline is marked, and --write can
-    fill them (values that are null in this synthetic run — e.g. ranker AUC with the ranker
-    disabled — are the only acceptable gaps)."""
+    writes to headline_metrics.json (or, for study.* markers, that scripts/build_site_data.py
+    derives from the same run), every required headline is marked, and --write can fill them
+    (values that are null in this synthetic run — e.g. ranker AUC with the ranker disabled —
+    are the only acceptable gaps)."""
     import importlib.util
     import pathlib
     repo = pathlib.Path(__file__).resolve().parents[1]
-    spec = importlib.util.spec_from_file_location('_chk_e2e', repo / 'scripts' / 'check_published_numbers.py')
-    chk = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(chk)
+
+    def load(name):
+        spec = importlib.util.spec_from_file_location(f'_{name}_e2e', repo / 'scripts' / f'{name}.py')
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    chk, bsd = load('check_published_numbers'), load('build_site_data')
     root, _, _ = pipeline_run
     data = json.loads((root / 'outputs' / 'headline_metrics.json').read_text(encoding='utf-8'))
+    # the site data of this run, as the page reads it (strict JSON, nulls for unknowns); the
+    # study-level sources (variant-family declaration, other arms) come from the repository
+    study = json.loads(bsd.dumps(bsd.build(root / 'outputs', results_root=repo / 'results', root=root)))
+    data = chk.with_site_data(data, study)
     for name in ('README.md', 'index.html'):
         text = (repo / name).read_text(encoding='utf-8')
         is_md = name.endswith('.md')
