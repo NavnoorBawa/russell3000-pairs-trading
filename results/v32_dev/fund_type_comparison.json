@@ -1,7 +1,7 @@
 {
   "metadata": {
     "export_date_utc": "2026-10-18T09:21:08+00:00",
-    "description": "Fund-type replay: the main backtest's trades (same signals, entry/exit dates and daily mark-to-market paths) re-sized and re-costed under each profile's economics. Leverage labels are descriptive: the replay does not model concurrency limits or margin, and max_gross_leverage reports the peak gross exposure actually run.",
+    "description": "Fund-type replay: the main backtest's trades (same signals, entry/exit dates and daily mark-to-market paths) re-sized and re-costed under each profile's economics. Leverage is descriptive: the replay does not model concurrency limits or margin, and max_gross_leverage reports the peak gross exposure actually run.",
     "profiles": [
       "quant_hf",
       "multi_strat",
@@ -19,7 +19,8 @@
     "field_notes": {
       "drawdowns": "all drawdown fields are <= 0, relative to the running peak; the starting capital counts as the first peak",
       "profit_factor": "sum of winning trades / |sum of losing trades|; null when there is no losing trade (infinite) or no trade at all"
-    }
+    },
+    "redaction": "2026-10-20: the v32 export attached named firms to these invented parameter sets (profile descriptions, example_firms, gross_leverage_label). Those labels were removed and the descriptions replaced by the v33 archetype descriptions; every number is unchanged."
   },
   "run_config": {
     "package_version": "32.0.0",
@@ -71,9 +72,7 @@
     "quant_hf": {
       "profile_key": "quant_hf",
       "profile_name": "Quantitative Hedge Fund",
-      "description": "Systematic stat-arb (Renaissance, Two Sigma, D.E. Shaw, PDT)",
-      "example_firms": "Renaissance Technologies, Two Sigma, D.E. Shaw, PDT Partners",
-      "gross_leverage_label": "~5-7x",
+      "description": "Systematic stat-arb archetype: electronic execution, large positions",
       "max_gross_leverage": 0.9,
       "commission_bps": 1.0,
       "bid_ask_bps": 2.0,
@@ -113,9 +112,7 @@
     "multi_strat": {
       "profile_key": "multi_strat",
       "profile_name": "Multi-Strategy Pod Shop",
-      "description": "Multi-manager platform (Citadel, Millennium, Balyasny)",
-      "example_firms": "Citadel (Wellington), Millennium Management, Balyasny, ExodusPoint",
-      "gross_leverage_label": "~4x (avg 444%)",
+      "description": "Multi-manager pod archetype: blended execution, pass-through costs",
       "max_gross_leverage": 0.601,
       "commission_bps": 1.5,
       "bid_ask_bps": 4.0,
@@ -155,9 +152,7 @@
     "fundamental_ls": {
       "profile_key": "fundamental_ls",
       "profile_name": "Fundamental Long/Short HF",
-      "description": "Traditional discretionary L/S (Tiger, Viking, Coatue)",
-      "example_firms": "Tiger Global, Viking Global, Coatue Management, Point72",
-      "gross_leverage_label": "~1.5-2x",
+      "description": "Discretionary long/short archetype: high-touch execution",
       "max_gross_leverage": 0.301,
       "commission_bps": 5.0,
       "bid_ask_bps": 10.0,
@@ -197,9 +192,7 @@
     "institutional": {
       "profile_key": "institutional",
       "profile_name": "Buy-Side Institutional",
-      "description": "Pension / sovereign wealth fund (Norges Bank, CalSTRS, CPPIB)",
-      "example_firms": "Norges Bank GPFG ($1.8T), CalSTRS, CPPIB, GIC Singapore",
-      "gross_leverage_label": "1x (no leverage)",
+      "description": "Pension-style archetype: patient algorithmic execution, no leverage",
       "max_gross_leverage": 0.151,
       "commission_bps": 1.0,
       "bid_ask_bps": 1.5,
@@ -239,9 +232,7 @@
     "retail": {
       "profile_key": "retail",
       "profile_name": "Retail / Small Prop Trader",
-      "description": "Retail algo or small family office (Interactive Brokers, small prop)",
-      "example_firms": "IB retail account, small family office, boutique prop desk",
-      "gross_leverage_label": "1x (no leverage)",
+      "description": "Retail or small proprietary account archetype: expensive borrow and margin",
       "max_gross_leverage": 0.151,
       "commission_bps": 0.7,
       "bid_ask_bps": 15.0,

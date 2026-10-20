@@ -100,7 +100,7 @@
     <p class="byline">Navnoor Bawa <span class="sep" aria-hidden="true">·</span> Study run v32, 18 October 2026 <span class="sep" aria-hidden="true">·</span> Note updated 20 October 2026 <span class="sep" aria-hidden="true">·</span> <span class="tag">Hypothetical backtest</span></p>
     <ul class="mast-links">
       <li><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">Code</a></li>
-      <li><span class="link-off">Paper (PDF)<span class="pill">in preparation</span></span></li>
+      <li><a href="paper/pairs_study.pdf" type="application/pdf">Paper (PDF)</a></li>
       <li><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/tree/main/results">Data</a></li>
       <li><span class="link-off">Pre-registration<span class="pill">to be filed before the 2026 run</span></span></li>
     </ul>
@@ -345,7 +345,7 @@
     </figcaption>
     <div class="ex-chart" role="img" aria-label="Three small panels of horizontal bars: net P&amp;L by exit reason, by long or short spread, and by entry z-score bucket, each bar labelled with its trade count."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
     <div class="ex-foot">
-      <p><span class="k">Notes</span> Long-spread trades made $<span data-metric="study.dev.facts.long_gain_usd_m">1.55</span>M and short-spread trades lost $<span data-metric="study.dev.facts.short_loss_usd_m">1.85</span>M, consistent with the net long market exposure of hedge ratios below one (Section 6). Win rate <span data-metric="main.win_rate_pct">47.2</span>% (<span data-metric="study.dev.facts.wins">76</span> of <span data-metric="study.dev.facts.trades">161</span>; 95% interval <span data-metric="study.dev.facts.win_lo_pct">39.6</span>–<span data-metric="study.dev.facts.win_hi_pct">54.9</span>%). The |z| buckets describe the past and are not a selection rule: a higher entry threshold read off this panel would be fitted to the test period. Buckets use the exported z-score (three decimals).</p>
+      <p><span class="k">Notes</span> Long-spread trades made $<span data-metric="study.dev.facts.long_gain_usd_m">1.55</span>M and short-spread trades lost $<span data-metric="study.dev.facts.short_loss_usd_m">1.85</span>M, consistent with the market exposure that hedge ratios below one leave: long-spread trades are net long and short-spread trades net short (Section 6). Win rate <span data-metric="main.win_rate_pct">47.2</span>% (<span data-metric="study.dev.facts.wins">76</span> of <span data-metric="study.dev.facts.trades">161</span>; 95% interval <span data-metric="study.dev.facts.win_lo_pct">39.6</span>–<span data-metric="study.dev.facts.win_hi_pct">54.9</span>%). The |z| buckets describe the past and are not a selection rule: a higher entry threshold read off this panel would be fitted to the test period. Buckets use the exported z-score (three decimals).</p>
       <p><span class="k">Source</span> results/v32_dev, all_trades.</p>
     </div>
     <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
@@ -465,7 +465,7 @@
 <!-- ════════════════════════════════ 6 · Risk ════════════════════════════════ -->
 <section id="risk" class="sec" aria-labelledby="h-risk">
   <h2 id="h-risk"><span class="secno">6</span>Risk and attribution</h2>
-  <p class="lede">Market exposure is small but not zero. Against an equal-weight sector-ETF proxy the main backtest's beta is <span data-metric="study.dev.facts.beta_main">0.010</span> (t = <span data-metric="study.dev.facts.beta_main_t">1.81</span>) and the walk-forward's <span data-metric="study.dev.facts.beta_oos">0.016</span> (t = <span data-metric="study.dev.facts.beta_oos_t">2.17</span>): Kalman hedge ratios below one leave most pairs net long. Annualised alpha is <span data-metric="study.dev.facts.alpha_main_pct">−0.25</span>% in the main backtest and <span data-metric="study.dev.facts.alpha_oos_pct">−0.84</span>% out of sample. The multi-factor attribution (Fama–French five factors, momentum, short- and long-term reversal, Newey–West errors) arrives with v33.</p>
+  <p class="lede">Market exposure is small but not zero. Against an equal-weight sector-ETF proxy the main backtest's beta is <span data-metric="study.dev.facts.beta_main">0.010</span> (t = <span data-metric="study.dev.facts.beta_main_t">1.81</span>) and the walk-forward's <span data-metric="study.dev.facts.beta_oos">0.016</span> (t = <span data-metric="study.dev.facts.beta_oos_t">2.17</span>): with legs of $1 against $β and β below one, long-spread trades are net long and short-spread trades net short, so the book's beta depends on its mix of the two. Annualised alpha is <span data-metric="study.dev.facts.alpha_main_pct">−0.25</span>% in the main backtest and <span data-metric="study.dev.facts.alpha_oos_pct">−0.84</span>% out of sample. The multi-factor attribution (Fama–French five factors, momentum, short- and long-term reversal, Newey–West errors) arrives with v33.</p>
   <div class="ex-pair">
     <figure class="exhibit" id="ex-17" data-exhibit="factors">
       <figcaption class="ex-head">

@@ -89,7 +89,7 @@
  "concordance": [
   [
    1,
-   "Cumulative net return on the 2026 holdout, by arm",
+   "Net Sharpe ratio of each pre-registered strategy on the 2026 holdout",
    "forthcoming"
   ],
   [
@@ -104,7 +104,7 @@
   ],
   [
    4,
-   "One month carries the result: July 2024 earned +2.14%, more than the whole period",
+   "One month carries the result: July 2024 earned +2.14%; the whole period returned −0.30%",
    "ex-monthly"
   ],
   [
@@ -620,7 +620,7 @@
   "headline": "results/v32_dev/headline_metrics.json",
   "headline_sha256": "93471564009554007e8bff1f6a67a02f7f2db96b99d76ad8bd3e5a57b5183b0e",
   "paper_date": "2026-10-20",
-  "study_sha256": "1d30c35b7ed630394e8528ef7c3f989750c77d95ecb435c1f969b190881c30f1",
+  "study_sha256": "0e29723453ec72cbc84e0b52709ff1cc7fc87529c63a20a592382208e790f676",
   "universe_index_sha256": "c64cc39c6431a8da4aee409914dd3a993f750ea42f71548c22b67ec35d398323"
  },
  "pending": {
@@ -770,7 +770,7 @@
    ],
    [
     "Site data",
-    "assets/study.json, sha256 1d30c35b7ed630394e8528ef7c3f989750c77d95ecb435c1f969b190881c30f1"
+    "assets/study.json, sha256 0e29723453ec72cbc84e0b52709ff1cc7fc87529c63a20a592382208e790f676"
    ],
    [
     "Universe",
@@ -1045,7 +1045,7 @@
   "sources": [
    [
     "results/v32_dev/fund_type_comparison.json",
-    "67c0da54b13d57570064fa4619d9505d4199786fb226b27ee86f4f6211249372"
+    "1ad3925715acbe90861dc5d3b8561266dc38e36b8e87a43f20e93f6339a649a4"
    ],
    [
     "results/v32_dev/headline_metrics.json",
@@ -1073,7 +1073,7 @@
    ],
    [
     "index.html",
-    "1bed4c48b75fae7dc22c9024d5e1847e2b3b78e3b9fe4eaa751f40a249ec9fb4"
+    "346fa14296c80995f57ce0c82243de796dffa6d995a64b6d939324465b83814f"
    ]
   ],
   "validation": [

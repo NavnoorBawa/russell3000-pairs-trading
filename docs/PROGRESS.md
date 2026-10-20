@@ -83,16 +83,19 @@ Implemented **Problems 2 & 6** from Transaction Costs & Portfolio Exposure resea
 
 **What was done:**
 - Created `fund_profiles.py` — 5 institutional profiles with research-grounded parameters:
-  1. Quantitative HF (Renaissance, Two Sigma, D.E. Shaw) — 1bp commission, ~5-7x leverage
-  2. Multi-Strategy Pod Shop (Citadel, Millennium, Balyasny) — 1.5bp, ~4x leverage
-  3. Fundamental L/S HF (Tiger, Viking, Coatue) — 5bp, ~1.5-2x leverage
-  4. Buy-Side Institutional (Norges Bank GPFG, CalSTRS) — 0.42bp actual, 1x leverage
-  5. Retail / Small Prop Trader (Interactive Brokers) — 7bp, 1x leverage
+  1. Systematic stat-arb — 1bp commission, ~5-7x leverage
+  2. Multi-manager pod — 1.5bp, ~4x leverage
+  3. Discretionary long/short — 5bp, ~1.5-2x leverage
+  4. Patient institutional — 0.42bp, 1x leverage
+  5. Retail / small prop — 7bp, 1x leverage
+
+  (2026-10-20: these entries originally attached named firms to the invented parameters;
+  the names are removed here, and from v33's profiles, which are archetypes only.)
 
 - Added `calculate_profile_trade_costs()` to `transaction_costs.py`
   - Square-root market impact law: `I = coeff × sqrt(participation_rate) × 10,000 bps`
   - Borrow costs (short leg), financing costs (leveraged portion)
-  - Sources: Bloomberg 2020, Norges Bank 2024 actual, Morgan Stanley PB data
+  - Sources as recorded at the time: Bloomberg 2020, a sovereign fund's published 2024 trading costs, prime-broker data
 
 - Added `run_fund_type_comparison()` to `trading_system.py`
   - Replays same 11,599 trade signals under 5 fund economics (fast, controlled)
@@ -486,7 +489,7 @@ while OOS barely changed (+0.72%). This is NOT a sign of overfitting — the cha
 3. 6m filter helps W10 (+1.89%) but W15-W19 (2024-2025) are struggling regardless
 
 The 96.2% degradation correctly reflects that the post-2023 regime is a near-complete
-structural break. RenTech, D.E. Shaw, Citadel stat arb books also underperformed in 2024.
+structural break.
 
 ---
 
@@ -532,8 +535,8 @@ were already correctly restricted per-window) should be unchanged.
 **Transaction cost note**: The `EnhancedPrimeFundTransactionCostModel` uses
 prime-fund rates (~0.09 bps commission, 0.8 bps bid-ask per leg). These are
 correct for an institutional prime-fund model. The fund_comparison table
-already shows performance under 5 different realistic cost regimes — Norges
-Bank institutional model (+157.92%) represents the "high-cost realist" view.
+already shows performance under 5 different realistic cost regimes — the
+institutional model (+157.92%) represents the "high-cost realist" view.
 The cost model file is not modified (`DO NOT MODIFY ANY PARAMETERS` header
 respected).
 
@@ -694,7 +697,7 @@ grep -E "Total Return|Sharpe Ratio|Max Drawdown|Total Trades|Win Rate|Profit Fac
 
 ## What Would Come Next (If Continued — pre-v12, now implemented)
 
-- **GMM/HMM regime classifier** (Two Sigma / RenTech approach) — hidden market states
+- **GMM/HMM regime classifier** — hidden market states
 - **Meta-labeling** (Lopez de Prado) — secondary model predicting trade success probability
 - ~~**Kalman filter** for dynamic hedge ratios (replacing fixed OLS)~~ ← DONE in v12
 - **Dispersion trading** as alternative/complement when pair correlations collapse
@@ -944,7 +947,7 @@ Hard Era Split:
 **Key observation**: v11 institutional was +6.20%. v12 institutional is -2.45%.
 The correct P&L accounting (price returns vs Kalman spread difference) removed
 that gap. The internal prime fund model shows 29.34% because it uses ~0.8bp bid-ask
-(cheaper than Norges Bank's 1.61bp actual). Sub-2bp execution required for positive returns.
+(cheaper than the 1.61bp a large sovereign fund reports paying). Sub-2bp execution required for positive returns.
 
 ---
 
