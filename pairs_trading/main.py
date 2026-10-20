@@ -113,7 +113,8 @@ def _main_section(r: Dict) -> List[str]:
     halted = r.get('halted_on')
     return [
         RULE,
-        f"MAIN BACKTEST  {period}   (one calendar; the walk-forward below re-fits per window)",
+        f"MAIN BACKTEST  {period}   (one calendar"
+        + ("; the walk-forward below re-fits per window)" if r.get('walk_forward') else ")"),
         RULE,
         f"  Total return           {_fmt(r.get('total_return'), '+.2f', '%', 100)}"
         f"      Annualised {_fmt(r.get('annualized_return'), '+.2f', '%', 100)}",

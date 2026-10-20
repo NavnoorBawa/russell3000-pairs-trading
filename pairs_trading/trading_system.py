@@ -2095,7 +2095,7 @@ class CompleteFixedRussell3000TradingSystem:
         results['factor_attribution'] = self._factor_attribution(results, oos_dates, oos_rets)
         try:
             from pairs_trading.evidence import build_evidence, load_factors
-            factors, fingerprint, error = load_factors()
+            factors, fingerprint, error = load_factors(end=self.calendar.data_end)
             results['evidence'] = build_evidence(results, n_trials=self.N_TRIALS, factors=factors,
                                                  factor_fingerprint=fingerprint, factor_error=error)
         except Exception as e:

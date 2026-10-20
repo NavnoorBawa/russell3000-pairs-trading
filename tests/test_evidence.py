@@ -96,3 +96,28 @@ def test_evidence_without_factor_data_says_why_and_headline_picks_the_numbers():
     assert h['breakeven_cost_multiple'] == ev['per_trade']['breakeven_cost_multiple']
     assert h['sharpe_at_zero_cost'] == pytest.approx(annualized_sharpe(g))
     assert h['factor_alpha_t'] is None and h['oos_upper_bound_95'] is None
+
+
+def test_no_break_even_multiple_when_the_trades_lose_before_costs():
+    rows = [(-0.010, 1e6, 600.0), (0.002, 1e6, 500.0)]
+    trades = [{'spread_return': s, 'position_size': n, 'transaction_costs': c,
+               'pnl_dollar': s * n - c} for s, n, c in rows]
+    out = gross_and_costs({'trades': trades})['per_trade']
+    assert out['gross_usd'] == pytest.approx(-8000.0)
+    assert out['breakeven_cost_multiple'] is None                 # no cost level breaks even
+    assert out['gross_to_cost_ratio'] == pytest.approx(-8000.0 / 1100.0)
+    h = headline_evidence({'per_trade': out})
+    assert h['breakeven_cost_multiple'] is None and h['gross_to_cost_ratio'] == out['gross_to_cost_ratio']
+
+
+def test_factor_rows_after_the_calendar_end_are_dropped(monkeypatch):
+    from pairs_trading import evidence, external_data
+    f = _factors(n=400)                                           # 2023-07-03 .. 2025-01-13
+    monkeypatch.setattr(external_data, 'french_daily_factors',
+                        lambda cache_dir=None: (f, {'vintage': '202608', 'last_date': '2025-01-13'}))
+    factors, fp, err = evidence.load_factors(end='2024-12-31')
+    assert err is None and factors.index[-1] <= pd.Timestamp('2024-12-31')
+    assert len(factors) == (f.index <= pd.Timestamp('2024-12-31')).sum()
+    assert fp['truncated_at'] == '2024-12-31' and fp['last_date_used'] == factors.index[-1].date().isoformat()
+    full, fp_full, _ = evidence.load_factors()
+    assert len(full) == len(f) and 'truncated_at' not in fp_full

@@ -1352,7 +1352,9 @@ def export_headline_metrics(results: dict, system_info: dict, path: str = None) 
     doc = build_headline_metrics(results, system_info)
     out = _atomic_write_json(doc, path or _output_path('headline_metrics.json'))
     m, o = doc['main'], doc['oos']
+    oos = (f'OOS {o["avg_window_return_pct"]}%/window, pooled Sharpe {o["pooled_sharpe"]}, '
+           f'{o["windows_positive"]}/{o["windows"]} windows positive' if o.get('windows')
+           else 'no walk-forward on this calendar')
     logger.info(f'Headline metrics: {out} — main {m["total_return_pct"]}% / Sharpe {m["sharpe"]} / '
-                f'{m["trades"]} trades; OOS {o["avg_window_return_pct"]}%/window, pooled Sharpe '
-                f'{o["pooled_sharpe"]}, {o["windows_positive"]}/{o["windows"]} windows positive')
+                f'{m["trades"]} trades; {oos}')
     return out

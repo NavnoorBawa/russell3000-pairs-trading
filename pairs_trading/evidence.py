@@ -75,9 +75,11 @@ def gross_and_costs(results: Dict) -> Dict:
             'gross_t': float(spread.mean() / (sd / np.sqrt(spread.size))) if spread.size > 1 and sd > 0 else None,
             'cost_bp': float(cost.mean() * 1e4),
             'gross_usd': gross_usd, 'cost_usd': cost_usd, 'net_usd': gross_usd - cost_usd,
-            # gross P&L = k* x costs: every cost would have to be k* times what was modelled
-            # for the trades to break even (k* < 1: they lose money even at lower costs)
-            'breakeven_cost_multiple': gross_usd / cost_usd if cost_usd > 0 else None,
+            'gross_to_cost_ratio': gross_usd / cost_usd if cost_usd > 0 else None,
+            # gross P&L = k* x costs: the trades break even at k* times the modelled costs
+            # (k* < 1: they lose money even at lower costs). With a gross loss no cost
+            # level breaks even, and k* is undefined (None), not negative.
+            'breakeven_cost_multiple': gross_usd / cost_usd if cost_usd > 0 and gross_usd > 0 else None,
         }
     g = np.asarray(results.get('daily_gross_returns') or [], dtype=float)
     c = np.asarray(results.get('daily_cost_returns') or [], dtype=float)
@@ -144,11 +146,20 @@ def build_evidence(results: Dict, n_trials: int, factors: Optional[pd.DataFrame]
     return ev
 
 
-def load_factors(cache_dir: str = 'data/external') -> tuple:
-    """(factors, fingerprint, error): the French daily factors, or the reason they are missing."""
+def load_factors(cache_dir: str = 'data/external', end: Optional[str] = None) -> tuple:
+    """(factors, fingerprint, error): the French daily factors, or the reason they are missing.
+
+    `end` (the run calendar's last data date) drops every later row: the library's
+    current files reach into the sealed holdout year, and a development run must not
+    carry, export or display a factor return dated after its own data.
+    """
     try:
         from pairs_trading.external_data import french_daily_factors
         factors, fingerprint = french_daily_factors(cache_dir=cache_dir)
+        if end is not None:
+            factors = factors.loc[:pd.Timestamp(end)]
+            fingerprint = dict(fingerprint, truncated_at=str(end)[:10],
+                               last_date_used=factors.index[-1].date().isoformat() if len(factors) else None)
         return factors, fingerprint, None
     except Exception as e:                    # offline without a cache, or a format change
         logger.warning(f"Factor attribution skipped: {e}")
@@ -178,6 +189,7 @@ def headline_evidence(ev: Dict) -> Dict:
         'gross_t_per_trade': g('per_trade', 'gross_t'),
         'cost_bp_per_trade': g('per_trade', 'cost_bp'),
         'breakeven_cost_multiple': g('per_trade', 'breakeven_cost_multiple'),
+        'gross_to_cost_ratio': g('per_trade', 'gross_to_cost_ratio'),
         'gross_sharpe': g('gross_daily', 'sharpe'),
         'sharpe_at_zero_cost': (curve.get(0.0) or {}).get('sharpe'),
         'sharpe_at_double_cost': (curve.get(2.0) or {}).get('sharpe'),
