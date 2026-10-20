@@ -242,7 +242,7 @@ def frozen_repo(tmp_path):
                     ignore=shutil.ignore_patterns('__pycache__'))
     (repo / 'scripts').mkdir()
     for name in ('run_holdout.sh', 'trial_attempts.py', 'register_trial.py', 'publish_run.py',
-                 'evaluate_holdout.py'):
+                 'evaluate_holdout.py', 'check_pins.py'):
         shutil.copy(os.path.join(SCRIPTS, name), repo / 'scripts' / name)
     (repo / 'scripts' / 'run_residual_statarb.py').write_text('# S2 (stubbed in this test)\n')
     shutil.copy(os.path.join(REPO, '.gitignore'), repo / '.gitignore')
@@ -402,3 +402,19 @@ def test_a_holdout_trial_is_registered_only_with_its_own_runs_and_files(tmp_path
     e = rt.register('holdout2026', [run], evaluation, prereg_commit='p', head='a' * 40, path=reg, attempts=att)
     assert [(a['attempt'], a['event']) for a in e['attempts']] == [(1, 'start'), (1, 'failed')]
     assert e['evaluation']['inputs']['runs']['v33_pairs']['sha256'][ev.RESULTS_FILE] == 'e' * 64
+
+
+def test_pin_check_follows_pep440_local_labels():
+    """The registered run's environment check: a local build satisfies an unlabelled pin
+    (the CPU wheel 2.13.0+cpu is torch==2.13.0), a different version or a missing package
+    does not, and a labelled pin needs that label."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('check_pins', os.path.join(REPO, 'scripts', 'check_pins.py'))
+    cp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cp)
+    have = {'torch': '2.13.0+cpu', 'numpy': '1.26.4', 'pandas': '2.2.2'}.get
+    lines = ['torch==2.13.0', 'numpy==1.26.4  # pinned', 'pandas==2.2.3', 'scipy==1.15.2',
+             '# a comment', 'requests>=2', '']
+    assert cp.mismatches(lines, have) == ['pandas 2.2.2 (pinned 2.2.3)', 'scipy None (pinned 1.15.2)']
+    assert cp.mismatches(['torch==2.13.0+cu121'], have) == ['torch 2.13.0+cpu (pinned 2.13.0+cu121)']
+    assert cp.mismatches(['torch==2.13.0+cpu'], have) == []

@@ -69,21 +69,7 @@ fi
 [ -z "$(git status --porcelain --untracked-files=all -- $FROZEN)" ] || fail "uncommitted or untracked changes under: $FROZEN"
 git ls-files --error-unmatch scripts/run_residual_statarb.py >/dev/null 2>&1 || fail "scripts/run_residual_statarb.py is not committed"
 "$PY" scripts/register_trial.py --name "$NAME" --check-new
-"$PY" - <<'PINS' || fail "the environment differs from requirements.txt"
-import importlib.metadata as md, re, sys
-bad = []
-for line in open('requirements.txt'):
-    m = re.match(r'\s*([A-Za-z0-9_.\-]+)==(\S+)', line)
-    if m:
-        try:
-            have = md.version(m.group(1))
-        except md.PackageNotFoundError:
-            have = None
-        if have != m.group(2):
-            bad.append(f'{m.group(1)} {have} (pinned {m.group(2)})')
-if bad:
-    sys.exit('not as pinned: ' + ', '.join(bad))
-PINS
+"$PY" scripts/check_pins.py requirements.txt || fail "the environment differs from requirements.txt"
 
 CALENDAR=$("$PY" -c "from pairs_trading.study_config import CALENDARS as C
 c = C['$CAL']; print(c.price_cache, c.macro_cache, c.backtest_start, c.data_end)")
