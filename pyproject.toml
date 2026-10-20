@@ -20,6 +20,7 @@ dependencies = [
     "scipy",
     "scikit-learn",
     "statsmodels",
+    "arch",
     "torch",
     "matplotlib",
     "seaborn",
