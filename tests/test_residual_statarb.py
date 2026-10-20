@@ -2,9 +2,10 @@
 
 Formulas (A&L Appendix eq. 21, centred s-score eq. 22) against hand-computed values and an
 independent statsmodels fit; causality (decisions dated <= t are unchanged when every
-price and volume after t changes); t+1 fills; known answers on synthetic markets (a
-planted OU residual must give a large positive gross edge, a random-walk residual none);
-ETF hedge netting and cost accounting on a hand-built book.
+price and volume after t changes); t+1 fills; the universe gate, the run-off after `end`
+and missing bars; known answers on synthetic markets (a planted OU residual must give a
+large positive gross edge, a random-walk residual none); ETF hedge netting, exposures and
+cost accounting on hand-built books; the run script's sector-map choice and provenance.
 """
 import importlib.util
 import json
@@ -17,7 +18,7 @@ import pandas as pd
 import pytest
 import statsmodels.api as sm
 
-from pairs_trading.json_export import _atomic_write_json
+from pairs_trading.json_export import _atomic_write_json, non_default_switches
 from pairs_trading.residual_statarb import (
     ETF_ASSUMED_ADV_DOLLARS, LiquidityUniverse, ResidualMarket, ResidualSignals, ResidualStatArbParams,
     centred_s_scores, ff49_sector_etf_map, nasdaq_sector_etf_map, ou_from_ar1, ou_residual_fit, rolling_ou_fits,
@@ -179,6 +180,23 @@ def test_liquidity_universe_ranks_on_past_dollar_volume_with_a_price_floor():
     assert uni2(dates[112]) == ['B', 'D']
 
 
+def test_liquidity_universe_uses_the_ranking_day_close_and_nothing_after_it():
+    # Ranking days 70, 91, 112. E, the most liquid, trades at $4 until it reaches $6 on
+    # ranking day 91 itself; D's volume jumps on row 92, the day AFTER that ranking day.
+    n = 150
+    close = {'B': np.full(n, 50.0), 'C': np.full(n, 20.0), 'D': np.full(n, 10.0), 'E': np.full(n, 4.0)}
+    vol = {'B': np.full(n, 1e5), 'C': np.full(n, 2e5), 'D': np.full(n, 3e5), 'E': np.full(n, 1e7)}
+    close['E'][91:] = 6.0
+    vol['D'][92:] = 1e7
+    frames, dates = _frames(close, vol)
+    etf = {'XLK': pd.Series(np.full(n, 100.0), index=dates)}
+    market = ResidualMarket.from_prices(frames, etf, dict.fromkeys(close, 'XLK'))
+    uni = LiquidityUniverse(market, size=2, rebalance_every=21, lookback=30, min_history=10, anchor=dates[70])
+    assert uni(dates[70]) == ['B', 'C']            # E below $5; B $5M/day, C $4M/day, D $3M/day
+    assert uni(dates[91]) == uni(dates[111]) == ['B', 'E']   # E qualifies on its day-91 close
+    assert uni(dates[112]) == ['D', 'E']           # D's jump is seen by the next ranking day
+
+
 def test_nasdaq_sector_map_normalises_symbols_and_skips_unmapped_sectors(tmp_path):
     path = tmp_path / 'marketcap.csv'
     path.write_text('Symbol,Name,MarketCap,Sector,Industry\n'
@@ -223,6 +241,16 @@ def test_run_script_prefers_the_industry_file_and_records_which_map_it_used(tmp_
 def test_run_script_has_a_working_cli():
     r = subprocess.run([sys.executable, SCRIPT, '--help'], capture_output=True, text=True, timeout=120)
     assert r.returncode == 0 and '--sector-map' in r.stdout and '--universe-size' in r.stdout
+
+
+def test_run_config_records_the_close_fill_whatever_pairs_fill_says(ou_run, tmp_path, monkeypatch):
+    # PAIRS_FILL switches the pairs engine only; this strategy always fills at the next close
+    monkeypatch.chdir(tmp_path)                            # no price cache here to fingerprint
+    monkeypatch.setenv('PAIRS_FILL', 'open')
+    cfg = _script().residual_run_config(ou_run[3], {}, {'source': 'test'})
+    assert cfg['effective'] == {'fill': 'close'} and non_default_switches(cfg) == []
+    assert cfg['sector_map'] == {'source': 'test'}
+    assert cfg['data']['backtest_start'] == ou_run[3]['daily_dates'][0]
 
 
 # ── causality and execution timing ───────────────────────────────────────────────
@@ -303,6 +331,43 @@ def test_orders_fill_at_the_next_close_with_shares_fixed_at_the_signal_close(ou_
             if sig.estimable[k, i]:
                 assert sig.accepted[k, i]
                 assert not ((sig.s[k, i] > -p.s_close_long) if direction > 0 else (sig.s[k, i] < p.s_close_short))
+
+
+def test_only_universe_members_open_positions_and_leavers_are_still_managed():
+    frames, etfs, smap, _ = make_residual_market(seed=0, residual='ou')
+    names = sorted(smap)
+
+    def universe(date):                                   # half the names, alternating monthly
+        return [s for n, s in enumerate(names) if (n + date.year * 12 + date.month) % 2 == 0]
+
+    res = run_residual_statarb(frames, etfs, smap, START, END, universe=universe)
+    market, sig = res['market'], res['signals']
+    pos = {d: k for k, d in enumerate(market.dates)}
+    col = {s: i for i, s in enumerate(market.symbols)}
+    for d in ('2021-07-01', '2022-02-15', '2023-12-29'):
+        k = pos[pd.Timestamp(d)]
+        assert sorted(np.array(market.symbols)[sig.in_universe[k]]) == universe(pd.Timestamp(d))
+    trades = res['trades']
+    assert len(trades) > 200
+    assert all(sig.in_universe[pos[pd.Timestamp(t['signal_date'])], col[t['symbol']]] for t in trades)
+    # a position whose name has left the universe still exits under the same rule
+    left = [t for t in trades if t['exit_reason'] == 'signal'
+            and not sig.in_universe[pos[pd.Timestamp(t['exit_signal_date'])], col[t['symbol']]]]
+    assert len(left) > 20
+
+
+def test_no_entries_after_end_and_open_positions_run_off(ou_run):
+    frames, etfs, smap, full = ou_run
+    end = pd.Timestamp('2022-12-30')
+    res = run_residual_statarb(frames, etfs, smap, START, end)
+    trades = res['trades']
+    assert max(pd.Timestamp(t['signal_date']) for t in trades) <= end
+    late = [t for t in trades if pd.Timestamp(t['exit_date']) > end]
+    assert late and all(t['exit_reason'] != 'end_of_data' for t in late)
+    # the daily series runs until the last position closes, and matches the full run up to `end`
+    assert res['daily_dates'][-1] == max(t['exit_date'] for t in trades)
+    n = sum(pd.Timestamp(d) <= end for d in res['daily_dates'])
+    assert res['daily_equity'][:n] == full['daily_equity'][:n]
 
 
 # ── known answers ────────────────────────────────────────────────────────────────
@@ -429,6 +494,67 @@ def test_etf_hedges_are_netted_and_every_dollar_reconciles():
     assert final == pytest.approx(1e8 + sum(out['daily_gross_pnl']) - out['costs']['total'])
     assert out['summary']['total_return'] == pytest.approx(final / 1e8 - 1)
     assert out['daily_open_positions'] == [0, 0, 4, 4, 4, 3, 3, 0]
+
+
+def test_exposures_turnover_and_summary_metrics_on_the_hand_book():
+    market, signals = _hand_book()
+    out = summarise_residual_book(simulate_residual_book(market, signals), market.dates)
+    eq = np.asarray(out['daily_equity'])
+    xlf = market.etf_close[:, market.etfs.index('XLF')]
+    # day 2: four $500,000 stock legs; A's and B's XLK hedges cancel, so the ETF book is
+    # XLF alone, net short 18,750 shares
+    assert out['daily_stock_gross_exposure'][2] == pytest.approx(2e6 / eq[2])
+    assert out['daily_etf_gross_exposure'][2] == pytest.approx(18750 * xlf[2] / eq[2])
+    assert out['daily_gross_exposure'][2] == pytest.approx((2e6 + 18750 * xlf[2]) / eq[2])
+    years = len(eq) / 252
+    t = out['turnover']
+    assert t['annual_turnover'] == pytest.approx(
+        (t['stock_traded_notional'] + t['etf_traded_notional']) / eq.mean() / years)
+    s = out['summary']
+    peak = np.maximum.accumulate(np.concatenate([[1e8], eq]))[1:]
+    assert s['max_drawdown'] < 0 and s['max_drawdown'] == pytest.approx((eq / peak - 1).min())
+    assert s['annualized_return'] == pytest.approx((eq[-1] / 1e8) ** (1 / years) - 1)
+
+
+def test_missing_bars_reject_entries_keep_state_and_exit_at_the_last_real_close():
+    close = {'A': [40, 40, 40, 41, 42, 43, 44, 45, 46, 47], 'B': [60, 60, 61, 62, 63, 64, 65, 66, 64, 63],
+             'C': [25, 25, 25, 24, 24.5, 24, 23, 23.5, 24, 24]}
+    frames, dates = _frames(close, {s: [1e6] * 10 for s in close}, start='2024-03-04')
+    frames['A'] = frames['A'].drop(frames['A'].index[2])          # no bar on A's fill day
+    frames['B'] = frames['B'].drop(frames['B'].index[[5, 6]])     # B halted on rows 5-6
+    etfs = {'XLK': pd.Series(np.linspace(100, 104.5, 10), index=dates),
+            'XLF': pd.Series(np.linspace(50, 48.2, 10), index=dates)}
+    market = ResidualMarket.from_prices(frames, etfs, {'A': 'XLK', 'B': 'XLK', 'C': 'XLF'})
+    # returns only between consecutive real bars: none on the gap or the first bar after it
+    ret_b = market.stock_returns()[:, 1]
+    assert np.isnan(ret_b[[0, 5, 6, 7]]).all() and np.isfinite(ret_b[[1, 2, 3, 4, 8, 9]]).all()
+
+    T, N = 10, 3
+    s = np.full((T, N), np.nan)
+    s[1] = [-2.0, -2.0, 2.0]          # open A and B long, C short; fills due on row 2
+    s[4, 1] = 0.0                     # close B; its fill row 5 has no bar
+    s[3, 2] = 0.0                     # C would close, but row 3 has no estimate: keep state
+    s[6, 2] = 0.0                     # close C; fills on row 7
+    est = np.ones((T, N), dtype=bool)
+    est[3, 2] = False
+    signals = ResidualSignals(s=s, beta=np.ones((T, N)), kappa=np.full((T, N), 50.0), m=np.zeros((T, N)),
+                              sigma_eq=np.full((T, N), 0.02), estimable=est, accepted=est.copy(),
+                              in_universe=np.ones((T, N), dtype=bool))
+    out = summarise_residual_book(simulate_residual_book(market, signals), market.dates)
+    trades = {t['symbol']: t for t in out['trades']}
+    day = [str(d.date()) for d in dates]
+    xlk = market.etf_close[:, market.etfs.index('XLK')]
+
+    assert out['rejects'] == {'no_fill_bar': 1} and set(trades) == {'B', 'C'}
+    b, c = trades['B'], trades['C']
+    assert (b['entry_date'], b['exit_signal_date'], b['exit_date']) == (day[2], day[4], day[5])
+    assert b['exit_price'] == 63.0 and not b['exit_price_real']   # B's last real close, row 4
+    assert b['gross_pnl'] == pytest.approx(b['shares'] * (63 - 61) + b['etf_shares'] * (xlk[5] - xlk[2]))
+    assert (c['exit_signal_date'], c['exit_date'], c['exit_reason']) == (day[6], day[7], 'signal')
+    assert c['exit_price_real']
+    assert out['daily_open_positions'] == [0, 0, 2, 2, 2, 1, 1, 0, 0, 0]
+    assert sum(t['gross_pnl'] for t in trades.values()) == pytest.approx(sum(out['daily_gross_pnl']))
+    assert np.isfinite(out['daily_equity']).all()
 
 
 def test_cost_accounting_sums_on_a_full_run(ou_run):

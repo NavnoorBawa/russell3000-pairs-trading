@@ -33,8 +33,12 @@ Trading rule (Sec. 4.1, eq. 16, cut-offs s_bo = s_so = 1.25, s_bc = 0.75, s_sc =
 When a held stock's model is rejected (b outside (0, 1) or kappa <= 252/30) the position
 is closed (Sec. 5: "we reject the model and (i) do not open trades or (ii) close open
 trades"). A day on which a stock has no estimate at all (fewer than 60 returns in the
-window, or a degenerate regression) leaves its state unchanged. Only universe members
-open positions; held positions are managed by the same rule after leaving the universe.
+window, or a degenerate regression) leaves its state unchanged. Returns are taken
+between consecutive real bars only, so one missing bar removes two returns (into and
+out of the gap) and leaves the stock without an estimate on that row and the 60 after
+it; a position held through such a gap can then neither exit by signal nor be rejected
+until estimates resume. Only universe members open positions; held positions are
+managed by the same rule after leaving the universe.
 
 Book (Sec. 4.1, Sec. 5). Opening a position buys (sells) a notional of position_frac x
 current equity of the stock and sells (buys) beta times that notional of its sector ETF.
@@ -57,8 +61,12 @@ borrow fee over its calendar holding period, booked at the exit fill. The net ET
 of each day is costed with the same function at an effectively unlimited ADV
 (ETF_ASSUMED_ADV_DOLLARS): the half-spread falls in the model's top bucket (0.75 bp; the
 sector SPDRs quote a one-cent spread, 0.3-2.5 bp of a $40-$300 price) and impact is below
-0.1 bp for any hedge trade here. A net short ETF position accrues the same borrow fee
-daily. No prime-broker financing spread and no interest on cash are modelled.
+0.1 bp for any hedge trade here. The ETF closes carry no split record, so ETF share
+counts, and the per-share commission on them, are in the closes' adjusted units: an ETF
+split inside the data inflates the pre-split count (twofold for a 2:1 split), which
+overstates a cost component of a few tenths of a bp of ETF notional. A net short ETF
+position accrues the same borrow fee daily. No prime-broker financing spread and no
+interest on cash are modelled.
 
 Deviations from A&L, each declared before any run: t+1 fills (A&L fill on the signal
 close); the repository cost model instead of a flat 5 bp per side; the 11 SPDR sector

@@ -64,6 +64,20 @@ def load_sector_map(choice: str = None) -> tuple:
                      'etf_counts': dict(sorted(Counter(mapping.values()).items()))}
 
 
+def residual_run_config(results: dict, system_info: dict, sector_info: dict) -> dict:
+    """The run's provenance block: json_export.build_run_config plus the sector map used.
+
+    build_run_config's 'effective' switches describe the pairs engine (PAIRS_FILL, the
+    ranker, pair re-selection). This strategy always fills at the next close and has no
+    ranker or pair selection, so its block records only that; a PAIRS_FILL left in the
+    environment would otherwise be reported as this run's fill.
+    """
+    run_config = build_run_config(results, system_info)
+    run_config['effective'] = {'fill': 'close'}
+    run_config['sector_map'] = sector_info
+    return run_config
+
+
 def export_payload(results: dict, run_config: dict) -> dict:
     """The JSON document: everything in `results` except the in-memory arrays."""
     payload = {k: v for k, v in results.items() if k not in ('signals', 'market')}
@@ -114,12 +128,11 @@ def main(argv=None) -> int:
     results = run_residual_statarb(prices, macro['sectors'], sector_map, args.start, args.end, params=params)
     first = min(df.index[0] for df in prices.values() if len(df))
     last = max(df.index[-1] for df in prices.values() if len(df))
-    run_config = build_run_config(results, {
+    run_config = residual_run_config(results, {
         'total_symbols_processed': len(prices), 'data_start': first, 'data_end': last,
         'universe_coverage': processor.universe_coverage,
         'universe_cached_fraction': processor.universe_cached_fraction,
-    })
-    run_config['sector_map'] = sector_info
+    }, sector_info)
     _atomic_write_json(export_payload(results, run_config), out)
 
     s = results['summary']
