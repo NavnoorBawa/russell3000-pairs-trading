@@ -2,9 +2,10 @@
 
 The data extraction is checked on the committed v32 run and on copies of its site data
 altered to carry what later runs add (the second strategy family, the data-snooping tests,
-the evidence layer's anatomy, ...), so every renderer runs without new data. Compiling the
-paper needs the optional typst package (pip install -e ".[paper]"); CI installs the pinned
-requirements only, so those tests skip there and the rest still run.
+the evidence layer's anatomy, ...), so every renderer runs without new data. A result that
+does not exist yet has no exhibit or table in the body and is listed as forthcoming.
+Compiling the paper needs the optional typst package (pip install -e ".[paper]"); CI
+installs the pinned requirements only, so those tests skip there and the rest still run.
 """
 import copy
 import importlib.util
@@ -143,9 +144,87 @@ def test_null_results_print_as_pending_never_as_a_number(built):
     for key, cells in (('snooping', [r[1] for r in paper['tables']['snooping']]),
                        ('validation', [r[2] for r in paper['tables']['validation']])):
         assert all(c == 'pending' for c in cells), key
-    assert all(r[3] == r[4] == 'sealed' for r in paper['tables']['hypotheses'])
+    # the sealed holdout has no result column at all, only the arms and their hypotheses
+    assert all(len(r) == 3 and r[0].startswith('H') for r in paper['tables']['hypotheses'])
     for name, path in paper['figures'].items():
         assert (path is None) == (name in paper['pending'])
+
+
+def test_absent_results_are_listed_as_forthcoming(built):
+    """Every result that does not exist yet is in the forthcoming table, with what it will
+    show and what it awaits; every exhibit without data is among them; none is a number."""
+    paper, _ = built
+    later = {r[0]: r for r in paper['forthcoming']}
+    assert set(paper['pending']) - {'snapshots', 'schedules'} <= set(later)
+    for flag in ('snooping', 'residual', 'validation', 'multi_factor', 'random_band'):
+        assert (flag in later) == (not paper['flags'][flag]), flag
+    for key, what, shows, awaits in paper['forthcoming']:
+        assert what and shows and awaits, key
+        assert not re.search(r'[−+]\d', shows + awaits), key          # design values only, no results
+    assert later['holdout'][3].startswith('The pre-registration')
+
+
+def test_site_concordance_maps_every_site_exhibit(built):
+    """Each exhibit of the site is mapped to the paper's exhibit, to the forthcoming table,
+    or marked as not shown; the paper's two diagrams match by title."""
+    paper, _ = built
+    rows = paper['concordance']
+    site = bp.site_exhibits((REPO / 'index.html').read_text(encoding='utf-8'))
+    assert [r[0] for r in rows] == [e['n'] for e in site] and len(rows) >= 20
+    targets = {r[2] for r in rows}
+    assert {'ex-pipeline', 'ex-timeline', 'ex-equity', 'forthcoming'} <= targets
+    for _, _, target in rows:
+        if target and target.startswith('ex-'):
+            assert paper['figures'].get(target[3:]) or target in ('ex-pipeline',), target
+
+
+def test_power_under_both_dependence_assumptions(built):
+    """Allowing for lag-1 autocorrelation widens the Sharpe ratio's standard error and its
+    one-sided bound; the IID columns are the site's own figures."""
+    paper, _ = built
+    P = paper['m']
+    facts = bp.load_inputs()['study']['dev']['facts']
+    assert float(P['paper.power_ar1.se']) > facts['sharpe_se']
+    assert float(P['paper.power_ar1.ucb']) > facts['sharpe_ucb']
+    rows = paper['tables']['alternatives']
+    assert [r[1] for r in rows] == [bp.fmt(a['p_ge'], '.3') for a in
+                                   bp.load_inputs()['study']['dev']['power']['alternatives']]
+    assert all(float(r[2]) >= float(r[1]) for r in rows)          # p rises with dependence
+
+
+def test_edge_per_trade_is_on_the_break_even_basis(inputs, built):
+    """The notional-weighted gross over cost is the break-even cost multiple."""
+    paper, _ = built
+    trades = inputs['results']['all_trades']
+    e = bp.trade_edge(trades)
+    assert abs(e['gross_bp'] / e['cost_bp'] - inputs['study']['dev']['facts']['break_even_x']) < 0.005
+    assert paper['m']['paper.edge.gross_bp'] == bp.fmt(e['gross_bp'], '+.1')
+
+
+def test_fetch_coverage_counts_symbols_with_prices(inputs, built):
+    paper, _ = built
+    f = bp.fetch_coverage(inputs['fetch_manifest'], 3000)
+    assert f['ok'] == inputs['study']['dev']['run']['symbols']
+    assert f['ok'] + f['errors'] + f['invalid'] + f['short'] + f['not_found'] == f['symbols']
+    assert paper['m']['paper.fetch.ok_pct'] == bp.fmt(100 * f['ok'] / f['symbols'], '.1%')
+
+
+def test_performance_table(built):
+    paper, _ = built
+    rows = {r[0]: r[1:] for r in paper['tables']['performance']}
+    assert rows['Trading days'] == ['628', '711', '628']
+    assert rows['Maximum drawdown, %'][0] == '−3.00'
+    assert all(len(v) == 3 for v in rows.values())
+
+
+def test_figures_keep_their_text(built):
+    """Chart text is text (searchable, copyable), set in the Plex families Typst embeds."""
+    _, figs = built
+    for name, svg in figs.items():
+        assert '<text' in svg, name
+        families = set(re.findall(r"font-family: '([^']+)'", svg))
+        assert families and families <= {'IBM Plex Sans', 'IBM Plex Sans Medm', 'IBM Plex Sans SmBld'}, name
+        assert 'font-weight' not in svg, name
 
 
 def test_unexpected_null_is_an_error(inputs):
@@ -162,10 +241,10 @@ def test_main_typ_has_no_hand_typed_results():
     either replaced by #m() or added below with its reason."""
     allowed = {
         # design parameters of the strategy and the tests (pairs_trading/, docs/)
-        '0.002', '0.05', '0.1', '0.20', '0.25', '0.3', '0.5', '0.50', '0.6', '0.75', '1.0', '1.25', '1.5',
-        '1.8', '1.96', '2.5', '126', '252', '500',
-        # published results quoted in the literature table (Avellaneda and Lee 2010)
-        '1.44', '1.1', '0.9',
+        '0.002', '0.05', '0.1', '0.20', '0.25', '0.3', '0.30', '0.5', '0.50', '0.6', '0.75', '1.0', '1.25',
+        '1.5', '1.8', '1.96', '2.5', '126', '252', '500',
+        # published results quoted in the text (Avellaneda and Lee 2010; Almgren et al. 2005)
+        '1.44', '1.1', '0.9', '0.314',
     }
     text = _main_typ()
     text = text.replace('Russell 3000', 'Russell')                     # the index's name
@@ -256,6 +335,7 @@ def test_later_results_fill_their_exhibits_and_tables(inputs):
         assert figs.get(name), name
         assert name not in paper['pending']
     assert paper['pending'] == {'holdout': 'Sealed.'}
+    assert [r[0] for r in paper['forthcoming']] == ['multi_factor', 'holdout']
     assert paper['m']['paper.residual.sharpe'] == '0.31'
     assert paper['m']['paper.snooping.pbo_pct'] == '48.0%'
     assert not any(k.startswith(('paper.residual.', 'paper.snooping.')) for k in paper['why'])
@@ -295,7 +375,7 @@ def test_paper_compiles_to_the_committed_pdf(built):
     pdf = bp.compile_pdf(paper)
     assert pdf.startswith(b'%PDF')
     pages = len(re.findall(rb'/Type\s*/Page(?![s\w])', pdf))
-    assert 14 <= pages <= 22, pages
+    assert 14 <= pages <= 26, pages
     manifest = json.loads(bp.MANIFEST.read_text())
     if manifest['tools']['typst'] == bp._typst_version():
         assert pdf == bp.PDF.read_bytes()

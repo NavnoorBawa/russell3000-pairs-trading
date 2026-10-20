@@ -6,9 +6,11 @@ built by scripts/build_site_data.py, and the headline JSON that file was built f
 the two cannot disagree: every number the paper prints is formatted here, once, into
 paper/build/paper_data.json, and paper/main.typ only places the formatted strings. A
 result that does not exist yet (the data-snooping tests, the second strategy family, the
-sealed 2026 holdout) is null in that file and prints as "pending" with its reason, never
-as a number. Sentences whose wording depends on the data ("every interval spans zero")
-name a claim that is computed here; the compile stops if a claim the text makes is false.
+sealed 2026 holdout) is null in that file; its exhibit or table is left out of the body
+and listed, with what it will show, in the note's table of forthcoming results. A number
+that is null prints as "pending" with its reason, never as a number. Sentences whose
+wording depends on the data ("every interval spans zero") name a claim that is computed
+here; the compile stops if a claim the text makes is false.
 
 Products (all committed; CI checks them with --check):
 
@@ -30,8 +32,10 @@ The typst Python package (pip install -e ".[paper]") is needed to compile the PD
 without it --check still verifies the data, the figures and the manifest.
 """
 import argparse
+import collections
 import datetime as dt
 import hashlib
+import html
 import io
 import json
 import math
@@ -45,7 +49,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from pairs_trading import power as pw  # noqa: E402
-from pairs_trading.significance import _autocorrelations  # noqa: E402
+from pairs_trading.significance import _autocorrelations, _circular_block_indices, hac_tstat_mean  # noqa: E402
 from pairs_trading.study_config import CALENDARS, PROFILES  # noqa: E402
 
 SCHEMA = 1
@@ -59,11 +63,15 @@ PDF = PAPER / 'pairs_study.pdf'
 DATA = BUILD / 'paper_data.json'
 MANIFEST = BUILD / 'manifest.json'
 SITE_CSS = ROOT / 'assets' / 'site.css'
+SITE_INDEX = ROOT / 'index.html'
 
 MINUS = '−'
 PERIODS = 252
-TEXT_WIDTH_MM = 162.0                   # A4 (210 mm) less 24 mm margins: figures are drawn at this width
+EXHIBIT_WIDTH_MM = 162.0                # A4 (210 mm) less 24 mm margins: exhibits and tables span this
+MEASURE_MM = 130.0                      # running text: about 75 characters of 10.4 pt Plex Serif
 COLUMN_GAP_MM = 6.0
+BOOT_SEED, BOOT_RESAMPLES = 42, 5000    # the run's own bootstrap settings (seed, resamples)
+_Z95, _Z80 = 1.6448536269514722, 0.8416212335729143   # one-sided 5% test, 80% power
 HOLDOUT_DAYS = (126, 189, 252)          # about six, nine and twelve months of trading days
 MONTHS = ('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September',
           'October', 'November', 'December')
@@ -194,12 +202,41 @@ def load_inputs(root=ROOT):
     if results is None:
         raise PaperDataError('assets/study.json lists no full results export among its sources')
     _, declaration = source(r'variant_family/declaration\.json$')
+    # The run's price-fetch manifest (what share of the universe has prices, and why the
+    # rest has none) sits beside the results export; the site does not read it.
+    manifest_path = root / results_path.rsplit('/', 1)[0] / 'price_fetch_manifest.json'
+    fetch = json.loads(manifest_path.read_text(encoding='utf-8')) if manifest_path.is_file() else None
+    # The site's exhibit list, for the concordance of its exhibit numbers with the paper's.
+    site_path = root / 'index.html'
+    site = site_path.read_text(encoding='utf-8') if site_path.is_file() else None
     return {'study': study, 'study_sha256': _sha256(study_path),
             'headline': json.loads(headline_path.read_text(encoding='utf-8')), 'headline_path': rel,
             'results': results, 'results_path': results_path, 'declaration': declaration,
             'universe_index': universe,
             'universe_index_sha256': _sha256(index_path) if universe is not None else None,
+            'fetch_manifest': fetch,
+            'fetch_manifest_path': manifest_path.relative_to(root).as_posix() if fetch is not None else None,
+            'fetch_manifest_sha256': _sha256(manifest_path) if fetch is not None else None,
+            'site_exhibits': site_exhibits(site) if site is not None else None,
+            'site_sha256': _sha256(site_path) if site is not None else None,
             'preregistered': (root / 'docs' / 'PREREGISTRATION.md').is_file()}
+
+
+# Site exhibits drawn as diagrams carry no data-exhibit name; they are matched by title.
+SITE_DIAGRAMS = {'The pipeline': 'pipeline', 'Data splits': 'timeline'}
+
+
+def site_exhibits(page):
+    """[{n, name, title}] for every numbered exhibit of the site, in its order."""
+    out = []
+    for fig in re.finditer(r'<figure class="exhibit[^"]*" id="ex-(\d+)"(?: data-exhibit="(\w+)")?[^>]*>(.*?)</figure>',
+                           page, re.S):
+        head = re.search(r'<span class="ex-title">(.*?)</span>\s*(?:<span class="ex-sub">|</figcaption>)',
+                         fig.group(3), re.S)
+        title = ' '.join(html.unescape(re.sub(r'<[^>]+>', '', head.group(1))).split()) if head else ''
+        name = fig.group(2) or next((v for k, v in SITE_DIAGRAMS.items() if title.startswith(k)), None)
+        out.append({'n': int(fig.group(1)), 'name': name, 'title': title})
+    return out
 
 
 def site_tokens(css_path=SITE_CSS):
@@ -232,6 +269,11 @@ def _zero_month_runs(months):
         else:
             cur = []
     return (best[0], best[-1]) if best else None
+
+
+def _flat_window(w):
+    """A walk-forward window whose daily returns are all zero: no return and no drawdown."""
+    return not w['ret_pct'] and not w.get('max_dd_pct')
 
 
 def _clearing_windows(dev):
@@ -283,6 +325,145 @@ def universe_snapshots(index):
             'unmapped_max_pct': max(r['unmapped_weight_pct'] for r in rows)}
 
 
+def fetch_coverage(manifest, names_file):
+    """How much of the universe file has prices, from the run's price-fetch manifest.
+
+    The manifest has one outcome per distinct symbol: 'ok', 'invalid' (unknown to the
+    vendor), 'short' (too little history), 'not_found' or 'error:...' (the fetch failed).
+    The run's own 'coverage' counts only failed fetches as missing; the paper reports the
+    share that has prices.
+    """
+    if not manifest or not manifest.get('outcomes'):
+        return None
+    counts = collections.Counter(manifest['outcomes'].values())
+    n = len(manifest['outcomes'])
+    return {'symbols': n, 'rows_removed': (names_file or n) - n, 'ok': counts.get('ok', 0),
+            'ok_pct': 100.0 * counts.get('ok', 0) / n,
+            'errors': sum(v for k, v in counts.items() if k.startswith('error')),
+            'invalid': counts.get('invalid', 0), 'short': counts.get('short', 0),
+            'not_found': counts.get('not_found', 0)}
+
+
+def power_both(daily_net_pct, iid):
+    """The development sample's power under two assumptions about dependence.
+
+    'iid' is the site's (assets/study.json, dev.power): non-normal IID returns. 'ar1' adds
+    the sample's lag-1 autocorrelation through the AR(1) Sharpe variance of
+    pairs_trading.power (critical values and track-record lengths at the null, the
+    upper bound at the estimate).
+    """
+    r = np.asarray(daily_net_pct, dtype=float) / 100.0
+    rep = pw.power_report(r, periods=PERIODS, alternatives=[a['sharpe'] for a in iid['alternatives']])
+    alts = [{'sharpe': a['sharpe'], 'p_ge_iid': a['p_ge'], 'trl_iid': a['min_trl_years'],
+             'p_ge_ar1': b['p_sr_at_least'], 'trl_ar1': b['min_trl_years']}
+            for a, b in zip(iid['alternatives'], rep['alternatives'])]
+    at = {a['sharpe']: a for a in alts}
+    return {'rho': rep['rho'], 'se': rep['se_ann'], 'ucb': rep['upper_bound_ann'], 'mde': rep['min_detectable_sr_ann'],
+            'critical': rep['critical_sr_ann'], 'alternatives': alts,
+            'p_ge_0_5': at[0.5]['p_ge_ar1'], 'p_ge_1': at[1.0]['p_ge_ar1'],
+            'trl_0_5': at[0.5]['trl_ar1'], 'trl_1': at[1.0]['trl_ar1']}
+
+
+def drawdown(r):
+    """Maximum drawdown of a daily return series and its length in trading days.
+
+    (max drawdown in %, days from the peak to the trough, days from the peak until the
+    peak is regained or None if it never is)
+    """
+    w = np.cumprod(1.0 + np.asarray(r, dtype=float))
+    dd = w / np.maximum.accumulate(w) - 1.0
+    trough = int(np.argmin(dd))
+    peak = int(np.argmax(w[:trough + 1]))
+    back = next((j for j in range(trough, len(w)) if w[j] >= w[peak]), None)
+    return 100.0 * float(dd[trough]), trough - peak, (back - peak) if back is not None else None
+
+
+def volatility_interval(r, block):
+    """Annualised volatility, % a year, with its circular block-bootstrap 95% interval."""
+    r = np.asarray(r, dtype=float)
+    idx = _circular_block_indices(np.random.default_rng(BOOT_SEED), len(r), int(block), BOOT_RESAMPLES)
+    boots = r[idx].std(axis=1, ddof=1) * math.sqrt(PERIODS) * 100
+    return (float(r.std(ddof=1) * math.sqrt(PERIODS) * 100), float(np.percentile(boots, 2.5)),
+            float(np.percentile(boots, 97.5)))
+
+
+def mean_interval(mean_daily, t):
+    """Annualised mean return, % a year, with the 95% interval of its Newey-West t-statistic."""
+    se = abs(mean_daily / t) if t else float('nan')
+    return tuple(100 * PERIODS * v for v in (mean_daily, mean_daily - 1.96 * se, mean_daily + 1.96 * se))
+
+
+def performance(inp):
+    """The performance summary: main backtest, walk-forward and the Gatev baseline.
+
+    The main backtest and the Gatev baseline have daily series; the walk-forward is
+    exported as summary statistics only, so its volatility is the one implied by its
+    mean and Sharpe ratio and it has no volatility interval or drawdown length.
+    """
+    res, head = inp['results'], inp['headline']
+    perf, sig = res['overall_performance'], res['significance']
+    main_r = np.array([d['daily_return_pct'] for d in res['daily_equity_curve']]) / 100.0
+    gatev = res['benchmarks']['distance_method']
+    gatev_r = np.asarray(gatev['daily_returns'], dtype=float)
+    blocks = {r['key']: re.search(r'block (\d+) days', r['method']) for r in inp['study']['dev']['forest']}
+    wf = res['walk_forward_validation']
+    out = {}
+    for key, r, s in (('main', main_r, sig['main_backtest']), ('gatev', gatev_r, None)):
+        h = s['hac'] if s else hac_tstat_mean(gatev_r)
+        dd, to_trough, to_back = drawdown(r)
+        out[key] = {'ret': mean_interval(h['mean'], h['tstat']), 'vol': volatility_interval(r, int(blocks[key].group(1))),
+                    'max_dd': dd, 'dd_days': (to_trough, to_back), 'total': 100.0 * (float(np.prod(1.0 + r)) - 1.0)}
+    o = sig['oos_daily']
+    ret = mean_interval(o['hac']['mean'], o['hac']['tstat'])
+    out['wf'] = {'ret': ret, 'vol': (ret[0] / o['ann_sharpe'] if o['ann_sharpe'] else None, None, None),
+                 'max_dd': wf['max_drawdown_pct'], 'dd_days': (None, None), 'total': wf['stitched_total_return_pct']}
+    out['main'].update(trades=perf['total_trades'], hit=perf['win_rate_pct'], hold=perf['avg_trading_days_held'],
+                       turnover=perf['annual_turnover_x_equity'], gross=perf['avg_gross_exposure_pct_of_equity'],
+                       ret_gross=out['main']['ret'][0] / (perf['avg_gross_exposure_pct_of_equity'] / 100.0))
+    out['wf'].update(trades=wf['total_trades'], hit=wf['win_rate_pct'], hold=None, turnover=None, gross=None,
+                     ret_gross=None)
+    out['gatev'].update(trades=gatev['n_trades'], hit=None, hold=gatev['avg_holding_days'], turnover=None, gross=None,
+                        ret_gross=None)
+    out['days'] = {'main': len(main_r), 'wf': o['n_days'], 'gatev': len(gatev_r)}
+    out['sharpe'] = {'main': (head['significance']['main']['ann_sharpe'], head['significance']['main']['boot_lo'],
+                              head['significance']['main']['boot_hi']),
+                     'wf': (head['significance']['oos_daily']['ann_sharpe'], head['significance']['oos_daily']['boot_lo'],
+                            head['significance']['oos_daily']['boot_hi'])}
+    return out
+
+
+def trade_edge(trades):
+    """Gross and cost per trade on one basis: dollars over traded notional (signal-day size).
+
+    The ratio of sums is the basis on which net P&L breaks even (gross / cost dollars);
+    the t-statistic is that of the mean gross dollar P&L per trade.
+    """
+    if not trades:
+        return None
+    notional = sum(t['position_size_dollars'] for t in trades)
+    cost = np.array([t['transaction_costs_dollars'] for t in trades])
+    gross = np.array([t['net_pnl_dollars'] for t in trades]) + cost
+    t_gross = float(gross.mean() / (gross.std(ddof=1) / math.sqrt(len(gross))))
+    return {'gross_bp': 1e4 * gross.sum() / notional, 'cost_bp': 1e4 * cost.sum() / notional,
+            'net_bp': 1e4 * (gross.sum() - cost.sum()) / notional, 'gross_t': t_gross}
+
+
+def sign_exceptions(trades):
+    """Trades whose net notional sign is not the one their hedge ratio implies.
+
+    With legs of $1 and $beta, beta < 1 leaves a long-spread trade net long and a
+    short-spread trade net short; share rounding at the fill can reverse a beta near one.
+    """
+    out = []
+    for t in trades:
+        if t.get('hedge_ratio') is None:
+            continue
+        net_long = t['long_notional_dollars'] > t['short_notional_dollars']
+        if net_long != ((t['action'] == 'LONG') == (t['hedge_ratio'] < 1)):
+            out.append(t['hedge_ratio'])
+    return out
+
+
 def derived(inp):
     """The 'paper' namespace: values the paper states that the site file holds only implicitly."""
     study, head = inp['study'], inp['headline']
@@ -317,6 +498,20 @@ def derived(inp):
     boot = re.search(r'\((\d+) resamples, block (\d+) days\)', forest['main']['method'])
     boot_oos = re.search(r'block (\d+) days', forest['oos']['method'])
     diff_oos = forest.get('diff_oos') or {}
+    export = inp['results']
+    names_file = _get(dev, 'funnel', 'names', default=[{}])[0].get('n')
+    fetch = fetch_coverage(inp['fetch_manifest'], names_file)
+    power2 = power_both(dev['daily']['net'], dev['power'])
+    edge = trade_edge(trades)
+    exceptions = sign_exceptions(trades)
+    wf_windows = export['walk_forward_validation']['windows']
+    vs_wf = _get(export, 'benchmarks', 'vs_strategy', 'walk_forward_oos', default={})
+    ranker = export.get('ranker') or {}
+    net = np.asarray(dev['daily']['net'], dtype=float)
+    exposure = np.asarray(dev['daily']['exposure'], dtype=float)
+    compounded = float(np.prod([1 + m['ret_pct'] / 100 for m in months])) if months else None
+    fdr = head['fdr']
+    pos = [x['position_pct_of_equity'] for x in trades if x.get('position_pct_of_equity') is not None]
     return {
         'paper_date': paper_date, 'paper_date_long': long_date(paper_date),
         'run_date_long': long_date(run['timestamp_utc']),
@@ -389,6 +584,48 @@ def derived(inp):
         'iwv_unmapped_first_pct': snaps['rows'][0]['unmapped_weight_pct'] if snaps else None,
         'iwv_unmapped_last_pct': snaps['rows'][-1]['unmapped_weight_pct'] if snaps else None,
         'iwv_first_year': snaps['first'][:4] if snaps else None, 'iwv_last_year': snaps['last'][:4] if snaps else None,
+        # the universe file and what share of it has prices (the run's fetch manifest)
+        'fetch': fetch,
+        'v32_formation_years': PROFILES['v32'].formation_calendar_days / 365,
+        # power under IID returns (the site's) and allowing lag-1 autocorrelation
+        'power_ar1': power2,
+        # gross and cost per trade, notional-weighted (the break-even basis)
+        'edge': edge,
+        'sign_exceptions': len(exceptions), 'sign_exceptions_word': word(len(exceptions)),
+        'sign_exception_max_gap': max((abs(b - 1) for b in exceptions), default=0.0),
+        # Lo (2002) autocorrelation-adjusted annualisation of the Sharpe ratio
+        'lo_sharpe_main': _get(export, 'significance', 'main_backtest', 'ann_sharpe_lo'),
+        'lo_sharpe_oos': _get(export, 'significance', 'oos_daily', 'ann_sharpe_lo'),
+        # factor-attribution t-statistics at full precision (study.json rounds them to 3 dp)
+        'alpha_t_main': _get(export, 'factor_attribution', 'main_backtest', 'alpha_tstat'),
+        'alpha_t_oos': _get(export, 'factor_attribution', 'walk_forward_oos', 'alpha_tstat'),
+        'ranker_brier_pooled': _get(ranker, 'walk_forward_pooled_out_of_sample', 'brier'),
+        'ranker_brier_base_pooled': _get(ranker, 'walk_forward_pooled_out_of_sample', 'brier_base_rate'),
+        'position_min_pct': min(pos) if pos else None, 'position_max_pct': max(pos) if pos else None,
+        # the walk-forward: the last window runs to the walk-forward's last day
+        'wf_window_days': wf_windows[0]['n_days'], 'wf_last_days': wf_windows[-1]['n_days'],
+        'wf_days': {w['window']: w['n_days'] for w in wf_windows},
+        # windows (numbered 1..N in the paper) that opened no trade yet carried P&L, and
+        # windows whose daily returns are all zero (no Sharpe ratio)
+        'wf_carry_windows': ', '.join(str(i) for i, w in enumerate(dev['walk_forward']['windows'], 1)
+                                      if not w['trades'] and w['ret_pct']),
+        'wf_flat_windows': ', '.join(str(i) for i, w in enumerate(dev['walk_forward']['windows'], 1)
+                                     if _flat_window(w)),
+        'oos_end_long': long_date(run['oos_period'][1]),
+        'gatev_wf_sharpe': vs_wf.get('distance_sharpe'), 'wf_common_sharpe': vs_wf.get('strategy_sharpe'),
+        'wf_common_days': vs_wf.get('n_common_days'),
+        'performance': performance(inp),
+        # the month that carries the result, and the period without it
+        'without_best_pct': 100 * (compounded / (1 + best['ret_pct'] / 100) - 1) if best else None,
+        'compounded_pct': 100 * (compounded - 1) if compounded is not None else None,
+        # chance rejections among the "cointegrated" pairs: an upper bound (every pair null)
+        'chance_share_pct': 100 * dev['funnel']['pairs'][1]['expected'] / fdr['significant_raw_p05'],
+        'zero_return_days': int((net == 0).sum()),
+        'flat_nonzero_days': int(((exposure == 0) & (net != 0)).sum()),
+        # how much longer than the minimum track record 80% power takes (normal approximation)
+        'trl_power_ratio': ((_Z95 + _Z80) / _Z95) ** 2,
+        'gatev_vol_pct': _get(export, 'benchmarks', 'distance_method', 'ann_volatility_pct'),
+        'main_vol_pct': _get(export, 'overall_performance', 'annualized_volatility_pct'),
     }
 
 
@@ -417,8 +654,8 @@ METRICS = {
     'significance.oos_windows.ci_lo_pct': '.3%', 'significance.oos_windows.ci_hi_pct': '+.3%',
     'significance.oos_windows.p': '.3', 'significance.oos_windows.t': '.2',
     'benchmarks.gatev.total_return_pct': '+.2%', 'benchmarks.gatev.sharpe': '+.2',
-    'benchmarks.random_control.median_sharpe': '.2', 'benchmarks.random_control.p5_sharpe': '.2',
-    'benchmarks.random_control.p95_sharpe': '.2', 'benchmarks.random_control.n_draws': '.0',
+    'benchmarks.random_control.median_sharpe': '+.2', 'benchmarks.random_control.p5_sharpe': '+.2',
+    'benchmarks.random_control.p95_sharpe': '+.2', 'benchmarks.random_control.n_draws': '.0',
     'benchmarks.random_control.strategy_percentile': '.0',
     'benchmarks.sharpe_diff_vs_gatev.diff': '.2', 'benchmarks.sharpe_diff_vs_gatev.p': '.3',
     'fdr.pairs_tested': ',.0', 'fdr.significant_raw_p05': ',.0', 'fdr.survive_bh_fdr_q05': '.0',
@@ -455,7 +692,23 @@ METRICS = {
         'universe_as_of_long', 'formation_cutoff_short', 'holdout_start_long', 'declared_long', 'best_month', 'flat_from', 'flat_to',
         'percentile_ordinal', 'data_first_year', 'formation_year', 'holdout_year', 'clear_first_end_long', 'clear_last_end_long', 'schedules_n_word',
         'results_path', 'run_dir', 'sched_best_id', 'sched_worst_id', 'proxy', 'iwv_first_year', 'iwv_last_year', 'schedules_lose_word', 'schedules_even_word',
-        'prereg_status', 'iwv.first_long', 'iwv.last_long', 'iwv.sealed_from_long')},
+        'prereg_status', 'iwv.first_long', 'iwv.last_long', 'iwv.sealed_from_long', 'oos_end_long',
+        'sign_exceptions_word', 'wf_carry_windows', 'wf_flat_windows')},
+    'paper.fetch.symbols': ',.0', 'paper.fetch.rows_removed': '.0', 'paper.fetch.ok': ',.0',
+    'paper.fetch.ok_pct': '.1%', 'paper.fetch.errors': '.0', 'paper.fetch.invalid': '.0', 'paper.fetch.short': '.0',
+    'paper.v32_formation_years': '.0',
+    'paper.power_ar1.rho': '.2', 'paper.power_ar1.se': '.2', 'paper.power_ar1.ucb': '.2', 'paper.power_ar1.mde': '.2',
+    'paper.power_ar1.critical': '.2', 'paper.power_ar1.p_ge_0_5': '.3', 'paper.power_ar1.p_ge_1': '.3',
+    'paper.power_ar1.trl_0_5': '.1', 'paper.power_ar1.trl_1': '.1',
+    'paper.edge.gross_bp': '+.1', 'paper.edge.cost_bp': '.1', 'paper.edge.net_bp': '.1', 'paper.edge.gross_t': '.2',
+    'paper.lo_sharpe_main': '.2', 'paper.lo_sharpe_oos': '.2', 'paper.alpha_t_main': '.2', 'paper.alpha_t_oos': '.2',
+    'paper.ranker_brier_pooled': '.4', 'paper.ranker_brier_base_pooled': '.4',
+    'paper.position_min_pct': '.1%', 'paper.position_max_pct': '.1%',
+    'paper.wf_window_days': '.0', 'paper.wf_last_days': '.0',
+    'paper.gatev_wf_sharpe': '+.2', 'paper.wf_common_sharpe': '.2', 'paper.wf_common_days': '.0',
+    'paper.without_best_pct': '+.2%', 'paper.compounded_pct': '+.2%', 'paper.chance_share_pct': '.0%',
+    'paper.zero_return_days': '.0', 'paper.flat_nonzero_days': '.0',
+    'paper.gatev_vol_pct': '.2%', 'paper.main_vol_pct': '.2%', 'paper.trl_power_ratio': '.1',
     'paper.versions_count': '.0', 'paper.names_file': ',.0', 'paper.names_prices': ',.0',
     'paper.universe_top': '.0', 'paper.v33_universe_top': '.0', 'paper.v33_reselect_every': '.0',
     'paper.v32_reselect_every': '.0', 'paper.v33_borrow_pct': '.2%', 'paper.v32_borrow_bp': '.0',
@@ -483,6 +736,7 @@ PENDING = {
     'paper.residual.': 'pending (v33 development run)',
     'paper.snooping.': 'pending (v33 development run)',
     'paper.iwv': 'pending (point-in-time universe index)',
+    'paper.fetch.': 'pending (price-fetch manifest)',
 }
 
 
@@ -539,7 +793,33 @@ def claims(data):
     nonneg = [s for s in schedules if s['ret_pct'] >= 0]
     rnd = head['benchmarks']['random_control']
     sig = head['significance']
+    ar1, edge = P['power_ar1'], P['edge']
+    ar1_at = {a['sharpe']: a for a in ar1['alternatives']}
     return {
+        # gross edge per trade, on both bases the text quotes
+        'edge_not_significant': abs(edge['gross_t']) < 1.96 and abs(facts['gross_t']) < 1.96,
+        'edge_below_cost': edge['gross_bp'] < edge['cost_bp'] and facts['gross_bp'] < facts['cost_bp'],
+        'break_even_is_edge_over_cost': abs(edge['gross_bp'] / edge['cost_bp'] - facts['break_even_x']) < 0.01,
+        # power under IID returns and allowing lag-1 autocorrelation
+        'sharpe_1_borderline_both': 0.01 < facts['p_sr_ge_1'] < 0.10 and 0.01 < ar1['p_ge_1'] < 0.10,
+        'sharpe_1_rejected_only_if_iid': facts['p_sr_ge_1'] < 0.05 <= ar1['p_ge_1'],
+        'both_reject_sharpe_1_5_and_2': all(a['p_ge'] < 0.05 for a in dev['power']['alternatives'] if a['sharpe'] >= 1.5)
+                                        and all(a['p_ge_ar1'] < 0.05 for x, a in ar1_at.items() if x >= 1.5),
+        'both_cannot_reject_sharpe_half': facts['p_sr_ge_0_5'] > 0.05 and ar1['p_ge_0_5'] > 0.05,
+        'both_bounds_about_one': all(0.75 <= u <= 1.25 for u in (facts['sharpe_ucb'], ar1['ucb'])),
+        'both_mde_above_bound': facts['sharpe_mde'] > facts['sharpe_ucb'] and ar1['mde'] > ar1['ucb'],
+        'dependence_widens': ar1['se'] > facts['sharpe_se'] and ar1['ucb'] > facts['sharpe_ucb'],
+        'without_best_month_lower': P['without_best_pct'] < head['main']['total_return_pct'] < best['ret_pct'],
+        'sign_exceptions_near_one': P['sign_exception_max_gap'] < 0.05,
+        'fetch_ok_is_price_history': P['fetch'] is None or P['fetch']['ok'] == P['names_prices'],
+        'last_window_longer': P['wf_last_days'] > P['wf_window_days'],
+        'flat_days_reconcile': P['zero_return_days'] + P['flat_nonzero_days'] == facts['flat_days'],
+        'ranker_brier_worse_than_base': P['ranker_brier_pooled'] > P['ranker_brier_base_pooled'],
+        # "the 1,775 expected by chance and the 1,776 selected are close by coincidence"
+        'chance_count_near_selected': abs(dev['funnel']['pairs'][1]['expected'] - head['fdr']['final_selected_pairs'])
+                                      <= 0.01 * head['fdr']['final_selected_pairs'],
+        'wf_carry_window_exists': bool(P['wf_carry_windows']),
+        'wf_flat_window_exists': bool(P['wf_flat_windows']),
         'main_negative': head['main']['total_return_pct'] < 0,
         'oos_negative': head['oos']['pooled_sharpe'] < 0,
         'every_interval_spans_zero': all(r['lo'] < 0 < r['hi'] for r in ci_rows),
@@ -563,14 +843,8 @@ def claims(data):
         'best_month_exceeds_total': best['ret_pct'] > head['main']['total_return_pct'],
         'clearing_windows_contain_best_month': bool(clearing) and all(
             a <= best['ym'] + '-31' and b >= best['ym'] + '-01' for a, b in clearing),
-        'rejects_sharpe_1': facts['p_sr_ge_1'] < 0.05,
-        'borderline_at_sharpe_1': 0.01 < facts['p_sr_ge_1'] < 0.05,
-        'rejects_sharpe_1_5_and_2': all(a['p_ge'] < 0.05 for a in dev['power']['alternatives'] if a['sharpe'] >= 1.5),
         'no_schedule_significant': all(s['sharpe'] < facts['sharpe_critical'] for s in schedules),
-        'cannot_reject_sharpe_half': facts['p_sr_ge_0_5'] > 0.05,
         'ucb_below_one': facts['sharpe_ucb'] < 1.0,
-        'ucb_about_one': 0.75 <= facts['sharpe_ucb'] <= 1.25,
-        'mde_above_ucb': facts['sharpe_mde'] > facts['sharpe_ucb'],
         'dsr_low': sig['main']['dsr'] < 0.05 and sig['oos_daily']['dsr'] < 0.05,
         'beta_small': abs(facts['beta_main']) < 0.05 and abs(facts['beta_oos']) < 0.05,
         'beta_oos_significant': abs(facts['beta_oos_t']) > 1.96,
@@ -613,7 +887,8 @@ def flags(data):
             'universe_pit': dev.get('universe_by_formation') is not None,
             'multi_factor': bool(dev['factors'].get('multi_factor')),
             'iwv': data['paper']['iwv'] is not None,
-            'preregistered': data['paper']['prereg_status'] == 'filed'}
+            'preregistered': data['paper']['prereg_status'] == 'filed',
+            'fetch': data['paper']['fetch'] is not None}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -640,14 +915,47 @@ def tables(data, m):
         ['Block-bootstrap 95% interval', ci('significance.main.boot_lo', 'significance.main.boot_hi'),
          ci('significance.oos_daily.boot_lo', 'significance.oos_daily.boot_hi')],
         ['Gatev distance method, Sharpe [95% interval]',
-         f"{cell('benchmarks.gatev.sharpe')} {ci('study.dev.facts.gatev_lo', 'study.dev.facts.gatev_hi')}", '—'],
-        ['Strategy minus Gatev (Ledoit–Wolf p)',
-         f"{cell('benchmarks.sharpe_diff_vs_gatev.diff')} ({cell('benchmarks.sharpe_diff_vs_gatev.p')})", '—'],
+         f"{cell('benchmarks.gatev.sharpe')} {ci('study.dev.facts.gatev_lo', 'study.dev.facts.gatev_hi')}",
+         f"{cell('paper.gatev_wf_sharpe')} (on {cell('paper.wf_common_days')} shared days)"
+         if m['paper.gatev_wf_sharpe'] is not None else '—'],
+        ['Strategy minus Gatev, Sharpe (Ledoit–Wolf p)',
+         f"{cell('benchmarks.sharpe_diff_vs_gatev.diff')} ({cell('benchmarks.sharpe_diff_vs_gatev.p')})",
+         f"{cell('paper.diff_oos')} ({cell('paper.diff_oos_p')})" if m['paper.diff_oos'] is not None else '—'],
     ]
     forest = [[r['label'], fmt(r['sharpe'], '+.2'), fmt(r['lo'], '.2'), fmt(r['hi'], '+.2'),
                fmt(r['days'], ',.0') if r['days'] else '—', r['method']] for r in dev['forest']]
-    alternatives = [[fmt(a['sharpe'], '.1'), fmt(a['p_ge'], '.3'), fmt(a['min_trl_years'], '.1')]
-                    for a in dev['power']['alternatives']]
+    alternatives = [[fmt(a['sharpe'], '.1'), fmt(a['p_ge_iid'], '.3'), fmt(a['p_ge_ar1'], '.3'),
+                     fmt(a['trl_iid'], '.1'), fmt(a['trl_ar1'], '.1')] for a in P['power_ar1']['alternatives']]
+    perf = P['performance']
+
+    def interval(v, signed=True):
+        spec = '+.2' if signed else '.2'
+        if v[1] is None:
+            return fmt(v[0], spec) or '—'
+        return f"{fmt(v[0], spec)} [{fmt(v[1], spec)}, {fmt(v[2], spec)}]"
+
+    def opt(v, spec):
+        return fmt(v, spec) if v is not None else '—'
+
+    def dd_days(v):
+        return '—' if v[0] is None else f"{v[0]} / {v[1] if v[1] is not None else 'not regained'}"
+    cols = ('main', 'wf', 'gatev')
+    performance_rows = [
+        ['Trading days', *(fmt(perf['days'][c], '.0') for c in cols)],
+        ['Total net return, %', *(fmt(perf[c]['total'], '+.2') for c in cols)],
+        ['Annualised net return, % (95% interval)', *(interval(perf[c]['ret']) for c in cols)],
+        ['Annualised volatility, % (95% interval)', *(interval(perf[c]['vol'], signed=False) for c in cols)],
+        ['Sharpe ratio (95% interval)', interval(perf['sharpe']['main']), interval(perf['sharpe']['wf']),
+         f"{cell('benchmarks.gatev.sharpe')} [{cell('study.dev.facts.gatev_lo')}, {cell('study.dev.facts.gatev_hi')}]"],
+        ['Maximum drawdown, %', *(fmt(perf[c]['max_dd'], '.2') for c in cols)],
+        ['Drawdown length, trading days: to trough / to recovery', *(dd_days(perf[c]['dd_days']) for c in cols)],
+        ['Average gross exposure, % of capital', *(opt(perf[c]['gross'], '.1') for c in cols)],
+        ['Net return on average gross exposure, % a year', *(opt(perf[c]['ret_gross'], '+.2') for c in cols)],
+        ['Trades', *(opt(perf[c]['trades'], '.0') for c in cols)],
+        ['Hit rate, % of trades', *(opt(perf[c]['hit'], '.1') for c in cols)],
+        ['Average holding period, trading days', *(opt(perf[c]['hold'], '.1') for c in cols)],
+        ['Annual turnover, × capital', *(opt(perf[c]['turnover'], '.1') for c in cols)],
+    ]
     funds = data.get('fund_profiles') or {}
 
     def fund(s, key):          # the headline JSON's figure (as the site prints it), else the replay's
@@ -656,26 +964,32 @@ def tables(data, m):
     schedules = [[s['id'], fmt(s['commission_bps'], '.1'), fmt(s['half_spread_bps'], '.1'),
                   fmt(s['impact_cap_bps'], '.0'), fmt(s['borrow_pct'], '.2'), fmt(s['financing_pct'], '.2'),
                   f"{fmt(s['position_pct'][0], '.0')}–{fmt(s['position_pct'][1], '.0')}",
-                  fmt(fund(s, 'total_return_pct'), '+.2%'), fmt(fund(s, 'sharpe'), '.2'),
-                  fmt(fund(s, 'max_drawdown_pct'), '.2%'), fmt(s['cost_pct'], '.2'), fmt(s['peak_gross_x'], '.2'),
+                  fmt(fund(s, 'total_return_pct'), '+.2'), fmt(fund(s, 'sharpe'), '+.2'),
+                  fmt(fund(s, 'max_drawdown_pct'), '.2'), fmt(s['cost_pct'], '.2'), fmt(s['peak_gross_x'], '.2'),
                   fmt(s['trades'], '.0')]
                  for s in dev.get('cost_schedules') or []]
     declaration = data['_declaration'] or {}
     grid = {k: v for k, v in (declaration.get('grid') or {}).items() if isinstance(v, list)}
     variants = [[k, 'grid values ' + ', '.join(fmt(x, '.2') for x in v)] for k, v in grid.items()]
-    variants += [[tg['name'], tg.get('why', '').replace('>=', '≥')] for tg in declaration.get('toggles') or []]
-    windows = [[str(w['n']), w['train_start'], w['test_start'], w['test_end'], fmt(w['ret_pct'], '+.3%'),
-                fmt(w['sharpe'], '.2') if w['trades'] else '—', str(w['trades']),
-                fmt(w['ranker_auc'], '.3')] for w in dev['walk_forward']['windows']]
+    variants += [[tg['name'], tg.get('why', '').replace('>=', '≥').replace('t+1', 't + 1')]
+                 for tg in declaration.get('toggles') or []]
+    # Windows are numbered 1..N here (the run numbers them on a grid that starts in 2020);
+    # the last one runs to the walk-forward's last day, so it can be longer than the rest.
+    wins = dev['walk_forward']['windows']
+    windows = [[str(i), short_date(w['train_start']), short_date(w['test_start']),
+                short_date(dev['run']['oos_period'][1] if i == len(wins) else w['test_end']), str(P['wf_days'][w['n']]),
+                fmt(w['ret_pct'], '+.2'), fmt(w['sharpe'], '+.2') if w['sharpe'] is not None and not _flat_window(w) else '—',
+                str(w['trades']), fmt(w['ranker_auc'], '.3')] for i, w in enumerate(wins, 1)]
     holdout_power_rows = [[str(r['days']), fmt(r['mde_shape'], '.1'), fmt(r['mde_normal'], '.1')]
                           for r in P['holdout_power_rows']]
     status = (study.get('holdout') or {}).get('status')
     if status != 'sealed':
         raise PaperDataError(f'the holdout is {status!r}: its per-arm results need a table the paper does '
                              'not have yet (extend tables() before publishing them)')
-    hypotheses = [['H1', 'v33 pairs (pre-registered design)', 'net mean return > 0', 'sealed', 'sealed', '—'],
-                  ['H2', 'Avellaneda–Lee residual reversion', 'net mean return > 0', 'sealed', 'sealed', '—'],
-                  ['H3', 'v32 as published, frozen', 'net mean return > 0', 'sealed', 'sealed', '—']]
+    design = 'pre-registered design' if P['prereg_status'] == 'filed' else 'design proposed for pre-registration'
+    hypotheses = [['H1', f'v33 pairs ({design})', 'mean daily net return > 0'],
+                  ['H2', 'Avellaneda–Lee residual reversion', 'mean daily net return > 0'],
+                  ['H3', 'v32 as published, frozen', 'mean daily net return > 0']]
     snooping = [['Hansen SPA p (consistent)', cell('paper.snooping.spa_p')],
                 ['White Reality Check p', cell('paper.snooping.reality_check_p')],
                 ['Romano–Wolf: variants rejected at 5%', cell('paper.snooping.romano_wolf_rejected')],
@@ -706,14 +1020,20 @@ def tables(data, m):
                 ['Price cache', f"sha256 {run['price_cache_sha256']}"],
                 ['Headline JSON', f"{data['_headline_path']}, sha256 {study['meta']['headline_sha256']}"],
                 ['Site data', f"assets/study.json, sha256 {data['_study_sha256']}"],
-                ['Universe', f"Nasdaq screener, {P['universe_as_of_long']}; {m['study.dev.facts.coverage_pct']} fetched"],
+                ['Universe', f"Nasdaq screener, {P['universe_as_of_long']}; "
+                 + (f"{m['paper.fetch.ok']} of {m['paper.fetch.symbols']} symbols with prices"
+                    if P['fetch'] else f"{m['study.dev.facts.coverage_pct']} fetched")],
                 ['Seed', f"PAIRS_SEED={run['seed']}"],
                 ['Stack', ' · '.join(f'{k} {v[k]}' for k in ('python', 'numpy', 'pandas', 'scipy', 'statsmodels', 'torch')
                                      if v.get(k))]]
     sources = [[path, digest] for path, digest in sorted(study['meta']['sources'].items())]
-    if data['_universe_index_sha256']:
-        sources.append(['reference/universe/index.json', data['_universe_index_sha256']])
-    profiles = [['Universe', 'today’s 3,000 largest US stocks by market cap', 'point-in-time members (IWV N-PORT)'],
+    for path, digest in ((data['_fetch_manifest_path'], data['_fetch_manifest_sha256']),
+                         ('reference/universe/index.json', data['_universe_index_sha256']),
+                         ('index.html', data['_site_sha256'])):
+        if digest:
+            sources.append([path, digest])
+    profiles = [['Universe', f"the {m['paper.names_file']} largest US stocks by market cap on {P['universe_as_of_long']}",
+                 'point-in-time members (IWV N-PORT)'],
                 ['Pair search', f"{PROFILES['v32'].max_universe} most liquid names, all pairs",
                  f"{PROFILES['v33'].max_universe} most liquid names, same Fama–French 49 industry"],
                 ['Re-selection', f"re-test the 2022 pool every {PROFILES['v32'].reselect_every} trading days",
@@ -727,7 +1047,8 @@ def tables(data, m):
                  f"one {fmt(100 * PROFILES['v33'].borrow_rate, '.2')}% fee a year"]]
     return {'significance': significance, 'forest': forest, 'alternatives': alternatives, 'schedules': schedules,
             'windows': windows, 'holdout_power': holdout_power_rows, 'variants': variants, 'hypotheses': hypotheses, 'snooping': snooping,
-            'validation': validation, 'manifest': manifest, 'sources': sources, 'profiles': profiles}
+            'validation': validation, 'manifest': manifest, 'sources': sources, 'profiles': profiles,
+            'performance': performance_rows}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -735,8 +1056,8 @@ def tables(data, m):
 # ──────────────────────────────────────────────────────────────────────────────
 
 MM = 1 / 25.4
-FULL = TEXT_WIDTH_MM * MM
-HALF = (TEXT_WIDTH_MM - COLUMN_GAP_MM) / 2 * MM
+FULL = EXHIBIT_WIDTH_MM * MM
+HALF = (EXHIBIT_WIDTH_MM - COLUMN_GAP_MM) / 2 * MM
 PAIR_HEIGHT = 1.6                       # inches: side-by-side exhibits share a height
 
 
@@ -758,7 +1079,8 @@ def _mpl(tokens):
         'ytick.major.pad': 3, 'xtick.major.pad': 2.5, 'lines.linewidth': 1.1, 'lines.solid_capstyle': 'round',
         'lines.solid_joinstyle': 'round', 'legend.frameon': False, 'axes.unicode_minus': True,
         'figure.facecolor': 'white', 'axes.facecolor': 'white', 'savefig.facecolor': 'white',
-        'svg.fonttype': 'path', 'svg.hashsalt': 'pairs-study', 'svg.image_inline': True, 'path.simplify': False,
+        # text stays text (searchable and copyable in the PDF); Typst sets it in the same Plex files
+        'svg.fonttype': 'none', 'svg.hashsalt': 'pairs-study', 'svg.image_inline': True, 'path.simplify': False,
         'axes.titlelocation': 'left', 'axes.titlepad': 4, 'axes.titleweight': 'semibold',
         'hatch.linewidth': 0.5, 'hatch.color': tokens['neutral-series'],
     })
@@ -770,13 +1092,28 @@ def _signed(v, dp=1, suffix=''):
     return fmt(v, f'+.{dp}{suffix}')
 
 
+# Typst knows the static Plex Medium and SemiBold files by their own family names, so a
+# weight that matplotlib writes as 'IBM Plex Sans' + font-weight names that family instead.
+_SVG_WEIGHTS = {'500': 'IBM Plex Sans Medm', '600': 'IBM Plex Sans SmBld'}
+
+
+def _svg_family(match):
+    style = match.group(1)
+    weight = re.search(r'font-weight: (\d+)', style)
+    if weight and weight.group(1) in _SVG_WEIGHTS:
+        style = re.sub(r'font-weight: \d+;? ?', '', style)
+        style = style.replace("font-family: 'IBM Plex Sans'", f"font-family: '{_SVG_WEIGHTS[weight.group(1)]}'")
+    return f'style="{style.rstrip("; ")}"'
+
+
 def _svg(fig):
     buf = io.StringIO()
     fig.savefig(buf, format='svg', metadata={'Date': None, 'Creator': None, 'Format': None, 'Type': None})
     import matplotlib.pyplot as plt
     plt.close(fig)
-    # the path ids matplotlib derives from glyph names are deterministic; drop trailing spaces
-    return '\n'.join(line.rstrip() for line in buf.getvalue().splitlines()) + '\n'
+    text = re.sub(r'style="([^"]*font-family[^"]*)"', _svg_family, buf.getvalue())
+    # ids are salted (svg.hashsalt) and so deterministic; drop trailing spaces
+    return '\n'.join(line.rstrip() for line in text.splitlines()) + '\n'
 
 
 def _dates(xs):
@@ -857,11 +1194,12 @@ def fig_equity(dev, t, plt):
     ax2.fill_between(x, D['dd'], 0, color=t['neg'], alpha=0.16, lw=0)
     ax2.plot(x, D['dd'], color=t['neg'], lw=0.8)
     i = int(np.argmin(D['dd']))
-    ax2.annotate('max ' + fmt(D['dd'][i], '.2%'), (x[i], D['dd'][i]), xytext=(5, 2), textcoords='offset points',
-                 fontsize=6.8, color=t['ink'], va='center')
+    # below the trough, clear of the line
+    ax2.annotate('max ' + fmt(D['dd'][i], '.2%'), (x[i], D['dd'][i]), xytext=(0, -3), textcoords='offset points',
+                 fontsize=6.8, color=t['ink'], ha='center', va='top')
     ax2.set_ylabel('Drawdown, %')
     ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: fmt(v, '.1')))
-    ax2.set_ylim(min(D['dd']) * 1.3, 0.15)
+    ax2.set_ylim(min(D['dd']) * 1.75, 0.15)
     ax3 = axes[2]
     ax3.fill_between(x, D['exposure'], 0, color=t['series-1'], alpha=0.14, lw=0, step='post')
     ax3.plot(x, D['exposure'], color=t['series-1'], lw=0.7, drawstyle='steps-post')
@@ -894,8 +1232,7 @@ def fig_walkforward(dev, t, plt):
     _zero(ax, t)
     ext = max(abs(v) for v in r)
     for xm, v, w in zip(mid, r, W):
-        label = str(w['trades']) if w['trades'] else 'none'
-        ax.annotate(label, (xm, v), xytext=(0, 2.5 if v >= 0 else -2.5), textcoords='offset points', ha='center',
+        ax.annotate(str(w['trades']), (xm, v), xytext=(0, 2.5 if v >= 0 else -2.5), textcoords='offset points', ha='center',
                     va='bottom' if v >= 0 else 'top', fontsize=6.4, color=t['ink-2'])
     ax.set_ylim(-ext * 1.3, ext * 1.3)
     ax.tick_params(axis='x', which='both', length=0)
@@ -992,63 +1329,55 @@ def fig_rolling(dev, t, plt):
     return fig
 
 
-def fig_forest(dev, study, t, plt):
+# The paper calls the walk-forward "out of sample" only with its qualification (Section
+# 3.5), so the site's short labels lose the "OOS".
+def _wf_label(label):
+    return label.replace('Walk-forward OOS', 'Walk-forward')
+
+
+def fig_forest(dev, study, power, t, plt):
+    """Sharpe ratios with intervals; `power` is the dependence-aware bound and MDE drawn."""
     F = dev['forest']
-    pw_ = dev['power']
     color = {'main': t['series-1'], 'oos': t['series-1'], 'gatev': t['series-2'], 'diff_main': t['ink-2'],
              'diff_oos': t['ink-2'], 'random': t['neutral-series'], 'gross': t['series-1'],
              'residual': t['series-3'], 'holdout': t['series-3']}
-    rows = [dict(r) for r in F]
-    pending = []
-    if not any(r['key'] == 'gross' for r in rows):
-        pending.append(('Main backtest, gross of costs', 'pending: v33 export'))
+    rows = [dict(r, label=_wf_label(r['label'])) for r in F]
     res = study.get('residual')
     if res and res.get('sharpe') is not None:
         rows.append({'key': 'residual', 'label': 'Avellaneda–Lee, net', 'kind': 'ci', 'sharpe': res['sharpe'],
                      'lo': res['lo'], 'hi': res['hi']})
-    else:
-        pending.append(('Avellaneda–Lee, net', 'pending: v33 run'))
     hold = study.get('holdout') or {}
     if hold.get('status') == 'complete' and hold.get('sharpe') is not None:
         rows.append({'key': 'holdout', 'label': 'Holdout 2026, net', 'kind': 'ci', 'sharpe': hold['sharpe'],
                      'lo': hold['lo'], 'hi': hold['hi']})
-    else:
-        pending.append(('Holdout 2026, net', 'sealed'))
-    labels = [r['label'] for r in rows] + [p[0] for p in pending]
-    n = len(labels)
-    fig, ax = plt.subplots(figsize=(FULL, 0.42 + 0.215 * n))
+    n = len(rows)
+    fig, ax = plt.subplots(figsize=(FULL, 0.62 + 0.215 * n))
     for i, r in enumerate(rows):
         c = color.get(r['key'], t['ink-2'])
         ax.plot([r['lo'], r['hi']], [i, i], color=c, lw=1.4, solid_capstyle='butt', zorder=3)
         ax.plot([r['sharpe']], [i], marker='o', markersize=4.2, color=c, markeredgecolor='white',
                 markeredgewidth=0.9, zorder=4)
-    for j, (_, status) in enumerate(pending):
-        ax.text(0.0, len(rows) + j, '  ' + status, va='center', ha='left', fontsize=6.8, color=t['ink-3'],
-                style='italic')
     _zero(ax, t, 'x')
-    if pw_.get('mde'):
-        ax.plot([pw_['mde'], pw_['mde']], [-0.5, len(rows) - 0.5], color=t['ink-3'], lw=0.7)
-        ax.annotate(f"detectable at 80% power: {fmt(pw_['mde'], '.2')}", (pw_['mde'], len(rows) - 0.5),
-                    xytext=(3, -1), textcoords='offset points', va='top', ha='left', fontsize=6.6, color=t['ink-2'])
-    main_i = next((i for i, r in enumerate(rows) if r['key'] == 'main'), None)
-    if main_i is not None and pw_.get('ucb'):
-        ax.plot([pw_['ucb']], [main_i], marker='|', markersize=8, color=t['ink'], mew=1.1, zorder=5)
-        ax.annotate(f"one-sided 95% bound {fmt(pw_['ucb'], '.2')}", (pw_['ucb'], main_i), xytext=(0, 6.5),
-                    textcoords='offset points', ha='center', va='bottom', fontsize=6.6, color=t['ink-2'])
+    # the one-sided bound and the 80%-power Sharpe, each a full-height rule labelled at its top
+    for v, text, ls, ha, dx in ((power['ucb'], f"one-sided 95% bound {fmt(power['ucb'], '.2')}", (0, (3, 2)), 'right', -3),
+                                (power['mde'], f"80% power at {fmt(power['mde'], '.2')}", '-', 'left', 3)):
+        ax.plot([v, v], [-0.75, n - 0.5], color=t['ink-2'], lw=0.8, ls=ls, zorder=2)
+        ax.annotate(text, (v, -0.75), xytext=(dx, 0), textcoords='offset points', va='center', ha=ha,
+                    fontsize=6.6, color=t['ink-2'])
     ax.set_yticks(range(n))
-    ax.set_yticklabels(labels)
-    for k, lab in enumerate(ax.get_yticklabels()):
-        lab.set_color(t['ink'] if k < len(rows) else t['ink-3'])
-    ax.set_ylim(n - 0.5, -1.0)
+    ax.set_yticklabels([r['label'] for r in rows])
+    for lab in ax.get_yticklabels():
+        lab.set_color(t['ink'])
+    ax.set_ylim(n - 0.5, -1.2)
     lows = [r['lo'] for r in rows] + [0.0]
-    highs = [r['hi'] for r in rows] + [pw_.get('mde') or 0.0]
-    pad = 0.06 * (max(highs) - min(lows))
-    ax.set_xlim(min(lows) - pad, max(highs) + 7 * pad)
+    highs = [r['hi'] for r in rows] + [power['mde']]
+    pad = 0.04 * (max(highs) - min(lows))
+    ax.set_xlim(min(lows) - pad, max(highs) + 6 * pad)
     ax.xaxis.set_major_locator(plt.MultipleLocator(0.5))
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: _signed(v, 1)))
     ax.set_xlabel('Annualised Sharpe ratio')
     ax.grid(axis='y', visible=False)
-    fig.subplots_adjust(left=0.235, right=0.99, top=0.985, bottom=0.6 / (0.42 + 0.215 * n))
+    fig.subplots_adjust(left=0.2, right=0.99, top=0.985, bottom=0.6 / (0.62 + 0.215 * n))
     return fig
 
 
@@ -1153,8 +1482,9 @@ def fig_anatomy(dev, t, plt):
         for i, g in enumerate(gs):
             v = g['net_usd'] / 1e6
             ax.barh(i, v, height=0.6, color=t['pos'] if v >= 0 else t['neg'], zorder=3)
-            ax.annotate(f"n = {g['n']}", (v, i), xytext=(3 if v >= 0 else -3, 0), textcoords='offset points',
-                        va='center', ha='left' if v >= 0 else 'right', fontsize=6.4, color=t['ink-2'])
+            # right of the bar, or of zero for a loss: never beside the category label
+            ax.annotate(f"n = {g['n']}", (max(v, 0.0), i), xytext=(3, 0), textcoords='offset points',
+                        va='center', ha='left', fontsize=6.4, color=t['ink-2'])
         _zero(ax, t, 'x')
         ax.set_yticks(range(len(gs)))
         ax.set_yticklabels([g['label'] for g in gs])
@@ -1187,12 +1517,12 @@ def fig_schedules(dev, t, plt):
         ax.set_ylim(*yl)
         import matplotlib.dates as mdates
         ax.xaxis.set_major_locator(mdates.YearLocator())
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('’%y'))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
         ax.yaxis.set_major_locator(plt.MaxNLocator(4, integer=True))
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: _signed(v, 0)))
         ax.margins(x=0.02)
     np.atleast_1d(axes)[0].set_ylabel('Cumulative net, %')
-    fig.subplots_adjust(left=0.065, right=0.99, top=0.84, bottom=0.15, wspace=0.12)
+    fig.subplots_adjust(left=0.065, right=0.975, top=0.84, bottom=0.15, wspace=0.14)
     return fig
 
 
@@ -1215,8 +1545,8 @@ def _dotplot(ax, rows, t, label_key='label', tlabel=True):
 
 def fig_factors(dev, t, plt):
     F = dev['factors']
-    rows = [{'label': r['series'] + (': ' + r['name'] if F['multi_factor'] else ''), 'v': r['beta'], 'lo': r['lo'],
-             'hi': r['hi'], 't': r['t']} for r in F['rows']]
+    rows = [{'label': _wf_label(r['series']) + (': ' + r['name'] if F['multi_factor'] else ''), 'v': r['beta'],
+             'lo': r['lo'], 'hi': r['hi'], 't': r['t']} for r in F['rows']]
     fig, ax = plt.subplots(figsize=(HALF, PAIR_HEIGHT))
     _dotplot(ax, rows, t)
     _zero(ax, t, 'x')
@@ -1240,8 +1570,10 @@ def fig_distribution(dev, t, plt):
     counts, _, _ = ax.hist(bp, bins=bins, color=t['series-1'], alpha=0.8, rwidth=0.92, zorder=2)
     _zero(ax, t)
     zero_days = int((bp == 0).sum())
-    ax.annotate(f'{fmt(zero_days, ",.0")} days with zero return', (0, counts.max()), xytext=(6, -2),
-                textcoords='offset points', va='top', fontsize=6.6, color=t['ink-2'])
+    centre = int(np.searchsorted(bins, 0.0, side='right')) - 1          # the bin around zero
+    ax.annotate(f'{fmt(counts[centre], ",.0")} days within ±1.25 bp,\nof which {fmt(zero_days, ",.0")} exactly zero',
+                (0, counts[centre]), xytext=(6, -2), textcoords='offset points', va='top', fontsize=6.6,
+                color=t['ink-2'], linespacing=1.15)
     ax.set_xlabel('Daily net return, bp of capital')
     ax.set_ylabel('Days')
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: _signed(v, 0)))
@@ -1254,40 +1586,44 @@ def fig_funnel(dev, t, plt):
     F = dev['funnel']
     ramp = [t['ord-1'], t['ord-2'], t['ord-3'], t['ord-4'], t['ord-4']]
     rows = F['pairs']
-    fig, ax = plt.subplots(figsize=(FULL, 0.4 + 0.24 * len(rows)))
+    fig, ax = plt.subplots(figsize=(FULL, 0.42 + 0.3 * len(rows)))
+    # log scale: the last stage (100 pairs) is a hairline on a linear axis to 35,000
     for i, r in enumerate(rows):
-        ax.barh(i, r['n'], height=0.6, color=ramp[min(i, len(ramp) - 1)], zorder=3)
+        ax.barh(i, r['n'], height=0.5, color=ramp[min(i, len(ramp) - 1)], zorder=3)
         count = fmt(r['n'], ',.0')
         ax.annotate(count, (r['n'], i), xytext=(3, 0), textcoords='offset points', va='center',
                     fontsize=6.8, color=t['ink'], fontweight='semibold')
         if r.get('expected'):
+            # the chance tick, labelled directly in the gap below its bar
             ax.plot([r['expected']] * 2, [i - 0.36, i + 0.36], color=t['ink'], lw=1.3, zorder=4)
-            ax.annotate(f"(tick: {fmt(r['expected'], ',.0')} expected by chance)", (r['n'], i),
-                        xytext=(6 + 4.3 * len(count), 0), textcoords='offset points', va='center', fontsize=6.6,
-                        color=t['ink-2'])
+            ax.annotate(f"{fmt(r['expected'], ',.0')} expected by chance", (r['expected'], i + 0.36),
+                        xytext=(0, -0.5), textcoords='offset points', va='top', ha='center', fontsize=6.6,
+                        color=t['ink-2'], zorder=5)
     ax.set_yticks(range(len(rows)))
     ax.set_yticklabels([r['stage'] for r in rows])
     for lab in ax.get_yticklabels():
         lab.set_color(t['ink'])
-    ax.set_ylim(len(rows) - 0.3, -0.5)
-    ax.set_xlim(0, max(r['n'] for r in rows) * 1.1)
+    ax.set_ylim(len(rows) - 0.5, -0.5)
+    ax.set_xscale('log')
+    ax.set_xlim(10, max(r['n'] for r in rows) * 2.2)
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: fmt(v, ',.0')))
-    ax.set_xlabel('Pairs')
+    ax.set_xlabel('Pairs (log scale)')
     ax.grid(axis='y', visible=False)
-    fig.subplots_adjust(left=0.2, right=0.99, top=0.97, bottom=0.4 / (0.4 + 0.24 * len(rows)) + 0.03)
+    fig.subplots_adjust(left=0.2, right=0.99, top=0.97, bottom=0.4 / (0.42 + 0.3 * len(rows)) + 0.03)
     return fig
 
 
-def fig_timeline(dev, study, t, plt):
+def fig_timeline(dev, study, t, plt, preregistered=False):
     run = dev['run']
     W = dev['walk_forward']['windows']
     cal = CALENDARS['dev']
     hold_start = (study.get('holdout') or {}).get('calendar_start')
     fig, ax = plt.subplots(figsize=(FULL, 1.45))
+    prereg = 'pre-registered' if preregistered else 'to be pre-registered'
     lanes = [('Formation', f'pairs selected on data to {long_date(cal.selection_cutoff)}'),
              ('Walk-forward', f"{len(W)} test windows, each after its training year"),
              ('Main backtest', f"entries {long_date(run['period'][0])} to {long_date(run['period'][1])}"),
-             ('Holdout', f"from {long_date(hold_start)}; pre-registered, sealed" if hold_start else 'pre-registered')]
+             ('Holdout', f"from {long_date(hold_start)}; sealed, {prereg}" if hold_start else prereg)]
     h = 0.34
     form = _dates([run['data_span'][0], cal.selection_cutoff])
     ax.barh(0, form[1] - form[0], left=form[0], height=h, color=t['ord-2'])
@@ -1528,7 +1864,7 @@ def figures(data, tokens):
         'walkforward': lambda: fig_walkforward(dev, tokens, plt),
         'monthly': lambda: fig_monthly(dev, tokens, plt),
         'rolling': lambda: fig_rolling(dev, tokens, plt),
-        'forest': lambda: fig_forest(dev, study, tokens, plt),
+        'forest': lambda: fig_forest(dev, study, data['paper']['power_ar1'], tokens, plt),
         'randomnull': lambda: fig_randomnull(dev, tokens, plt),
         'dsr': lambda: fig_dsr(dev, tokens, plt),
         'waterfall': lambda: fig_waterfall(dev, tokens, plt),
@@ -1537,7 +1873,7 @@ def figures(data, tokens):
         'factors': lambda: fig_factors(dev, tokens, plt),
         'distribution': lambda: fig_distribution(dev, tokens, plt),
         'funnel': lambda: fig_funnel(dev, tokens, plt),
-        'timeline': lambda: fig_timeline(dev, study, tokens, plt),
+        'timeline': lambda: fig_timeline(dev, study, tokens, plt, data['paper']['prereg_status'] == 'filed'),
         'snapshots': lambda: fig_snapshots(universe_snapshots(data['_universe_index']), tokens, plt),
         'universe': lambda: fig_universe(dev, tokens, plt),
         'costcurve': lambda: fig_costcurve(dev, tokens, plt),
@@ -1567,6 +1903,82 @@ FIGURE_PENDING = {
     'snapshots': 'Pending: point-in-time universe index.', 'schedules': 'Pending: cost-schedule replay.',
 }
 
+# Results the study will add. While one is absent its exhibit or table is left out of the
+# body and the note lists it here instead: (key, analysis, what it will show, what it awaits).
+# The key is a figure name, or a flag for results that are not a figure of their own.
+V33 = 'The v33 development run'
+FORTHCOMING = (
+    ('validation', 'Known-answer validation',
+     'The engine and its full cost model on synthetic markets with a known answer: the gross edge on planted '
+     'cointegrated pairs, no edge on forced non-cointegrated pairs, the hedge-ratio error and pair-selection recall',
+     'A committed validation run'),
+    ('universe', 'Point-in-time universe coverage',
+     'Index members with and without price history at each formation date, and the index weight the price data '
+     'do not cover: the survivorship gap', V33),
+    ('pvalues', 'Engle–Granger p-values',
+     'The distribution of the {pairs} p-values against the uniform distribution expected if no pair were '
+     'cointegrated', V33),
+    ('snooping', 'Data-snooping tests',
+     "White's Reality Check, Hansen's SPA test, the Romano–Wolf stepdown, the model confidence set and the "
+     'probability of backtest overfitting over the declared family ({grid}-point grid, {toggles} toggles)',
+     "The family's run on the development calendar"),
+    ('costcurve', 'Cost sensitivity',
+     'Net Sharpe ratio from 0× to 2× modelled costs with the break-even multiple, the Sharpe ratio gross of costs, '
+     'and the impact coefficient at 0.3, 0.6 and 1.0 crossed with two borrow fees', V33),
+    ('exitrace', 'Exit race',
+     'Targets against stops, compared with the count expected for a spread that does not mean-revert', V33),
+    ('decay', 'Decay from formation to trading',
+     'Gross return per trade of the same rule on the same pairs, formation period against trading period', V33),
+    ('persistence', 'Persistence of cointegration',
+     'The share of selected pairs still cointegrated in later windows, against the 5% expected by chance', V33),
+    ('capacity', 'Capacity',
+     'Impact cost against book size for a stated hypothetical gross edge (the measured edge is not significant)', V33),
+    ('multi_factor', 'Multi-factor attribution',
+     'Loadings on the five Fama–French factors, momentum and short- and long-term reversal, with Newey–West '
+     'errors', V33),
+    ('random_band', 'Random-pair band',
+     "Each day's 5th–95th percentile of the random-pair draws' cumulative returns, drawn around the equity curve",
+     V33),
+    ('residual', 'Avellaneda–Lee residual reversion',
+     'The second strategy family\'s development-period net Sharpe ratio and 95% interval, beside the pairs strategy',
+     'Its run on the development calendar'),
+    ('holdout', 'The 2026 holdout',
+     "Each arm's net Sharpe ratio, Holm-adjusted p-value and decision (H1–H3), and its cumulative return",
+     'The pre-registration, then a single run on 2026 data'),
+)
+
+
+def forthcoming(figs, flags_, m):
+    """[[key, analysis, what it will show, what it awaits]] for every result still absent."""
+    present = {k: v is not None for k, v in figs.items()}
+    present.update({'snooping': flags_['snooping'], 'multi_factor': flags_['multi_factor'],
+                    'random_band': flags_['random_band'], 'validation': flags_['validation']})
+    fill = {'pairs': m['fdr.pairs_tested'], 'grid': m['study.dev.snooping.grid_points'],
+            'toggles': m['study.dev.snooping.toggles']}
+    return [[key, what, shows.format(**fill), awaits] for key, what, shows, awaits in FORTHCOMING
+            if not present[key]]
+
+
+def concordance(site, figs, later):
+    """The site's exhibits and where each one is in the paper: [site n, site title, target].
+
+    target: the paper's label ('ex-<name>' or 'tab-validation'), 'forthcoming' for a
+    result the paper lists as forthcoming, or None for one it does not show.
+    """
+    if not site:
+        return None
+    out = []
+    for e in site:
+        name = e['name']
+        if name in ('pipeline', 'timeline') or figs.get(name) is not None:
+            target = 'ex-' + name if name != 'validation' else 'tab-validation'
+        elif name in later:
+            target = 'forthcoming'
+        else:
+            target = None
+        out.append([e['n'], e['title'], target])
+    return out
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Assembly
@@ -1584,7 +1996,9 @@ def build_data(inp):
         raise PaperDataError('the headline JSON has a top-level study/paper key')
     data = {**head, 'study': study, '_universe_index': inp['universe_index'], '_declaration': inp['declaration'],
             '_headline_path': inp['headline_path'], '_study_sha256': inp['study_sha256'],
-            '_universe_index_sha256': inp['universe_index_sha256']}
+            '_universe_index_sha256': inp['universe_index_sha256'],
+            '_fetch_manifest_path': inp['fetch_manifest_path'], '_fetch_manifest_sha256': inp['fetch_manifest_sha256'],
+            '_site_sha256': inp['site_sha256']}
     data['paper'] = derived(inp)
     m, why = format_metrics(data)
     tokens = site_tokens()
@@ -1593,21 +2007,26 @@ def build_data(inp):
     unexplained = [k for k, v in figs.items() if v is None and k not in FIGURE_PENDING]
     if unexplained:
         raise PaperDataError(f'exhibits {unexplained} have no data and no pending reason')
+    flags_ = flags(data)
+    later = forthcoming(figs, flags_, m)
     paper = {
         'schema': SCHEMA,
         'meta': {'builder': 'scripts/build_paper.py', 'paper_date': data['paper']['paper_date'],
                  'commit': study['meta']['commit'], 'headline': inp['headline_path'],
                  'headline_sha256': study['meta']['headline_sha256'], 'study_sha256': inp['study_sha256'],
-                 'universe_index_sha256': inp['universe_index_sha256']},
-        'layout': {'text_width_mm': TEXT_WIDTH_MM, 'column_gap_mm': COLUMN_GAP_MM},
+                 'universe_index_sha256': inp['universe_index_sha256'],
+                 'fetch_manifest': inp['fetch_manifest_path']},
+        'layout': {'exhibit_width_mm': EXHIBIT_WIDTH_MM, 'measure_mm': MEASURE_MM, 'column_gap_mm': COLUMN_GAP_MM},
         'colors': tokens,
         'm': m,
         'why': why,
-        'claims': claims(data),
-        'flags': flags(data),
+        'claims': {k: bool(v) for k, v in claims(data).items()},     # numpy comparisons give numpy bools
+        'flags': flags_,
         'tables': tables(data, m),
         'figures': {k: (f'build/figures/{k}.svg' if v is not None else None) for k, v in sorted(figs.items())},
         'pending': dict(sorted(missing.items())),
+        'forthcoming': later,
+        'concordance': concordance(inp['site_exhibits'], figs, {row[0] for row in later}),
     }
     return paper, {k: v for k, v in figs.items() if v is not None}
 

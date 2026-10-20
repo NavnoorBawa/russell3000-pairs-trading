@@ -8,14 +8,23 @@
   "beta_oos_significant": true,
   "beta_small": true,
   "bh_survivors_few": true,
-  "borderline_at_sharpe_1": true,
+  "both_bounds_about_one": true,
+  "both_cannot_reject_sharpe_half": true,
+  "both_mde_above_bound": true,
+  "both_reject_sharpe_1_5_and_2": true,
   "break_even_below_one": true,
-  "cannot_reject_sharpe_half": true,
+  "break_even_is_edge_over_cost": true,
   "chance_accounts_for_most": true,
+  "chance_count_near_selected": true,
   "clearing_windows_contain_best_month": true,
+  "dependence_widens": true,
   "dsr_low": true,
+  "edge_below_cost": true,
+  "edge_not_significant": true,
   "every_interval_spans_zero": true,
   "excess_cointegration": true,
+  "fetch_ok_is_price_history": true,
+  "flat_days_reconcile": true,
   "flat_run_exists": true,
   "gatev_above_strategy": true,
   "gross_below_cost": true,
@@ -27,29 +36,33 @@
   "inside_random_spread": true,
   "iwv_gap_shrinks": true,
   "kurtosis_fat": true,
+  "last_window_longer": true,
   "long_gained_short_lost": true,
   "main_ci_spans_zero": true,
   "main_negative": true,
-  "mde_above_ucb": true,
   "most_hedge_ratios_below_one": true,
   "multi_factor_pending": true,
   "no_schedule_significant": true,
   "not_different_from_gatev": true,
   "oos_ci_spans_zero": true,
   "oos_negative": true,
+  "ranker_brier_worse_than_base": true,
   "ranker_no_skill": true,
-  "rejects_sharpe_1": true,
-  "rejects_sharpe_1_5_and_2": true,
   "residual_pending": true,
   "schedules_some_lose_rest_break_even": true,
+  "sharpe_1_borderline_both": true,
+  "sharpe_1_rejected_only_if_iid": true,
   "short_loss_near_long_gain": true,
   "sides_carry_their_sign": true,
+  "sign_exceptions_near_one": true,
   "snooping_pending": true,
   "stops_lost_more_than_targets_earned": true,
-  "ucb_about_one": true,
   "ucb_below_one": true,
   "universe_not_point_in_time": true,
-  "validation_pending": true
+  "validation_pending": true,
+  "wf_carry_window_exists": true,
+  "wf_flat_window_exists": true,
+  "without_best_month_lower": true
  },
  "colors": {
   "accent": "#1d4f91",
@@ -73,6 +86,133 @@
   "series-3": "#1baf7a",
   "sunk": "#f1f0ec"
  },
+ "concordance": [
+  [
+   1,
+   "Cumulative net return on the 2026 holdout, by arm",
+   "forthcoming"
+  ],
+  [
+   2,
+   "Net of costs the book ends slightly below where it started; the Gatev baseline ends at +0.57%",
+   "ex-equity"
+  ],
+  [
+   3,
+   "Out of sample, 3 of 11 walk-forward windows made money; the stitched path ends at −1.75%",
+   "ex-walkforward"
+  ],
+  [
+   4,
+   "One month carries the result: July 2024 earned +2.14%, more than the whole period",
+   "ex-monthly"
+  ],
+  [
+   5,
+   "Half-year Sharpe ratios swing between −2.8 and +3.4; the only stretch whose band clears zero contains July 2024",
+   "ex-rolling"
+  ],
+  [
+   6,
+   "Every Sharpe interval spans zero; the data exclude only Sharpe ratios above about 1",
+   "ex-forest"
+  ],
+  [
+   7,
+   "The strategy sits at the 28th percentile of 200 random-pair portfolios",
+   "ex-randomnull"
+  ],
+  [
+   8,
+   "Deflated for 32 trials, the main backtest's Sharpe ratio has a 1.4% probability of beating chance; the data-snooping tests are pending",
+   "ex-dsr"
+  ],
+  [
+   9,
+   "Gross P&L, itself not significant, does not cover modelled costs; market impact is the largest item",
+   "ex-waterfall"
+  ],
+  [
+   10,
+   "Stops lost more than targets earned, and short-spread trades lost about what long-spread trades made",
+   "ex-anatomy"
+  ],
+  [
+   11,
+   "Sharpe ratio against a multiple of modelled costs",
+   "forthcoming"
+  ],
+  [
+   12,
+   "Exit race: targets against stops, and against a spread with no mean reversion",
+   "forthcoming"
+  ],
+  [
+   13,
+   "In-sample to out-of-sample decay of the same rule on the same pairs",
+   "forthcoming"
+  ],
+  [
+   14,
+   "Do selected pairs stay cointegrated?",
+   "forthcoming"
+  ],
+  [
+   15,
+   "Re-costed under five other cost and sizing schedules, the same trades lose money in four and break even in one",
+   "ex-schedules"
+  ],
+  [
+   16,
+   "Capacity: impact cost against book size for a stated gross edge",
+   "forthcoming"
+  ],
+  [
+   17,
+   "The only loading measured so far is a small market beta, significant out of sample",
+   "ex-factors"
+  ],
+  [
+   18,
+   "Daily returns are fat-tailed (kurtosis 6.7) with a spike at zero from flat days",
+   "ex-distribution"
+  ],
+  [
+   19,
+   "From 35,491 candidate pairs to 100 traded; chance alone accounts for most “cointegrated” pairs",
+   "ex-funnel"
+  ],
+  [
+   20,
+   "Engle–Granger p-values against the uniform null",
+   "forthcoming"
+  ],
+  [
+   21,
+   "Avellaneda–Lee residual reversion against the pairs strategy, development period",
+   "forthcoming"
+  ],
+  [
+   22,
+   "The pipeline, and what data each stage may see",
+   "ex-pipeline"
+  ],
+  [
+   23,
+   "Data splits: formation, walk-forward, main backtest and the sealed holdout",
+   "ex-timeline"
+  ],
+  [
+   24,
+   "Point-in-time universe: index members with and without price history at each formation date",
+   "forthcoming"
+  ],
+  [
+   25,
+   "Gross bp per trade on synthetic markets with known answers",
+   "forthcoming"
+  ]
+ ],
  "figures": {
   "anatomy": "build/figures/anatomy.svg",
   "capacity": null,
@@ -102,6 +242,7 @@
  },
  "flags": {
   "cost_split": false,
+  "fetch": true,
   "holdout_complete": false,
   "iwv": true,
   "multi_factor": false,
@@ -113,17 +254,98 @@
   "validation": false,
   "wf_daily": false
  },
+ "forthcoming": [
+  [
+   "validation",
+   "Known-answer validation",
+   "The engine and its full cost model on synthetic markets with a known answer: the gross edge on planted cointegrated pairs, no edge on forced non-cointegrated pairs, the hedge-ratio error and pair-selection recall",
+   "A committed validation run"
+  ],
+  [
+   "universe",
+   "Point-in-time universe coverage",
+   "Index members with and without price history at each formation date, and the index weight the price data do not cover: the survivorship gap",
+   "The v33 development run"
+  ],
+  [
+   "pvalues",
+   "Engle–Granger p-values",
+   "The distribution of the 35,491 p-values against the uniform distribution expected if no pair were cointegrated",
+   "The v33 development run"
+  ],
+  [
+   "snooping",
+   "Data-snooping tests",
+   "White's Reality Check, Hansen's SPA test, the Romano–Wolf stepdown, the model confidence set and the probability of backtest overfitting over the declared family (27-point grid, 11 toggles)",
+   "The family's run on the development calendar"
+  ],
+  [
+   "costcurve",
+   "Cost sensitivity",
+   "Net Sharpe ratio from 0× to 2× modelled costs with the break-even multiple, the Sharpe ratio gross of costs, and the impact coefficient at 0.3, 0.6 and 1.0 crossed with two borrow fees",
+   "The v33 development run"
+  ],
+  [
+   "exitrace",
+   "Exit race",
+   "Targets against stops, compared with the count expected for a spread that does not mean-revert",
+   "The v33 development run"
+  ],
+  [
+   "decay",
+   "Decay from formation to trading",
+   "Gross return per trade of the same rule on the same pairs, formation period against trading period",
+   "The v33 development run"
+  ],
+  [
+   "persistence",
+   "Persistence of cointegration",
+   "The share of selected pairs still cointegrated in later windows, against the 5% expected by chance",
+   "The v33 development run"
+  ],
+  [
+   "capacity",
+   "Capacity",
+   "Impact cost against book size for a stated hypothetical gross edge (the measured edge is not significant)",
+   "The v33 development run"
+  ],
+  [
+   "multi_factor",
+   "Multi-factor attribution",
+   "Loadings on the five Fama–French factors, momentum and short- and long-term reversal, with Newey–West errors",
+   "The v33 development run"
+  ],
+  [
+   "random_band",
+   "Random-pair band",
+   "Each day's 5th–95th percentile of the random-pair draws' cumulative returns, drawn around the equity curve",
+   "The v33 development run"
+  ],
+  [
+   "residual",
+   "Avellaneda–Lee residual reversion",
+   "The second strategy family's development-period net Sharpe ratio and 95% interval, beside the pairs strategy",
+   "Its run on the development calendar"
+  ],
+  [
+   "holdout",
+   "The 2026 holdout",
+   "Each arm's net Sharpe ratio, Holm-adjusted p-value and decision (H1–H3), and its cumulative return",
+   "The pre-registration, then a single run on 2026 data"
+  ]
+ ],
  "layout": {
   "column_gap_mm": 6.0,
-  "text_width_mm": 162.0
+  "exhibit_width_mm": 162.0,
+  "measure_mm": 130.0
  },
  "m": {
   "benchmarks.gatev.sharpe": "+0.07",
   "benchmarks.gatev.total_return_pct": "+0.57%",
-  "benchmarks.random_control.median_sharpe": "0.26",
+  "benchmarks.random_control.median_sharpe": "+0.26",
   "benchmarks.random_control.n_draws": "200",
   "benchmarks.random_control.p5_sharpe": "−0.53",
-  "benchmarks.random_control.p95_sharpe": "1.10",
+  "benchmarks.random_control.p95_sharpe": "+1.10",
   "benchmarks.random_control.strategy_percentile": "28",
   "benchmarks.sharpe_diff_vs_gatev.diff": "−0.14",
   "benchmarks.sharpe_diff_vs_gatev.p": "0.879",
@@ -151,16 +373,20 @@
   "oos.windows": "11",
   "oos.windows_no_trades": "2",
   "oos.windows_positive": "3",
+  "paper.alpha_t_main": "−0.24",
+  "paper.alpha_t_oos": "−0.79",
   "paper.best_month": "July 2024",
   "paper.beta_below_one": "148",
   "paper.boot_block_main": "3",
   "paper.boot_block_oos": "2",
   "paper.boot_resamples": "5,000",
+  "paper.chance_share_pct": "60%",
   "paper.clean": "clean",
   "paper.clear_first_end_long": "21 November 2024",
   "paper.clear_last_end_long": "8 January 2025",
   "paper.commit": "711b18cbd1a6",
   "paper.commit_short": "711b18c",
+  "paper.compounded_pct": "−0.30%",
   "paper.data_end_long": "31 December 2025",
   "paper.data_first_year": "2020",
   "paper.data_start_long": "2 January 2020",
@@ -168,11 +394,25 @@
   "paper.declared_long": "20 October 2026",
   "paper.diff_oos": "−0.16",
   "paper.diff_oos_p": "0.859",
+  "paper.edge.cost_bp": "12.9",
+  "paper.edge.gross_bp": "+8.9",
+  "paper.edge.gross_t": "0.28",
+  "paper.edge.net_bp": "−4.0",
+  "paper.fetch.errors": "86",
+  "paper.fetch.invalid": "86",
+  "paper.fetch.ok": "2,752",
+  "paper.fetch.ok_pct": "91.8%",
+  "paper.fetch.rows_removed": "1",
+  "paper.fetch.short": "75",
+  "paper.fetch.symbols": "2,999",
   "paper.flat_from": "December 2024",
+  "paper.flat_nonzero_days": "4",
   "paper.flat_to": "May 2025",
   "paper.formation_cutoff_long": "31 December 2022",
   "paper.formation_cutoff_short": "31 Dec 2022",
   "paper.formation_year": "2022",
+  "paper.gatev_vol_pct": "4.55%",
+  "paper.gatev_wf_sharpe": "−0.01",
   "paper.holdout.hi": null,
   "paper.holdout.lo": null,
   "paper.holdout.p": null,
@@ -200,10 +440,14 @@
   "paper.iwv_last_year": "2025",
   "paper.iwv_unmapped_first_pct": "4.1%",
   "paper.iwv_unmapped_last_pct": "0.6%",
+  "paper.lo_sharpe_main": "−0.07",
+  "paper.lo_sharpe_oos": "−0.36",
   "paper.long_net_long": "75",
   "paper.long_trades": "78",
+  "paper.main_vol_pct": "1.53%",
   "paper.names_file": "3,000",
   "paper.names_prices": "2,752",
+  "paper.oos_end_long": "12 December 2025",
   "paper.oos_end_month": "December 2025",
   "paper.oos_start_month": "February 2023",
   "paper.paper_date_long": "20 October 2026",
@@ -212,8 +456,21 @@
   "paper.period_end_month": "December 2025",
   "paper.period_start_long": "3 July 2023",
   "paper.period_start_month": "July 2023",
+  "paper.position_max_pct": "9.0%",
+  "paper.position_min_pct": "1.2%",
+  "paper.power_ar1.critical": "1.11",
+  "paper.power_ar1.mde": "1.68",
+  "paper.power_ar1.p_ge_0_5": "0.200",
+  "paper.power_ar1.p_ge_1": "0.057",
+  "paper.power_ar1.rho": "0.07",
+  "paper.power_ar1.se": "0.68",
+  "paper.power_ar1.trl_0_5": "12.4",
+  "paper.power_ar1.trl_1": "3.1",
+  "paper.power_ar1.ucb": "1.04",
   "paper.prereg_status": "not yet filed",
   "paper.proxy": "equal-weight daily return of 11 sector SPDR ETFs",
+  "paper.ranker_brier_base_pooled": "0.2499",
+  "paper.ranker_brier_pooled": "0.2547",
   "paper.residual.hi": null,
   "paper.residual.lo": null,
   "paper.residual.p": null,
@@ -233,16 +490,19 @@
   "paper.schedules_n_word": "five",
   "paper.short_net_short": "74",
   "paper.short_trades": "83",
+  "paper.sign_exceptions_word": "one",
   "paper.snooping.effective_trials": null,
   "paper.snooping.mcs_included": null,
   "paper.snooping.pbo_pct": null,
   "paper.snooping.reality_check_p": null,
   "paper.snooping.romano_wolf_rejected": null,
   "paper.snooping.spa_p": null,
+  "paper.trl_power_ratio": "2.3",
   "paper.universe_as_of_long": "18 October 2026",
   "paper.universe_top": "300",
   "paper.v32_borrow_bp": "25",
   "paper.v32_financing_bp": "50",
+  "paper.v32_formation_years": "2",
   "paper.v32_reselect_every": "90",
   "paper.v33_borrow_pct": "0.38%",
   "paper.v33_formation_years": "3",
@@ -250,7 +510,15 @@
   "paper.v33_universe_top": "500",
   "paper.version": "32.0.0",
   "paper.versions_count": "32",
+  "paper.wf_carry_windows": "8",
+  "paper.wf_common_days": "616",
+  "paper.wf_common_sharpe": "−0.17",
+  "paper.wf_flat_windows": "9",
+  "paper.wf_last_days": "81",
+  "paper.wf_window_days": "63",
+  "paper.without_best_pct": "−2.39%",
   "paper.years": "2023–2025",
+  "paper.zero_return_days": "203",
   "ranker.oos_auc": "0.514",
   "ranker.wf_pooled_auc": "0.510",
   "significance.main.ann_sharpe": "−0.07",
@@ -348,6 +616,7 @@
  "meta": {
   "builder": "scripts/build_paper.py",
   "commit": "711b18cbd1a657b2dff2b95647e5dbae40320fa4",
+  "fetch_manifest": "results/v32_dev/price_fetch_manifest.json",
   "headline": "results/v32_dev/headline_metrics.json",
   "headline_sha256": "93471564009554007e8bff1f6a67a02f7f2db96b99d76ad8bd3e5a57b5183b0e",
   "paper_date": "2026-10-20",
@@ -372,22 +641,30 @@
    [
     "0.5",
     "0.184",
-    "10.8"
+    "0.200",
+    "10.8",
+    "12.4"
    ],
    [
     "1.0",
     "0.046",
-    "2.7"
+    "0.057",
+    "2.7",
+    "3.1"
    ],
    [
     "1.5",
     "0.007",
-    "1.2"
+    "0.010",
+    "1.2",
+    "1.4"
    ],
    [
     "2.0",
     "0.001",
-    "0.7"
+    "0.001",
+    "0.7",
+    "0.8"
    ]
   ],
   "forest": [
@@ -460,27 +737,18 @@
   "hypotheses": [
    [
     "H1",
-    "v33 pairs (pre-registered design)",
-    "net mean return > 0",
-    "sealed",
-    "sealed",
-    "—"
+    "v33 pairs (design proposed for pre-registration)",
+    "mean daily net return > 0"
    ],
    [
     "H2",
     "Avellaneda–Lee residual reversion",
-    "net mean return > 0",
-    "sealed",
-    "sealed",
-    "—"
+    "mean daily net return > 0"
    ],
    [
     "H3",
     "v32 as published, frozen",
-    "net mean return > 0",
-    "sealed",
-    "sealed",
-    "—"
+    "mean daily net return > 0"
    ]
   ],
   "manifest": [
@@ -506,7 +774,7 @@
    ],
    [
     "Universe",
-    "Nasdaq screener, 18 October 2026; 97.1% fetched"
+    "Nasdaq screener, 18 October 2026; 2,752 of 2,999 symbols with prices"
    ],
    [
     "Seed",
@@ -517,10 +785,90 @@
     "python 3.12.3 · numpy 1.26.4 · pandas 2.2.3 · scipy 1.15.2 · statsmodels 0.14.4 · torch 2.13.0+cpu"
    ]
   ],
+  "performance": [
+   [
+    "Trading days",
+    "628",
+    "711",
+    "628"
+   ],
+   [
+    "Total net return, %",
+    "−0.30",
+    "−1.75",
+    "+0.57"
+   ],
+   [
+    "Annualised net return, % (95% interval)",
+    "−0.11 [−2.15, +1.93]",
+    "−0.61 [−2.65, +1.43]",
+    "+0.33 [−4.87, +5.53]"
+   ],
+   [
+    "Annualised volatility, % (95% interval)",
+    "1.53 [1.36, 1.70]",
+    "1.82",
+    "4.55 [4.11, 5.01]"
+   ],
+   [
+    "Sharpe ratio (95% interval)",
+    "−0.07 [−1.39, +1.23]",
+    "−0.33 [−1.49, +0.86]",
+    "+0.07 [−1.15, +1.27]"
+   ],
+   [
+    "Maximum drawdown, %",
+    "−3.00",
+    "−2.35",
+    "−4.14"
+   ],
+   [
+    "Drawdown length, trading days: to trough / to recovery",
+    "227 / 300",
+    "—",
+    "53 / 191"
+   ],
+   [
+    "Average gross exposure, % of capital",
+    "15.1",
+    "—",
+    "—"
+   ],
+   [
+    "Net return on average gross exposure, % a year",
+    "−0.72",
+    "—",
+    "—"
+   ],
+   [
+    "Trades",
+    "161",
+    "219",
+    "142"
+   ],
+   [
+    "Hit rate, % of trades",
+    "47.2",
+    "48.0",
+    "—"
+   ],
+   [
+    "Average holding period, trading days",
+    "12.6",
+    "—",
+    "55.5"
+   ],
+   [
+    "Annual turnover, × capital",
+    "6.0",
+    "—",
+    "—"
+   ]
+  ],
   "profiles": [
    [
     "Universe",
-    "today’s 3,000 largest US stocks by market cap",
+    "the 3,000 largest US stocks by market cap on 18 October 2026",
     "point-in-time members (IWV N-PORT)"
    ],
    [
@@ -558,9 +906,9 @@
     "0.10",
     "0.00",
     "2–5",
-    "+0.04%",
-    "0.03",
-    "−1.09%",
+    "+0.04",
+    "+0.03",
+    "−1.09",
     "0.22",
     "0.15",
     "161"
@@ -573,9 +921,9 @@
     "6.00",
     "3.00",
     "2–5",
-    "−2.38%",
+    "−2.38",
     "−1.58",
-    "−2.52%",
+    "−2.52",
     "2.57",
     "0.15",
     "152"
@@ -588,9 +936,9 @@
     "2.00",
     "1.50",
     "4–10",
-    "−3.27%",
+    "−3.27",
     "−1.08",
-    "−4.17%",
+    "−4.17",
     "3.74",
     "0.30",
     "161"
@@ -603,9 +951,9 @@
     "1.00",
     "1.00",
     "8–20",
-    "−2.97%",
+    "−2.97",
     "−0.48",
-    "−6.12%",
+    "−6.12",
     "3.88",
     "0.60",
     "161"
@@ -618,9 +966,9 @@
     "0.60",
     "0.50",
     "12–30",
-    "−2.59%",
+    "−2.59",
     "−0.27",
-    "−7.96%",
+    "−7.96",
     "3.88",
     "0.90",
     "161"
@@ -660,12 +1008,12 @@
    [
     "Gatev distance method, Sharpe [95% interval]",
     "+0.07 [−1.15, +1.27]",
-    "—"
+    "−0.01 (on 616 shared days)"
    ],
    [
-    "Strategy minus Gatev (Ledoit–Wolf p)",
+    "Strategy minus Gatev, Sharpe (Ledoit–Wolf p)",
     "−0.14 (0.879)",
-    "—"
+    "−0.16 (0.859)"
    ]
   ],
   "snooping": [
@@ -716,8 +1064,16 @@
     "028b1a29935565931fbe191ac578d8f2756d36b1ddc1d7ecb4833b8f7ca66add"
    ],
    [
+    "results/v32_dev/price_fetch_manifest.json",
+    "5f6b142038e794ebf767243c9f3f0ffd5111e5915141039fc5564ab1e85a00b5"
+   ],
+   [
     "reference/universe/index.json",
     "c64cc39c6431a8da4aee409914dd3a993f750ea42f71548c22b67ec35d398323"
+   ],
+   [
+    "index.html",
+    "1bed4c48b75fae7dc22c9024d5e1847e2b3b78e3b9fe4eaa751f40a249ec9fb4"
    ]
   ],
   "validation": [
@@ -785,7 +1141,7 @@
    ],
    [
     "open_fills",
-    "t+1 open instead of t+1 close fills"
+    "t + 1 open instead of t + 1 close fills"
    ],
    [
     "all_pairs",
@@ -802,112 +1158,123 @@
   ],
   "windows": [
    [
-    "9",
-    "2022-02-11",
-    "2023-02-14",
-    "2023-05-15",
-    "−1.682%",
+    "1",
+    "11 Feb 2022",
+    "14 Feb 2023",
+    "15 May 2023",
+    "63",
+    "−1.68",
     "−2.50",
     "42",
     "0.511"
    ],
    [
-    "10",
-    "2022-05-13",
-    "2023-05-16",
-    "2023-08-15",
-    "+1.302%",
-    "2.39",
+    "2",
+    "13 May 2022",
+    "16 May 2023",
+    "15 Aug 2023",
+    "63",
+    "+1.30",
+    "+2.39",
     "41",
     "0.506"
    ],
    [
-    "11",
-    "2022-08-15",
-    "2023-08-16",
-    "2023-11-13",
-    "−0.143%",
+    "3",
+    "15 Aug 2022",
+    "16 Aug 2023",
+    "13 Nov 2023",
+    "63",
+    "−0.14",
     "−0.27",
     "34",
     "0.557"
    ],
    [
-    "12",
-    "2022-11-11",
-    "2023-11-14",
-    "2024-02-14",
-    "−0.227%",
+    "4",
+    "11 Nov 2022",
+    "14 Nov 2023",
+    "14 Feb 2024",
+    "63",
+    "−0.23",
     "−0.44",
     "22",
     "0.565"
    ],
    [
-    "13",
-    "2023-02-14",
-    "2024-02-15",
-    "2024-05-15",
-    "+0.088%",
-    "0.20",
+    "5",
+    "14 Feb 2023",
+    "15 Feb 2024",
+    "15 May 2024",
+    "63",
+    "+0.09",
+    "+0.20",
     "23",
     "0.518"
    ],
    [
-    "14",
-    "2023-05-16",
-    "2024-05-16",
-    "2024-08-15",
-    "−0.312%",
+    "6",
+    "16 May 2023",
+    "16 May 2024",
+    "15 Aug 2024",
+    "63",
+    "−0.31",
     "−0.46",
     "31",
     "0.517"
    ],
    [
-    "15",
-    "2023-08-16",
-    "2024-08-16",
-    "2024-11-13",
-    "−0.148%",
+    "7",
+    "16 Aug 2023",
+    "16 Aug 2024",
+    "13 Nov 2024",
+    "63",
+    "−0.15",
     "−0.33",
     "13",
     "0.503"
    ],
    [
-    "16",
-    "2023-11-14",
-    "2024-11-14",
-    "2025-02-18",
-    "−0.120%",
-    "—",
+    "8",
+    "14 Nov 2023",
+    "14 Nov 2024",
+    "18 Feb 2025",
+    "63",
+    "−0.12",
+    "−2.85",
     "0",
     "0.525"
    ],
    [
-    "17",
-    "2024-02-15",
-    "2025-02-19",
-    "2025-05-19",
-    "0.000%",
+    "9",
+    "15 Feb 2024",
+    "19 Feb 2025",
+    "19 May 2025",
+    "63",
+    "0.00",
     "—",
     "0",
     "0.560"
    ],
    [
-    "18",
-    "2024-05-16",
-    "2025-05-20",
-    "2025-08-19",
-    "−0.733%",
+    "10",
+    "16 May 2024",
+    "20 May 2025",
+    "19 Aug 2025",
+    "63",
+    "−0.73",
     "−2.80",
     "1",
     "0.487"
    ],
    [
-    "19",
-    "2024-08-16",
-    "2025-08-20",
-    "2025-11-17",
-    "+0.236%",
-    "0.50",
+    "11",
+    "16 Aug 2024",
+    "20 Aug 2025",
+    "12 Dec 2025",
+    "81",
+    "+0.24",
+    "+0.50",
     "12",
     "0.497"
    ]
