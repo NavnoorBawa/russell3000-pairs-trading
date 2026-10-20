@@ -13,6 +13,11 @@ listing-venue maps, read from the committed reference files:
   directory (scripts/build_reference_data.py).
 
 Pure: no network, files are read once per path and every result is a fresh copy.
+
+A calendar that reaches into the sealed holdout reads its membership from
+data/<calendar>_reference/ instead (reference_root): the committed snapshots plus the
+unsealed ones, written there by scripts/build_pit_universe.py --sealed-out, so the
+tracked tree never changes while the holdout runs.
 """
 
 import csv
@@ -25,7 +30,10 @@ from typing import Dict, Iterable, List, Optional, Union
 
 import pandas as pd
 
-REFERENCE_DIR = pathlib.Path(__file__).resolve().parents[1] / 'reference'
+from pairs_trading.study_config import SEALED_FROM
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+REFERENCE_DIR = REPO_ROOT / 'reference'
 
 DateLike = Union[str, pd.Timestamp, datetime.date]
 
@@ -143,6 +151,14 @@ class PITUniverse:
             'unmapped_value_weight': float(frame.loc[frame['ticker'] == '', 'weight'].sum()),
             'missing_symbols': missing,
         }
+
+
+def reference_root(calendar) -> pathlib.Path:
+    """Where a study_config Calendar's point-in-time membership is read from: reference/,
+    or data/<name>_reference/ for a calendar whose data reach the sealed period."""
+    if str(calendar.data_end) < SEALED_FROM:
+        return REFERENCE_DIR
+    return REPO_ROOT / 'data' / f'{calendar.name}_reference'
 
 
 def _map(root: Union[str, os.PathLike, None], filename: str, column: str) -> Dict[str, str]:

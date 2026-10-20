@@ -35,7 +35,7 @@ Engine contract (v32). Each rule is exercised by the test suite (tests/test_engi
 import os
 from typing import Dict, List, Optional, Tuple
 
-from pairs_trading.config import pd, np, logging
+from pairs_trading.config import pd, np, logging, SECTOR_ETFS
 from pairs_trading.data_processor import EnhancedRussell3000DataProcessor
 from pairs_trading.pair_selector import FixedPrimeFundPairSelector
 from pairs_trading.multi_agent_system import FixedTransformerMultiAgentSystem, classifier_skill
@@ -77,6 +77,11 @@ def _naive(ts) -> pd.Timestamp:
     """Timestamp -> tz-naive Timestamp with the wall-clock date kept."""
     ts = pd.Timestamp(ts)
     return ts.tz_localize(None) if ts.tzinfo is not None else ts
+
+
+def _last_index_day(obj) -> Optional[pd.Timestamp]:
+    """Last date of a frame's or series' index as a tz-naive day (None if empty)."""
+    return _naive(obj.index.max()).normalize() if obj is not None and len(obj) else None
 
 
 def _align_ts(ts, like) -> pd.Timestamp:
@@ -1892,8 +1897,8 @@ class CompleteFixedRussell3000TradingSystem:
         """
         if self.profile.universe != 'pit_iwv':
             return self.data_processor.load_symbols()
-        from pairs_trading.universe import PITUniverse, industry_map
-        self.pit_universe = PITUniverse()
+        from pairs_trading.universe import PITUniverse, industry_map, reference_root
+        self.pit_universe = PITUniverse(reference_root(self.calendar))
         first = self.pit_universe.snapshot_asof(self.calendar.selection_cutoff)
         last = pd.Timestamp(self.calendar.data_end)
         dates = [s['period_date'] for s in self.pit_universe.snapshots()
@@ -1923,11 +1928,35 @@ class CompleteFixedRussell3000TradingSystem:
                     f"({cov['missing_value_weight']:.1%} of index weight)")
         return members
 
+    def _universe_file(self) -> str:
+        """The file that defines the run's universe (fingerprinted in its provenance)."""
+        if self.pit_universe is not None:
+            return str(self.pit_universe.universe_dir / 'index.json')
+        return 'data/marketcap.csv'                 # data_processor.load_symbols
+
+    def _check_macro_coverage(self) -> None:
+        """The regime gate reads VIX and every sector ETF on each trading day; a missing series
+        or a series that stops early reads as calm (full size, no entry block), silently
+        another strategy. A gated run therefore needs all of them through the last price date."""
+        last = max((d for d in (_last_index_day(df) for df in self.processed_data.values()) if d is not None),
+                   default=None)
+        series = {'^VIX': self.macro_data.get('VIX'), **{e: self.macro_data.get('sectors', {}).get(e)
+                                                          for e in SECTOR_ETFS}}
+        short = sorted(k for k, v in series.items()
+                       if v is None or len(v) == 0 or (last is not None and _last_index_day(v) < last))
+        if short:
+            when = last.date() if last is not None else 'the last price date'
+            raise RuntimeError(f"The regime gate needs VIX and every sector ETF through {when}; missing or "
+                               f"short: {short}. Delete {self.calendar.macro_cache} (if it exists) and re-run "
+                               "to fetch them again.")
+
     def load_study_data(self) -> None:
         """Universe, price cache and macro data, then the run's provenance block."""
         symbols = self._study_symbols()
         self.processed_data = self.data_processor.load_or_fetch_data(symbols)
         self.macro_data = self.data_processor.load_macro_data()
+        if self.profile.regime_gate:
+            self._check_macro_coverage()
         self._pair_state_cache = {}
         # Provenance first, so the log alone identifies code version, switches and data.
         log_run_config(build_run_config(system_info={
@@ -1935,6 +1964,8 @@ class CompleteFixedRussell3000TradingSystem:
             'initial_capital': self.initial_capital,
             'study': describe_study(self.profile, self.calendar),
             'price_cache': self.calendar.price_cache,
+            'macro_cache': self.calendar.macro_cache,
+            'universe_file': self._universe_file(),
             'universe_coverage': getattr(self.data_processor, 'universe_coverage', None),
             'universe_cached_fraction': getattr(self.data_processor, 'universe_cached_fraction', None),
             'universe_not_found_fraction': getattr(self.data_processor, 'universe_not_found_fraction', None)}))
@@ -2101,7 +2132,10 @@ class CompleteFixedRussell3000TradingSystem:
         except Exception as e:
             logger.error(f"Evidence layer failed: {e}", exc_info=True)
             results.setdefault('pipeline_errors', []).append(f"evidence: {e}")
-        results['regime_diagnosis'] = self.diagnose_regime_break('2023-04-04', '2023-07-05')
+        # The 2023 regime break lies in the development period; another calendar's export
+        # would carry a 2023 window under its own name.
+        results['regime_diagnosis'] = (self.diagnose_regime_break('2023-04-04', '2023-07-05')
+                                       if self.calendar.name == 'dev' else {})
 
         logger.info("Starting the cost-schedule replay...")
         fund_comparison = self.run_fund_type_comparison(results, main_daily_dates=results.get('daily_dates', []))
@@ -2123,6 +2157,8 @@ class CompleteFixedRussell3000TradingSystem:
             'universe_not_found_fraction': getattr(self.data_processor, 'universe_not_found_fraction', None),
             'study': describe_study(self.profile, self.calendar),
             'price_cache': self.calendar.price_cache,
+            'macro_cache': self.calendar.macro_cache,
+            'universe_file': self._universe_file(),
         }
         export_testing_results_to_json(results, system_info)      # sets results['run_config']
         if fund_comparison:

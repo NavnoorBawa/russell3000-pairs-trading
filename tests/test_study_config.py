@@ -169,3 +169,103 @@ def test_ranker_none_never_trains():
     assert agent.signal_transformer is None and agent.score_signal_quality(X[0]) == 1.0
     with pytest.raises(ValueError):
         FixedTransformerMultiAgentSystem(ranker='lstm')
+
+
+# ── the holdout seal ───────────────────────────────────────────────────────────
+
+def _git_repo(path, *steps):
+    """A repository whose history is `steps`: ('add'|'rm'|'edit', file) each one commit."""
+    import subprocess
+
+    def git(*a):
+        return subprocess.run(['git', *a], cwd=path, check=True, capture_output=True, text=True).stdout.strip()
+    git('init', '-q')
+    git('config', 'user.name', 't')
+    git('config', 'user.email', 't@example.invalid')
+    (path / 'README').write_text('x\n')
+    git('add', 'README')
+    git('commit', '-qm', 'root')
+    commits = []
+    for n, (op, name) in enumerate(steps):
+        f = path / name
+        if op == 'rm':
+            git('rm', '-q', name)
+        else:
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(f'{n}\n')
+            git('add', name)
+        git('commit', '-qm', f'{op} {name}')
+        commits.append(git('rev-parse', 'HEAD'))
+    return commits
+
+
+def test_the_holdout_is_unsealed_only_by_the_preregistration_commit(tmp_path, monkeypatch):
+    prereg = sc.PREREGISTRATION
+    added, edited = _git_repo(tmp_path, ('add', prereg), ('edit', prereg))
+    assert sc.preregistration_commit(tmp_path) == added
+    sc.assert_unsealed('2025-12-31', tmp_path)                  # before the seal: always allowed
+    monkeypatch.delenv('PAIRS_UNSEAL', raising=False)
+    with pytest.raises(sc.SealedError):
+        sc.assert_unsealed('2026-10-19', tmp_path)
+    monkeypatch.setenv('PAIRS_UNSEAL', edited)                  # a later commit does not unseal
+    with pytest.raises(sc.SealedError):
+        sc.assert_unsealed('2026-10-19', tmp_path)
+    monkeypatch.setenv('PAIRS_UNSEAL', added)
+    sc.assert_unsealed('2026-10-19', tmp_path)
+
+
+def test_an_ambiguous_preregistration_history_unseals_nothing(tmp_path, monkeypatch):
+    """Deleted and re-added: two adding commits, no unambiguous freeze. Not committed: none."""
+    prereg = sc.PREREGISTRATION
+    first, _, again = _git_repo(tmp_path, ('add', prereg), ('rm', prereg), ('add', prereg))
+    assert sc.preregistration_commit(tmp_path) is None
+    monkeypatch.setenv('PAIRS_UNSEAL', first)
+    with pytest.raises(sc.SealedError):
+        sc.assert_unsealed('2026-10-19', tmp_path)
+    other = tmp_path / 'other'
+    other.mkdir()
+    _git_repo(other, ('add', 'docs/NOTES.md'))
+    assert sc.preregistration_commit(other) is None
+
+
+def test_sealed_calendars_read_their_membership_outside_the_tracked_tree():
+    from pairs_trading.universe import REFERENCE_DIR, REPO_ROOT, reference_root
+    assert reference_root(sc.CALENDARS['dev']) == REFERENCE_DIR
+    assert reference_root(sc.CALENDARS['rehearsal2025']) == REFERENCE_DIR
+    assert reference_root(sc.CALENDARS['holdout2026']) == REPO_ROOT / 'data' / 'holdout2026_reference'
+
+
+def test_the_regime_gate_refuses_incomplete_macro_data():
+    """A gated (v32) run whose VIX or a sector ETF is missing or stops before the last price
+    date would read those days as calm; it stops instead."""
+    frames, macro, _ = make_market(n_pairs=1, n_noise=0, seed=3, end='2021-06-30')
+    system = CompleteFixedRussell3000TradingSystem(profile='v32', calendar='dev')
+    system.processed_data = frames
+    system.macro_data = macro
+    system._check_macro_coverage()
+    system.macro_data = {'VIX': macro['VIX'], 'sectors': {k: v for k, v in macro['sectors'].items() if k != 'XLRE'}}
+    with pytest.raises(RuntimeError, match='XLRE'):
+        system._check_macro_coverage()
+    system.macro_data = {'VIX': macro['VIX'].iloc[:-3], 'sectors': macro['sectors']}
+    with pytest.raises(RuntimeError, match='VIX'):
+        system._check_macro_coverage()
+
+
+def test_provenance_is_the_code_the_run_started_from(monkeypatch):
+    """A commit or edit during a run makes its exports dirty, with both commits recorded;
+    PAIRS_EXPECTED_COMMIT stops a run of other code before it loads anything."""
+    from pairs_trading import json_export as je
+    state = {'now': ('a' * 40, False)}
+    monkeypatch.setattr(je, '_git_state', lambda: state['now'])
+    monkeypatch.setattr(je, '_START_PROVENANCE', {})
+    monkeypatch.delenv('PAIRS_EXPECTED_COMMIT', raising=False)
+    je.record_start_provenance()
+    rc = je.build_run_config()
+    assert rc['git_commit'] == 'a' * 40 and rc['git_dirty'] is False and rc['git_changed_during_run'] is False
+    state['now'] = ('b' * 40, False)
+    rc = je.build_run_config()
+    assert rc['git_commit'] == 'a' * 40 and rc['git_commit_at_export'] == 'b' * 40
+    assert rc['git_dirty'] is True and rc['git_changed_during_run'] is True
+    monkeypatch.setenv('PAIRS_EXPECTED_COMMIT', 'c' * 40)
+    with pytest.raises(RuntimeError, match='PAIRS_EXPECTED_COMMIT'):
+        je.record_start_provenance()

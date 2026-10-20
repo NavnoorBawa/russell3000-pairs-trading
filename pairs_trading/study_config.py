@@ -21,17 +21,27 @@ The profile and calendar come from the CLI (--profile/--calendar), else the envi
 (PAIRS_PROFILE/PAIRS_CALENDAR), else the defaults below. The older switches
 PAIRS_RESELECT and PAIRS_USE_TRANSFORMER still override the profile's re-selection and
 ranker, and are reported as non-default switches in every export.
+
+The seal is in code, not only in procedure: data dated on or after SEALED_FROM (prices,
+macro series, the 2026 N-PORT holdings) is fetched only when PAIRS_UNSEAL names the
+commit that added docs/PREREGISTRATION.md (assert_unsealed), which scripts/run_holdout.sh
+sets after its checks.
 """
 
 import dataclasses
 import hashlib
 import json
 import os
+import pathlib
+import subprocess
 from dataclasses import dataclass
 from typing import Optional
 
 DEFAULT_PROFILE = 'v33'
 DEFAULT_CALENDAR = 'dev'
+SEALED_FROM = '2026-01-01'                 # first date of the sealed holdout period
+PREREGISTRATION = 'docs/PREREGISTRATION.md'
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 @dataclass(frozen=True)
@@ -166,6 +176,50 @@ def get_calendar(name: Optional[str] = None) -> Calendar:
     if name not in CALENDARS:
         raise ValueError(f"Unknown calendar {name!r}; choose one of {sorted(CALENDARS)}")
     return CALENDARS[name]
+
+
+class SealedError(RuntimeError):
+    """Data of the sealed holdout period was requested before the pre-registration."""
+
+
+def _git(repo, *args) -> Optional[subprocess.CompletedProcess]:
+    try:
+        return subprocess.run(['git', *args], cwd=repo, capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def preregistration_commit(repo=None) -> Optional[str]:
+    """The one commit that added docs/PREREGISTRATION.md, when HEAD descends from it.
+
+    Renames are not followed (a file moved into place is not 'added'), and a history with
+    more than one adding commit (deleted and re-added) has no unambiguous answer: None.
+    """
+    repo = repo or REPO_ROOT
+    out = _git(repo, '-c', 'log.follow=false', 'log', '--no-renames', '--diff-filter=A',
+               '--format=%H', '--', PREREGISTRATION)
+    commits = out.stdout.split() if out is not None and out.returncode == 0 else []
+    if len(commits) != 1:
+        return None
+    ancestor = _git(repo, 'merge-base', '--is-ancestor', commits[0], 'HEAD')
+    return commits[0] if ancestor is not None and ancestor.returncode == 0 else None
+
+
+def assert_unsealed(end_date: str, repo=None) -> None:
+    """Refuse data dated on or after SEALED_FROM unless the holdout has been unsealed.
+
+    Unsealed means PAIRS_UNSEAL equals the commit that added docs/PREREGISTRATION.md, an
+    ancestor of HEAD; scripts/run_holdout.sh sets it after checking that commit. Every
+    fetch of prices, macro series or N-PORT holdings for such a period goes through here.
+    """
+    if str(end_date)[:10] < SEALED_FROM:
+        return
+    commit = preregistration_commit(repo)
+    if commit is None or os.environ.get('PAIRS_UNSEAL') != commit:
+        raise SealedError(
+            f"data up to {str(end_date)[:10]} lies in the sealed holdout (from {SEALED_FROM}). It is "
+            f"fetched only by scripts/run_holdout.sh, after {PREREGISTRATION} is committed "
+            f"(pre-registration commit: {commit or 'none'}).")
 
 
 def describe(profile: Profile, calendar: Calendar) -> dict:

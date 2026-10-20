@@ -61,6 +61,7 @@ PROVENANCE_ENV_VARS = (
     'PAIRS_PROFILE', 'PAIRS_CALENDAR', 'PAIRS_SEED', 'PAIRS_FILL', 'PAIRS_USE_TRANSFORMER',
     'PAIRS_RANKER', 'PAIRS_RESELECT', 'PAIRS_DEMO_UNIVERSE', 'PAIRS_SKIP_REPROCESS',
     'PAIRS_ALLOW_PARTIAL_FETCH', 'PAIRS_N_JOBS', 'PAIRS_OUTPUT_DIR', 'PYTHONHASHSEED',
+    'PAIRS_UNSEAL', 'PAIRS_EXPECTED_COMMIT',
 )
 
 STRATEGY_DESCRIPTION = (
@@ -377,6 +378,34 @@ def file_fingerprint(path: str, chunk_size: int = 1 << 20) -> Optional[Dict]:
     }
 
 
+# The code a run started from (record_start_provenance, called by main before any data is
+# loaded). Exports are written hours later; a commit or edit in between would otherwise be
+# recorded as the provenance of a run that executed other code.
+_START_PROVENANCE: Dict = {}
+
+
+def _git_state() -> tuple:
+    commit = _git('rev-parse', 'HEAD')
+    dirty = _git('status', '--porcelain', '--untracked-files=no') if commit else None
+    return commit, (dirty != '') if dirty is not None else None
+
+
+def record_start_provenance() -> Dict:
+    """Record the commit and tree state at the start of a run, for build_run_config.
+
+    PAIRS_EXPECTED_COMMIT (set by scripts/run_holdout.sh) must equal that commit: a run
+    of other code stops here, before it has loaded any data.
+    """
+    commit, dirty = _git_state()
+    expected = os.environ.get('PAIRS_EXPECTED_COMMIT')
+    if expected and commit != expected:
+        raise RuntimeError(f"PAIRS_EXPECTED_COMMIT={expected}, but the checkout is at {commit}")
+    _START_PROVENANCE.clear()
+    _START_PROVENANCE.update({'git_commit': commit, 'git_dirty': dirty,
+                              'started_utc': datetime.now(timezone.utc).isoformat(timespec='seconds')})
+    return dict(_START_PROVENANCE)
+
+
 def build_run_config(results: Optional[Dict] = None, system_info: Optional[Dict] = None,
                      data_file: str = DATA_CACHE_FILE) -> Dict:
     """Provenance of a run: code version, switches, data fingerprint, library versions.
@@ -385,7 +414,12 @@ def build_run_config(results: Optional[Dict] = None, system_info: Optional[Dict]
     be tied to a commit, a fill convention, a seed or a data snapshot — and the README's
     figures drifted from the code for weeks unnoticed. `system_info` may carry
     'total_symbols_processed', 'pairs_selected', 'data_start', 'data_end', 'study' (the
-    study_config.describe record of the run's profile and calendar) and 'price_cache'.
+    study_config.describe record of the run's profile and calendar), 'price_cache',
+    'macro_cache' and 'universe_file' (the file defining the universe).
+
+    With record_start_provenance called at the start of the run, git_commit is the commit
+    the run started from, and a commit or tracked-file edit since then makes the run dirty
+    (git_changed_during_run, git_commit_at_export).
     """
     results = _as_dict(results)
     info = _as_dict(system_info)
@@ -396,12 +430,18 @@ def build_run_config(results: Optional[Dict] = None, system_info: Optional[Dict]
         study = describe_study(get_profile(), get_calendar())
     profile = study['profile']
     data_file = info.get('price_cache') or data_file
-    commit = _git('rev-parse', 'HEAD')
-    dirty = _git('status', '--porcelain', '--untracked-files=no') if commit else None
+    commit, dirty = _git_state()
+    start = dict(_START_PROVENANCE)
+    changed = bool(start) and (commit, dirty) != (start['git_commit'], start['git_dirty'])
+    provenance = {'git_commit': start['git_commit'] if start else commit,
+                  'git_dirty': (True if changed or start.get('git_dirty') else dirty)}
+    if start:
+        provenance.update({'git_changed_during_run': changed, 'run_started_utc': start['started_utc']})
+        if commit != start['git_commit']:
+            provenance['git_commit_at_export'] = commit
     return {
         'package_version': package_version(),
-        'git_commit': commit,
-        'git_dirty': (dirty != '') if dirty is not None else None,
+        **provenance,
         'run_timestamp_utc': datetime.now(timezone.utc).isoformat(timespec='seconds'),
         'env': {k: os.environ.get(k) for k in PROVENANCE_ENV_VARS},
         'effective': {
@@ -429,6 +469,8 @@ def build_run_config(results: Optional[Dict] = None, system_info: Optional[Dict]
             # universe symbols with no price history at the vendor (delisted): survivorship
             'universe_not_found_fraction': _r(info.get('universe_not_found_fraction'), 4),
             'price_cache': file_fingerprint(data_file),
+            'macro_cache': file_fingerprint(info['macro_cache']) if info.get('macro_cache') else None,
+            'universe_file': file_fingerprint(info['universe_file']) if info.get('universe_file') else None,
         },
         'versions': {
             'python': platform.python_version(),
