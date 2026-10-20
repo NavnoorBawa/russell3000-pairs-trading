@@ -144,13 +144,6 @@ def test_factor_attribution_matches_statsmodels_hac(seed):
     assert fa['r2'] == pytest.approx(float(ref.rsquared), rel=1e-10)
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "BUG (significance.factor_attribution): n = min(len(_finite(strategy_returns)), "
-    "len(market_returns)) counts only the FINITE strategy returns, then truncates both "
-    "series to that length before dropping non-finite rows - so every NaN in the strategy "
-    "series also silently drops the LAST (valid) observation. Here 2 bad rows give n = 297 "
-    "instead of 298. Latent in the pipeline: _factor_attribution aligns with "
-    "align_return_series first, which already removes non-finite rows."))
 def test_factor_attribution_drops_rows_missing_in_either_series():
     rng = np.random.default_rng(9)
     m = rng.normal(0, 0.01, 300)
