@@ -142,12 +142,13 @@ def cached_download(url: str, path: str, offline: bool = False, refresh: bool = 
     """Return (bytes, fingerprint) for `url`, cached at `path` with a `path + '.json'` sidecar.
 
     A cached file is used as is (the vintage stays pinned) unless `refresh` is set.
-    `offline` never touches the network and raises FileNotFoundError when the file is
-    not cached. `vintage_of(bytes)` names the data vintage recorded in the fingerprint;
-    the cached bytes are checked against the recorded SHA-256 on every read.
+    `offline` never touches the network (it overrides `refresh`) and raises
+    FileNotFoundError when the file is not cached. `vintage_of(bytes)` names the data
+    vintage recorded in the fingerprint; the cached bytes are checked against the
+    recorded SHA-256 on every read.
     """
     meta_path = path + '.json'
-    if os.path.exists(path) and not refresh:
+    if os.path.exists(path) and (offline or not refresh):
         with open(path, 'rb') as f:
             blob = f.read()
         meta = {}

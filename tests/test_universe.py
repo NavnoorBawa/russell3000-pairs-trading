@@ -113,6 +113,10 @@ def test_committed_snapshots_are_consistent_and_none_is_sealed():
     with open(REFERENCE_DIR / 'universe' / 'cusip_ticker_map.json') as f:
         entries = json.load(f)['entries']
     assert not [k for k, e in entries.items() if e['status'] in ('reused', 'unmapped') and e['ticker']]
+    successions = index['successions']
+    for old, link in successions.items():                   # same issuer number, successor's own ticker
+        assert old[:6] == link['successor'][:6] and entries.get(old, {}).get('status') != 'active'
+        assert link['ticker'] == (successions.get(link['successor']) or entries[link['successor']])['ticker']
     snaps = index['snapshots']
     assert snaps and [s['period_date'] for s in snaps] == sorted(s['period_date'] for s in snaps)
     for s in snaps:
@@ -126,9 +130,10 @@ def test_committed_snapshots_are_consistent_and_none_is_sealed():
         assert mapped == pytest.approx(s['mapped_value_share'], abs=1e-5)
         assert sum(1 for r in rows if r['ticker']) == s['n_mapped']
         assert all(r['ticker'] == normalise_ticker(r['ticker']) for r in rows)
-        for r in rows:                                       # every ticker comes from the committed map
+        for r in rows:                                       # every ticker comes from the map or a succession
             sid = r['cusip'] or r['isin']
-            assert r['ticker'] == ((entries.get(sid) or {}).get('ticker') or ''), (s['file'], sid)
+            want = successions[sid]['ticker'] if sid in successions else (entries.get(sid) or {}).get('ticker')
+            assert r['ticker'] == (want or ''), (s['file'], sid)
 
 
 @committed
@@ -138,3 +143,13 @@ def test_committed_universe_loads():
     members = uni.members_asof(last)
     assert len(members) > 2000 and members == sorted(set(members))
     assert {'AAPL', 'MSFT', 'JPM'} <= set(members)
+
+
+@committed
+def test_committed_universe_keeps_members_whose_cusip_changed():
+    # OpenFIGI no longer resolves these identifiers (re-domiciliation, reverse split,
+    # holding-company reorganisation); N-PORT's reported ticker or the issuer's successor
+    # CUSIP recovers them, so the formation universe is not missing them
+    uni = PITUniverse()
+    assert {'LIN', 'COO', 'CCL', 'AMC', 'LCID'} <= set(uni.members_asof('2022-12-31'))
+    assert 'GE' in uni.members_asof('2020-12-31')

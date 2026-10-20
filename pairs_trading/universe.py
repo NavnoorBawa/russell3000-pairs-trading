@@ -5,8 +5,8 @@ Russell 3000 membership as of any date, and the per-ticker industry, sector-ETF 
 listing-venue maps, read from the committed reference files:
 
 - reference/universe/index.json + iwv_<period>.csv: the iShares Russell 3000 ETF (IWV)
-  holdings in each quarterly SEC N-PORT filing, CUSIP -> ticker via OpenFIGI
-  (scripts/build_pit_universe.py);
+  holdings in each quarterly SEC N-PORT filing, CUSIP -> ticker via OpenFIGI and N-PORT's
+  own reported tickers (scripts/build_pit_universe.py);
 - reference/industry_ff49.csv: SIC from EDGAR -> Fama-French 49 industry -> Select
   Sector SPDR (scripts/build_reference_data.py);
 - reference/listing_venue.csv: primary listing venue from Nasdaq Trader's symbol
