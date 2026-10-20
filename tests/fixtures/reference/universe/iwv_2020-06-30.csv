@@ -1,0 +1,3 @@
+ticker,cusip,isin,name,weight
+AAA,000000AA1,US000000AA11,Alpha Corp,0.6
+DDD,000000DD5,US000000DD58,Delta Co,0.4

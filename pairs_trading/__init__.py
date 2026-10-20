@@ -11,6 +11,9 @@ Modules:
 
 - config.py: shared imports, constants and the CLI's runtime setup
 - data_processor.py: Russell 3000 price/indicator data and macro series
+- universe.py: point-in-time index membership (IWV N-PORT snapshots) and the industry,
+  sector-ETF and listing-venue maps under reference/
+- external_data.py: Ken French daily factors and FRED rates, cached with a fingerprint
 - pair_selector.py: cointegration pair selection (+ Benjamini-Hochberg FDR diagnostic)
 - trading_system.py: backtest engine, walk-forward, fund-cost replay, orchestration
 - transaction_costs.py / fund_profiles.py: cost model and the five fund profiles

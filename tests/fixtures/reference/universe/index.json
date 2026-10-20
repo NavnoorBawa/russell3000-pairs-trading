@@ -1,0 +1,27 @@
+{
+ "fund": "iShares Russell 3000 ETF (IWV)",
+ "sealed_from": "2026-01-01",
+ "sealed": [],
+ "snapshots": [
+  {
+   "period_date": "2020-06-30",
+   "filing_date": "2020-08-27",
+   "accession": "0000000000-20-000002",
+   "file": "iwv_2020-06-30.csv",
+   "n_holdings": 3,
+   "n_equity": 2,
+   "n_mapped": 2,
+   "mapped_value_share": 1.0
+  },
+  {
+   "period_date": "2020-03-31",
+   "filing_date": "2020-06-01",
+   "accession": "0000000000-20-000001",
+   "file": "iwv_2020-03-31.csv",
+   "n_holdings": 6,
+   "n_equity": 5,
+   "n_mapped": 4,
+   "mapped_value_share": 0.95
+  }
+ ]
+}
