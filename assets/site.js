@@ -153,7 +153,7 @@
 
   function start() {
     if (!window.Plot || !window.d3 || !window.Exhibits) {
-      figures.forEach(function (f) { message(f, 'Charts are unavailable: the chart library (cdn.jsdelivr.net) did not load. The numbers are in the text and in assets/study.json.'); });
+      figures.forEach(function (f) { message(f, 'Charts are unavailable: the chart library (assets/vendor/) did not load. The numbers are in the text and in assets/study.json.'); });
       return;
     }
     fetch('assets/study.json', {credentials: 'same-origin'})

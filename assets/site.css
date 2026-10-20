@@ -4,6 +4,17 @@
    come from the dataviz reference palette and are read by assets/exhibits.js, so no
    colour is hard-coded in script. */
 
+/* IBM Plex (SIL Open Font License 1.1, assets/fonts/LICENSE.txt), served from this site:
+   no third-party request, and the same typography for every reader. */
+@font-face { font-family: "IBM Plex Sans"; src: url("fonts/IBMPlexSans-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "IBM Plex Sans"; src: url("fonts/IBMPlexSans-Italic.woff2") format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: "IBM Plex Sans"; src: url("fonts/IBMPlexSans-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "IBM Plex Sans"; src: url("fonts/IBMPlexSans-SemiBold.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "IBM Plex Serif"; src: url("fonts/IBMPlexSerif-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "IBM Plex Serif"; src: url("fonts/IBMPlexSerif-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono"; src: url("fonts/IBMPlexMono-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono"; src: url("fonts/IBMPlexMono-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+
 :root {
   color-scheme: light;
   --paper: #f9f9f7;          /* page */
