@@ -513,6 +513,18 @@ def test_script_writes_the_anatomy_offline(synthetic_run, tmp_path):
     assert (results.parent / 'anatomy.txt').read_text().startswith('Anatomy of the null')
     assert out['source']['dtb3']['sha256'] and out['source']['results']['path'].endswith('pairs_trading_results.json')
     assert out['source']['price_cache_is_the_runs'] is None
+    # with the persistence table, then the same run again reusing it: identical bytes
+    first, second = tmp_path / 'a' / 'anatomy.json', tmp_path / 'b' / 'anatomy.json'
+    with_table = [a for a in argv if a != '--skip-persistence'] + ['--n-jobs', '1']
+    assert script.main(with_table + ['--out', str(first)]) == 0
+    table = json.loads(first.read_text())['persistence_detail']['clegg']
+    assert table['universe_cutoff'] == '2022-12-31' and [r['year'] for r in table['years']] == list(A.PERSISTENCE_YEARS)
+    assert script.main(with_table + ['--out', str(second), '--persistence-from', str(first)]) == 0
+    assert first.read_bytes() == second.read_bytes()
+    other = tmp_path / 'other.pkl'
+    other.write_bytes(pickle.dumps({k: v.iloc[:-1] for k, v in system.processed_data.items()}))
+    with pytest.raises(SystemExit, match='different price cache'):
+        script.main(with_table + ['--out', str(second), '--persistence-from', str(first), '--prices', str(other)])
     (fred / 'DTB3.csv.json').write_text(json.dumps({'sha256': '0' * 64}))
     with pytest.raises(ValueError, match='fingerprint'):
         script.main(argv)
