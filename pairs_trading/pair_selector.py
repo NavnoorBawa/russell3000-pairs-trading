@@ -21,10 +21,14 @@ logger = logging.getLogger(__name__)
 
 # Every column the per-pair tests read; the all-pairs search ships only these to workers.
 PAIR_TEST_COLUMNS = ('Close', 'Returns')
-# The all-pairs search is split into rectangular blocks of the pair matrix: about 8 tasks
-# per worker, so the pool stays busy to the end, and at least 250 pairs per task, so the
+# The all-pairs search runs in worker processes (joblib's default loky backend), not in
+# threads: the per-pair tests are pandas- and Python-bound and hold the GIL. On the 4,950
+# pairs of the 100 most liquid symbols (formation data 2020-2022, 4 CPUs), 4 processes
+# took 9 s, 4 threads 75 s and one process 24 s.
+# The search is split into rectangular blocks of the pair matrix: about 8 tasks per
+# worker, so the pool stays busy to the end, and at least 250 pairs per task, so the
 # ~10 ms cost of sending a task (its symbols' columns, not the whole universe) stays
-# below 1% of the ~2-3 ms of tests per pair.
+# below 1% of the ~5 ms of tests per pair.
 _TASKS_PER_JOB = 8
 _MIN_PAIRS_PER_TASK = 250
 
@@ -169,7 +173,7 @@ class FixedPrimeFundPairSelector:
 
         Each direction is statsmodels' coint(y0, y1) (trend='c', autolag='aic') computed by
         pairs_trading.fast_coint.engle_granger: the same statistic to rounding (~1e-13),
-        ~20x faster; degenerate inputs are handed to statsmodels itself.
+        13-30x faster; degenerate inputs are handed to statsmodels itself.
         """
         try:
             _, p12 = engle_granger(log_prices1, log_prices2)

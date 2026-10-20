@@ -2,19 +2,23 @@
 PAIRS TRADING - FAST ENGLE-GRANGER TEST
 =======================================
 A numpy re-implementation of statsmodels.tsa.stattools.coint(y0, y1) at the settings the
-pair selector uses (trend='c', method='aeg', maxlag=None, autolag='aic'), about 20x faster.
+pair selector uses (trend='c', method='aeg', maxlag=None, autolag='aic'), 13-30x faster
+(87 to 755 observations).
 
 The estimator, samples, lag search, tie-break, degrees of freedom and p-value function are
-statsmodels'; only the linear algebra differs. statsmodels fits the maxlag + 1 nested ADF
-regressions one by one (pinv + model set-up each time). Here the regressors are ordered so
-that every candidate regression uses a leading block of columns, and one Householder QR of
-the largest design yields all of their residual sums of squares. The t-statistic then
-differs from statsmodels' by rounding only (~1e-13); tests/test_fast_coint.py bounds it.
+statsmodels'. The cointegrating regression is computed with statsmodels' own operations,
+so its residual and R^2 are bit-identical to coint's. Only the ADF regressions differ:
+statsmodels fits the maxlag + 1 nested regressions one by one (pinv + model set-up each
+time); here the regressors are ordered so that every candidate regression uses a leading
+block of columns, and one Householder QR of the largest design yields all of their
+residual sums of squares. The t-statistic then differs from statsmodels' by rounding only
+(~1e-13); tests/test_fast_coint.py bounds it.
 """
 
 from typing import Tuple
 
 import numpy as np
+from statsmodels.tools.tools import pinv_extended
 from statsmodels.tsa.adfvalues import mackinnonp
 from statsmodels.tsa.stattools import coint
 
@@ -22,11 +26,13 @@ from statsmodels.tsa.stattools import coint
 # first-stage R^2 >= 1 - 100 * sqrt(eps) (statsmodels.tsa.stattools.SQRTEPS).
 _COLLINEAR_R2 = 1.0 - 100.0 * np.sqrt(np.finfo(np.double).eps)
 # Inputs within these margins of a statsmodels decision boundary go to statsmodels itself,
-# so a rounding-level difference can never change which branch is taken: R^2 within 1e-9
-# of the collinearity cut, AIC values of two lag orders within 1e-6 of each other (the
-# two implementations' AIC values differ by < 1e-9 on the test series, magnitude ~1e4),
-# or a design whose condition number exceeds 1e7 (rounding grows with it; statsmodels
-# treats a design as rank-deficient only beyond ~1e14).
+# so a rounding-level difference can never change which branch is taken. R^2 within 1e-9
+# of the collinearity cut: the R^2 here is coint's to the bit, the margin covers a numpy
+# or statsmodels build that rounds differently. AIC values of two lag orders within 1e-6
+# of each other: the two implementations' AIC values (magnitude ~1e3-1e4) differ by a few
+# units in the last place (< 1e-11) on the test series, near-collinear and high-price
+# pairs included. An ADF design whose condition number exceeds 1e7: rounding grows with
+# it, while statsmodels' pinv treats a design as rank-deficient only beyond ~1e15.
 _R2_MARGIN = 1e-9
 _AIC_MARGIN = 1e-6
 _MAX_CONDITION = 1e7
@@ -35,6 +41,20 @@ _MAX_CONDITION = 1e7
 def _statsmodels_coint(y0, y1) -> Tuple[float, float]:
     t_stat, p_value, _ = coint(y0, y1)
     return t_stat, p_value
+
+
+def _first_stage(a0: np.ndarray, a1: np.ndarray) -> Tuple[np.ndarray, float]:
+    """Residual and R^2 of OLS y0 = b y1 + a, computed exactly as coint computes them.
+
+    coint fits OLS(y0, add_trend(y1, 'c', prepend=False)) by the pinv route
+    (beta = pinv_extended(X) . y0, resid = y0 - X . beta) and compares
+    R^2 = 1 - resid'resid / centered_tss, with centered_tss = sum((y0 - mean y0)^2) (OLS
+    carries unit weights). The same operations in the same order give the same bits.
+    """
+    x = np.column_stack((a1, np.ones(a1.shape[0])))
+    pinv_x, _ = pinv_extended(x)
+    u = a0 - np.dot(x, np.dot(pinv_x, a0))
+    return u, 1.0 - np.dot(u, u) / np.sum((a0 - a0.mean()) ** 2)
 
 
 def _adf_factor(u: np.ndarray, du: np.ndarray, lags: int, level_first: bool):
@@ -90,28 +110,21 @@ def engle_granger(y0, y1) -> Tuple[float, float]:
     the regressions above go to statsmodels' coint itself, so they return (or raise)
     exactly what it does: non-finite or non-1-D input, unequal lengths, a constant leg,
     an (almost) perfectly collinear pair (t = -inf, p = 0 with a CollinearityWarning),
-    a sample too short for the largest lag regression, an ill-conditioned design, or two
-    lag orders whose AIC values are within rounding of each other.
+    a sample too short for the largest lag regression, an ill-conditioned ADF design, or
+    two lag orders whose AIC values are within rounding of each other.
     """
     a0 = np.asarray(y0, dtype=float)
     a1 = np.asarray(y1, dtype=float)
     # Fewer than 4 observations leave no lag search (maxlag = n // 2 - 1 < 1).
     if (a0.ndim != 1 or a1.shape != a0.shape or a0.shape[0] < 4
-            or not (np.isfinite(a0).all() and np.isfinite(a1).all()) or np.ptp(a1) == 0.0):
+            or not (np.isfinite(a0).all() and np.isfinite(a1).all())
+            or np.ptp(a0) == 0.0 or np.ptp(a1) == 0.0):
         return _statsmodels_coint(y0, y1)
     n = a0.shape[0]
 
-    # Step 1, centred: identical normal equations to OLS on [y1, 1].
-    d1 = a1 - a1.mean()
-    d0 = a0 - a0.mean()
-    sxx = d1 @ d1
-    tss = d0 @ d0
-    # Condition number of [y1, 1]: cond^2 = lmax / lmin <= trace^2 / det, det = n * sxx.
-    trace = a1 @ a1 + n
-    if not (tss > 0.0 and trace * trace <= _MAX_CONDITION ** 2 * n * sxx):
-        return _statsmodels_coint(y0, y1)
-    u = d0 - (d1 @ d0) / sxx * d1
-    if 1.0 - (u @ u) / tss >= _COLLINEAR_R2 - _R2_MARGIN:
+    # Step 1, statsmodels' arithmetic (a NaN R^2 also goes to statsmodels).
+    u, r_squared = _first_stage(a0, a1)
+    if not r_squared < _COLLINEAR_R2 - _R2_MARGIN:
         return _statsmodels_coint(y0, y1)
 
     # Step 2: lag search on the common sample. With the level first, lag order p uses the

@@ -11,7 +11,9 @@ import warnings
 import numpy as np
 import pandas as pd
 import pytest
+from statsmodels.regression.linear_model import OLS
 from statsmodels.tsa.stattools import coint
+from statsmodels.tsa.tsatools import add_trend
 
 from pairs_trading import fast_coint
 from pairs_trading.fast_coint import engle_granger
@@ -193,6 +195,60 @@ def test_perfectly_collinear_pair_is_cointegrated_with_p_zero():
     with pytest.warns(Warning, match='colinear'):
         t, p = engle_granger(3.0 * x - 2.0, x)
     assert t == -np.inf and p == 0.0
+
+
+def test_first_stage_is_statsmodels_own_to_the_bit():
+    """The cointegrating regression's residual and R^2 are coint's bit for bit, also for an
+    ill-conditioned [y1, 1] (y1 a level of 3 with a standard deviation of ~1e-7, cond
+    ~1e8), where the centred normal equations would be off by 4e-7 in t."""
+    rng = np.random.default_rng(1)
+    x = _random_walk(300, rng)
+    flat = 3.0 + 1e-8 * np.cumsum(rng.normal(0, 1, 300))
+    inputs = [(y1, y2) for _, _, y1, y2 in CASES[:48]] + [(1.0 + 0.5 * x, flat)]
+    for y1, y2 in inputs:
+        for a, b in ((y1, y2), (y2, y1)):
+            res = OLS(a, add_trend(b[:, None], 'c', prepend=False)).fit()
+            u, r_squared = fast_coint._first_stage(a, b)
+            assert u.tobytes() == res.resid.tobytes() and r_squared == res.rsquared
+    assert abs(engle_granger(1.0 + 0.5 * x, flat)[0] - coint(1.0 + 0.5 * x, flat)[0]) < 1e-12
+
+
+def _ill_conditioned_inputs():
+    """Pairs whose ADF design is too ill-conditioned for the QR route to match pinv.
+
+    The first-stage residual is a +-0.01 sawtooth (x is made exactly orthogonal to it), so
+    the lagged differences are collinear with the lagged level; the noise added to it sets
+    the condition number of the ADF design (~1e15 and ~1e10). With the condition guards
+    removed the fast route returns p = 0.81 where coint returns p = 0 on the first input,
+    and p = 0.003 where coint returns p = 0.95 on the second.
+    """
+    rng = np.random.default_rng(1)
+    n = 300
+    x = _random_walk(n, rng)
+    alt = (-1.0) ** np.arange(n)
+    x_orth = x - (alt @ x) / n * alt
+    return {
+        'exact sawtooth': (2.0 + 0.7 * x_orth + 0.01 * alt, x_orth),
+        'sawtooth + 1e-10 noise': (2.0 + 0.7 * x_orth + 0.01 * alt + rng.normal(0, 1e-10, n), x_orth),
+    }
+
+
+@pytest.mark.parametrize('name', list(_ill_conditioned_inputs()))
+def test_ill_conditioned_adf_design_is_left_to_statsmodels(name, monkeypatch):
+    y0, y1 = _ill_conditioned_inputs()[name]
+    calls = []
+    original = fast_coint._statsmodels_coint
+
+    def spy(a, b):
+        calls.append(1)
+        return original(a, b)
+
+    monkeypatch.setattr(fast_coint, '_statsmodels_coint', spy)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        expected = coint(y0, y1)[:2]
+        assert engle_granger(y0, y1) == expected
+    assert calls == [1]
 
 
 def test_ambiguous_lag_choice_is_left_to_statsmodels(monkeypatch):

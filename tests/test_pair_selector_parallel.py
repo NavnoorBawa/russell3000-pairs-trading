@@ -222,3 +222,13 @@ def test_n_jobs_switch(monkeypatch):
         monkeypatch.setenv('PAIRS_N_JOBS', bad)
         with pytest.raises(ValueError, match='PAIRS_N_JOBS'):
             resolve_n_jobs()
+
+
+def test_worker_count_is_recorded_but_does_not_make_a_variant(monkeypatch, tmp_path):
+    """PAIRS_N_JOBS is in the provenance block, and a run with any value is a headline run."""
+    from pairs_trading import json_export
+    for value in ('1', '2', '16'):
+        monkeypatch.setenv('PAIRS_N_JOBS', value)
+        run_config = json_export.build_run_config(data_file=str(tmp_path / 'no_cache.pkl'))
+        assert run_config['env']['PAIRS_N_JOBS'] == value
+        assert json_export.non_default_switches(run_config) == []
