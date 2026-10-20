@@ -27,14 +27,14 @@ DATES = [str(d.date()) for d in pd.bdate_range('2026-01-02', periods=200)]
 
 
 def _pairs_export(directory, net, profile='v33', calendar='holdout2026', commit=COMMIT, dirty=False,
-                  complete=True, switches=(), dates=DATES, seed=0):
+                  complete=True, switches=(), dates=DATES, seed=0, cache='ab' * 32):
     """A run's output directory shaped like export_testing_results_to_json + headline."""
     rng = np.random.default_rng(seed)
     os.makedirs(directory, exist_ok=True)
     study = {'profile': {'name': profile}, 'calendar': {'name': calendar},
              'profile_hash': PROFILES[profile].config_hash(), 'calendar_hash': CALENDARS[calendar].config_hash()}
     rc = {'git_commit': commit, 'git_dirty': dirty, 'run_timestamp_utc': '2026-10-21T00:00:00+00:00',
-          'study': study}
+          'study': study, 'data': {'price_cache': {'sha256': cache}}}
     days = [{'date': d, 'daily_return_pct': float(r) * 100, 'gross_return_pct': float(r) * 100,
              'open_positions': int(r != 0)} for d, r in zip(dates, net)]
     dist = list(rng.normal(0, 0.005, len(dates)))
@@ -131,6 +131,7 @@ def test_the_baseline_comparison_reproduces_the_in_run_test():
     (dict(v32={'complete': False}), 'complete'),
     (dict(v32={'switches': ['PAIRS_RANKER=gbm']}), 'non-default'),
     (dict(v32={'dates': DATES[1:] + ['2026-10-19']}), 'trading dates differ'),
+    (dict(v32={'cache': 'cd' * 32}), 'different price caches'),
     (dict(residual=False), 'registered'),
     (dict(nan=True), 'not all finite'),
 ])
@@ -158,3 +159,245 @@ def test_the_expected_commit_is_enforced(tmp_path, capsys):
     args = _args(tmp_path, v33, v32, res)
     args[args.index('--expect-commit') + 1] = 'e' * 40
     assert ev.main(args) == 2 and 'expected commit' in capsys.readouterr().err
+
+
+# ── scripts/run_holdout.sh, end to end with the data-touching commands stubbed ──────
+
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+import sys  # noqa: E402
+
+STUB = '''#!/usr/bin/env bash
+# PYTHON for the runbook test: fakes the commands that touch market data, runs the rest.
+echo "$*" >> "$STUB_LOG"
+case "${1:-} ${2:-}" in "-m pairs_trading.main") shift 2; exec "$REAL_PY" "$STUB_DIR/fake.py" main "$@";; esac
+case "${1:-}" in
+  scripts/build_pit_universe.py) shift; exec "$REAL_PY" "$STUB_DIR/fake.py" universe "$@";;
+  scripts/run_residual_statarb.py) shift; exec "$REAL_PY" "$STUB_DIR/fake.py" residual "$@";;
+esac
+exec "$REAL_PY" "$@"
+'''
+
+FAKE = '''import argparse, hashlib, json, os, pathlib, sys
+import numpy as np, pandas as pd
+sys.path.insert(0, os.getcwd())
+from pairs_trading.study_config import CALENDARS, PROFILES, describe
+kind, argv = sys.argv[1], sys.argv[2:]
+ap = argparse.ArgumentParser()
+for a in ('--profile', '--calendar', '--output-dir', '--sealed-out', '--sealed-from', '--through', '--out'):
+    ap.add_argument(a)
+for a in ('--fetch-only', '--include-sealed', '--offline'):
+    ap.add_argument(a, action='store_true')
+args = ap.parse_args(argv)
+with open(os.environ['STUB_ENV_LOG'], 'a') as f:
+    f.write(json.dumps({k: v for k, v in os.environ.items() if k.startswith('PAIRS_') or k == 'PYTHONHASHSEED'}) + '\\n')
+if kind == 'universe':
+    d = pathlib.Path(args.sealed_out); d.mkdir(parents=True, exist_ok=True)
+    (d / 'index.json').write_text('{"snapshots": []}')
+    sys.exit(0)
+cal = CALENDARS[args.calendar or 'holdout2026']
+dates = [str(x.date()) for x in pd.bdate_range(cal.backtest_start, cal.data_end)]
+rng = np.random.default_rng(len(args.profile or 'r'))
+net = rng.normal(0, 0.004, len(dates))
+if kind == 'residual':
+    p = pathlib.Path(args.out); p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps({'daily_dates': dates, 'daily_net_returns': list(net), 'total_trades': 3,
+                             'run_config': {'git_commit': os.environ['PAIRS_EXPECTED_COMMIT'], 'git_dirty': False,
+                                            'study': {'calendar': {'name': cal.name}}}}))
+    sys.exit(0)
+if args.fetch_only:
+    with open(cal.price_cache, 'a') as f:
+        f.write(args.profile + '\\n')
+    pathlib.Path(cal.price_cache.replace('.pkl', '_manifest.json')).write_text('{}')
+    pathlib.Path(cal.macro_cache).write_text('macro')
+    sys.exit(0)
+if os.environ.get('STUB_FAIL') == args.profile:
+    sys.exit('stub: this run fails')
+out = pathlib.Path(args.output_dir); out.mkdir(parents=True, exist_ok=True)
+rc = {'git_commit': os.environ['PAIRS_EXPECTED_COMMIT'], 'git_dirty': False,
+      'study': describe(PROFILES[args.profile], cal),
+      'data': {'price_cache': {'sha256': hashlib.sha256(open(cal.price_cache, 'rb').read()).hexdigest()}}}
+days = [{'date': d, 'daily_return_pct': float(r) * 100, 'gross_return_pct': float(r) * 100, 'open_positions': 1}
+        for d, r in zip(dates, net)]
+(out / 'pairs_trading_results_2023_2025_unbiased.json').write_text(json.dumps(
+    {'run_config': rc, 'daily_equity_curve': days, 'overall_performance': {'total_trades': 5},
+     'benchmarks': {'distance_method': {'daily_dates': dates, 'daily_returns': list(net * 0.5)},
+                    'random_control': {'daily_dates': dates, 'draw_sharpes': [0.1, -0.2, 0.3]}}}))
+(out / 'headline_metrics.json').write_text(json.dumps({'complete': True, 'non_default_switches': [],
+                                                       'run_config': rc}))
+'''
+
+
+def _git(repo, *args):
+    return subprocess.run(['git', *args], cwd=repo, check=True, capture_output=True, text=True).stdout.strip()
+
+
+@pytest.fixture
+def frozen_repo(tmp_path):
+    """A clone-like repository at a pushed pre-registration commit, the package and the
+    holdout scripts copied in, S2's script a stub, requirements without pins."""
+    repo, remote = tmp_path / 'repo', tmp_path / 'remote.git'
+    repo.mkdir()
+    shutil.copytree(os.path.join(REPO, 'pairs_trading'), repo / 'pairs_trading',
+                    ignore=shutil.ignore_patterns('__pycache__'))
+    (repo / 'scripts').mkdir()
+    for name in ('run_holdout.sh', 'trial_attempts.py', 'register_trial.py', 'publish_run.py',
+                 'evaluate_holdout.py'):
+        shutil.copy(os.path.join(SCRIPTS, name), repo / 'scripts' / name)
+    (repo / 'scripts' / 'run_residual_statarb.py').write_text('# S2 (stubbed in this test)\n')
+    shutil.copy(os.path.join(REPO, '.gitignore'), repo / '.gitignore')
+    shutil.copy(os.path.join(REPO, 'pyproject.toml'), repo / 'pyproject.toml')
+    (repo / 'requirements.txt').write_text('# no pins in this test\n')
+    (repo / 'reference').mkdir()
+    (repo / 'reference' / 'README').write_text('reference data\n')
+    (repo / 'data').mkdir()
+    (repo / 'data' / 'marketcap.csv').write_text('Symbol\nAAA\n')
+    _git(repo, 'init', '-q', '-b', 'main')
+    _git(repo, 'config', 'user.name', 't')
+    _git(repo, 'config', 'user.email', 't@example.invalid')
+    _git(repo, 'add', '-A')
+    _git(repo, 'commit', '-qm', 'code')
+    (repo / 'docs').mkdir()
+    (repo / 'docs' / 'PREREGISTRATION.md').write_text('# Pre-registration\n')
+    import hashlib
+    sha = hashlib.sha256((repo / 'data' / 'marketcap.csv').read_bytes()).hexdigest()
+    (repo / 'reference' / 'holdout_inputs.sha256').write_text(f'{sha}  data/marketcap.csv\n')
+    _git(repo, 'add', '-A')
+    _git(repo, 'commit', '-qm', 'freeze')
+    subprocess.run(['git', 'init', '-q', '--bare', str(remote)], check=True)
+    _git(repo, 'remote', 'add', 'origin', str(remote))
+    _git(repo, 'push', '-q', 'origin', 'main')
+    stub = tmp_path / 'stub'
+    stub.mkdir()
+    (stub / 'python').write_text(STUB)
+    (stub / 'python').chmod(0o755)
+    (stub / 'fake.py').write_text(FAKE)
+    return repo, stub
+
+
+def _run(repo, stub, **env):
+    e = {k: v for k, v in os.environ.items() if not k.startswith('PAIRS_')}
+    e.update(PYTHON=str(stub / 'python'), REAL_PY=sys.executable, STUB_DIR=str(stub),
+             STUB_LOG=str(stub / 'calls.log'), STUB_ENV_LOG=str(stub / 'env.log'), **env)
+    return subprocess.run(['bash', 'scripts/run_holdout.sh'], cwd=repo, env=e, capture_output=True, text=True,
+                          timeout=600)
+
+
+def _calls(stub):
+    p = stub / 'calls.log'
+    return p.read_text().splitlines() if p.exists() else []
+
+
+def _attempts(repo):
+    p = repo / 'results' / 'trial_attempts.jsonl'
+    return [json.loads(x) for x in p.read_text().splitlines()] if p.exists() else []
+
+
+def test_the_runbook_records_a_crash_resumes_and_runs_once(frozen_repo):
+    repo, stub = frozen_repo
+    head = _git(repo, 'rev-parse', 'HEAD')
+    # attempt 1: S3 crashes after S1 finished; a stray switch in the shell does not reach the runs
+    r = _run(repo, stub, STUB_FAIL='v32', PAIRS_RANKER='gbm')
+    assert r.returncode != 0, r.stderr
+    events = [(a['attempt'], a['event'], a.get('step')) for a in _attempts(repo)]
+    assert events == [(1, 'start', None), (1, 'done', 'universe'), (1, 'done', 'data'), (1, 'done', 'v33'),
+                      (1, 'failed', 'v32')]
+    assert not (repo / 'results' / 'trial_registry.jsonl').exists()
+    envs = [json.loads(x) for x in (stub / 'env.log').read_text().splitlines()]
+    assert all('PAIRS_RANKER' not in e and e['PYTHONHASHSEED'] == '0' and e['PAIRS_EXPECTED_COMMIT'] == head
+               for e in envs)
+    assert all(e['PAIRS_UNSEAL'] == head for e in envs)       # the freeze commit is HEAD here
+    # attempt 2 at the same commit: finished steps are not run again
+    n = len(_calls(stub))
+    r = _run(repo, stub)
+    assert r.returncode == 0, r.stdout + r.stderr
+    again = [c for c in _calls(stub)[n:] if 'pairs_trading.main' in c or 'build_pit_universe' in c]
+    assert again == ['-m pairs_trading.main --profile v32 --calendar holdout2026 --output-dir outputs/holdout2026_v32']
+    reg = [json.loads(x) for x in (repo / 'results' / 'trial_registry.jsonl').read_text().splitlines()]
+    assert [x['name'] for x in reg] == ['holdout2026'] and reg[0]['prereg_commit'] == head
+    assert [(a['attempt'], a['event']) for a in reg[0]['attempts'] if a['event'] in ('start', 'failed')] == \
+        [(1, 'start'), (1, 'failed'), (2, 'start')]
+    evaluation = json.loads((repo / 'results' / 'holdout2026' / 'evaluation.json').read_text())
+    assert sorted(evaluation['strategies']) == sorted(ev.REGISTERED)
+    assert evaluation['inputs']['expect_commit'] == head
+    assert (repo / 'results' / 'holdout2026' / 'logs' / 'holdout2026_a1_v33.log').exists()
+    # a third run is refused before anything runs
+    n = len(_calls(stub))
+    r = _run(repo, stub)
+    assert r.returncode != 0 and 'already registered' in r.stderr
+    assert not [c for c in _calls(stub)[n:] if 'pairs_trading.main' in c]
+
+
+@pytest.mark.parametrize('change, needle', [
+    ('untracked', 'untracked changes'),
+    ('code', 'code changed since the pre-registration'),
+    ('crash_fix_decision', 'may not change'),
+    ('input', 'differs from reference/holdout_inputs.sha256'),
+])
+def test_the_runbook_refuses_before_any_data_step(frozen_repo, change, needle):
+    repo, stub = frozen_repo
+    env = {}
+    if change == 'untracked':
+        (repo / 'pairs_trading' / 'extra.py').write_text('x = 1\n')
+    elif change in ('code', 'crash_fix_decision'):
+        target = 'scripts/evaluate_holdout.py' if change == 'crash_fix_decision' else 'scripts/publish_run.py'
+        with open(repo / target, 'a') as f:
+            f.write('# changed\n')
+        _git(repo, 'commit', '-qam', 'change')
+        env = {'HOLDOUT_CRASH_FIX': 'x'} if change == 'crash_fix_decision' else {}
+    else:
+        (repo / 'data' / 'marketcap.csv').write_text('Symbol\nBBB\n')
+    r = _run(repo, stub, **env)
+    assert r.returncode != 0 and needle in r.stderr, r.stderr
+    assert not _attempts(repo) and not [c for c in _calls(stub) if 'pairs_trading.main' in c]
+
+
+def test_the_runbook_refuses_a_shallow_clone(frozen_repo, tmp_path):
+    repo, stub = frozen_repo
+    shallow = tmp_path / 'shallow'
+    subprocess.run(['git', 'clone', '-q', '--depth', '1', f'file://{repo}', str(shallow)], check=True)
+    r = _run(shallow, stub)
+    assert r.returncode != 0 and 'shallow' in r.stderr
+
+
+def test_publishing_never_mixes_runs_and_refuses_variants(tmp_path):
+    pr = _load('publish_run')
+    pr.ROOT = tmp_path
+    src = tmp_path / 'out'
+    src.mkdir()
+    (src / 'headline_metrics.json').write_text(json.dumps({'complete': True, 'non_default_switches': []}))
+    (src / 'a.json').write_text('{}')
+    dest = pr.publish(src, 'x')
+    with pytest.raises(SystemExit, match='already holds'):
+        pr.publish(src, 'x')
+    (dest / 'stale.json').write_text('{}')
+    pr.publish(src, 'x', replace=True)
+    assert not (dest / 'stale.json').exists()
+    (src / 'headline_metrics.json').write_text(json.dumps({'complete': True, 'non_default_switches': ['PAIRS_RANKER=gbm']}))
+    with pytest.raises(SystemExit, match='variant'):
+        pr.publish(src, 'y')
+    pr.publish(src, 'y', variant=True)
+
+
+def test_a_holdout_trial_is_registered_only_with_its_own_runs_and_files(tmp_path):
+    rt = _load('register_trial')
+    run = tmp_path / 'res' / 'v33_pairs'
+    run.mkdir(parents=True)
+    rc = {'git_commit': 'a' * 40, 'git_dirty': False}
+    (run / 'headline_metrics.json').write_text(json.dumps({'run_config': rc}))
+    (run / 'MANIFEST.json').write_text(json.dumps({'files': {ev.RESULTS_FILE: {'sha256': 'f' * 64}}}))
+    evaluation = tmp_path / 'res' / 'evaluation.json'
+    evaluation.write_text(json.dumps({'strategies': {}, 'inputs': {'runs': {'v33_pairs': {
+        'sha256': {ev.RESULTS_FILE: 'e' * 64}}}}}))
+    reg, att = tmp_path / 'reg.jsonl', tmp_path / 'att.jsonl'
+    with pytest.raises(SystemExit, match='not from a clean tree'):
+        rt.register('holdout2026', [run], prereg_commit='p', head='b' * 40, path=reg, attempts=att)
+    with pytest.raises(SystemExit, match='differ from the evaluated'):
+        rt.register('holdout2026', [run], evaluation, prereg_commit='p', head='a' * 40, path=reg, attempts=att)
+    (run / 'MANIFEST.json').write_text(json.dumps({'files': {ev.RESULTS_FILE: {'sha256': 'e' * 64}}}))
+    ta = _load('trial_attempts')
+    ta.append('holdout2026', 'start', path=att, head='a' * 40)
+    ta.append('holdout2026', 'failed', path=att, step='v32')
+    e = rt.register('holdout2026', [run], evaluation, prereg_commit='p', head='a' * 40, path=reg, attempts=att)
+    assert [(a['attempt'], a['event']) for a in e['attempts']] == [(1, 'start'), (1, 'failed')]
+    assert e['evaluation']['inputs']['runs']['v33_pairs']['sha256'][ev.RESULTS_FILE] == 'e' * 64

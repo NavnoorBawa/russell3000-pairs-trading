@@ -385,8 +385,11 @@ _START_PROVENANCE: Dict = {}
 
 
 def _git_state() -> tuple:
+    """(HEAD, whether a tracked file differs from it). results/ is left out: publishing and
+    the trial registry write there while runs of the same commit are still to come."""
     commit = _git('rev-parse', 'HEAD')
-    dirty = _git('status', '--porcelain', '--untracked-files=no') if commit else None
+    dirty = (_git('status', '--porcelain', '--untracked-files=no', '--', '.', ':(exclude)results')
+             if commit else None)
     return commit, (dirty != '') if dirty is not None else None
 
 

@@ -21,8 +21,9 @@ have (a strategy that never trades has no Sharpe standard error) is null.
 The inputs are checked before anything is computed, and a failed check exits non-zero
 without a report: the calendar, each pairs run's profile and calendar hash against
 study_config, complete runs without non-default switches from a clean tree, one commit
-for every run (--expect-commit), finite returns on identical trading dates inside the
-calendar, and, on the holdout, exactly the three registered strategies.
+for every run (--expect-commit), one price cache for the pairs runs, finite returns on
+identical trading dates inside the calendar, and, on the holdout, exactly the three
+registered strategies.
 
 usage: python scripts/evaluate_holdout.py --pairs v33=DIR --pairs v32=DIR --residual FILE
                                           [--calendar holdout2026] [--expect-commit SHA]
@@ -174,7 +175,8 @@ def load_pairs_run(directory: pathlib.Path) -> dict:
                            'calendar': (study.get('calendar') or {}).get('name'),
                            'calendar_hash': study.get('calendar_hash'),
                            'complete': head.get('complete'),
-                           'non_default_switches': head.get('non_default_switches')},
+                           'non_default_switches': head.get('non_default_switches'),
+                           'price_cache_sha256': ((rc.get('data') or {}).get('price_cache') or {}).get('sha256')},
             'files': {p.name: _sha256(p) for p in (path, head_path) if p.exists()},
             'commit': rc.get('git_commit')}
 
@@ -203,6 +205,10 @@ def check_runs(runs: dict, calendar: str = HOLDOUT, expect_commit: str = None) -
         bad.append(f"the runs are not from one commit: {commits}")
     elif expect_commit and set(commits.values()) != {expect_commit}:
         bad.append(f"the runs are from {commits}, not the expected commit {expect_commit}")
+    caches = {k: v['provenance'].get('price_cache_sha256') for k, v in runs.items()
+              if 'profile_hash' in (v.get('provenance') or {})}
+    if len(set(caches.values())) > 1:
+        bad.append(f"the pairs runs read different price caches: {caches}")
     first = None
     for k, v in runs.items():
         p = v.get('provenance') or {}
