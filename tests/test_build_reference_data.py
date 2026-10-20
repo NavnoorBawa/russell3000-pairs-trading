@@ -68,6 +68,15 @@ def test_sector_etf_table_and_overrides():
     assert b.sector_etf(4955, 'Other') == 'XLI'
     assert b.sector_etf(9995, 'Other') is None                  # catch-all without a sector
     assert b.sector_etf(None, None) is None
+    assert b.sector_etf(5122, 'Whlsl') == 'XLV'                 # drug wholesalers (McKesson, Cencora, Cardinal)
+    assert b.sector_etf(5141, 'Whlsl') == 'XLP' and b.sector_etf(5065, 'Whlsl') == 'XLI'
+    assert b.sector_etf(7370, 'Softw') == 'XLC'                 # Alphabet, Meta
+    assert b.sector_etf(7372, 'Softw') == 'XLK'
+    assert b.sector_etf(7389, 'BusSv') == 'XLF' and b.sector_etf(7374, 'BusSv') == 'XLI'
+    assert b.sector_etf(8731, 'BusSv') == 'XLV'                 # contract research organisations
+    spans = sorted((lo, hi) for lo, hi, _ in b.SECTOR_ETF_SIC_OVERRIDES)
+    assert all(lo <= hi for lo, hi in spans)
+    assert all(prev_hi < lo for (_, prev_hi), (lo, _) in zip(spans, spans[1:]))   # disjoint: order is irrelevant
 
 
 def test_parse_nasdaq_traded():

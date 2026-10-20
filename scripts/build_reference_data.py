@@ -98,25 +98,35 @@ FF49_SECTOR_ETF = {
     'Other': None,    # French's catch-all; only its listed SIC ranges are assigned below
 }
 
-# SIC codes whose GICS sector differs from their FF49 industry's (inclusive ranges).
+# SIC codes whose GICS sector differs from their FF49 industry's (inclusive ranges), by the
+# same rule: the sector holding most of the code's market value.
 SECTOR_ETF_SIC_OVERRIDES = (
     (1531, 1531, 'XLY'),   # operative builders: GICS Homebuilding
     (3826, 3826, 'XLV'),   # laboratory analytical instruments: GICS Life Sciences Tools & Services
+    (4400, 4400, 'XLY'),   # water transportation, by value the cruise lines: GICS Hotels, Restaurants & Leisure
+    (4700, 4700, 'XLY'),   # transportation services, by value the online travel agencies: GICS Hotels, Restaurants & Leisure
     (4950, 4959, 'XLI'),   # sanitary services: GICS Environmental & Facilities Services
     (4960, 4961, 'XLU'),   # steam and air-conditioning supply: GICS Utilities
     (4970, 4971, 'XLU'),   # irrigation systems: GICS Water Utilities
     (4990, 4991, 'XLU'),   # cogeneration: GICS Independent Power Producers
+    (5047, 5047, 'XLV'),   # medical, dental and hospital equipment wholesale: GICS Health Care Distributors
+    (5122, 5122, 'XLV'),   # drug wholesale: GICS Health Care Distributors
+    (5140, 5149, 'XLP'),   # grocery wholesale: GICS Food Distributors
     (5330, 5331, 'XLP'),   # variety stores: GICS Consumer Staples Merchandise Retail (2023)
     (5399, 5399, 'XLP'),   # warehouse clubs and general merchandise: GICS Consumer Staples Merchandise Retail
     (5410, 5411, 'XLP'),   # grocery stores: GICS Food Retail
     (5910, 5912, 'XLP'),   # drug stores: GICS Drug Retail
     (6324, 6324, 'XLV'),   # hospital and medical service plans: GICS Managed Health Care
     (6798, 6798, 'XLRE'),  # real estate investment trusts: GICS Real Estate (Equity REITs)
+    (7370, 7370, 'XLC'),   # computer programming and data processing, by value Alphabet and Meta: GICS Interactive Media
+    (7389, 7389, 'XLF'),   # business services n.e.c., by value the card networks and processors: GICS Financials (2023)
+    (8731, 8731, 'XLV'),   # commercial biological research, contract research organisations: GICS Life Sciences Tools
 )
 
 # nasdaqtraded.txt 'Listing Exchange' codes.
 VENUES = {'N': 'NYSE', 'Q': 'Nasdaq', 'A': 'NYSE American', 'P': 'NYSE Arca', 'Z': 'Cboe BZX', 'V': 'IEX',
           'M': 'NYSE Texas', 'F': 'TXSE'}
+
 
 def _cached(path, url, offline, refresh, fetch=None):
     path = pathlib.Path(path)
