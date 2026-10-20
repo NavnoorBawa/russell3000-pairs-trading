@@ -965,22 +965,36 @@ def factor_attribution(strategy_returns, market_returns, periods: int = 252) -> 
     }
 
 
-def factor_attribution_multi(strategy_returns, factors: pd.DataFrame, periods: int = 252,
-                             max_lag: int = None) -> dict:
-    """Time-series regression of strategy returns on several factors, Newey-West errors.
+def _calendar_days(index: pd.Index) -> pd.Index:
+    """A date-like index as 'YYYY-MM-DD' calendar days (time of day and time zone
+    dropped, see _as_day_strings); a numeric index is returned unchanged."""
+    if pd.api.types.is_numeric_dtype(index.dtype):
+        return index
+    return pd.Index(_as_day_strings(index))
 
-        r_t - RF_t = alpha + sum_j beta_j f_jt + e_t      (OLS)
+
+def factor_attribution_multi(strategy_returns, factors: pd.DataFrame, periods: int = 252,
+                             max_lag: int = None, includes_cash_return: bool = False) -> dict:
+    """Time-series regression of excess strategy returns on several factors, Newey-West errors.
+
+        r_t = alpha + sum_j beta_j f_jt + e_t      (OLS; r_t in excess of cash)
 
     factors : DataFrame of per-period factor returns in the same units as the strategy
               (decimal; Ken French's files are in percent), one column per factor, e.g.
               Mkt-RF, SMB, HML, RMW, CMA, Mom, ST_Rev, LT_Rev. A column named 'RF' is the
-              risk-free rate, not a regressor: the strategy return is then taken in excess
-              of it, so alpha is measured against cash like the factor premia (the
-              engine's equity earns no interest). Without an 'RF' column returns are used
-              as given.
-    strategy_returns : a Series is aligned with `factors` on the index (inner join); an
-              array must already be aligned row for row. Rows with a non-finite value are
-              dropped.
+              risk-free rate, never a regressor.
+    includes_cash_return : whether strategy_returns contain interest on the account's
+              cash. The engine's do not: equity earns no interest and a long-short book
+              finances itself, so its daily return is already an excess-of-cash return,
+              like the zero-cost factor premia, and is used as given (False, the default).
+              Subtracting RF from it would count cash twice and bias alpha down by the
+              average bill rate (about 4.7%/yr over 2023-07..2025-12). For the total
+              return of a funded account pass True: RF_t (the 'RF' column, required) is
+              then subtracted from r_t before the regression.
+    strategy_returns : a Series is aligned with `factors` by calendar day (inner join;
+              string, naive, tz-aware and intraday-stamped date indexes all match by
+              their day, as in align_return_series); an array must already be aligned
+              row for row. Rows with a non-finite value are dropped.
     max_lag : Bartlett truncation lag; None uses the Newey-West rule of hac_tstat_mean.
 
     Returns 'alpha_ann' (alpha x periods) and 'alpha_tstat', 'r2', and per factor
@@ -992,10 +1006,18 @@ def factor_attribution_multi(strategy_returns, factors: pd.DataFrame, periods: i
     """
     if not isinstance(factors, pd.DataFrame):
         raise TypeError("factors must be a DataFrame with one column per factor")
+    if includes_cash_return and 'RF' not in factors.columns:
+        raise ValueError("includes_cash_return=True needs an 'RF' column to subtract")
     F = factors.astype(float)
     if isinstance(strategy_returns, pd.Series):
-        joined = pd.concat([strategy_returns.astype(float).rename('__strategy__'), F],
-                           axis=1, join='inner')
+        s = strategy_returns.astype(float)
+        s.index = _calendar_days(s.index)
+        F.index = _calendar_days(F.index)
+        s = s[~s.index.duplicated(keep='last')]
+        F = F[~F.index.duplicated(keep='last')]
+        joined = pd.concat([s.rename('__strategy__'), F], axis=1, join='inner').sort_index()
+        if joined.empty and len(s) and len(F):
+            raise ValueError("strategy_returns and factors have no date in common")
         y = joined.pop('__strategy__').to_numpy()
         F = joined
     else:
@@ -1004,14 +1026,13 @@ def factor_attribution_multi(strategy_returns, factors: pd.DataFrame, periods: i
             raise ValueError("strategy_returns and factors must have the same length "
                              "(or pass a Series to align on dates)")
     names = [c for c in F.columns if c != 'RF']
-    excess = 'RF' in F.columns
-    rf = F['RF'].to_numpy() if excess else np.zeros(len(y))
+    rf = F['RF'].to_numpy() if includes_cash_return else np.zeros(len(y))
     Xf = F[names].to_numpy()
     ok = np.isfinite(y) & np.isfinite(rf) & np.isfinite(Xf).all(axis=1)
     y, Xf = (y - rf)[ok], Xf[ok]
     n, k = Xf.shape
     lags = _newey_west_lags(n) if max_lag is None else int(max_lag)
-    out = {'n': int(n), 'lags': int(lags), 'excess_of_rf': bool(excess),
+    out = {'n': int(n), 'lags': int(lags), 'rf_subtracted': bool(includes_cash_return),
            'alpha_ann': _NAN, 'alpha_tstat': _NAN, 'r2': _NAN,
            'factors': {f: {'beta': _NAN, 'tstat': _NAN, 'variance_share': _NAN} for f in names}}
     if k == 0 or n < max(20, k + 2) or any(_is_constant(Xf[:, j]) for j in range(k)):
