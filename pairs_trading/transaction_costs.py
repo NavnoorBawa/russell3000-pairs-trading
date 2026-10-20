@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 # Typical quoted FULL spread (bps) by 20-day average dollar volume — liquid US equities.
 # Large caps trade at 1-2 bp, mid caps at 3-10 bp and small caps at 50 bp or more
-# (docs/transaction_costs_and_portfolio_exposure.md; Frazzini, Israel & Moskowitz 2018,
+# (docs/EXECUTION_COSTS.md; Frazzini, Israel & Moskowitz 2018,
 # "Trading Costs"). The model charges HALF of the full spread per execution.
 SPREAD_BUCKETS_BPS = (
     (500e6, 1.5),     # ADV >= $500M
