@@ -3,662 +3,932 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Russell 3000 Pairs Trading Research</title>
-<meta name="description" content="Cointegration pairs trading on the Russell 3000, rebuilt after a full audit and re-run: no edge after realistic execution and costs, in or out of sample.">
+<title>No Detectable Edge: Russell 3000 Pairs Trading</title>
+<meta name="description" content="Research note: a cointegration pairs strategy on the Russell 3000, tested in a main backtest, a continuous walk-forward and against two baselines, shows no detectable edge after realistic costs. A pre-registered test on 2026 data is pending.">
 <link rel="canonical" href="https://navnoorbawa.github.io/russell3000-pairs-trading/">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0e0e0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f0f0e" media="(prefers-color-scheme: dark)">
 <meta name="author" content="Navnoor Bawa">
-<meta property="og:type" content="website">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta property="og:type" content="article">
 <meta property="og:site_name" content="Statistical Arbitrage Research">
 <meta property="og:locale" content="en_US">
-<meta property="og:title" content="Russell 3000 Pairs Trading Research">
-<meta property="og:description" content="Cointegration pairs trading on the Russell 3000, rebuilt after a full audit and re-run: no edge after realistic execution and costs, in or out of sample.">
+<meta property="og:title" content="No detectable edge: Russell 3000 pairs trading">
+<meta property="og:description" content="A cointegration pairs strategy, tested in sample, walk-forward and against two baselines, shows no detectable edge after realistic costs. A pre-registered 2026 test is pending.">
 <meta property="og:url" content="https://navnoorbawa.github.io/russell3000-pairs-trading/">
 <meta property="og:image" content="https://navnoorbawa.github.io/russell3000-pairs-trading/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Card: Pairs trading research, measured honestly. Out-of-sample −0.16% per quarter, pooled Sharpe −0.33; not distinguishable from the textbook baseline. Bars show 11 walk-forward windows, 3 positive.">
+<meta property="og:image:alt" content="Card summarising the study's out-of-sample result and its walk-forward windows.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Russell 3000 Pairs Trading Research">
-<meta name="twitter:description" content="Cointegration pairs trading on the Russell 3000, rebuilt after a full audit and re-run: no edge after realistic execution and costs, in or out of sample.">
+<meta name="twitter:title" content="No detectable edge: Russell 3000 pairs trading">
+<meta name="twitter:description" content="A cointegration pairs strategy, tested in sample, walk-forward and against two baselines, shows no detectable edge after realistic costs.">
 <meta name="twitter:image" content="https://navnoorbawa.github.io/russell3000-pairs-trading/og-image.png">
-<meta name="twitter:image:alt" content="Card: Pairs trading research, measured honestly. Out-of-sample −0.16% per quarter, pooled Sharpe −0.33; not distinguishable from the textbook baseline. Bars show 11 walk-forward windows, 3 positive.">
+<meta name="twitter:image:alt" content="Card summarising the study's out-of-sample result and its walk-forward windows.">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareSourceCode",
-  "name": "Russell 3000 Statistical Arbitrage — Pairs Trading Research System",
-  "description": "A cointegration pairs-trading research system over the Russell 3000: formation-period pair selection with point-in-time screens, a two-state Kalman hedge ratio, next-day fills with a per-stock cost model, a continuous walk-forward simulation, statistical significance testing (Probabilistic and Deflated Sharpe, Newey-West, block bootstrap, probability of backtest overfitting) and Gatev-distance / random-pair baselines run on the same footing. Version 32 rebuilt the engine after a full audit and is validated on synthetic markets with known answers; results from earlier versions are withdrawn.",
-  "codeRepository": "https://github.com/NavnoorBawa/russell3000-pairs-trading",
-  "url": "https://navnoorbawa.github.io/russell3000-pairs-trading/",
-  "programmingLanguage": "Python",
-  "runtimePlatform": "Python 3.12",
-  "version": "32.0.0",
-  "dateModified": "2026-10-12",
+  "@type": "ScholarlyArticle",
+  "headline": "No detectable edge: cointegration pairs trading on the Russell 3000, 2023–2025",
+  "description": "A research note on a cointegration pairs-trading study of the Russell 3000 with formation-only pair selection, next-day fills, a per-stock cost model, a continuous walk-forward and two baselines. Its returns are indistinguishable from zero; a pre-registered test on 2026 data is pending.",
   "author": { "@type": "Person", "name": "Navnoor Bawa", "url": "https://github.com/NavnoorBawa" },
+  "dateModified": "2026-10-20",
+  "url": "https://navnoorbawa.github.io/russell3000-pairs-trading/",
+  "isBasedOn": "https://github.com/NavnoorBawa/russell3000-pairs-trading",
   "license": "https://opensource.org/licenses/MIT",
-  "keywords": "statistical arbitrage, pairs trading, cointegration, Kalman filter, walk-forward validation, Sharpe ratio significance, quantitative finance"
+  "keywords": "statistical arbitrage, pairs trading, cointegration, walk-forward validation, Sharpe ratio inference, transaction costs"
 }
 </script>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23070707'/%3E%3Crect x='6' y='14' width='5' height='12' fill='%234caf7d'/%3E%3Crect x='14' y='8' width='5' height='18' fill='%234caf7d'/%3E%3Crect x='22' y='18' width='5' height='8' fill='%23c75050'/%3E%3C/svg%3E">
-<script>
-/* Runs before first paint: apply a saved theme choice (otherwise the CSS follows the OS
-   preference), so a returning dark-mode visitor never sees a light flash. */
-(function(){
-  var d=document.documentElement,t=null;
-  d.className+=' js';
-  try{t=localStorage.getItem('theme')}catch(e){}
-  if(t==='light'||t==='dark'){
-    d.setAttribute('data-theme',t);
-    var m=document.querySelectorAll('meta[name="theme-color"]');
-    for(var i=0;i<m.length;i++){m[i].setAttribute('content',t==='dark'?'#0e0e0d':'#ffffff')}
-  }
-})();
-</script>
-<style>
-*,*::before,*::after{box-sizing:border-box}
-*{margin:0;padding:0}
-:root{
-  --bg:#ffffff;--bg-s:#f5f5f2;--code:#ebebe6;--b:#d9d9d4;--bs:#e8e8e4;--bh:#767670;
-  --tp:#1b1b19;--ts:#44443f;--tm:#5a5a54;--neg:#a32f2c;--link:#1b1b19;
-  --wbg:#fdf5e1;--wbd:#a8660b;--wtx:#6a4300;--wcode:#f3e4c2;--code-tx:#1b1b19;--focus:#1f5fbf;
-  --nav:rgba(255,255,255,.96);
-  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","DejaVu Sans Mono",monospace;
-  color-scheme:light
-}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --bg:#0e0e0d;--bg-s:#171716;--code:#242422;--b:#2e2e2b;--bs:#232321;--bh:#85857d;
-    --tp:#ededea;--ts:#c4c4be;--tm:#a6a69f;--neg:#f08f88;--link:#ededea;
-    --wbg:#251d0d;--wbd:#c8963a;--wtx:#f0c776;--wcode:#3a2e14;--code-tx:#ededea;--focus:#8fb8ff;
-    --nav:rgba(14,14,13,.96);
-    color-scheme:dark
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#0e0e0d;--bg-s:#171716;--code:#242422;--b:#2e2e2b;--bs:#232321;--bh:#85857d;
-  --tp:#ededea;--ts:#c4c4be;--tm:#a6a69f;--neg:#f08f88;--link:#ededea;
-  --wbg:#251d0d;--wbd:#c8963a;--wtx:#f0c776;--wcode:#3a2e14;--code-tx:#ededea;--focus:#8fb8ff;
-  --nav:rgba(14,14,13,.96);
-  color-scheme:dark
-}
-html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-padding-top:104px}  /* keep focused/anchored content clear of the sticky nav */
-@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
-body{background:var(--bg);color:var(--tp);font-family:var(--sans);font-size:16px;line-height:1.65;overflow-wrap:break-word}
-a{color:var(--link);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
-a:hover{text-decoration-thickness:2px}
-:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-::selection{background:var(--tp);color:var(--bg)}
-strong{font-weight:650}
-code,pre{font-family:var(--mono);font-size:.875em}
-code{background:var(--code);color:var(--code-tx);padding:.08em .35em;border-radius:3px;overflow-wrap:anywhere}
-.vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
-.skip:focus{position:fixed;left:12px;top:12px;width:auto;height:auto;margin:0;clip:auto;overflow:visible;white-space:normal;z-index:100;background:var(--bg);color:var(--tp);padding:10px 16px;border:2px solid var(--focus)}
-.wrap{max-width:1080px;margin:0 auto;padding:0 48px}
-
-/* ── navigation ── */
-.site-nav{border-bottom:1px solid var(--b);background:var(--nav);position:sticky;top:0;z-index:10}
-.nav-in{max-width:1080px;margin:0 auto;padding:12px 48px;display:flex;align-items:center;gap:8px 20px}
-.brand{flex:none;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ts);text-decoration:none;padding:6px 0}
-.nav-links{list-style:none;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px 16px;flex:1 1 auto;min-width:0}
-.nav-links a{display:inline-block;padding:6px 0;font-size:14px;color:var(--ts);text-decoration:none}
-.nav-links a:hover{color:var(--tp);text-decoration:underline}
-.theme-btn{flex:none;display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:13px;color:var(--tp);background:var(--bg);border:1px solid var(--bh);padding:6px 12px;border-radius:3px;cursor:pointer}
-.theme-btn .ind{width:12px;height:12px;border:1.5px solid currentColor;border-radius:50%}
-.theme-btn[aria-pressed="true"] .ind{background:currentColor}
-.theme-btn:hover{border-color:var(--tp)}
-html:not(.js) .theme-btn{display:none}
-
-/* ── hero and status ── */
-.hero{padding:64px 0 56px;border-bottom:1px solid var(--b)}
-.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--tm);margin-bottom:18px}
-h1{font-size:46px;line-height:1.1;font-weight:650;letter-spacing:-.02em;max-width:760px;margin-bottom:28px}
-.lede{font-size:19px;line-height:1.55;color:var(--tp);max-width:700px;margin-top:36px}
-.status{border:1px solid var(--wbd);border-left-width:6px;background:var(--wbg);padding:26px 30px 24px;max-width:900px}
-.status .tag{font-family:var(--mono);font-size:12px;font-weight:650;letter-spacing:.12em;text-transform:uppercase;color:var(--wtx);margin-bottom:8px}
-.status h2{font-size:24px;line-height:1.3;margin-bottom:14px}
-.status p{max-width:760px;margin-bottom:12px}
-.status code{background:var(--wcode)}
-.status a{color:var(--tp)}
-.status dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--wbd);margin-top:18px}
-.status dl>div{padding:12px 16px 0 0}
-.status dt{font-family:var(--mono);font-size:12px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--wtx)}
-.status dd{font-size:15px;line-height:1.5}
-.hero-note{color:var(--ts);max-width:700px;margin-top:14px}
-.cta{display:flex;flex-wrap:wrap;gap:12px 24px;margin-top:28px;align-items:center}
-.btn{display:inline-block;font-size:14px;color:var(--tp);border:1px solid var(--bh);padding:10px 18px;text-decoration:none;border-radius:3px}
-.btn:hover{border-color:var(--tp)}
-
-/* ── sections ── */
-.section{padding:72px 0;border-bottom:1px solid var(--b)}
-.section:last-of-type{border-bottom:0}
-.sec-label{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--tm);margin-bottom:10px}
-h2{font-size:28px;line-height:1.25;font-weight:650;letter-spacing:-.01em;margin-bottom:14px}
-h3{font-size:19px;line-height:1.35;font-weight:650;margin:44px 0 10px}
-.desc{color:var(--ts);max-width:700px;margin-bottom:26px}
-.note{color:var(--ts);max-width:760px;margin-top:16px;font-size:15px}
-.note strong{color:var(--tp)}
-.history{border-left:3px solid var(--bh);padding-left:16px}
-
-/* ── tables ── */
-.tw{max-width:100%;overflow-x:auto}
-table{width:100%;border-collapse:collapse;border:1px solid var(--b);font-size:15px;line-height:1.5}
-caption{caption-side:top;text-align:left;font-size:14px;color:var(--ts);padding:0 0 10px}
-th,td{padding:12px 16px;text-align:left;vertical-align:top;border-bottom:1px solid var(--bs)}
-thead th{font-family:var(--mono);font-size:12px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--tm);background:var(--bg-s);border-bottom:1px solid var(--b)}
-tbody th{font-weight:400;color:var(--tp)}
-tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
-td{color:var(--ts)}
-.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--tp)}
-.old{color:var(--tm);font-family:var(--mono);white-space:nowrap}
-.flag{display:inline-block;font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--neg);border:1px solid currentColor;border-radius:3px;padding:0 6px;margin-left:4px;white-space:nowrap}
-.res th:first-child{width:56%}
-.res td{width:22%}
-.hist tbody th{white-space:nowrap}
-
-/* ── methodology rows ── */
-.pipeline{border:1px solid var(--b)}
-.p-row{display:grid;grid-template-columns:210px minmax(0,1fr);border-bottom:1px solid var(--b)}
-.p-row:last-child{border-bottom:0}
-.p-key{margin:0;padding:20px 24px;font-family:var(--mono);font-size:13px;font-weight:650;letter-spacing:.04em;color:var(--tm);border-right:1px solid var(--b)}
-.p-val{padding:20px 24px;color:var(--ts);min-width:0}
-.p-val p+p{margin-top:10px}
-.p-val strong{color:var(--tp)}
-
-/* ── lists, code, cards ── */
-.lims{list-style:none;max-width:800px;border-top:1px solid var(--b)}
-.lims li{padding:16px 0;border-bottom:1px solid var(--b);color:var(--ts)}
-.lims li strong{color:var(--tp)}
-.steps{max-width:800px;padding-left:1.4em;color:var(--ts)}
-.steps li{margin-bottom:8px;padding-left:4px}
-.plain{max-width:800px;padding-left:1.2em;color:var(--ts)}
-.plain li{margin-bottom:8px}
-.plain strong{color:var(--tp)}
-pre{background:var(--bg-s);color:var(--tp);border:1px solid var(--b);padding:16px 18px;overflow-x:auto;max-width:100%;line-height:1.6;font-size:13.5px;white-space:pre}
-pre code{background:none;padding:0;font-size:inherit;overflow-wrap:normal}
-.docs{list-style:none;border-top:1px solid var(--b);max-width:860px}
-.doc{padding:22px 0;border-bottom:1px solid var(--b)}
-.doc .meta{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--tm);margin-bottom:4px}
-.doc h3{margin:0 0 6px;font-size:19px}
-.doc p{color:var(--ts);max-width:760px}
-.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--b);max-width:860px;margin-top:28px}
-.g2{padding:20px 24px;border-bottom:1px solid var(--b)}
-.g2:nth-child(odd){border-right:1px solid var(--b)}
-.g2:nth-last-child(-n+2){border-bottom:0}
-.g2 dt{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--tm);margin-bottom:4px}
-.g2 dd{color:var(--tp)}
-.g2 dd span{display:block;color:var(--ts);font-size:14px;margin-top:2px}
-
-/* ── footer ── */
-.site-foot{border-top:1px solid var(--b);padding:32px 0 40px}
-.f-in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px 32px;align-items:flex-start}
-.f-left{font-size:14px;color:var(--ts)}
-.f-links{list-style:none;display:flex;flex-wrap:wrap;gap:8px 24px;font-size:14px}
-
-@media (max-width:900px){
-  html{scroll-padding-top:0}
-  .site-nav{position:static}
-  .nav-in{flex-wrap:wrap}
-  /* visual order = DOM order = tab order: brand, links, then the theme toggle */
-  .brand{flex:1 1 100%;min-width:0}
-  .nav-links{flex:1 1 100%;justify-content:flex-start}
-  .theme-btn{margin-top:4px}
-  .status dl{grid-template-columns:repeat(2,minmax(0,1fr))}
-}
-@media (max-width:760px){
-  .wrap,.nav-in{padding-left:16px;padding-right:16px}
-  .nav-in{gap:4px 16px}
-  .nav-links{gap:0 16px}
-  .hero{padding:40px 0 44px}
-  h1{font-size:34px;margin-bottom:22px}
-  .lede{font-size:17px;margin-top:28px}
-  .status{padding:20px 16px 18px;border-left-width:5px}
-  .status h2{font-size:20px}
-  .section{padding:52px 0}
-  h2{font-size:24px}
-  th,td{padding:10px 12px}
-  .p-row{grid-template-columns:minmax(0,1fr)}
-  .p-key{border-right:0;border-bottom:1px solid var(--bs);padding:14px 16px 10px}
-  .p-val{padding:12px 16px 18px}
-  .grid2{grid-template-columns:minmax(0,1fr)}
-  .g2,.g2:nth-child(odd){border-right:0}
-  .g2:nth-last-child(2){border-bottom:1px solid var(--b)}
-  /* long-text tables become one card per row; the header row is hidden with the
-     standard clip pattern and every cell repeats its column name */
-  table.stack,.stack caption,.stack tbody,.stack tr,.stack th,.stack td{display:block;width:auto}
-  .stack thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
-  .stack caption{padding:12px 14px 6px;border-bottom:1px solid var(--b)}
-  .stack tbody tr{border-bottom:1px solid var(--b);padding:10px 0}
-  .stack tbody tr:last-child{border-bottom:0}
-  .stack th,.stack td{border:0;padding:4px 14px}
-  .stack td[data-label]::before{content:attr(data-label);display:block;font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--tm);margin-top:6px}
-  .stack tbody th{font-weight:650}
-}
-@media (max-width:480px){
-  h1{font-size:30px}
-  .eyebrow{letter-spacing:.06em}
-  .status dl{grid-template-columns:minmax(0,1fr)}
-  .res{font-size:14px}
-  .res th,.res td{padding:10px 8px}
-  .res .old{white-space:normal}
-}
-@media print{
-  :root:root:root{--bg:#fff;--bg-s:#fff;--code:#f2f2f2;--b:#bbb;--bs:#ddd;--tp:#000;--ts:#222;--tm:#444;--neg:#8f2422;--link:#000;--wbg:#fff;--wtx:#000;--wcode:#f2f2f2;color-scheme:light}
-  .site-nav,.theme-btn,.cta,.skip{display:none}
-  .section,.hero{padding:18px 0}
-  .pipeline,table,.status,.doc{break-inside:avoid}
-}
-</style>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%231d4f91'/%3E%3Cpath d='M6 21 L12 15 L17 18 L26 9' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&amp;family=IBM+Plex+Serif:wght@400;500&amp;display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/theme-init.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.17/dist/plot.umd.min.js" integrity="sha384-JUpn2GgRr0gxU0xOBd8D8P634jhRCwobtG8G2MMEkX1RnGJ7/FJNnuukpfT+H2w1" crossorigin="anonymous"></script>
+<script defer src="assets/exhibits.js"></script>
+<script defer src="assets/site.js"></script>
 </head>
-<body>
-<a class="skip vh" href="#main">Skip to content</a>
+<body id="top">
+<a class="skip" href="#main">Skip to content</a>
 
-<header class="site-nav">
-  <nav class="nav-in" aria-label="Primary">
-    <a class="brand" href="#top">Statistical Arbitrage Research</a>
-    <ul class="nav-links">
-      <li><a href="#results">Results</a></li>
-      <li><a href="#validation">Validation</a></li>
-      <li><a href="#methodology">Methodology</a></li>
-      <li><a href="#changes">Changes</a></li>
-      <li><a href="#limitations">Limitations</a></li>
-      <li><a href="#docs">Docs</a></li>
-      <li><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">GitHub<span aria-hidden="true"> ↗</span></a></li>
-    </ul>
-    <button class="theme-btn" id="tt" type="button" aria-pressed="false"><span class="ind" aria-hidden="true"></span>Dark theme</button>
-  </nav>
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="#top">Russell 3000 pairs study</a>
+    <nav class="toplinks" aria-label="Project">
+      <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">Code</a>
+      <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/tree/main/results/v32_dev">Data</a>
+      <button class="theme-btn" id="theme-toggle" type="button" aria-pressed="false"><span class="ind" aria-hidden="true"></span>Dark theme</button>
+    </nav>
+  </div>
 </header>
 
+<div class="page">
+<nav class="toc" aria-label="Contents">
+  <details class="toc-d" open>
+    <summary>Contents</summary>
+    <ol>
+      <li><a href="#summary"><span class="toc-n">0</span>Summary</a></li>
+      <li><a href="#holdout"><span class="toc-n">1</span>Pre-registered 2026 test <span class="toc-flag"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg><span class="vh">(sealed)</span></span></a></li>
+      <li><a href="#performance"><span class="toc-n">2</span>Performance</a></li>
+      <li><a href="#significance"><span class="toc-n">3</span>Is it significant?</a></li>
+      <li><a href="#anatomy"><span class="toc-n">4</span>Where the edge goes</a></li>
+      <li><a href="#execution"><span class="toc-n">5</span>Execution and costs</a></li>
+      <li><a href="#risk"><span class="toc-n">6</span>Risk and attribution</a></li>
+      <li><a href="#testing"><span class="toc-n">7</span>Multiple testing</a></li>
+      <li><a href="#residual"><span class="toc-n">8</span>Second strategy family <span class="toc-flag"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><span class="vh">(pending)</span></span></a></li>
+      <li><a href="#method"><span class="toc-n">9</span>Method</a></li>
+      <li><a href="#validation"><span class="toc-n">10</span>Validation</a></li>
+      <li><a href="#threats"><span class="toc-n">11</span>Threats to validity</a></li>
+      <li><a href="#literature"><span class="toc-n">12</span>Literature</a></li>
+      <li><a href="#reproduce"><span class="toc-n">13</span>Reproduce</a></li>
+      <li><a href="#history"><span class="toc-n">14</span>History and disclosures</a></li>
+    </ol>
+  </details>
+</nav>
+
 <main id="main">
-<div class="wrap">
 
-<section class="hero" id="top" aria-labelledby="page-title">
-  <p class="eyebrow">Russell 3000 · Equity statistical arbitrage · Data 2020–2025</p>
-  <h1 id="page-title">Pairs trading research, measured honestly.</h1>
-  <section class="status" aria-labelledby="status-title">
-    <p class="tag">Status · v32 · October 2026</p>
-    <h2 id="status-title">v32 rebuilt the engine and re-ran the study. The answer is unchanged: there is no edge.</h2>
-    <p>A complete audit of v31.1 (about 270 findings across seven review areas, nearly all confirmed by an independent adversarial re-check) found defects in the trading engine itself: entry and exit used different z-scores; the Kalman “hedge ratio” was a price-level ratio that changed with the data vendor’s back-adjustment; each trade’s final P&amp;L reached the position sizer and the loss cool-off on the day it was <strong>opened</strong>; P&amp;L was booked on exit days only; and the walk-forward silently discarded trades still open at a window’s end. v32 rewrote the engine, costs, ranker training, benchmarks and outputs, so the v31.1 numbers were withdrawn rather than adjusted.</p>
-    <p>The study run of 2026-10-18 (the 3,000 largest US common stocks, 97% fetched, prices 2020–2025) is <strong>negative and statistically indistinguishable from zero</strong> in the main backtest and out of sample, does not differ significantly from the textbook distance method or from random pairs, and its learned ranker has no out-of-sample skill. The code is also validated on <a href="#validation">synthetic markets with known answers</a> and by 350+ hermetic tests; the study numbers on this page are filled from the run’s <code>headline_metrics.json</code> and checked against it.</p>
-    <dl>
-      <div><dt>Engine</dt><dd>Rebuilt in v32.0.0 (<a href="#changes">what changed</a>)</dd></div>
-      <div><dt>v31.1 results</dt><dd>Withdrawn, not adjusted</dd></div>
-      <div><dt>Study re-run</dt><dd>2026-10-18 · no edge</dd></div>
-      <div><dt>Validated by</dt><dd>Known-answer markets · 350+ tests · CI pipeline run</dd></div>
-    </dl>
-  </section>
+<!-- ════════════════════════════════ 0 · Summary ════════════════════════════════ -->
+<section id="summary" class="sec sec-summary" aria-labelledby="title">
+  <header class="masthead">
+    <p class="kicker">Research note · Statistical arbitrage</p>
+    <h1 id="title">No detectable edge: cointegration pairs trading on the Russell 3000, 2023–2025</h1>
+    <p class="dek">A pairs strategy with formation-only selection, next-day fills and a per-stock cost model, tested in a main backtest, in a continuous walk-forward and against two baselines. Its returns cannot be told apart from zero, from the textbook distance method or from random pairs. A pre-registered test on 2026 data is pending.</p>
+    <p class="byline">Navnoor Bawa <span class="sep" aria-hidden="true">·</span> Study run v32, 18 October 2026 <span class="sep" aria-hidden="true">·</span> Note updated 20 October 2026 <span class="sep" aria-hidden="true">·</span> <span class="tag">Hypothetical backtest</span></p>
+    <ul class="mast-links">
+      <li><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">Code</a></li>
+      <li><span class="link-off">Paper (PDF)<span class="pill">in preparation</span></span></li>
+      <li><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/tree/main/results">Data</a></li>
+      <li><span class="link-off">Pre-registration<span class="pill">to be filed before the 2026 run</span></span></li>
+    </ul>
+  </header>
 
-  <p class="lede">A research system built to answer one question honestly: does a cointegration pairs-trading strategy on the Russell 3000 have an edge after realistic execution and costs, out of sample?</p>
-  <p class="hero-note">It selects pairs on formation data only, trades a Kalman-filtered spread with next-day fills and a per-stock cost model, validates with a continuous walk-forward simulation, and then tests whether the result is distinguishable from zero (Probabilistic and Deflated Sharpe, Newey-West, block bootstrap) and from two baselines (Gatev et al. 2006 distance method, random pairs).</p>
-  <div class="cta">
-    <a class="btn" href="https://github.com/NavnoorBawa/russell3000-pairs-trading">View repository<span aria-hidden="true"> ↗</span></a>
-    <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/README.md">Read the README<span aria-hidden="true"> ↗</span></a>
-    <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">Read the engineering log<span aria-hidden="true"> ↗</span></a>
+  <div class="bottom-line" role="note" aria-labelledby="bl-h">
+    <div class="bl-head">
+      <h2 id="bl-h" class="bl-title">Bottom line</h2>
+      <span class="verdict">No detectable edge</span>
+    </div>
+    <p>From July 2023 to December 2025 the strategy returned <span data-metric="main.total_return_pct">−0.30%</span> on its capital (Sharpe <span data-metric="main.sharpe">−0.07</span>; 95% interval <span data-metric="significance.main.boot_lo">−1.39</span> to <span data-metric="significance.main.boot_hi">+1.23</span>), and its continuous walk-forward out-of-sample Sharpe is <span data-metric="oos.pooled_sharpe">−0.33</span> (<span data-metric="significance.oos_daily.boot_lo">−1.49</span> to <span data-metric="significance.oos_daily.boot_hi">+0.86</span>). Neither differs from zero, from the Gatev distance method (difference <span data-metric="benchmarks.sharpe_diff_vs_gatev.diff">−0.14</span>, p = <span data-metric="benchmarks.sharpe_diff_vs_gatev.p">0.879</span>) or from random pairs (<span data-metric="benchmarks.random_control.strategy_percentile">28</span>th percentile). Before costs the average trade earned <span data-metric="study.dev.facts.gross_bp">+11.4</span> bp of its gross notional (t = <span data-metric="study.dev.facts.gross_t">0.37</span>) against <span data-metric="study.dev.facts.cost_bp">12.5</span> bp of modelled cost, so there is no gross edge for costs to remove. The sample rules out a Sharpe ratio above <span data-metric="study.dev.facts.sharpe_ucb">0.97</span> (one-sided 95% bound) but cannot tell 0 from 0.5. The decisive test, on untouched 2026 data, stays sealed until its pre-registration is filed.</p>
+  </div>
+
+  <h2 class="vh">Key figures</h2>
+  <ul class="kpis">
+    <li class="kpi is-pending">
+      <p class="kpi-label">Holdout 2026 · net Sharpe</p>
+      <p class="kpi-value"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>Sealed</p>
+      <p class="kpi-sub">Until the pre-registration is filed and the v33 code frozen. No 2026 price has been fetched.</p>
+    </li>
+    <li class="kpi">
+      <p class="kpi-label">Walk-forward OOS Sharpe</p>
+      <p class="kpi-value"><span data-metric="oos.pooled_sharpe">−0.33</span></p>
+      <p class="kpi-sub">95% CI <span data-metric="significance.oos_daily.boot_lo">−1.49</span> to <span data-metric="significance.oos_daily.boot_hi">+0.86</span> · HAC p = <span data-metric="significance.oos_daily.hac_p">0.559</span> · <span data-metric="study.dev.facts.oos_days">711</span> days</p>
+    </li>
+    <li class="kpi">
+      <p class="kpi-label">Deflated Sharpe, OOS</p>
+      <p class="kpi-value"><span data-metric="significance.oos_daily.dsr_pct">0.4</span>%</p>
+      <p class="kpi-sub">Probability the Sharpe beats the best of <span data-metric="study.dev.facts.dsr_trials">32</span> null trials · P(SR &gt; 0) = <span data-metric="significance.oos_daily.psr_pct">28.7</span>%</p>
+    </li>
+    <li class="kpi">
+      <p class="kpi-label">Gross edge per trade</p>
+      <p class="kpi-value"><span data-metric="study.dev.facts.gross_bp">+11.4</span> bp</p>
+      <p class="kpi-sub">t = <span data-metric="study.dev.facts.gross_t">0.37</span> · n = <span data-metric="main.trades">161</span> · cost <span data-metric="study.dev.facts.cost_bp">12.5</span> bp per trade</p>
+    </li>
+    <li class="kpi">
+      <p class="kpi-label">Break-even cost multiple</p>
+      <p class="kpi-value"><span data-metric="study.dev.facts.break_even_x">0.69</span>×</p>
+      <p class="kpi-sub">Net P&amp;L is zero at this fraction of modelled costs; the gross itself is not significant</p>
+    </li>
+    <li class="kpi is-pending">
+      <p class="kpi-label">Data snooping · SPA p</p>
+      <p class="kpi-value"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg>Pending</p>
+      <p class="kpi-sub">Declared family: <span data-metric="study.dev.snooping.grid_points">27</span>-point grid, <span data-metric="study.dev.snooping.toggles">11</span> toggles; runs on the v33 dev calendar</p>
+    </li>
+  </ul>
+</section>
+
+<!-- ════════════════════════════════ 1 · Holdout ════════════════════════════════ -->
+<section id="holdout" class="sec" aria-labelledby="h-holdout">
+  <h2 id="h-holdout"><span class="secno">1</span>The pre-registered 2026 test <span class="status-pill"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>Sealed</span></h2>
+  <p class="lede">Every design choice in this study was made on 2020–2025 data over 32 versions, so the development period cannot test those choices. The decisive test therefore runs on data none of them has seen: trading days from 2 January 2026. No 2026 stock price has been fetched. The protocol is committed first; each arm then runs once, and its result is published whatever it is.</p>
+  <div class="tbl-wrap" role="region" aria-label="Pre-registered hypotheses" tabindex="0">
+    <table class="tbl">
+      <caption>Hypotheses of the pre-registration, filed before any 2026 price is fetched. Test: one-sided Newey–West t on daily net returns, Holm-adjusted across the three at 5%.</caption>
+      <thead><tr><th scope="col"><span class="vh">Hypothesis</span></th><th scope="col">Arm</th><th scope="col">Hypothesis</th><th scope="col" class="r">Sharpe</th><th scope="col" class="r">p (Holm)</th><th scope="col">Decision</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">H1</th><td>v33 pairs (pre-registered design)</td><td>net mean return &gt; 0</td><td class="r muted">sealed</td><td class="r muted">sealed</td><td class="muted">—</td></tr>
+        <tr><th scope="row">H2</th><td>Avellaneda–Lee residual reversion</td><td>net mean return &gt; 0</td><td class="r muted">sealed</td><td class="r muted">sealed</td><td class="muted">—</td></tr>
+        <tr><th scope="row">H3</th><td>v32 as published, frozen</td><td>net mean return &gt; 0</td><td class="r muted">sealed</td><td class="r muted">sealed</td><td class="muted">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">About nine months of data can detect only a large Sharpe ratio: the holdout is a falsification check, not a proof of an edge. Running v32 alone first would spend the holdout, so v33 is frozen before any 2026 price is fetched, and both run once.</p>
+
+  <figure class="exhibit is-pending" id="ex-1" data-exhibit="holdout">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 1</span>
+      <span class="ex-title">Cumulative net return on the 2026 holdout, by arm</span>
+      <span class="ex-sub">Daily, from 2 January 2026; v33 pairs, Avellaneda–Lee and v32 frozen, same costs</span>
+    </figcaption>
+    <div class="ex-chart">
+      <div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg><p><strong>Sealed.</strong> The pre-registration (docs/PREREGISTRATION.md) is committed before any 2026 price is fetched; this exhibit fills from results/holdout2026/ after the single run.</p></div>
+    </div>
+    <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+  </figure>
+</section>
+
+<!-- ════════════════════════════════ 2 · Performance ════════════════════════════════ -->
+<section id="performance" class="sec" aria-labelledby="h-performance">
+  <h2 id="h-performance"><span class="secno">2</span>Performance in the development period</h2>
+  <p class="lede">The main backtest enters trades from 3 July 2023 to 31 December 2025 on $<span data-metric="study.dev.facts.capital_musd">100</span>M of notional capital, with pairs selected on data to 31 December 2022. Its <span data-metric="main.trades">161</span> trades returned <span data-metric="main.total_return_pct">−0.30%</span> with a maximum drawdown of <span data-metric="main.max_drawdown_pct">−3.00%</span>. The book held no position on <span data-metric="study.dev.facts.flat_days">207</span> of <span data-metric="study.dev.facts.days">628</span> days and used <span data-metric="main.avg_gross_exposure_pct">15.1</span>% of capital on average (gross), against a 30% cap.</p>
+
+  <figure class="exhibit" id="ex-2" data-exhibit="equity">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 2</span>
+      <span class="ex-title">Net of costs the book ends slightly below where it started; the Gatev baseline ends at <span data-metric="benchmarks.gatev.total_return_pct">+0.57%</span></span>
+      <span class="ex-sub">Cumulative net return, underwater drawdown and gross exposure; main backtest, daily, July 2023 – December 2025</span>
+    </figcaption>
+    <div class="ex-legend" data-legend></div>
+    <div class="ex-chart" role="img" aria-label="Three stacked panes on a shared date axis: cumulative net return of the strategy and the Gatev baseline, the strategy's drawdown, and its gross exposure as a share of capital."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
+    <div class="ex-foot">
+      <p><span class="k">Notes</span> No random-pair band: the v32 export holds the 200 draws' Sharpe ratios (Exhibit 7) but not their daily paths. Exports from v33 on carry each day's 5th–95th percentile of the draws' cumulative returns, and the band is then drawn here. The draws' mean path is not a substitute, because averaging 200 portfolios removes most of their noise. Gross exposure is rebuilt from the trades and reproduces the run's average and maximum (<span data-metric="study.dev.facts.exposure_max_pct">29.99</span>%).</p>
+      <p><span class="k">Source</span> results/v32_dev/pairs_trading_results_2023_2025_unbiased.json (run of commit 711b18c); Gatev et al. (2006) distance method with the same t+1 fills and cost model.</p>
+    </div>
+    <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+  </figure>
+
+  <figure class="exhibit" id="ex-3" data-exhibit="walkforward">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 3</span>
+      <span class="ex-title">Out of sample, <span data-metric="oos.windows_positive">3</span> of <span data-metric="oos.windows">11</span> walk-forward windows made money; the stitched path ends at <span data-metric="oos.total_return_pct">−1.75</span>%</span>
+      <span class="ex-sub">Net return per 63-day test window (bars, labelled with trade counts) and the compounded path at window ends; February 2023 – December 2025</span>
+    </figcaption>
+    <div class="ex-legend" data-legend></div>
+    <div class="ex-chart" role="img" aria-label="Bars of net return for each of eleven walk-forward test windows on a date axis, and below them the compounded out-of-sample path at each window's end."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
+    <div class="ex-foot">
+      <p><span class="k">Notes</span> The windows are calendar slices of one continuous simulation with the ranker refit per window; positions carry across window boundaries. <span data-metric="oos.windows_no_trades">2</span> windows made no trade. Eleven windows have little power: mean <span data-metric="oos.avg_window_return_pct">−0.158%</span> per window, 95% CI <span data-metric="significance.oos_windows.ci_lo_pct">−0.636</span>% to <span data-metric="significance.oos_windows.ci_hi_pct">+0.320</span>%, p = <span data-metric="significance.oos_windows.p">0.478</span>. The daily out-of-sample series is exported from v33 on; here the path is shown at window resolution.</p>
+      <p><span class="k">Source</span> results/v32_dev, walk_forward_validation.windows.</p>
+    </div>
+    <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+  </figure>
+
+  <figure class="exhibit" id="ex-4" data-exhibit="monthly">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 4</span>
+      <span class="ex-title">One month carries the result: July 2024 earned <span data-metric="study.dev.facts.best_month_pct">+2.14</span>%, more than the whole period</span>
+      <span class="ex-sub">Monthly net return, % of capital; the year column compounds the months shown</span>
+    </figcaption>
+    <div class="ex-chart" role="img" aria-label="Calendar heatmap of monthly net returns, years in rows and months in columns, values printed in each cell."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
+    <div class="ex-foot">
+      <p><span class="k">Notes</span> <span data-metric="study.dev.facts.months_positive">7</span> of <span data-metric="study.dev.facts.months">30</span> months were positive. The book was flat from December 2024 to May 2025; the regime gate blocked new entries on <span data-metric="study.dev.facts.gate_blocked_days">248</span> of the <span data-metric="study.dev.facts.days">628</span> days. This grid is the evaluated period: a rule fitted to it would be data snooping.</p>
+      <p><span class="k">Source</span> results/v32_dev, monthly_performance.</p>
+    </div>
+    <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+  </figure>
+
+  <figure class="exhibit" id="ex-5" data-exhibit="rolling">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 5</span>
+      <span class="ex-title">Half-year Sharpe ratios swing between <span data-metric="study.dev.facts.rolling_min">−2.8</span> and <span data-metric="study.dev.facts.rolling_max">+3.4</span>; the only stretch whose band clears zero contains July 2024</span>
+      <span class="ex-sub">Rolling 126-day Sharpe ratio, annualised, with a ±1.96 standard-error band; main backtest</span>
+    </figcaption>
+    <div class="ex-legend" data-legend></div>
+    <div class="ex-chart" role="img" aria-label="Line of the rolling 126-day Sharpe ratio with a shaded band of plus or minus 1.96 standard errors and a zero line."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
+    <div class="ex-foot">
+      <p><span class="k">Notes</span> SE = √((1 + SR²/2) / 126) per day, annualised (Lo 2002, IID returns). <span data-metric="study.dev.facts.rolling_clear_zero">30</span> of <span data-metric="study.dev.facts.rolling_windows">503</span> overlapping windows clear zero, all in one stretch that ends after July 2024; overlapping windows are not independent tests. Windows in which the book was flat throughout have no Sharpe ratio.</p>
+      <p><span class="k">Source</span> results/v32_dev daily net returns; computed by scripts/build_site_data.py.</p>
+    </div>
+    <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+  </figure>
+</section>
+
+<!-- ════════════════════════════════ 3 · Significance ════════════════════════════════ -->
+<section id="significance" class="sec" aria-labelledby="h-significance">
+  <h2 id="h-significance"><span class="secno">3</span>Is it significant?</h2>
+  <p class="lede">No: every interval below contains zero. The more useful question is what the data can rule out. With <span data-metric="study.dev.facts.main_days">628</span> daily observations the standard error of the annualised Sharpe ratio is <span data-metric="study.dev.facts.sharpe_se">0.63</span>, so the one-sided 95% upper bound is <span data-metric="study.dev.facts.sharpe_ucb">0.97</span>, and a true Sharpe ratio would need to be about <span data-metric="study.dev.facts.sharpe_mde">1.58</span> to be detected with 80% probability. A Sharpe ratio of 1.0 is rejected (p = <span data-metric="study.dev.facts.p_sr_ge_1">0.046</span>); 0.5 is not (p = <span data-metric="study.dev.facts.p_sr_ge_0_5">0.184</span>). A strategy whose true Sharpe ratio is 0.5 needs about <span data-metric="study.dev.facts.min_trl_years_0_5">10.8</span> years of daily data to show as significant; at 1.0, about <span data-metric="study.dev.facts.min_trl_years_1">2.7</span> years.</p>
+
+  <figure class="exhibit" id="ex-6" data-exhibit="forest">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 6</span>
+      <span class="ex-title">Every Sharpe interval spans zero; the data exclude only Sharpe ratios above about 1</span>
+      <span class="ex-sub">Annualised Sharpe ratio with its 95% interval; development period, net of costs unless stated</span>
+    </figcaption>
+    <div class="ex-legend" data-legend></div>
+    <div class="ex-chart" role="img" aria-label="Forest plot: a dot and a horizontal interval for each series or comparison, with a zero line, the minimum detectable Sharpe ratio and the main backtest's one-sided upper bound."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
+    <div class="ex-foot">
+      <p><span class="k">Notes</span> Intervals are circular block bootstraps (Politis–White block length, 5,000 resamples) for single series and Ledoit–Wolf studentized bootstraps for differences; the random-pair row shows the 5th–95th percentile spread of <span data-metric="benchmarks.random_control.n_draws">200</span> draws, not a confidence interval. The Gatev interval is computed by the site builder with the run's own bootstrap. Power and the upper bound assume IID returns with the sample's skew and kurtosis; the stats battery adds AR(1) dependence when its output is committed. Gross-of-cost, Avellaneda–Lee and holdout rows fill when their runs exist.</p>
+      <p><span class="k">Source</span> results/v32_dev, significance and benchmarks; scripts/build_site_data.py.</p>
+    </div>
+    <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+  </figure>
+
+  <div class="tbl-wrap" role="region" aria-label="Significance tests" tabindex="0">
+    <table class="tbl tbl-num">
+      <caption>Significance tests, v32 study run of 18 October 2026.</caption>
+      <thead><tr><th scope="col">Test</th><th scope="col" class="r">Main backtest</th><th scope="col" class="r">Walk-forward OOS (daily)</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Annualised Sharpe ratio</th><td class="r" data-metric="significance.main.ann_sharpe">−0.07</td><td class="r" data-metric="significance.oos_daily.ann_sharpe">−0.33</td></tr>
+        <tr><th scope="row">Newey–West t (mean ≠ 0)</th><td class="r" data-metric="significance.main.hac_t">−0.10</td><td class="r" data-metric="significance.oos_daily.hac_t">−0.58</td></tr>
+        <tr><th scope="row">Newey–West p</th><td class="r" data-metric="significance.main.hac_p">0.917</td><td class="r" data-metric="significance.oos_daily.hac_p">0.559</td></tr>
+        <tr><th scope="row">Probabilistic Sharpe, P(SR &gt; 0)</th><td class="r"><span data-metric="significance.main.psr_pct">45.5</span>%</td><td class="r"><span data-metric="significance.oos_daily.psr_pct">28.7</span>%</td></tr>
+        <tr><th scope="row">Deflated Sharpe (32 trials)</th><td class="r"><span data-metric="significance.main.dsr_pct">1.4</span>%</td><td class="r"><span data-metric="significance.oos_daily.dsr_pct">0.4</span>%</td></tr>
+        <tr><th scope="row">Block-bootstrap 95% interval</th><td class="r">[<span data-metric="significance.main.boot_lo">−1.39</span>, <span data-metric="significance.main.boot_hi">1.23</span>]</td><td class="r">[<span data-metric="significance.oos_daily.boot_lo">−1.49</span>, <span data-metric="significance.oos_daily.boot_hi">0.86</span>]</td></tr>
+        <tr><th scope="row">Gatev distance method, Sharpe [95% interval]</th><td class="r"><span data-metric="benchmarks.gatev.sharpe">+0.07</span> [<span data-metric="study.dev.facts.gatev_lo">−1.15</span>, <span data-metric="study.dev.facts.gatev_hi">1.27</span>]</td><td class="r muted">—</td></tr>
+        <tr><th scope="row">Strategy minus Gatev (Ledoit–Wolf p)</th><td class="r"><span data-metric="benchmarks.sharpe_diff_vs_gatev.diff">−0.14</span> (<span data-metric="benchmarks.sharpe_diff_vs_gatev.p">0.879</span>)</td><td class="r muted">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <figure class="exhibit" id="ex-7" data-exhibit="randomnull">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 7</span>
+      <span class="ex-title">The strategy sits at the <span data-metric="benchmarks.random_control.strategy_percentile">28</span>th percentile of <span data-metric="benchmarks.random_control.n_draws">200</span> random-pair portfolios</span>
+      <span class="ex-sub">Annualised Sharpe ratio of random 20-pair draws traded with the distance rule under the same costs; main period</span>
+    </figcaption>
+    <div class="ex-legend" data-legend></div>
+    <div class="ex-chart" role="img" aria-label="Histogram of the Sharpe ratios of 200 random-pair portfolios with vertical marks for the strategy and the Gatev baseline."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
+    <div class="ex-foot">
+      <p><span class="k">Notes</span> Median draw <span data-metric="benchmarks.random_control.median_sharpe">0.26</span>, 5th–95th percentile <span data-metric="benchmarks.random_control.p5_sharpe">−0.53</span> to <span data-metric="benchmarks.random_control.p95_sharpe">1.10</span>. The random control trades random pairs with the Gatev distance rule, not this strategy's engine, so it is a baseline for the distance method and only a rough one for this strategy; a control on the strategy's own engine is planned.</p>
+      <p><span class="k">Source</span> results/v32_dev, benchmarks.random_control.draw_sharpes.</p>
+    </div>
+    <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+  </figure>
+
+  <figure class="exhibit" id="ex-8" data-exhibit="dsr">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 8</span>
+      <span class="ex-title">Deflated for <span data-metric="study.dev.facts.dsr_trials">32</span> trials, the main backtest's Sharpe ratio has a <span data-metric="significance.main.dsr_pct">1.4</span>% probability of beating chance; the data-snooping tests are pending</span>
+      <span class="ex-sub">Deflated Sharpe ratio of the main backtest against the number of independent trials N (log scale)</span>
+    </figcaption>
+    <div class="ex-chart" role="img" aria-label="Line of the deflated Sharpe ratio falling as the assumed number of trials rises from 1 to 1,000, with the run's own value at 32 trials marked."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
+    <div class="ex-snoop" data-snoop>
+      <div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: v33 dev run.</strong> Hansen's SPA, White's Reality Check, the Romano–Wolf stepdown, the model confidence set and PBO run over the variant family declared on 20 October 2026, before any variant ran (results/variant_family/declaration.json).</p></div>
+    </div>
+    <div class="ex-foot">
+      <p><span class="k">Notes</span> N = 1 is the probabilistic Sharpe ratio; the run reports N = 32, a lower bound on the designs tried over 32 versions. The trial Sharpe variance is the null variance of the estimator at this sample length.</p>
+      <p><span class="k">Source</span> pairs_trading.significance.deflated_sharpe_ratio on results/v32_dev daily returns.</p>
+    </div>
+    <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+  </figure>
+</section>
+
+<!-- ════════════════════════════════ 4 · Anatomy ════════════════════════════════ -->
+<section id="anatomy" class="sec" aria-labelledby="h-anatomy">
+  <h2 id="h-anatomy"><span class="secno">4</span>Where the edge goes</h2>
+  <p class="lede">There is no gross edge for costs to remove. Before costs the <span data-metric="main.trades">161</span> trades earned $<span data-metric="study.dev.facts.gross_usd_k">662.6</span>k; modelled costs were $<span data-metric="study.dev.facts.cost_usd_k">962.7</span>k, <span data-metric="study.dev.facts.impact_share_pct">57.9</span>% of it market impact. Costs would have to fall to <span data-metric="study.dev.facts.break_even_x">0.69</span> times their modelled level for net P&amp;L to break even, and the gross return per trade is itself indistinguishable from zero (t = <span data-metric="study.dev.facts.gross_t">0.37</span>). The trades show the mechanism: the <span data-metric="main.exit_reasons.stop">65</span> stop-loss exits lost $<span data-metric="study.dev.facts.stop_loss_usd_m">9.80</span>M, more than the <span data-metric="main.exit_reasons.target">61</span> target exits earned ($<span data-metric="study.dev.facts.target_gain_usd_m">8.18</span>M).</p>
+
+  <figure class="exhibit" id="ex-9" data-exhibit="waterfall">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 9</span>
+      <span class="ex-title">Gross P&amp;L, itself not significant, does not cover modelled costs; market impact is the largest item</span>
+      <span class="ex-sub">Implementation shortfall of the main backtest: gross P&amp;L to net P&amp;L by cost component, $ thousands</span>
+    </figcaption>
+    <div class="ex-chart" role="img" aria-label="Horizontal waterfall from gross P&amp;L through commission, half-spread, market impact, borrow and financing to net P&amp;L."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
+    <div class="ex-foot">
+      <p><span class="k">Notes</span> The bars close exactly on the change in the book's value. Gross is <span data-metric="study.dev.facts.gross_bp_capital">66.3</span> bp of starting capital, costs <span data-metric="study.dev.facts.cost_bp_capital">96.3</span> bp, net <span data-metric="study.dev.facts.net_bp_capital">−30.0</span> bp; per round trip, costs are <span data-metric="study.dev.facts.cost_bp_notional">12.93</span> bp of traded gross notional. The signal-close paper P&amp;L and the cost of the one-day delay are separated from v33 on.</p>
+      <p><span class="k">Source</span> results/v32_dev, all_trades[].cost_breakdown_dollars and the final portfolio value.</p>
+    </div>
+    <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+  </figure>
+
+  <figure class="exhibit" id="ex-10" data-exhibit="anatomy">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 10</span>
+      <span class="ex-title">Stops lost more than targets earned, and short-spread trades lost about what long-spread trades made</span>
+      <span class="ex-sub">Net P&amp;L of the <span data-metric="main.trades">161</span> trades by exit reason, side of the spread and |z| at entry, $ millions</span>
+    </figcaption>
+    <div class="ex-chart" role="img" aria-label="Three small panels of horizontal bars: net P&amp;L by exit reason, by long or short spread, and by entry z-score bucket, each bar labelled with its trade count."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
+    <div class="ex-foot">
+      <p><span class="k">Notes</span> Long-spread trades made $<span data-metric="study.dev.facts.long_gain_usd_m">1.55</span>M and short-spread trades lost $<span data-metric="study.dev.facts.short_loss_usd_m">1.85</span>M, consistent with the net long market exposure of hedge ratios below one (Section 6). Win rate <span data-metric="main.win_rate_pct">47.2</span>% (<span data-metric="study.dev.facts.wins">76</span> of <span data-metric="study.dev.facts.trades">161</span>; 95% interval <span data-metric="study.dev.facts.win_lo_pct">39.6</span>–<span data-metric="study.dev.facts.win_hi_pct">54.9</span>%). The |z| buckets describe the past and are not a selection rule: a higher entry threshold read off this panel would be fitted to the test period. Buckets use the exported z-score (three decimals).</p>
+      <p><span class="k">Source</span> results/v32_dev, all_trades.</p>
+    </div>
+    <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+  </figure>
+
+  <div class="ex-grid">
+    <figure class="exhibit is-pending ex-compact" id="ex-11" data-exhibit="costcurve">
+      <figcaption class="ex-head">
+        <span class="ex-label">Exhibit 11</span>
+        <span class="ex-title">Sharpe ratio against a multiple of modelled costs</span>
+        <span class="ex-sub">0× to 2× costs, with the break-even multiple marked</span>
+      </figcaption>
+      <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: v33 dev run.</strong> Needs each day's gross and cost split, which the v32 export does not separate. On trade sums the break-even multiple is <span data-metric="study.dev.facts.break_even_x">0.69</span>×.</p></div></div>
+      <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+    </figure>
+    <figure class="exhibit is-pending ex-compact" id="ex-12" data-exhibit="exitrace">
+      <figcaption class="ex-head">
+        <span class="ex-label">Exhibit 12</span>
+        <span class="ex-title">Exit race: targets against stops, and against a spread with no mean reversion</span>
+        <span class="ex-sub">Observed exits and the count expected under the null</span>
+      </figcaption>
+      <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: evidence layer.</strong> Fills from the run's anatomy.json (exit_race).</p></div></div>
+      <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+    </figure>
+    <figure class="exhibit is-pending ex-compact" id="ex-13" data-exhibit="decay">
+      <figcaption class="ex-head">
+        <span class="ex-label">Exhibit 13</span>
+        <span class="ex-title">In-sample to out-of-sample decay of the same rule on the same pairs</span>
+        <span class="ex-sub">Gross bp per trade, formation period against the trading period</span>
+      </figcaption>
+      <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: evidence layer.</strong> Fills from the run's anatomy.json (decay).</p></div></div>
+      <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+    </figure>
+    <figure class="exhibit is-pending ex-compact" id="ex-14" data-exhibit="persistence">
+      <figcaption class="ex-head">
+        <span class="ex-label">Exhibit 14</span>
+        <span class="ex-title">Do selected pairs stay cointegrated?</span>
+        <span class="ex-sub">Share still cointegrated in later windows, against the 5% chance rate</span>
+      </figcaption>
+      <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: evidence layer.</strong> Fills from the run's anatomy.json (persistence).</p></div></div>
+      <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+    </figure>
   </div>
 </section>
 
-<section class="section" id="results" aria-labelledby="results-title">
-  <p class="sec-label">01 · Results</p>
-  <h2 id="results-title">Results</h2>
-  <p class="desc">Every v32 study result in this section is filled from <code>outputs/headline_metrics.json</code> of the study run of 2026-10-18 by <code>python scripts/check_published_numbers.py --write</code>, and the same script without <code>--write</code> fails if any published number disagrees with the run.</p>
-  <div class="tw">
-  <table class="res">
-    <caption>Headline results. The v31.1 column is kept for the record only: those figures are withdrawn.</caption>
-    <thead>
-      <tr><th scope="col">Measure</th><th scope="col">v32</th><th scope="col">v31.1 (withdrawn)</th></tr>
-    </thead>
-    <tbody>
-      <tr><th scope="row">Main backtest (Jul 2023 – 2025): return</th><td class="num"><span data-metric="main.total_return_pct">−0.30%</span></td><td class="old">−0.31%</td></tr>
-      <tr><th scope="row">Main backtest: Sharpe</th><td class="num"><span data-metric="main.sharpe">−0.07</span></td><td class="old">−0.31</td></tr>
-      <tr><th scope="row">Main backtest: trades</th><td class="num"><span data-metric="main.trades">161</span></td><td class="old">14</td></tr>
-      <tr><th scope="row">Walk-forward OOS: average window return</th><td class="num"><span data-metric="oos.avg_window_return_pct" data-dp="3">−0.158%</span></td><td class="old">−0.282%</td></tr>
-      <tr><th scope="row">Walk-forward OOS: pooled daily Sharpe</th><td class="num"><span data-metric="oos.pooled_sharpe">−0.33</span></td><td class="old">−1.23</td></tr>
-      <tr><th scope="row">Walk-forward OOS: windows positive</th><td class="num"><span data-metric="oos.windows_positive">3</span> of <span data-metric="oos.windows">11</span></td><td class="old">1 of 10</td></tr>
-      <tr><th scope="row">Walk-forward OOS: per-window t-test p-value</th><td class="num"><span data-metric="significance.oos_windows.p" data-dp="3">0.478</span></td><td class="old">0.085</td></tr>
-      <tr><th scope="row">Gatev (2006) distance method, same period: Sharpe</th><td class="num"><span data-metric="benchmarks.gatev.sharpe">+0.07</span></td><td class="old">+0.26</td></tr>
-      <tr><th scope="row">Ranker out-of-sample AUC (0.5 = no skill)</th><td class="num"><span data-metric="ranker.oos_auc" data-dp="3">0.514</span></td><td class="old">not measured</td></tr>
-    </tbody>
-  </table>
+<!-- ════════════════════════════════ 5 · Execution ════════════════════════════════ -->
+<section id="execution" class="sec" aria-labelledby="h-execution">
+  <h2 id="h-execution"><span class="secno">5</span>Execution and costs</h2>
+  <p class="lede">Every fill pays its own costs, from the stock's own liquidity on that day, and fills at the next day's close: a signal seen at the close of day t trades at the close of day t+1. The average trade held <span data-metric="study.dev.facts.hold_days">12.6</span> trading days, and its larger leg was <span data-metric="study.dev.facts.adv_participation_pct">1.01</span>% of that stock's dollar ADV. Annual turnover was <span data-metric="main.annual_turnover_x">6.0</span>× capital.</p>
+  <div class="tbl-wrap" role="region" aria-label="Cost model" tabindex="0">
+    <table class="tbl">
+      <caption>The v32 cost model against published references, and what v33 changes.</caption>
+      <thead><tr><th scope="col">Component</th><th scope="col">v32 model</th><th scope="col">Reference</th><th scope="col">v33</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Commission</th><td>$0.002 per share, $0.50 minimum per order</td><td>Agency algorithmic rates are commonly quoted at 0.1–0.5¢ per share</td><td>unchanged</td></tr>
+        <tr><th scope="row">Half-spread</th><td>Half the typical quoted spread by 20-day dollar ADV: 0.75 bp (≥ $500M) to 40 bp (&lt; $5M)</td><td>Frazzini, Israel &amp; Moskowitz (2018), <cite>Trading Costs</cite></td><td>bucket fit to be checked against measured spreads</td></tr>
+        <tr><th scope="row">Market impact</th><td>Y · σ<sub>daily</sub> · √(shares / ADV), Y = 0.3, capped at 50 bp, on entry and exit</td><td>v32 cites Almgren et al. (2005) for Y ≈ 0.3, which is their permanent-impact estimate; temporary-impact estimates run higher</td><td>Y stressed at 0.3, 0.6 and 1.0</td></tr>
+        <tr><th scope="row">Borrow</th><td>General-collateral fee, 25 bp a year on the short leg</td><td>D'Avolio (2002); Muravyev, Pearson &amp; Pollet report a median buy-side fee of about 0.38% a year</td><td>one 0.38% fee replaces borrow plus financing</td></tr>
+        <tr><th scope="row">Financing</th><td>Prime-broker spread, 50 bp a year on the short half of gross</td><td>Overlaps with the borrow fee (a double count)</td><td>folded into the single fee</td></tr>
+        <tr><th scope="row">Fill</th><td>Close of t+1 for entry and exit; legs $1 : $β</td><td>—</td><td>t+1 open as a declared variant</td></tr>
+      </tbody>
+    </table>
   </div>
-  <h3 id="shows-title">What the v32 run shows</h3>
-  <ul class="plain">
-    <li><strong>No edge in the main backtest:</strong> <span data-metric="main.trades">161</span> trades, return <span data-metric="main.total_return_pct">−0.30%</span>, Sharpe <span data-metric="main.sharpe">−0.07</span>, Newey-West p = <span data-metric="significance.main.hac_p" data-dp="3">0.917</span>.</li>
-    <li><strong>No edge out of sample:</strong> the continuous walk-forward averages <span data-metric="oos.avg_window_return_pct" data-dp="3">−0.158%</span> per window, pooled daily Sharpe <span data-metric="oos.pooled_sharpe">−0.33</span> (p = <span data-metric="significance.oos_daily.hac_p" data-dp="3">0.559</span>); Deflated Sharpe <span data-metric="significance.oos_daily.dsr_pct">0.4</span>%.</li>
-    <li><strong>No different from the baselines:</strong> the Gatev (2006) distance method returns <span data-metric="benchmarks.gatev.total_return_pct">+0.57%</span> at Sharpe <span data-metric="benchmarks.gatev.sharpe">+0.07</span>; the Sharpe difference is <span data-metric="benchmarks.sharpe_diff_vs_gatev.diff">−0.14</span> (p = <span data-metric="benchmarks.sharpe_diff_vs_gatev.p" data-dp="3">0.879</span>), and the strategy sits at the <span data-metric="benchmarks.random_control.strategy_percentile">28</span>th percentile of 200 random-pair draws.</li>
-    <li><strong>Cointegration does not survive multiple testing:</strong> <span data-metric="fdr.significant_raw_p05">2,965</span> of <span data-metric="fdr.pairs_tested">35,491</span> correlated pairs pass at raw p &lt; 0.05 (chance alone would give about 1,775), but <span data-metric="fdr.survive_bh_fdr_q05">1</span> survives Benjamini-Hochberg.</li>
-    <li><strong>The ranker has no skill:</strong> out-of-sample AUC <span data-metric="ranker.oos_auc" data-dp="3">0.514</span> (0.5 = coin flip), <span data-metric="ranker.wf_pooled_auc" data-dp="3">0.510</span> pooled across walk-forward windows.</li>
-  </ul>
-  <p class="note history"><strong>For the record:</strong> v31.1 reached the same conclusion with defective code (main −0.31%, out-of-sample −0.28%/qtr). v32 confirms it with an engine that passes known-answer, causality and accounting tests. The defensible statement is the narrow one: this cointegration pairs strategy, on this universe and period, has no detectable edge after realistic execution and costs.</p>
 
-  <h3 id="sig-title">Significance tests (v32, filled by the same run)</h3>
-  <p class="desc">The evidence layer reports whether the Sharpe ratio is distinguishable from zero, separately for the main backtest and for the stitched daily walk-forward returns.</p>
-  <table class="stack" role="table">
-    <caption>Significance tests, v32 study run of 2026-10-18.</caption>
-    <thead role="rowgroup">
-      <tr role="row"><th scope="col" role="columnheader">Test</th><th scope="col" role="columnheader">Main backtest</th><th scope="col" role="columnheader">Walk-forward OOS (daily)</th></tr>
-    </thead>
-    <tbody role="rowgroup">
-      <tr role="row"><th scope="row" role="rowheader">Annualised Sharpe</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.ann_sharpe">−0.07</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.ann_sharpe">−0.33</span></td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Newey-West t-statistic (mean ≠ 0)</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.hac_t">−0.10</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.hac_t">−0.58</span></td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Newey-West p-value</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.hac_p" data-dp="3">0.917</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.hac_p" data-dp="3">0.559</span></td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Probabilistic Sharpe, P(SR &gt; 0)</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.psr_pct" data-dp="1">45.5%</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.psr_pct" data-dp="1">28.7%</span></td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Deflated Sharpe (32 trials)</th><td class="num" role="cell" data-label="Main backtest"><span data-metric="significance.main.dsr_pct" data-dp="1">1.4%</span></td><td class="num" role="cell" data-label="Walk-forward OOS (daily)"><span data-metric="significance.oos_daily.dsr_pct" data-dp="1">0.4%</span></td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Block-bootstrap 95% interval for the Sharpe</th><td class="num" role="cell" data-label="Main backtest">[<span data-metric="significance.main.boot_lo">−1.39</span>, <span data-metric="significance.main.boot_hi">1.23</span>]</td><td class="num" role="cell" data-label="Walk-forward OOS (daily)">[<span data-metric="significance.oos_daily.boot_lo">−1.49</span>, <span data-metric="significance.oos_daily.boot_hi">0.86</span>]</td></tr>
-    </tbody>
-  </table>
+  <figure class="exhibit" id="ex-15" data-exhibit="schedules">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 15</span>
+      <span class="ex-title">Re-costed under five other cost and sizing schedules, the same trades lose money in four and break even in one</span>
+      <span class="ex-sub">Cumulative net return, % of capital, when the main backtest's trades are re-sized and re-costed; schedules A–E in order of total cost</span>
+    </figcaption>
+    <div class="ex-chart ex-chart-multi" role="img" aria-label="Five small line charts on a common scale, one per cost schedule, each showing cumulative net return over the main period."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
+    <div class="ex-foot">
+      <p><span class="k">Notes</span> Schedules are parameter sets, not descriptions of any firm; each panel lists its commission, half-spread, impact cap, borrow, financing and position size. Returns run from <span data-metric="fund_profiles.institutional.total_return_pct">+0.04%</span> (schedule A, the lowest costs and smallest positions) to <span data-metric="fund_profiles.fundamental_ls.total_return_pct">−3.27%</span> (schedule C). The replay keeps every signal, entry, exit and daily path, and changes only sizes and costs.</p>
+      <p><span class="k">Source</span> results/v32_dev/fund_type_comparison.json.</p>
+    </div>
+    <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+  </figure>
 
-  <h3 id="base-title">Baselines, multiple testing and capital use (v32)</h3>
-  <div class="tw">
-  <table class="res">
-    <caption>Comparisons and diagnostics, v32 study run of 2026-10-18.</caption>
-    <thead>
-      <tr><th scope="col">Measure</th><th scope="col">v32</th></tr>
-    </thead>
-    <tbody>
-      <tr><th scope="row">Gatev (2006) distance method, same period: return</th><td class="num"><span data-metric="benchmarks.gatev.total_return_pct">+0.57%</span></td></tr>
-      <tr><th scope="row">Sharpe difference, strategy minus Gatev</th><td class="num"><span data-metric="benchmarks.sharpe_diff_vs_gatev.diff">−0.14</span></td></tr>
-      <tr><th scope="row">Ledoit-Wolf test of that difference: p-value</th><td class="num"><span data-metric="benchmarks.sharpe_diff_vs_gatev.p" data-dp="3">0.879</span></td></tr>
-      <tr><th scope="row">Random-pair control (200 draws): median Sharpe</th><td class="num"><span data-metric="benchmarks.random_control.median_sharpe">0.26</span></td></tr>
-      <tr><th scope="row">Pairs Engle-Granger tested (after the correlation screen)</th><td class="num"><span data-metric="fdr.pairs_tested">35,491</span></td></tr>
-      <tr><th scope="row">Of those, significant at raw p &lt; 0.05</th><td class="num"><span data-metric="fdr.significant_raw_p05">2,965</span></td></tr>
-      <tr><th scope="row">Of those, surviving Benjamini-Hochberg at q &lt; 0.05</th><td class="num"><span data-metric="fdr.survive_bh_fdr_q05">1</span></td></tr>
-      <tr><th scope="row">Pairs selected after every filter</th><td class="num"><span data-metric="fdr.final_selected_pairs">1,776</span></td></tr>
-      <tr><th scope="row">Main backtest: maximum drawdown</th><td class="num"><span data-metric="main.max_drawdown_pct">−3.00%</span></td></tr>
-      <tr><th scope="row">Main backtest: average gross exposure</th><td class="num"><span data-metric="main.avg_gross_exposure_pct" data-dp="1">15.1%</span></td></tr>
-      <tr><th scope="row">Walk-forward OOS: windows with no trades</th><td class="num"><span data-metric="oos.windows_no_trades">2</span></td></tr>
-    </tbody>
-  </table>
-  </div>
-</section>
-
-<section class="section" id="validation" aria-labelledby="validation-title">
-  <p class="sec-label">02 · Validation</p>
-  <h2 id="validation-title">Validation on markets with known answers</h2>
-  <p class="desc">A backtest on real data can only say what a strategy did, not whether the code measures what it claims. <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/scripts/synthetic_validation.py"><code>scripts/synthetic_validation.py</code></a> runs the real engine, with its full cost model, on synthetic markets whose answer is known (<a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/pairs_trading/synthetic.py"><code>pairs_trading/synthetic.py</code></a>); CI runs two markets per scenario on every push to main and on pull requests. The table reports five independent markets per scenario. These are checks of the code on synthetic data, not results on the study data.</p>
-  <table class="stack" role="table">
-    <caption>Known-answer checks, v32 (five synthetic markets per scenario)</caption>
-    <thead role="rowgroup">
-      <tr role="row"><th scope="col" role="columnheader">Check</th><th scope="col" role="columnheader">What must happen</th><th scope="col" role="columnheader">v32 result</th></tr>
-    </thead>
-    <tbody role="rowgroup">
-      <tr role="row"><th scope="row" role="rowheader">Planted cointegrated pairs (OU spreads, half-life 5–14 days)</th><td role="cell" data-label="What must happen">find a large positive edge</td><td role="cell" data-label="v32 result">2,241 trades, +80.7 bp gross per trade (t = 23.7), median net Sharpe 3.3</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Correlated but not cointegrated pairs (random-walk spread, no drift), forced into the universe</th><td role="cell" data-label="What must happen">no edge (a positive mean would be look-ahead)</td><td role="cell" data-label="v32 result">2,485 trades, +4.6 bp (t = 1.15); 16 more markets: 8,325 trades, +0.25 bp (t = 0.12)</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Kalman hedge ratio vs the true slope</th><td role="cell" data-label="What must happen">recover it</td><td role="cell" data-label="v32 result">median absolute error 0.031 (90th percentile 0.073)</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Pair selection on 2020–2022 data, 6 planted pairs among 24 names</th><td role="cell" data-label="What must happen">find them, admit few others</td><td role="cell" data-label="v32 result">100% of planted pairs found; unrelated pairs admitted: 2.4 of 270 per market with planted pairs, 2.6 of 276 per market with none (≤ 3% in every market)</td></tr>
-    </tbody>
-  </table>
-  <p class="note">The test suite adds causality checks with teeth, each confirmed by re-introducing the bug it guards against: every decision dated on or before T is unchanged when all stock prices, volumes, VIX and sector data after T are replaced — with classical ranking and with a trained ranker (this catches a sizer that sees open trades’ outcomes and the v31 terminal-date feature look-ahead); the regime gate’s inputs are prefix-invariant (catches a centred window); the same trades are taken at the same z-scores when the vendor back-adjusts history for a split after the sample; and trade paths, fills and the fund replay are checked against hand-computed answers.</p>
-</section>
-
-<section class="section" id="methodology" aria-labelledby="methodology-title">
-  <p class="sec-label">03 · Methodology</p>
-  <h2 id="methodology-title">Architecture (v32)</h2>
-  <p class="desc">One pipeline from universe to evidence. 18 modules in <code>pairs_trading/</code>; entry point <code>python -m pairs_trading.main</code>. Thresholds below are the shipped defaults.</p>
-  <div class="pipeline">
-    <div class="p-row">
-      <h3 class="p-key">universe and data</h3>
-      <div class="p-val"><p>The 3,000 largest US common stocks by market cap (the Russell 3000 rule, applied to the Nasdaq screener on 2026-10-18) in <code>data/marketcap.csv</code> · daily OHLCV 2020–2025 · VIX and 11 sector ETFs. Every level screen uses point-in-time prices and volumes (split-unadjusted; still dividend-adjusted, see limitations). A price fetch must cover at least 90% of the universe; caches are written atomically and never silently overwritten.</p></div>
-    </div>
-    <div class="p-row">
-      <h3 class="p-key">pair selection</h3>
-      <div class="p-val">
-        <p><strong>Formation data to 2022-12-31 only.</strong> Symbols are screened on point-in-time price and dollar volume, and only the <strong>300 most liquid</strong> enter the pair search, so most of the universe file is never paired. Pair tests: positive return correlation ≥ 0.25 · two-direction Engle-Granger p &lt; 0.05 (Bonferroni across both directions) · half-life 4–25 days on the cointegrating spread · heuristic quality score. PCA (5 factors) residual cointegration adds a quality bonus. A Benjamini-Hochberg diagnostic is reported over the pairs that pass the correlation screen and are tested.</p>
-        <p><strong>Re-selection every 90 trading days</strong> (about four months, not a calendar quarter): a 2-year re-test plus a 126-day check (p ≤ 0.30, low power — see limitations), with pair statistics re-estimated each time. Re-selection can drop pairs but not add them unless <code>PAIRS_RESELECT=full</code>.</p>
-      </div>
-    </div>
-    <div class="p-row">
-      <h3 class="p-key">spread model</h3>
-      <div class="p-val"><p><strong>Two-state Kalman filter</strong> (slope and intercept) on log prices centred on their burn-in means, so β is a hedge ratio and every signal is invariant to a vendor back-adjustment for a later split or dividend.</p></div>
-    </div>
-    <div class="p-row">
-      <h3 class="p-key">trading rule</h3>
-      <div class="p-val">
-        <p><strong>One z-score for everything:</strong> z is the β-locked spread (lp₁ − β<sub>t</sub>·lp₂) against its mean and standard deviation over the last 30–60 bars (3 × half-life), frozen at the signal, and the same z drives entry, target, stop and time stop. Entry |z| ≥ 1.8 · target |z| ≤ 0.5 · stop 1.5 further against · time stop clamp(2.5 × half-life, 10, 25) days.</p>
-        <p><strong>Execution:</strong> signal at the day-t close, fill at the t+1 close on entry and on exit; legs $1 : $β.</p>
-        <p><strong>Per-entry gates:</strong> 20-day return correlation ≥ 0.20 · β in [0.25, 4] (outside it the signal is skipped, not clamped) · loss cool-off · a round-trip-cost rail (≤ 1% of equity; with positions capped at 10% it never binds on the screened universe). CUSUM and Hurst entry gates exist as flags but are <strong>off by default</strong>: at 30–90 bars CUSUM rejects 0–8% and Hurst 5–11% of random walks and mean-reverting spreads alike.</p>
-      </div>
-    </div>
-    <div class="p-row">
-      <h3 class="p-key">ranker</h3>
-      <div class="p-val"><p>Optional (<code>PAIRS_USE_TRANSFORMER=0</code> disables it). A classifier of P(trade profitable) on 30 features, trained on outcomes of the actual rule and used only to <strong>order same-day candidates</strong>; its out-of-sample AUC and Brier score are reported. The order changes which trades execute only on days when candidates exceed capacity (8 entries a day, no shared legs, 30% gross cap). It sees one 30-feature vector, so it is functionally a residual MLP.</p></div>
-    </div>
-    <div class="p-row">
-      <h3 class="p-key">portfolio and risk</h3>
-      <div class="p-val">
-        <p>$100M · 3–10% per pair (the z multiplier applied inside that clamp) · 30% gross cap · 8 entries a day · no shared legs. Daily mark-to-market; commissions, spreads and impact booked on fill days. A drawdown and daily-loss kill switch flattens the book.</p>
-        <p><strong>Regime scaling</strong> (the smallest applicable scale wins): VIX &gt; 30 → 0.5×, VIX &gt; 40 → 0.25×; sector-dispersion z &gt; 2 → 0.5× at any VIX; VIX &lt; 20 with dispersion z &gt; 0.8 → 0.4×. Dispersion is the cross-sectional spread of 63-day cumulative sector returns, z-scored against its own trailing 252 days. No new entries while more than 20% of the trailing 63 days were scaled down.</p>
-      </div>
-    </div>
-    <div class="p-row">
-      <h3 class="p-key">costs</h3>
-      <div class="p-val"><p>Per stock, per fill: $0.002/share commission · half-spread by dollar-ADV bucket · square-root impact on the stock’s own σ and dollar ADV, on entry and exit · general-collateral borrow 25 bp/yr on the short leg · prime-broker carry on the short half.</p></div>
-    </div>
-    <div class="p-row">
-      <h3 class="p-key">walk-forward</h3>
-      <div class="p-val"><p><strong>One continuous out-of-sample simulation</strong> on a 252-day train / 63-day test grid. The ranker is refit for each window on that window’s train period, positions carry across window boundaries, and per-window figures are calendar slices of the one simulation.</p></div>
-    </div>
-    <div class="p-row">
-      <h3 class="p-key">evidence layer</h3>
-      <div class="p-val">
-        <p><code>significance.py</code>: Probabilistic Sharpe, Deflated Sharpe (32 trials), Newey-West t, Politis-White block bootstrap, Lo (2002) adjusted Sharpe, Ledoit-Wolf Sharpe-difference test, probability of backtest overfitting (PBO, by CSCV).</p>
-        <p><code>benchmark.py</code>: Gatev (2006) distance method with t+1 fills and the same cost model · 200-draw random-pair control. Also market-beta attribution, capital utilisation and a rejection funnel.</p>
-      </div>
+  <div class="ex-grid">
+    <figure class="exhibit is-pending ex-compact" id="ex-16" data-exhibit="capacity">
+      <figcaption class="ex-head">
+        <span class="ex-label">Exhibit 16</span>
+        <span class="ex-title">Capacity: impact cost against book size for a stated gross edge</span>
+        <span class="ex-sub">Net bp per trade as notional scales</span>
+      </figcaption>
+      <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: evidence layer.</strong> A break-even size computed on an insignificant gross edge would suggest an edge that has not been shown, so the curve is drawn for a stated hypothetical edge.</p></div></div>
+      <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+    </figure>
+    <div class="pending-card">
+      <p class="ex-label">Stress table</p>
+      <p class="pc-title">Impact coefficient and borrow stress</p>
+      <div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: v33 dev run.</strong> Net Sharpe at impact Y = 0.3, 0.6, 1.0 crossed with borrow at 0.38% and at a hard-to-borrow fee.</p></div>
     </div>
   </div>
 </section>
 
-<section class="section" id="changes" aria-labelledby="changes-title">
-  <p class="sec-label">04 · What v32 changed</p>
-  <h2 id="changes-title">What v32 changed</h2>
-  <p class="desc">Each row is a defect the audit confirmed in v31.1 and how v32 handles it. <span class="flag">flatters</span> marks defects that made the old backtest look better than the strategy was. The full record of v32 and every earlier version is in <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">docs/PROGRESS.md</a>.</p>
-  <table class="stack" role="table">
-    <caption>Defects confirmed in v31.1 and the v32 handling</caption>
-    <thead role="rowgroup">
-      <tr role="row"><th scope="col" role="columnheader">Area</th><th scope="col" role="columnheader">v31.1</th><th scope="col" role="columnheader">v32</th></tr>
-    </thead>
-    <tbody role="rowgroup">
-      <tr role="row"><th scope="row" role="rowheader">Look-ahead</th><td role="cell" data-label="v31.1">each trade’s final P&amp;L was recorded with the position sizer and the loss-streak cool-off <strong>on its entry day</strong> <span class="flag">flatters</span></td><td role="cell" data-label="v32">outcomes reach the sizer and cool-off only after the exit fill; a perturbation test enforces it</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Look-ahead</th><td role="cell" data-label="v31.1">one-state Kalman without intercept on log prices: β absorbed the price level (true 0.90 read as ≈1.27), and a vendor back-adjustment for a split or dividend after the sample changed every past signal</td><td role="cell" data-label="v32">two-state filter on burn-in-centred log prices; signals are invariant to such back-adjustment (a test enforces it)</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Signal</th><td role="cell" data-label="v31.1">entry used an expanding-window z of the Kalman residual; target, stop and time stop used a β-locked z — two different spreads</td><td role="cell" data-label="v32">one β-locked z with reference statistics frozen at the signal, used for every decision</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Hedge</th><td role="cell" data-label="v31.1">equal-dollar legs regardless of β</td><td role="cell" data-label="v32">legs weighted $1 : $β; β outside [0.25, 4] is skipped, not clamped</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Accounting</th><td role="cell" data-label="v31.1">a trade’s whole P&amp;L booked on its exit day (understates volatility and drawdown)</td><td role="cell" data-label="v32">daily mark-to-market; costs on fill days; end-of-data positions force-closed, never dropped</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Walk-forward</th><td role="cell" data-label="v31.1">independent 63-day windows; trades still open at a window’s end were discarded <span class="flag">flatters</span></td><td role="cell" data-label="v32">one continuous simulation with per-window ranker refits; per-window figures are slices of it</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Sizing</th><td role="cell" data-label="v31.1">z multiplier applied after the 3–10% clamp, so the strongest signals were vetoed by the 10% limit</td><td role="cell" data-label="v32">multiplier inside the clamp; one quality threshold (0.55) instead of a dead 0.40 pre-filter</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Entry gates</th><td role="cell" data-label="v31.1">CUSUM and Hurst gates on 30–90 bars</td><td role="cell" data-label="v32">measured near-random at these lengths (CUSUM rejects 0–8% and Hurst 5–11% of random walks and mean-reverting spreads alike); off by default, kept as flags</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Re-selection</th><td role="cell" data-label="v31.1">inconsistent p-value definitions; pair statistics frozen at the 2022 selection</td><td role="cell" data-label="v32">one Bonferroni p-value; statistics re-estimated at every re-selection; opt-in full re-search (<code>PAIRS_RESELECT=full</code>)</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Selection</th><td role="cell" data-label="v31.1">half-life on the β = 1 spread; share-volume screen on split-adjusted data; negative correlations admitted; a silent screen-free fallback</td><td role="cell" data-label="v32">half-life on the cointegrating spread; point-in-time dollar-volume screen; positive correlation; no fallback; deterministic leg order</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Costs</th><td role="cell" data-label="v31.1">effective commission ≈0.09 bp; the same 0.8 bp spread for every stock; impact from a fixed share volume (so it scaled with 1/√price); fund profiles: impact without volatility (its cap bound on every trade), charged on entry only, institutional costs 10× too small (unit error)</td><td role="cell" data-label="v32">per-share commission; half-spread by dollar-ADV bucket; square-root impact on each stock’s own σ and dollar ADV, on entry and exit; GC borrow and financing; fund-profile units and impact fixed</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Data</th><td role="cell" data-label="v31.1">universe screens on split-adjusted prices (later splits decided membership); partial fetches cached as the study; an unreadable cache was silently refetched and overwritten; last trading day dropped</td><td role="cell" data-label="v32">point-in-time screens; fetch coverage ≥ 90% enforced, retries with backoff, manifest; caches written atomically and never overwritten; inclusive end date</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Ranker</th><td role="cell" data-label="v31.1">trained on a different target than the rule it ranks, from features extracted with empty stock data; 8 always-zero inputs; class weighting left the score uncalibrated; a 1,000-episode “RL” loop updated nothing</td><td role="cell" data-label="v32">labels from the actual rule (outcome complete inside the training window); live features; 30 real inputs; prior-corrected probabilities; failures score the base rate; out-of-sample AUC and Brier reported; RL loop removed</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Benchmarks</th><td role="cell" data-label="v31.1">Gatev baseline filled on the signal bar at 2.5–5× lower cost than the strategy; 5-draw random control</td><td role="cell" data-label="v32">t+1 fills and the same per-stock cost model; Gatev re-normalisation and crossing exits; 200-draw random control with its distribution; Ledoit-Wolf test of the Sharpe difference</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Statistics</th><td role="cell" data-label="v31.1">fixed 10-day bootstrap blocks; DSR = 1.0 when one trial; constant series gave a Sharpe of 10¹⁶</td><td role="cell" data-label="v32">Politis-White block length; Lo (2002) adjustment; PBO; one Sharpe definition with a zero-variance guard</td></tr>
-      <tr role="row"><th scope="row" role="rowheader">Outputs</th><td role="cell" data-label="v31.1">publication check scraped a log (could not parse signed numbers, matched integers as substrings); a failed stage still exited 0</td><td role="cell" data-label="v32"><code>headline_metrics.json</code> plus marker check (and <code>--write</code>); provenance block in every export; failed stages make the run exit non-zero</td></tr>
-    </tbody>
-  </table>
+<!-- ════════════════════════════════ 6 · Risk ════════════════════════════════ -->
+<section id="risk" class="sec" aria-labelledby="h-risk">
+  <h2 id="h-risk"><span class="secno">6</span>Risk and attribution</h2>
+  <p class="lede">Market exposure is small but not zero. Against an equal-weight sector-ETF proxy the main backtest's beta is <span data-metric="study.dev.facts.beta_main">0.010</span> (t = <span data-metric="study.dev.facts.beta_main_t">1.81</span>) and the walk-forward's <span data-metric="study.dev.facts.beta_oos">0.016</span> (t = <span data-metric="study.dev.facts.beta_oos_t">2.17</span>): Kalman hedge ratios below one leave most pairs net long. Annualised alpha is <span data-metric="study.dev.facts.alpha_main_pct">−0.25</span>% in the main backtest and <span data-metric="study.dev.facts.alpha_oos_pct">−0.84</span>% out of sample. The multi-factor attribution (Fama–French five factors, momentum, short- and long-term reversal, Newey–West errors) arrives with v33.</p>
+  <div class="ex-pair">
+    <figure class="exhibit" id="ex-17" data-exhibit="factors">
+      <figcaption class="ex-head">
+        <span class="ex-label">Exhibit 17</span>
+        <span class="ex-title">The only loading measured so far is a small market beta, significant out of sample</span>
+        <span class="ex-sub">Beta to the sector-ETF market proxy with 95% interval (Newey–West)</span>
+      </figcaption>
+      <div class="ex-chart" role="img" aria-label="Dot plot of the market beta of the main backtest and of the walk-forward with 95% intervals and a zero line."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
+      <div class="ex-foot">
+        <p><span class="k">Notes</span> Proxy: equal-weight daily return of 11 sector SPDR ETFs. Factor rows for FF5, momentum and reversal fill when the v33 export carries them.</p>
+        <p><span class="k">Source</span> results/v32_dev, factor_attribution.</p>
+      </div>
+      <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+    </figure>
+    <figure class="exhibit" id="ex-18" data-exhibit="distribution">
+      <figcaption class="ex-head">
+        <span class="ex-label">Exhibit 18</span>
+        <span class="ex-title">Daily returns are fat-tailed (kurtosis <span data-metric="study.dev.facts.kurtosis">6.7</span>) with a spike at zero from flat days</span>
+        <span class="ex-sub">Distribution of daily net returns, bp of capital; main backtest</span>
+      </figcaption>
+      <div class="ex-chart" role="img" aria-label="Histogram of daily net returns in basis points, with a tall bar at zero for days without positions."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
+      <div class="ex-foot">
+        <p><span class="k">Notes</span> Skew <span data-metric="study.dev.facts.skew">0.17</span>; kurtosis is non-excess (3 for a normal distribution). Fat tails widen the Sharpe ratio's standard error, which the power figures in Section 3 account for.</p>
+        <p><span class="k">Source</span> results/v32_dev daily net returns.</p>
+      </div>
+      <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+    </figure>
+  </div>
 </section>
 
-<section class="section" id="limitations" aria-labelledby="limitations-title">
-  <p class="sec-label">05 · Known limitations</p>
-  <h2 id="limitations-title">Known limitations</h2>
-  <p class="desc">These hold for v32 and should be read with any result it produces.</p>
-  <ul class="lims">
-    <li><strong>Survivorship, and an approximate index.</strong> The universe is the 3,000 largest US common stocks by market cap on 2026-10-18 (the Russell 3000 rule applied to the Nasdaq screener, not FTSE Russell’s constituent list), back-filled with 2020–2025 prices. Companies that failed, delisted or were acquired before that date are absent, and pairs that broke because a company failed are missing, which flatters a pairs strategy. Fixing it needs a point-in-time dataset such as CRSP.</li>
-    <li><strong>Design choices were made on the same data.</strong> Thresholds, gates and the regime rule were chosen across 32 versions using 2020–2025. The walk-forward is out of sample for pair selection and the ranker, not for those choices. The Deflated Sharpe counts 32 trials (a lower bound), and <code>scripts/parameter_sensitivity.py</code> reports how fragile the chosen thresholds are (PBO).</li>
-    <li><strong>Re-selection can drop pairs but not add them</strong> unless <code>PAIRS_RESELECT=full</code> (slow).</li>
-    <li><strong>Borrow is general-collateral for every name</strong> (25 bp/yr); hard-to-borrow fees, recalls, short rebates and regulatory fees are not modelled.</li>
-    <li><strong>Fills are close-to-close</strong>; no auction, queue or intraday modelling. Capacity is reported as average ADV participation rather than simulated.</li>
-    <li><strong>Ranker features include pair statistics estimated on the formation window</strong> that also produces its earliest training labels. The ranker only orders same-day candidates, and its out-of-sample AUC is reported.</li>
-    <li><strong>The “transformer” sees one 30-feature vector</strong> — a sequence of length one — so it is functionally a residual MLP. Its scores are not bit-identical across CPU thread counts or devices.</li>
-    <li><strong>Sector features are coarse.</strong> The sector map covers 286 of the 3,000 symbols; the rest get neutral sector inputs. Pairs are not restricted to one industry.</li>
-    <li><strong>The 126-day re-selection check has little power.</strong> At n ≈ 87 bars (asymptotic MacKinnon p-values) the rule p ≤ 0.30 passes 27% of non-cointegrated pairs and only 32–63% of truly cointegrated ones (half-life 14 down to 5 days), so it removes many healthy pairs at every re-selection. It is kept as the documented v8 design; <code>RESEL_RECENT_MAX_P = 1.0</code> turns it off.</li>
-    <li><strong>The price cache used through v31 was built with a full-sample penny-stock screen</strong>, and its fill step also wrote forward-filled prices into rows where the vendor returned none. v32 does neither, but a cache built before v32 keeps both until it is re-fetched. Its universe coverage is also unchecked: v31 wrote no fetch manifest (and dropped some symbols on purpose), so such a run records <code>universe_coverage: null</code> plus the fraction of the universe the cache holds; a cache holding less than half the universe is refused unless <code>PAIRS_ALLOW_PARTIAL_FETCH=1</code> (which makes the run a variant). The v32 study run used a freshly fetched v32 cache, so none of this applies to its results.</li>
-    <li><strong>“Point-in-time” prices undo splits, not dividends.</strong> The cached closes are dividend-adjusted, so early prices are understated by the yield of later dividends (a few percent a year for high-yield names) in the $5 price and dollar-volume screens.</li>
-  </ul>
-  <p class="note">Literature context: Do &amp; Faff (2010, <cite>Financial Analysts Journal</cite>; 2012, <cite>Journal of Financial Research</cite>) find that simple distance-method pairs trading became largely unprofitable after 2002 once trading costs are counted. That is indirect support for a negative result here, not a test of this strategy.</p>
+<!-- ════════════════════════════════ 7 · Multiple testing ════════════════════════════════ -->
+<section id="testing" class="sec" aria-labelledby="h-testing">
+  <h2 id="h-testing"><span class="secno">7</span>Multiple testing</h2>
+  <p class="lede">Of <span data-metric="fdr.pairs_tested">35,491</span> pairs tested, <span data-metric="fdr.significant_raw_p05">2,965</span> were “cointegrated” at p &lt; 0.05, against <span data-metric="study.dev.funnel.pairs.1.expected">1,775</span> expected by chance alone. Only <span data-metric="fdr.survive_bh_fdr_q05">1</span> survives a Benjamini–Hochberg correction at q = 0.05: the excess is spread thinly over many weak relationships. Selection kept <span data-metric="fdr.final_selected_pairs">1,776</span> pairs, of which <span data-metric="study.dev.facts.pairs_traded">100</span> were traded.</p>
+  <div class="ex-pair">
+    <figure class="exhibit" id="ex-19" data-exhibit="funnel">
+      <figcaption class="ex-head">
+        <span class="ex-label">Exhibit 19</span>
+        <span class="ex-title">From <span data-metric="fdr.pairs_tested">35,491</span> candidate pairs to <span data-metric="study.dev.facts.pairs_traded">100</span> traded; chance alone accounts for most “cointegrated” pairs</span>
+        <span class="ex-sub">Pairs at each selection stage, formation data to 31 December 2022</span>
+      </figcaption>
+      <div class="ex-chart" role="img" aria-label="Horizontal bars of the number of pairs at each selection stage, with the count expected by chance marked on the cointegration stage."><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
+      <div class="ex-foot">
+        <p><span class="k">Notes</span> Pairs share legs, so the tests are dependent; Benjamini–Hochberg is a diagnostic here, not a filter. Selection also requires a half-life of 4–25 days and a quality score.</p>
+        <p><span class="k">Source</span> results/v32_dev, fdr_diagnostic and all_trades.</p>
+      </div>
+      <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+    </figure>
+    <figure class="exhibit is-pending" id="ex-20" data-exhibit="pvalues">
+      <figcaption class="ex-head">
+        <span class="ex-label">Exhibit 20</span>
+        <span class="ex-title">Engle–Granger p-values against the uniform null</span>
+        <span class="ex-sub">Histogram, 20 bins, with the height expected if no pair were cointegrated</span>
+      </figcaption>
+      <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: v33 dev run.</strong> The v32 export keeps the counts above but not the p-values themselves.</p></div></div>
+      <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+    </figure>
+  </div>
 </section>
 
-<section class="section" id="reproduce" aria-labelledby="reproduce-title">
-  <p class="sec-label">06 · Reproduce and test</p>
-  <h2 id="reproduce-title">Reproducing and testing</h2>
-  <p class="desc">The universe is rebuilt with <code>scripts/build_universe.py</code> (the 3,000 largest US common stocks by market cap from the Nasdaq screener, with its as-of date recorded) and prices are fetched from Yahoo’s chart API on the first run; a later fetch will not match the 2026-10-18 cache bit-for-bit, because vendors revise history. <code>PAIRS_SEED</code> (default 42) seeds Python, NumPy and torch and is recorded, with the git commit, in every export’s provenance block. The ranker’s scores are not bit-identical across CPU thread counts or devices.</p>
-  <pre tabindex="0" aria-label="Commands to run the study and publish its numbers"><code>pip install -r requirements.txt          # Python 3.12; or: pip install -e ".[dev]"
-mkdir -p logs outputs
-
-# the universe: the 3,000 largest US common stocks by market cap (Nasdaq screener)
-python scripts/build_universe.py
-# the study (prices are fetched from Yahoo’s chart API and cached on the first run)
-python -m pairs_trading.main 2&gt;&amp;1 | tee logs/backtest.log
-
-# publish: fill every marked number in README.md and index.html, then verify them
-python scripts/check_published_numbers.py --write
-python scripts/make_og_image.py          # social card from the same JSON
-cp -r outputs outputs_headline           # keep the headline run: every run rewrites outputs/
-# (re-check later with: python scripts/check_published_numbers.py --json outputs_headline/headline_metrics.json)
-
-# evidence beyond the headline (each run rewrites outputs/; the publishing scripts refuse a
-# JSON from a non-default switch unless --allow-variant is given)
-python scripts/synthetic_validation.py   # known-answer checks (~4 min)
-python scripts/parameter_sensitivity.py  # threshold grid + PBO on the study data (slow)
-PAIRS_USE_TRANSFORMER=0 python -m pairs_trading.main &gt; logs/backtest_noml.log 2&gt;&amp;1   # ranker ablation
-PAIRS_FILL=open python -m pairs_trading.main &gt; logs/backtest_open.log 2&gt;&amp;1          # fill sensitivity</code></pre>
-
-  <h3 id="switches-title">Switches</h3>
-  <table class="stack" role="table">
-    <caption>Environment switches</caption>
-    <thead role="rowgroup">
-      <tr role="row"><th scope="col" role="columnheader">Switch</th><th scope="col" role="columnheader">Default</th><th scope="col" role="columnheader">Effect</th></tr>
-    </thead>
-    <tbody role="rowgroup">
-      <tr role="row"><th scope="row" role="rowheader"><code>PAIRS_SEED</code></th><td role="cell" data-label="Default">42</td><td role="cell" data-label="Effect">seeds Python, NumPy and torch; recorded in every export</td></tr>
-      <tr role="row"><th scope="row" role="rowheader"><code>PAIRS_USE_TRANSFORMER</code></th><td role="cell" data-label="Default">1</td><td role="cell" data-label="Effect"><code>0</code> skips ranker training: classical ranking on the same code path</td></tr>
-      <tr role="row"><th scope="row" role="rowheader"><code>PAIRS_FILL</code></th><td role="cell" data-label="Default">close</td><td role="cell" data-label="Effect"><code>open</code> fills at the next bar’s open instead of its close</td></tr>
-      <tr role="row"><th scope="row" role="rowheader"><code>PAIRS_RESELECT</code></th><td role="cell" data-label="Default">pool</td><td role="cell" data-label="Effect"><code>full</code> re-runs the complete pair search at every re-selection</td></tr>
-      <tr role="row"><th scope="row" role="rowheader"><code>PAIRS_ALLOW_PARTIAL_FETCH</code></th><td role="cell" data-label="Default">unset</td><td role="cell" data-label="Effect"><code>1</code> accepts price data covering &lt; 90% of the universe (a partial fetch, or loading a v32 cache built from one); such a run is a variant. A pre-v32 cache has no fetch manifest: its coverage cannot be checked, only that it holds at least half the universe</td></tr>
-      <tr role="row"><th scope="row" role="rowheader"><code>PAIRS_DEMO_UNIVERSE</code></th><td role="cell" data-label="Default">unset</td><td role="cell" data-label="Effect"><code>1</code> uses an 85-symbol smoke-test universe when <code>data/marketcap.csv</code> is absent (does not reproduce the study)</td></tr>
-      <tr role="row"><th scope="row" role="rowheader"><code>PAIRS_SKIP_REPROCESS</code></th><td role="cell" data-label="Default">unset</td><td role="cell" data-label="Effect"><code>1</code> loads the price cache verbatim</td></tr>
-    </tbody>
-  </table>
-  <p class="note">A run exits non-zero if any analysis stage fails; its exports are still written, marked <code>"complete": false</code>, for debugging. <code>data/</code>, <code>logs/</code> and <code>outputs/</code> are git-ignored.</p>
-
-  <h3 id="testing-title">Testing</h3>
-  <p class="desc"><code>pytest --cov=pairs_trading</code> runs 300+ hermetic tests (no data files, no network; 89% line coverage, about 3 minutes). The suite runs the whole pipeline end to end (classical ranking) on a synthetic market written in the exact on-disk format of the study, trains and uses the ranker in a separate test, and tests the engine for causality (future-perturbation and back-adjustment invariance), accounting (daily P&amp;L reconciles with trades; mark-to-market telescopes), the trading rule (one z definition, timing, exposure caps, run-off), the cost model, pair selection, the ranker (calibration, out-of-sample metrics, as-of features), the statistics (against reference implementations), the benchmarks, the exports and the publication scripts. CI also runs the known-answer validation, <code>pip-audit</code>, <code>ruff</code> and CodeQL; pandas/NumPy <code>FutureWarning</code>s are errors.</p>
-  <dl class="grid2">
-    <div class="g2"><dt>Version</dt><dd>v32.0.0 <span>2026-10-12 · engineering log v6 → v32</span></dd></div>
-    <div class="g2"><dt>Stack</dt><dd>Python 3.12 · PyTorch 2.13 <span>NumPy · pandas · SciPy · statsmodels · scikit-learn · yfinance</span></dd></div>
-    <div class="g2"><dt>Universe</dt><dd>3,000 largest US stocks <span>3,000 symbols in the universe file · 97% fetched · 300 most liquid enter pair search · 2020–2025</span></dd></div>
-    <div class="g2"><dt>Tests</dt><dd>300+ hermetic tests <span>89% line coverage · end-to-end pipeline run in CI</span></dd></div>
-  </dl>
+<!-- ════════════════════════════════ 8 · Second family ════════════════════════════════ -->
+<section id="residual" class="sec" aria-labelledby="h-residual">
+  <h2 id="h-residual"><span class="secno">8</span>Second strategy family: residual reversion <span class="status-pill"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg>Pending</span></h2>
+  <p class="lede">A null on one rule says little about the idea. Avellaneda and Lee (2010) trade each stock's residual against its sector ETF when that residual, modelled as a mean-reverting process, is stretched; many small concurrent bets give the test far more power than <span data-metric="main.trades">161</span> pair trades. The parameters are taken from the paper unchanged: a 60-day regression on the sector ETF, an AR(1) fit of the cumulative residual, trades only when mean reversion is faster than 30 days, entry at |s| &gt; 1.25, exits at −0.50 (long) and 0.75 (short), next-day fills and the same cost model.</p>
+  <figure class="exhibit is-pending" id="ex-21" data-exhibit="residual">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 21</span>
+      <span class="ex-title">Avellaneda–Lee residual reversion against the pairs strategy, development period</span>
+      <span class="ex-sub">Net Sharpe ratio with 95% interval, same universe and costs</span>
+    </figcaption>
+    <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: v33 dev run.</strong> Fills from results/residual_dev/ when the arm has run on the development calendar.</p></div></div>
+    <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+  </figure>
 </section>
 
-<section class="section" id="next" aria-labelledby="next-title">
-  <p class="sec-label">07 · Next</p>
-  <h2 id="next-title">What happens next</h2>
-  <p class="desc">The v32 study has been run (2026-10-18) and its numbers published. Still open from the engineering log:</p>
-  <ol class="steps">
-    <li><code>scripts/parameter_sensitivity.py</code> on the study data: the probability that the chosen entry/target/stop thresholds are an artefact of search (PBO).</li>
-    <li>The <code>PAIRS_USE_TRANSFORMER=0</code> and <code>PAIRS_FILL=open</code> sensitivity runs (the ranker’s out-of-sample AUC of 0.51 already says it adds nothing).</li>
-  </ol>
-  <h3 id="beyond-title">Beyond this study</h3>
-  <p class="desc">Each of these answers a limitation listed above; none is promised to change the answer.</p>
-  <ul class="plain">
-    <li><strong>Survivorship-free data:</strong> repeat the study on a point-in-time, delisting-inclusive universe such as CRSP.</li>
-    <li><strong>Untouched data for the design choices:</strong> the thresholds, gates and regime rule were chosen on 2020–2025, so only data none of the 32 versions has seen can test them out of sample.</li>
-    <li><strong>Short-side and execution realism:</strong> hard-to-borrow fees, locates and recalls, short rebates, auction and intraday fills, and capacity simulated rather than reported as ADV participation.</li>
-  </ul>
-</section>
-
-<section class="section" id="docs" aria-labelledby="docs-title">
-  <p class="sec-label">08 · Documentation and history</p>
-  <h2 id="docs-title">Documentation</h2>
-  <ul class="docs">
-    <li class="doc">
-      <p class="meta">Canonical description · v32</p>
-      <h3><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/README.md">README</a></h3>
-      <p>Status, the results table that the next run fills, the known-answer validation, the v32 architecture, what v32 changed, known limitations, and how to reproduce and test. This page says the same things.</p>
-    </li>
-    <li class="doc">
-      <p class="meta">Engineering log · v6 → v32</p>
-      <h3><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">PROGRESS.md: the complete engineering log</a></h3>
-      <p>Every version from v6 to v32, kept as written at the time, including claims later found wrong; the newest entry supersedes earlier ones where they disagree. It runs from the first look-ahead fixes (v9–v12), the Kalman spread work (v16–v19), the ranker (v24–v26.1), the significance layer and baselines (v28–v29), the v30 leakage audit and the v31–v31.1 pre-launch audit, to the v32 audit and rebuild: how the audit ran, each change to the engine, data, selection, costs, ranker, statistics and outputs, the synthetic validation, and what remains to finish v32.</p>
-    </li>
-    <li class="doc">
-      <p class="meta">Historical post-mortem · superseded · figures withdrawn</p>
-      <h3><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/history/deep_analysis_v9_issues.md">Why v9 under-traded (February 2026)</a></h3>
-      <p>Diagnosis notes for v9: signal thresholds that were too strict, a regime gate that scaled positions rather than suspending trading, and a training-data mismatch. It also explains how v8’s result was inflated by a selection look-ahead — trading 2020–2022 with pairs validated on 2023 data — which v9 removed. The note calls that look-ahead “survival bias”; it is not the survivorship bias listed under known limitations, which remains unfixed.</p>
-    </li>
-    <li class="doc">
-      <p class="meta">Background research · not a description of the code</p>
-      <h3><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/transaction_costs_and_portfolio_exposure.md">Transaction costs and fund exposure: a literature reference</a></h3>
-      <p>A source-linked compendium of published cost data — broker commissions, spreads, borrow, and the leverage of named funds — used as background for the cost parameters. It contains no backtest results; the cost model v32 actually implements is described under <a href="#methodology">Methodology</a>.</p>
-    </li>
-  </ul>
-
-  <h3 id="history-title">Version history (highlights)</h3>
-  <table class="hist">
-    <caption>Selected versions; the engineering log has the full record, deliberately unflattering.</caption>
-    <thead>
-      <tr><th scope="col">Version</th><th scope="col">Change</th></tr>
-    </thead>
-    <tbody>
-      <tr><th scope="row">v9–v12</th><td>first look-ahead fixes (P&amp;L, pair selection, Kalman β drift)</td></tr>
-      <tr><th scope="row">v16–v19</th><td>Kalman spread fixes, β-weighted P&amp;L, PCA residual cointegration, dynamic hold</td></tr>
-      <tr><th scope="row">v24–v26.1</th><td>ranker trained and wired in (ranking only); controlled ablation; a label bug that had disabled training</td></tr>
-      <tr><th scope="row">v28–v29</th><td>significance layer and baselines; t+1 entry fills</td></tr>
-      <tr><th scope="row">v30</th><td>leakage audit: survivorship confirmed, selection-clean window tagging</td></tr>
-      <tr><th scope="row">v31–v31.1</th><td>pre-launch audit: inverted stop-loss, same-bar exits, future re-selections in the walk-forward and more (its results are withdrawn)</td></tr>
-      <tr><th scope="row">v32</th><td>full audit (≈270 confirmed findings): engine, Kalman model, accounting, walk-forward, costs, ranker, benchmarks and outputs rebuilt; synthetic known-answer validation; study re-run: still no edge (out-of-sample pooled Sharpe −0.33, p = 0.56; ranker AUC 0.51)</td></tr>
-    </tbody>
-  </table>
-</section>
-
-<section class="section" id="not" aria-labelledby="not-title">
-  <p class="sec-label">09 · Scope</p>
-  <h2 id="not-title">What this project is not</h2>
-  <ul class="plain">
-    <li><strong>Not a deployable strategy.</strong> It is a framework for finding out whether one exists.</li>
-    <li><strong>Not reinforcement learning.</strong> There is no policy, value function or environment loop; v32 deleted a loop that was labelled as training but updated nothing.</li>
-    <li><strong>Not “AI-driven”.</strong> The learned component only orders candidates that the classical rule has already accepted. In v31.1 its contribution was exactly zero; v32 measures its out-of-sample skill directly.</li>
-  </ul>
-</section>
-
+<!-- ════════════════════════════════ 9 · Method ════════════════════════════════ -->
+<section id="method" class="sec" aria-labelledby="h-method">
+  <h2 id="h-method"><span class="secno">9</span>Method</h2>
+  <p class="lede">Selection sees formation data only; every trading decision on day t uses data up to day t and fills on day t+1; the evidence is computed after the run. Tests change future prices and check that no past decision moves.</p>
+  <figure class="exhibit ex-diagram" id="ex-22">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 22</span>
+      <span class="ex-title">The pipeline, and what data each stage may see</span>
+      <span class="ex-sub">Emphasised boxes mark the two look-ahead boundaries: the formation cutoff and the next-day fill</span>
+    </figcaption>
+    <div class="dg-wrap">
+<svg class="dg dg-wide" viewBox="0 0 880 306" role="img" aria-labelledby="pw-t pw-d" focusable="false">
+<title id="pw-t">Study pipeline</title>
+<desc id="pw-d">Selection on formation data only: data, universe, formation. Trading, causal on data to day t: Kalman spread model, signal, next-day execution, costs, daily accounting. Evidence after the run: walk-forward, significance tests, baselines.</desc>
+<defs><marker id="arr-w" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" class="dg-arrowhead"/></marker></defs>
+<text class="dg-t" x="0" y="34">Selection</text>
+<text class="dg-s" x="0" y="50">formation data only</text>
+<rect class="dg-box" x="166" y="4" width="124" height="76" rx="3"/>
+<text class="dg-t" x="176" y="23">Data</text>
+<text class="dg-s dg-small" x="176" y="41">Daily prices 2020–2025</text>
+<text class="dg-s dg-small" x="176" y="55">VIX, 11 sector ETFs</text>
+<rect class="dg-box" x="312" y="4" width="124" height="76" rx="3"/>
+<text class="dg-t" x="322" y="23">Universe</text>
+<text class="dg-s dg-small" x="322" y="41">3,000 largest US stocks</text>
+<text class="dg-s dg-small" x="322" y="55">point-in-time screens</text>
+<text class="dg-s dg-small" x="322" y="69">300 most liquid</text>
+<line class="dg-link" x1="292" x2="309" y1="42.0" y2="42.0" marker-end="url(#arr-w)"/>
+<rect class="dg-box dg-box-key" x="458" y="4" width="124" height="76" rx="3"/>
+<text class="dg-t" x="468" y="23">Formation</text>
+<text class="dg-s dg-small" x="468" y="41">Engle–Granger p &lt; 0.05</text>
+<text class="dg-s dg-small" x="468" y="55">half-life 4–25 days</text>
+<text class="dg-s dg-small" x="468" y="69">data to 31 Dec 2022</text>
+<line class="dg-link" x1="438" x2="455" y1="42.0" y2="42.0" marker-end="url(#arr-w)"/>
+<text class="dg-t" x="0" y="144">Trading</text>
+<text class="dg-s" x="0" y="160">causal: data to day t</text>
+<rect class="dg-box" x="166" y="114" width="124" height="76" rx="3"/>
+<text class="dg-t" x="176" y="133">Spread model</text>
+<text class="dg-s dg-small" x="176" y="151">two-state Kalman</text>
+<text class="dg-s dg-small" x="176" y="165">hedge ratio β</text>
+<text class="dg-s dg-small" x="176" y="179">and intercept</text>
+<rect class="dg-box" x="312" y="114" width="124" height="76" rx="3"/>
+<text class="dg-t" x="322" y="133">Signal</text>
+<text class="dg-s dg-small" x="322" y="151">β-locked z-score</text>
+<text class="dg-s dg-small" x="322" y="165">enter |z| ≥ 1.8</text>
+<text class="dg-s dg-small" x="322" y="179">target 0.5, stop +1.5</text>
+<line class="dg-link" x1="292" x2="309" y1="152.0" y2="152.0" marker-end="url(#arr-w)"/>
+<rect class="dg-box dg-box-key" x="458" y="114" width="124" height="76" rx="3"/>
+<text class="dg-t" x="468" y="133">Execution</text>
+<text class="dg-s dg-small" x="468" y="151">signal at close t</text>
+<text class="dg-s dg-small" x="468" y="165">fill at close t+1</text>
+<text class="dg-s dg-small" x="468" y="179">no shared legs</text>
+<line class="dg-link" x1="438" x2="455" y1="152.0" y2="152.0" marker-end="url(#arr-w)"/>
+<rect class="dg-box" x="604" y="114" width="124" height="76" rx="3"/>
+<text class="dg-t" x="614" y="133">Costs</text>
+<text class="dg-s dg-small" x="614" y="151">commission, spread</text>
+<text class="dg-s dg-small" x="614" y="165">√ impact per stock</text>
+<text class="dg-s dg-small" x="614" y="179">borrow, financing</text>
+<line class="dg-link" x1="584" x2="601" y1="152.0" y2="152.0" marker-end="url(#arr-w)"/>
+<rect class="dg-box" x="750" y="114" width="124" height="76" rx="3"/>
+<text class="dg-t" x="760" y="133">Accounting</text>
+<text class="dg-s dg-small" x="760" y="151">daily mark-to-market</text>
+<text class="dg-s dg-small" x="760" y="165">30% gross cap</text>
+<text class="dg-s dg-small" x="760" y="179">kill switch</text>
+<line class="dg-link" x1="730" x2="747" y1="152.0" y2="152.0" marker-end="url(#arr-w)"/>
+<text class="dg-t" x="0" y="254">Evidence</text>
+<text class="dg-s" x="0" y="270">after the run</text>
+<rect class="dg-box" x="166" y="224" width="124" height="76" rx="3"/>
+<text class="dg-t" x="176" y="243">Walk-forward</text>
+<text class="dg-s dg-small" x="176" y="261">11 windows, one</text>
+<text class="dg-s dg-small" x="176" y="275">continuous simulation</text>
+<text class="dg-s dg-small" x="176" y="289">ranker refit per window</text>
+<rect class="dg-box" x="312" y="224" width="124" height="76" rx="3"/>
+<text class="dg-t" x="322" y="243">Significance</text>
+<text class="dg-s dg-small" x="322" y="261">HAC t, bootstrap CI</text>
+<text class="dg-s dg-small" x="322" y="275">PSR, deflated Sharpe</text>
+<text class="dg-s dg-small" x="322" y="289">Ledoit–Wolf test</text>
+<line class="dg-link" x1="292" x2="309" y1="262.0" y2="262.0" marker-end="url(#arr-w)"/>
+<rect class="dg-box" x="458" y="224" width="124" height="76" rx="3"/>
+<text class="dg-t" x="468" y="243">Baselines</text>
+<text class="dg-s dg-small" x="468" y="261">Gatev distance rule</text>
+<text class="dg-s dg-small" x="468" y="275">200 random-pair draws</text>
+<text class="dg-s dg-small" x="468" y="289">same costs, t+1 fills</text>
+<line class="dg-link" x1="438" x2="455" y1="262.0" y2="262.0" marker-end="url(#arr-w)"/>
+<path class="dg-link" d="M520.0,82 V97.0 H228.0 V111" marker-end="url(#arr-w)"/>
+<path class="dg-link" d="M812.0,192 V207.0 H228.0 V221" marker-end="url(#arr-w)"/>
+</svg>
+<svg class="dg dg-compact" viewBox="0 0 360 780" role="img" aria-labelledby="pc-t pc-d" focusable="false">
+<title id="pc-t">Study pipeline</title>
+<desc id="pc-d">Selection on formation data only: data, universe, formation. Trading, causal on data to day t: Kalman spread model, signal, next-day execution, costs, daily accounting. Evidence after the run: walk-forward, significance tests, baselines.</desc>
+<defs><marker id="arr-c" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" class="dg-arrowhead"/></marker></defs>
+<text class="dg-t" x="4" y="18">Selection<tspan class="dg-s" dx="6">formation data only</tspan></text>
+<rect class="dg-box" x="4" y="28" width="352" height="50" rx="3"/>
+<text class="dg-t" x="14" y="47">Data</text>
+<text class="dg-s dg-small" x="14" y="65">Daily prices 2020–2025, VIX, 11 sector ETFs</text>
+<line class="dg-link" x1="28" x2="28" y1="80" y2="89" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="4" y="92" width="352" height="50" rx="3"/>
+<text class="dg-t" x="14" y="111">Universe</text>
+<text class="dg-s dg-small" x="14" y="129">3,000 largest US stocks, point-in-time screens, 300 most liquid</text>
+<line class="dg-link" x1="28" x2="28" y1="144" y2="153" marker-end="url(#arr-c)"/>
+<rect class="dg-box dg-box-key" x="4" y="156" width="352" height="50" rx="3"/>
+<text class="dg-t" x="14" y="175">Formation</text>
+<text class="dg-s dg-small" x="14" y="193">Engle–Granger p &lt; 0.05, half-life 4–25 days, data to 31 Dec 2022</text>
+<text class="dg-t" x="4" y="234">Trading<tspan class="dg-s" dx="6">causal: data to day t</tspan></text>
+<line class="dg-link" x1="28" x2="28" y1="208" y2="241" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="4" y="244" width="352" height="50" rx="3"/>
+<text class="dg-t" x="14" y="263">Spread model</text>
+<text class="dg-s dg-small" x="14" y="281">two-state Kalman, hedge ratio β, and intercept</text>
+<line class="dg-link" x1="28" x2="28" y1="296" y2="305" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="4" y="308" width="352" height="50" rx="3"/>
+<text class="dg-t" x="14" y="327">Signal</text>
+<text class="dg-s dg-small" x="14" y="345">β-locked z-score, enter |z| ≥ 1.8, target 0.5, stop +1.5</text>
+<line class="dg-link" x1="28" x2="28" y1="360" y2="369" marker-end="url(#arr-c)"/>
+<rect class="dg-box dg-box-key" x="4" y="372" width="352" height="50" rx="3"/>
+<text class="dg-t" x="14" y="391">Execution</text>
+<text class="dg-s dg-small" x="14" y="409">signal at close t, fill at close t+1, no shared legs</text>
+<line class="dg-link" x1="28" x2="28" y1="424" y2="433" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="4" y="436" width="352" height="50" rx="3"/>
+<text class="dg-t" x="14" y="455">Costs</text>
+<text class="dg-s dg-small" x="14" y="473">commission, spread, √ impact per stock, borrow, financing</text>
+<line class="dg-link" x1="28" x2="28" y1="488" y2="497" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="4" y="500" width="352" height="50" rx="3"/>
+<text class="dg-t" x="14" y="519">Accounting</text>
+<text class="dg-s dg-small" x="14" y="537">daily mark-to-market, 30% gross cap, kill switch</text>
+<text class="dg-t" x="4" y="578">Evidence<tspan class="dg-s" dx="6">after the run</tspan></text>
+<line class="dg-link" x1="28" x2="28" y1="552" y2="585" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="4" y="588" width="352" height="50" rx="3"/>
+<text class="dg-t" x="14" y="607">Walk-forward</text>
+<text class="dg-s dg-small" x="14" y="625">11 windows, one, continuous simulation, ranker refit per window</text>
+<line class="dg-link" x1="28" x2="28" y1="640" y2="649" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="4" y="652" width="352" height="50" rx="3"/>
+<text class="dg-t" x="14" y="671">Significance</text>
+<text class="dg-s dg-small" x="14" y="689">HAC t, bootstrap CI, PSR, deflated Sharpe, Ledoit–Wolf test</text>
+<line class="dg-link" x1="28" x2="28" y1="704" y2="713" marker-end="url(#arr-c)"/>
+<rect class="dg-box" x="4" y="716" width="352" height="50" rx="3"/>
+<text class="dg-t" x="14" y="735">Baselines</text>
+<text class="dg-s dg-small" x="14" y="753">Gatev distance rule, 200 random-pair draws, same costs, t+1 fills</text>
+</svg>
 </div>
+  </figure>
+  <figure class="exhibit ex-diagram" id="ex-23">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 23</span>
+      <span class="ex-title">Data splits: formation, walk-forward, main backtest and the sealed holdout</span>
+      <span class="ex-sub">Calendar 2020–2026</span>
+    </figcaption>
+    <div class="dg-wrap">
+<svg class="dg dg-wide" viewBox="0 0 880 226" role="img" aria-labelledby="tlw-t tlw-d" focusable="false">
+<title id="tlw-t">Data-split timeline</title>
+<desc id="tlw-d">Formation data from January 2020 to December 2022; eleven 63-day walk-forward test windows from February 2023 to December 2025, each after 252 training days; the main backtest from July 2023 to December 2025; the sealed holdout from January 2026.</desc>
+<text class="dg-t" x="6" y="18">Formation<tspan class="dg-s" dx="8">pairs selected on data to 31 Dec 2022</tspan></text>
+<rect class="tl-form" x="6.3" y="26" width="371.4" height="10" rx="2"/>
+<text class="dg-t" x="6" y="68">Walk-forward<tspan class="dg-s" dx="8">11 test windows of 63 days, each after 252 training days</tspan></text>
+<rect class="tl-train" x="268.1" y="76.5" width="124.6" height="9" rx="2"/>
+<rect class="tl-wf" x="393.0" y="76" width="29.1" height="10" rx="1.5"/>
+<rect class="tl-wf" x="423.9" y="76" width="29.4" height="10" rx="1.5"/>
+<rect class="tl-wf" x="455.1" y="76" width="28.7" height="10" rx="1.5"/>
+<rect class="tl-wf" x="485.7" y="76" width="29.7" height="10" rx="1.5"/>
+<rect class="tl-wf" x="517.2" y="76" width="29.1" height="10" rx="1.5"/>
+<rect class="tl-wf" x="548.1" y="76" width="29.4" height="10" rx="1.5"/>
+<rect class="tl-wf" x="579.3" y="76" width="28.7" height="10" rx="1.5"/>
+<rect class="tl-wf" x="609.9" y="76" width="31.1" height="10" rx="1.5"/>
+<rect class="tl-wf" x="642.8" y="76" width="28.7" height="10" rx="1.5"/>
+<rect class="tl-wf" x="673.4" y="76" width="29.4" height="10" rx="1.5"/>
+<rect class="tl-wf" x="704.6" y="76" width="28.7" height="10" rx="1.5"/>
+<text class="dg-t" x="6" y="118">Main backtest<tspan class="dg-s" dx="8">entries 3 Jul 2023 to 31 Dec 2025</tspan></text>
+<rect class="tl-main" x="440.2" y="126" width="309.6" height="10" rx="2"/>
+<text class="dg-t" x="6" y="168">Holdout<tspan class="dg-s" dx="8">from 2 Jan 2026; pre-registered, sealed</tspan></text>
+<rect class="tl-hold" x="750.4" y="176.75" width="98.8" height="8.5" rx="2"/>
+<line class="dg-axis" x1="6" x2="874" y1="204" y2="204"/>
+<line class="dg-axis" x1="6.0" x2="6.0" y1="204" y2="208"/>
+<text class="dg-m" x="9.0" y="219">2020</text>
+<line class="dg-axis" x1="130.2" x2="130.2" y1="204" y2="208"/>
+<text class="dg-m" x="133.2" y="219">2021</text>
+<line class="dg-axis" x1="254.1" x2="254.1" y1="204" y2="208"/>
+<text class="dg-m" x="257.1" y="219">2022</text>
+<line class="dg-axis" x1="378.0" x2="378.0" y1="204" y2="208"/>
+<text class="dg-m" x="381.0" y="219">2023</text>
+<line class="dg-axis" x1="502.0" x2="502.0" y1="204" y2="208"/>
+<text class="dg-m" x="505.0" y="219">2024</text>
+<line class="dg-axis" x1="626.2" x2="626.2" y1="204" y2="208"/>
+<text class="dg-m" x="629.2" y="219">2025</text>
+<line class="dg-axis" x1="750.1" x2="750.1" y1="204" y2="208"/>
+<text class="dg-m" x="753.1" y="219">2026</text>
+<line class="dg-axis" x1="874.0" x2="874.0" y1="204" y2="208"/>
+</svg>
+<svg class="dg dg-compact" viewBox="0 0 360 260" role="img" aria-labelledby="tlc-t tlc-d" focusable="false">
+<title id="tlc-t">Data-split timeline</title>
+<desc id="tlc-d">Formation data from January 2020 to December 2022; eleven 63-day walk-forward test windows from February 2023 to December 2025, each after 252 training days; the main backtest from July 2023 to December 2025; the sealed holdout from January 2026.</desc>
+<text class="dg-t" x="4" y="18">Formation</text>
+<text class="dg-s" x="4" y="32">pairs selected on data to 31 Dec 2022</text>
+<rect class="tl-form" x="4.1" y="42" width="150.6" height="10" rx="2"/>
+<text class="dg-t" x="4" y="74">Walk-forward</text>
+<text class="dg-s" x="4" y="88">11 test windows of 63 days, each after 252 training days</text>
+<rect class="tl-train" x="110.3" y="98.5" width="50.5" height="9" rx="2"/>
+<rect class="tl-wf" x="160.9" y="98" width="10.9" height="10" rx="1.5"/>
+<rect class="tl-wf" x="173.5" y="98" width="11.0" height="10" rx="1.5"/>
+<rect class="tl-wf" x="186.1" y="98" width="10.8" height="10" rx="1.5"/>
+<rect class="tl-wf" x="198.5" y="98" width="11.2" height="10" rx="1.5"/>
+<rect class="tl-wf" x="211.3" y="98" width="10.9" height="10" rx="1.5"/>
+<rect class="tl-wf" x="223.8" y="98" width="11.0" height="10" rx="1.5"/>
+<rect class="tl-wf" x="236.5" y="98" width="10.8" height="10" rx="1.5"/>
+<rect class="tl-wf" x="248.9" y="98" width="11.7" height="10" rx="1.5"/>
+<rect class="tl-wf" x="262.3" y="98" width="10.8" height="10" rx="1.5"/>
+<rect class="tl-wf" x="274.6" y="98" width="11.0" height="10" rx="1.5"/>
+<rect class="tl-wf" x="287.3" y="98" width="10.8" height="10" rx="1.5"/>
+<text class="dg-t" x="4" y="130">Main backtest</text>
+<text class="dg-s" x="4" y="144">entries 3 Jul 2023 to 31 Dec 2025</text>
+<rect class="tl-main" x="180.1" y="154" width="125.5" height="10" rx="2"/>
+<text class="dg-t" x="4" y="186">Holdout</text>
+<text class="dg-s" x="4" y="200">from 2 Jan 2026; pre-registered, sealed</text>
+<rect class="tl-hold" x="305.9" y="210.75" width="40.1" height="8.5" rx="2"/>
+<line class="dg-axis" x1="4" x2="356" y1="238" y2="238"/>
+<line class="dg-axis" x1="4.0" x2="4.0" y1="238" y2="242"/>
+<text class="dg-m" x="7.0" y="253">’20</text>
+<line class="dg-axis" x1="54.4" x2="54.4" y1="238" y2="242"/>
+<text class="dg-m" x="57.4" y="253">’21</text>
+<line class="dg-axis" x1="104.6" x2="104.6" y1="238" y2="242"/>
+<text class="dg-m" x="107.6" y="253">’22</text>
+<line class="dg-axis" x1="154.9" x2="154.9" y1="238" y2="242"/>
+<text class="dg-m" x="157.9" y="253">’23</text>
+<line class="dg-axis" x1="205.1" x2="205.1" y1="238" y2="242"/>
+<text class="dg-m" x="208.1" y="253">’24</text>
+<line class="dg-axis" x1="255.5" x2="255.5" y1="238" y2="242"/>
+<text class="dg-m" x="258.5" y="253">’25</text>
+<line class="dg-axis" x1="305.8" x2="305.8" y1="238" y2="242"/>
+<text class="dg-m" x="308.8" y="253">’26</text>
+<line class="dg-axis" x1="356.0" x2="356.0" y1="238" y2="242"/>
+</svg>
+</div>
+    <div class="ex-foot"><p><span class="k">Notes</span> The main backtest and the walk-forward overlap on <span data-metric="study.dev.facts.oos_overlap_days">616</span> of the main backtest's <span data-metric="study.dev.facts.main_days">628</span> days and trade the same pair pool: they are one experiment, not two confirmations.</p></div>
+  </figure>
+  <div class="tbl-wrap" role="region" aria-label="Specification" tabindex="0">
+    <table class="tbl tbl-spec">
+      <caption>Specification of the v32 study run.</caption>
+      <tbody>
+        <tr><th scope="row">Universe</th><td>The 3,000 largest US common stocks by market cap on 18 October 2026 (the Russell 3000 rule applied to the Nasdaq screener), <span data-metric="study.dev.facts.coverage_pct">97.1</span>% fetched; daily prices 2020–2025; screens on point-in-time (split-unadjusted) price and dollar volume; the 300 most liquid enter the pair search.</td></tr>
+        <tr><th scope="row">Selection</th><td>Positive return correlation ≥ 0.25; two-direction Engle–Granger p &lt; 0.05 (Bonferroni across directions); half-life 4–25 days on the cointegrating spread; quality score; re-selection every 90 trading days (re-test only; pairs can drop out, not enter).</td></tr>
+        <tr><th scope="row">Spread</th><td>Two-state Kalman filter (slope and intercept) on log prices centred on their burn-in means, so β is a hedge ratio and signals are invariant to vendor back-adjustment.</td></tr>
+        <tr><th scope="row">Rule</th><td>One β-locked z-score against its mean and standard deviation over the last 30–60 bars, frozen at the signal. Entry |z| ≥ 1.8; target |z| ≤ 0.5; stop 1.5 further against; time stop clamp(2.5 × half-life, 10, 25) days. Gates: 20-day correlation ≥ 0.20, β in [0.25, 4], loss cool-off, VIX and sector-dispersion regime scaling.</td></tr>
+        <tr><th scope="row">Book</th><td>$<span data-metric="study.dev.facts.capital_musd">100</span>M notional; 3–10% of equity per pair; 30% gross cap; at most 8 entries a day; no shared legs; daily mark-to-market; drawdown and daily-loss kill switch.</td></tr>
+        <tr><th scope="row">Ranker</th><td>A classifier of P(trade profitable) on 30 features, used only to order same-day candidates; out-of-sample AUC <span data-metric="ranker.oos_auc">0.514</span> (<span data-metric="ranker.wf_pooled_auc">0.510</span> pooled across walk-forward windows; 0.5 is no skill).</td></tr>
+        <tr><th scope="row">Walk-forward</th><td>One continuous simulation on a 252-day train / 63-day test grid; the ranker is refit per window; per-window figures are calendar slices.</td></tr>
+        <tr><th scope="row">Evidence</th><td>Probabilistic and deflated Sharpe, Newey–West t, Politis–White block bootstrap, Lo (2002) adjustment, Ledoit–Wolf Sharpe-difference test, PBO; Gatev distance method and random pairs under the same costs and t+1 fills.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <figure class="exhibit is-pending" id="ex-24" data-exhibit="universe">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 24</span>
+      <span class="ex-title">Point-in-time universe: index members with and without price history at each formation date</span>
+      <span class="ex-sub">Members of the index snapshot in force when pairs are formed, and the share of index weight the price data do not cover</span>
+    </figcaption>
+    <div class="ex-legend" data-legend></div>
+    <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: v33 dev run.</strong> The v32 universe is the 3,000 largest US stocks of 18 October 2026, back-filled to 2020, so it has no membership to report at a formation date (Section 11, survivorship). From v33 every formation records the index snapshot in force, its members, how many have price history, and the index weight of those that do not.</p></div></div>
+    <div class="ex-foot">
+      <p><span class="k">Notes</span> Members are the holdings of the snapshot in force on the formation date, mapped to tickers. The index weight of members without price history, plus that of holdings with no usable ticker, is the survivorship gap at that date: a pair that includes one of them cannot be formed.</p>
+      <p><span class="k">Source</span> The run's results export, universe_by_formation; membership from the index fund's holdings in SEC N-PORT filings.</p>
+    </div>
+    <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+  </figure>
+</section>
+
+<!-- ════════════════════════════════ 10 · Validation ════════════════════════════════ -->
+<section id="validation" class="sec" aria-labelledby="h-validation">
+  <h2 id="h-validation"><span class="secno">10</span>Validation</h2>
+  <p class="lede">A backtest on real data says what a strategy did, not whether the code measures what it claims. scripts/synthetic_validation.py runs the real engine, with its full cost model, on synthetic markets whose answer is known; CI runs it on every push to main and on pull requests.</p>
+  <div class="tbl-wrap" role="region" aria-label="Known-answer checks" tabindex="0">
+    <table class="tbl">
+      <caption>Known-answer checks. Results fill from results/validation/synthetic_validation.json once a run is committed.</caption>
+      <thead><tr><th scope="col">Check</th><th scope="col">What must happen</th><th scope="col">Result</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Planted cointegrated pairs (OU spreads, half-life 5–14 days)</th><td>a large positive gross edge</td><td class="muted" data-validation="edge">pending</td></tr>
+        <tr><th scope="row">Correlated, not cointegrated pairs (random-walk spread), forced into the universe</th><td>no edge; a positive mean would be look-ahead</td><td class="muted" data-validation="forced_null">pending</td></tr>
+        <tr><th scope="row">Kalman hedge ratio against the true slope</th><td>recover it</td><td class="muted" data-validation="hedge_ratio">pending</td></tr>
+        <tr><th scope="row">Pair selection with planted pairs among unrelated names</th><td>find them; admit at most 5% of unrelated pairs</td><td class="muted" data-validation="selection">pending</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">The test suite adds causality checks, each confirmed by re-introducing the bug it guards against: every decision dated on or before T is unchanged when all prices, volumes and macro data after T are replaced (with classical ranking and with a trained ranker); the regime gate's inputs are prefix-invariant; the same trades occur at the same z-scores when the vendor back-adjusts history for a later split. The statistics are tested against reference implementations (statsmodels for Newey–West, arch for the Politis–White block length, an independent CSCV for PBO, the authors' code for Ledoit–Wolf).</p>
+  <figure class="exhibit is-pending" id="ex-25" data-exhibit="validation">
+    <figcaption class="ex-head">
+      <span class="ex-label">Exhibit 25</span>
+      <span class="ex-title">Gross bp per trade on synthetic markets with known answers</span>
+      <span class="ex-sub">Planted edge against the forced null, with 95% intervals</span>
+    </figcaption>
+    <div class="ex-chart"><div class="pending"><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg><p><strong>Pending: committed validation run.</strong> CI runs the check on every push; the site shows a run once its JSON is committed under results/validation/.</p></div></div>
+    <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
+  </figure>
+</section>
+
+<!-- ════════════════════════════════ 11 · Threats ════════════════════════════════ -->
+<section id="threats" class="sec" aria-labelledby="h-threats">
+  <h2 id="h-threats"><span class="secno">11</span>Threats to validity</h2>
+  <p class="lede">Each limitation, which way it biases the result, how large it is, and what addresses it. Biases that flatter the strategy make the null more convincing, not less.</p>
+  <div class="tbl-wrap" role="region" aria-label="Threats to validity" tabindex="0">
+    <table class="tbl threats">
+      <caption>Threats to validity of the v32 study run.</caption>
+      <thead><tr><th scope="col">Threat</th><th scope="col">Direction of bias</th><th scope="col">Size</th><th scope="col">Mitigation</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Survivorship, and an approximate index</th><td><span class="dir dir-up">flatters</span></td><td>Unmeasured: the universe is today's 3,000 largest stocks, back-filled, so pairs broken by failures and delistings are missing</td><td>v33: point-in-time membership from IWV holdings in SEC N-PORT filings, with the coverage gap at each formation reported (Exhibit 24)</td></tr>
+        <tr><th scope="row">Design choices were made on the same data</th><td><span class="dir dir-up">flatters</span></td><td>32 versions on 2020–2025; deflated Sharpe with <span data-metric="study.dev.facts.dsr_trials">32</span> trials is a lower bound</td><td>Pre-registered 2026 holdout; declared variant family with SPA, stepdown, MCS and PBO</td></tr>
+        <tr><th scope="row">Re-selection can drop pairs but not add them</th><td><span class="dir dir-down">penalises</span></td><td>The pool can only shrink after 2022</td><td>v33: full re-formation every 126 trading days on the trailing three years</td></tr>
+        <tr><th scope="row">Borrow is general-collateral for every name</th><td><span class="dir dir-up">flatters</span></td><td>Borrow was $<span data-metric="study.dev.facts.borrow_usd_k">46.5</span>k of $<span data-metric="study.dev.facts.cost_usd_k">962.7</span>k costs; specials and recalls are not modelled</td><td>v33: 0.38% buy-side median fee; hard-to-borrow stress</td></tr>
+        <tr><th scope="row">Fills are close-to-close</th><td><span class="dir dir-flat">either way</span></td><td>Larger leg <span data-metric="study.dev.facts.adv_participation_pct">1.01</span>% of ADV on average; no auction or queue model</td><td>t+1 open variant; closing-auction cost model planned</td></tr>
+        <tr><th scope="row">Ranker features include pair statistics estimated on the formation window</th><td><span class="dir dir-up">flatters the ranker</span></td><td>Small: out-of-sample AUC <span data-metric="ranker.oos_auc">0.514</span>, no skill to inflate</td><td>v33: the ranker becomes an ablation arm only</td></tr>
+        <tr><th scope="row">The “transformer” sees one 30-feature vector</th><td><span class="dir dir-flat">none on P&amp;L</span></td><td>A sequence of length one: functionally a residual MLP</td><td>v33: L2 logistic and gradient-boosted trees</td></tr>
+        <tr><th scope="row">Sector features are coarse</th><td><span class="dir dir-down">penalises</span></td><td>Pairs are not restricted to one industry, so many are economically unrelated</td><td>v33: pairs within one Fama–French 49 industry</td></tr>
+        <tr><th scope="row">The 126-day re-selection check has little power</th><td><span class="dir dir-down">penalises</span></td><td>It removes healthy pairs and keeps noise at similar rates (see the README)</td><td>v33: replaced by full re-formation</td></tr>
+        <tr><th scope="row">The price cache used through v31 was built with a full-sample penny-stock screen</th><td><span class="dir dir-flat">none for v32</span></td><td>The v32 run used a freshly fetched v32 cache</td><td>Fetch manifest and coverage check in every run</td></tr>
+        <tr><th scope="row">“Point-in-time” prices undo splits, not dividends</th><td><span class="dir dir-flat">small, either way</span></td><td>Early prices are understated by later dividends in the $5 price and dollar-volume screens</td><td>v33 keeps the raw close</td></tr>
+        <tr><th scope="row">The regime gate was tuned on windows now inside the test period</th><td><span class="dir dir-flat">either way</span></td><td>New entries blocked on <span data-metric="study.dev.facts.gate_blocked_days">248</span> of <span data-metric="study.dev.facts.days">628</span> days</td><td>v33: off by default; counted as a declared variant</td></tr>
+        <tr><th scope="row">Hedge ratios below one leave market exposure</th><td><span class="dir dir-flat">adds beta</span></td><td>Beta t = <span data-metric="study.dev.facts.beta_oos_t">2.17</span> out of sample (Exhibit 17)</td><td>v33: multi-factor attribution</td></tr>
+        <tr><th scope="row">The main backtest and the walk-forward overlap</th><td><span class="dir dir-up">overstates the evidence</span></td><td><span data-metric="study.dev.facts.oos_overlap_days">616</span> of <span data-metric="study.dev.facts.main_days">628</span> days in common, same pair pool</td><td>The holdout is the independent test</td></tr>
+        <tr><th scope="row">The random-pair control trades a different rule</th><td><span class="dir dir-flat">weakens the comparison</span></td><td>Random pairs run through the Gatev rule, not this engine</td><td>A control on the strategy's own engine is planned</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ════════════════════════════════ 12 · Literature ════════════════════════════════ -->
+<section id="literature" class="sec" aria-labelledby="h-literature">
+  <h2 id="h-literature"><span class="secno">12</span>Literature</h2>
+  <p class="lede">Published results for the same strategy families, as reported by their authors. They point the same way: the classic pairs edge was large before the 2000s, has shrunk since, and is small after realistic costs.</p>
+  <div class="tbl-wrap" role="region" aria-label="Literature" tabindex="0">
+    <table class="tbl lit">
+      <caption>Published results for pairs trading and residual reversion.</caption>
+      <thead><tr><th scope="col">Study</th><th scope="col">Sample</th><th scope="col">Method</th><th scope="col">Reported result</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Gatev, Goetzmann &amp; Rouwenhorst (2006), <cite>Review of Financial Studies</cite></th><td>US, 1962–2002</td><td>Distance method, top-20 pairs</td><td>Annualised excess returns of up to 11% before costs, falling in later years. The baseline replicated here.</td></tr>
+        <tr><th scope="row">Do &amp; Faff (2010), <cite>Financial Analysts Journal</cite></th><td>US, to 2009</td><td>Distance method</td><td>Profitability declines over time; the strategy does best in prolonged turbulence.</td></tr>
+        <tr><th scope="row">Avellaneda &amp; Lee (2010), <cite>Quantitative Finance</cite></th><td>US, 1997–2007</td><td>PCA and sector-ETF residual reversion</td><td>Net Sharpe 1.44 (PCA) and 1.1 (ETF) over 1997–2007; PCA only 0.9 over 2003–2007. The second family tested here.</td></tr>
+        <tr><th scope="row">Do &amp; Faff (2012), <cite>Journal of Financial Research</cite></th><td>US, 1963–2009</td><td>Distance method with trading costs</td><td>About 30 bp a month for well-matched pairs in refined industries after costs; largely unprofitable after 2002.</td></tr>
+        <tr><th scope="row">Clegg (2014), working paper</th><td>US</td><td>Persistence of cointegration</td><td>Little evidence that pairs cointegrated in one year stay cointegrated the next (as summarised by secondary sources).</td></tr>
+        <tr><th scope="row">Rad, Low &amp; Faff (2016), <cite>Quantitative Finance</cite></th><td>US, 1962–2014</td><td>Distance, cointegration and copula methods</td><td>91, 85 and 43 bp a month before costs; 38, 33 and 5 bp after; trading opportunities fall after 2009. The closest published analogue of this study.</td></tr>
+        <tr><th scope="row">Krauss (2017), <cite>Journal of Economic Surveys</cite></th><td>Review</td><td>Survey of pairs-trading approaches</td><td>Distance, cointegration, time-series, stochastic-control and other approaches compared; open problems include costs and robustness.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ════════════════════════════════ 13 · Reproduce ════════════════════════════════ -->
+<section id="reproduce" class="sec" aria-labelledby="h-reproduce">
+  <h2 id="h-reproduce"><span class="secno">13</span>Reproduce</h2>
+  <div class="repro">
+    <div class="repro-main">
+      <p class="lede">Every number on this page is either a marked value checked against the run's headline JSON or computed from the committed results by one script. A later price fetch will not match the cached data bit for bit, because vendors revise history; the run manifest pins what was used.</p>
+<pre tabindex="0"><code># the study (prices are fetched from Yahoo's chart API and cached)
+pip install -r requirements.txt
+python scripts/build_universe.py
+python -m pairs_trading.main            # writes outputs/
+
+# publish a run: copy outputs/ to results/&lt;run&gt;/, then
+python scripts/build_site_data.py --dev results/v32_dev
+python scripts/check_published_numbers.py \
+    --json results/v32_dev/headline_metrics.json
+
+# view the page locally
+python -m http.server 8000</code></pre>
+    </div>
+    <div class="manifest" role="group" aria-labelledby="mf-h">
+      <h3 id="mf-h">Run manifest</h3>
+      <dl>
+        <div><dt>Commit</dt><dd><code>711b18cbd1a6</code> (clean)</dd></div>
+        <div><dt>Run</dt><dd>2026-10-18 09:21 UTC</dd></div>
+        <div><dt>Price cache</dt><dd><code>sha256 70776501…5ea1</code></dd></div>
+        <div><dt>Headline JSON</dt><dd><code>sha256 93471564…3b0e</code></dd></div>
+        <div><dt>Universe</dt><dd>Nasdaq screener, 18 Oct 2026; <span data-metric="study.dev.facts.coverage_pct">97.1</span>% fetched</dd></div>
+        <div><dt>Seed</dt><dd><code>PAIRS_SEED=42</code></dd></div>
+        <div><dt>Stack</dt><dd>Python 3.12.3 · numpy 1.26.4 · pandas 2.2.3 · scipy 1.15.2 · statsmodels 0.14.4 · torch 2.13.0+cpu</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════ 14 · History ════════════════════════════════ -->
+<section id="history" class="sec" aria-labelledby="h-history">
+  <h2 id="h-history"><span class="secno">14</span>History and disclosures</h2>
+  <details class="history">
+    <summary>Version history</summary>
+    <div class="tbl-wrap" role="region" aria-label="Version history" tabindex="0">
+      <table class="tbl">
+        <caption>Selected versions; docs/PROGRESS.md has the full record, deliberately unflattering.</caption>
+        <thead><tr><th scope="col">Version</th><th scope="col">Change</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">v9–v12</th><td>First look-ahead fixes (P&amp;L, pair selection, Kalman β drift).</td></tr>
+          <tr><th scope="row">v16–v19</th><td>Kalman spread fixes, β-weighted P&amp;L, PCA residual cointegration, dynamic hold.</td></tr>
+          <tr><th scope="row">v24–v26.1</th><td>Ranker trained and wired in (ranking only); controlled ablation; a label bug that had disabled training.</td></tr>
+          <tr><th scope="row">v28–v29</th><td>Significance layer and baselines; t+1 entry fills.</td></tr>
+          <tr><th scope="row">v30</th><td>Leakage audit: survivorship confirmed, selection-clean window tagging.</td></tr>
+          <tr><th scope="row">v31–v31.1</th><td>Pre-launch audit: inverted stop-loss, same-bar exits, future re-selections in the walk-forward; results withdrawn.</td></tr>
+          <tr><th scope="row">v32</th><td>Full audit and rebuild of the engine, Kalman model, accounting, walk-forward, costs, ranker, benchmarks and outputs; synthetic known-answer validation; study re-run: no detectable edge.</td></tr>
+          <tr><th scope="row">v33 (in progress)</th><td>Pre-registered design: point-in-time universe, same-industry pairs, full re-formation, regime gate off, one borrow fee, a second strategy family, the evidence layer and the sealed 2026 holdout.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+  <div class="disclosure">
+    <h3>Disclosures</h3>
+    <p>Hypothetical, backtested results on $<span data-metric="study.dev.facts.capital_musd">100</span>M of notional capital, not achieved by any account. Returns are net of the modelled costs described in Section 5 unless labelled gross, earn no interest on cash, and are shown beside baselines run under the same costs. Hypothetical results have inherent limitations, including those listed in Section 11. This is a research project: not investment advice, not an offer of any product, and no claim of deployable performance.</p>
+  </div>
+</section>
+
 </main>
+</div>
 
 <footer class="site-foot">
-  <div class="wrap f-in">
-    <p class="f-left">v32.0.0 · 2026-10-12 · MIT License<br>Research project. Not investment advice.</p>
-    <ul class="f-links">
-      <li><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/README.md">README</a></li>
-      <li><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">Engineering log</a></li>
-      <li><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">GitHub</a></li>
-      <li><a href="mailto:navnoorquant@gmail.com">Contact</a></li>
-    </ul>
+  <div class="foot-in">
+    <p>Navnoor Bawa · Built from results/v32_dev (run of commit 711b18c) and assets/study.json · <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/LICENSE">MIT License</a></p>
+    <p><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">GitHub</a> · <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/main/docs/PROGRESS.md">Engineering log</a> · <a href="#top">Back to top</a></p>
   </div>
 </footer>
-
-<script>
-(function(){
-  var root=document.documentElement,btn=document.getElementById('tt');
-  if(!btn){return}
-  var mq=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null;
-  function current(){return root.getAttribute('data-theme')||(mq&&mq.matches?'dark':'light')}
-  function sync(){btn.setAttribute('aria-pressed',current()==='dark'?'true':'false')}
-  btn.addEventListener('click',function(){
-    var next=current()==='dark'?'light':'dark';
-    root.setAttribute('data-theme',next);
-    try{localStorage.setItem('theme',next)}catch(e){}
-    var m=document.querySelectorAll('meta[name="theme-color"]');
-    for(var i=0;i<m.length;i++){m[i].setAttribute('content',next==='dark'?'#0e0e0d':'#ffffff')}
-    sync();
-  });
-  if(mq){
-    if(mq.addEventListener){mq.addEventListener('change',sync)}else if(mq.addListener){mq.addListener(sync)}
-  }
-  sync();
-})();
-</script>
 </body>
 </html>
