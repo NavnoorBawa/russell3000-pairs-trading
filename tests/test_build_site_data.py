@@ -252,18 +252,104 @@ def test_run_directory_errors(tmp_path, v32_res):
         bsd._results_file(d)
 
 
+def _evaluation():
+    """A report in the shape scripts/evaluate_holdout.py writes (strategy ids from run_holdout.sh)."""
+    def arm(sharpe, p, p_holm):
+        return {'days': 180, 'total_return_pct': 0.4, 'sharpe': sharpe, 'trades': 40, 't': 0.9, 'lags': 4,
+                'p_one_sided': p, 'p_holm': p_holm, 'edge_out_of_sample': p_holm < 0.05,
+                'bootstrap_ci_95': [sharpe - 1.5, sharpe + 1.5], 'upper_bound_95': sharpe + 1.2,
+                'min_detectable_sharpe': 2.6, 'period': ['2026-01-02', '2026-09-30']}
+    return {'alpha': 0.05, 'test': 'one-sided Newey-West t (mean daily net return > 0), Holm across strategies',
+            'strategies': {'v32_pairs': arm(-0.2, 0.6, 0.9), 'avellaneda_lee': arm(0.4, 0.3, 0.9),
+                           'v33_pairs': arm(0.8, 0.15, 0.45)}}
+
+
 def test_optional_arms_fill_their_sections(tmp_path, v32_res):
-    """Holdout and residual headline JSONs, when present, replace the sealed/pending states."""
+    """The holdout evaluation and the residual headline JSON replace the sealed/pending states."""
     root = tmp_path / 'results'
     for arm in ('holdout2026', 'residual_dev'):
         (root / arm).mkdir(parents=True)
-        shutil.copy(V32 / 'headline_metrics.json', root / arm / 'headline_metrics.json')
+    (root / 'holdout2026' / 'evaluation.json').write_text(json.dumps(_evaluation()), encoding='utf-8')
+    shutil.copy(V32 / 'headline_metrics.json', root / 'residual_dev' / 'headline_metrics.json')
     study = bsd.build(_run_dir(tmp_path, v32_res), results_root=root)
-    assert study['holdout']['status'] == 'complete' and study['holdout']['sharpe'] is not None
-    assert study['residual']['sharpe'] == study['holdout']['sharpe']
+    holdout = study['holdout']
+    assert holdout['status'] == 'complete' and holdout['alpha'] == 0.05
+    # the registered order (H1 v33, H2 Avellaneda-Lee, H3 v32), whatever the report's order
+    assert [(a['key'], a['hypothesis']) for a in holdout['arms']] == [
+        ('v33_pairs', 'H1'), ('avellaneda_lee', 'H2'), ('v32_pairs', 'H3')]
+    v33 = holdout['arms'][0]
+    assert (v33['sharpe'], v33['lo'], v33['hi'], v33['p_holm'], v33['edge']) == (0.8, -0.7, 2.3, 0.45, False)
+    headline = json.loads((V32 / 'headline_metrics.json').read_text(encoding='utf-8'))
+    assert study['residual']['sharpe'] == headline['main']['sharpe']
     sealed = bsd.build(V32, results_root=tmp_path / 'nothing')
     assert sealed['holdout'] == {'status': 'sealed', 'calendar_start': '2026-01-02'}
     assert sealed['residual'] is None and sealed['validation'] is None
+
+
+def test_holdout_strategies_the_runbook_does_not_name_are_kept():
+    ev = _evaluation()
+    ev['strategies']['extra_arm'] = ev['strategies'].pop('v32_pairs')
+    arms = bsd.holdout_section(ev)['arms']
+    assert [a['key'] for a in arms] == ['v33_pairs', 'avellaneda_lee', 'extra_arm']
+    assert arms[-1]['label'] == 'extra_arm' and arms[-1]['hypothesis'] is None
+
+
+def test_gross_series_gets_its_own_forest_row(v32_res):
+    """With the daily gross/cost split (v33 exports) the forest shows the gross-of-cost Sharpe."""
+    res = copy.deepcopy(v32_res)
+    for d in res['daily_equity_curve']:
+        d['cost_pct'] = 0.001
+        d['gross_return_pct'] = d['daily_return_pct'] + d['cost_pct']
+    daily = bsd.daily_series(res)
+    rows = bsd.forest(res, None, daily['gross'])
+    assert [r['key'] for r in rows][:3] == ['main', 'gross', 'oos']
+    gross = rows[1]
+    assert gross['lo'] < gross['sharpe'] < gross['hi'] and gross['days'] == len(daily['dates'])
+    assert gross['sharpe'] == pytest.approx(bsd._sharpe(np.asarray(daily['gross']) / 100), abs=1e-3)
+    assert gross['sharpe'] > rows[0]['sharpe']                 # costs only ever lower the Sharpe
+    assert 'gross' not in [r['key'] for r in bsd.forest(v32_res, None)]
+
+
+def _evidence_factors(n=600):
+    load = {name: {'beta': 0.01 * (i + 1), 'tstat': 1.0 + i, 'variance_share': 0.1}
+            for i, name in enumerate(('ST_Rev', 'Mkt-RF', 'SMB', 'HML', 'RMW', 'CMA', 'Mom', 'LT_Rev'))}
+    block = {'n': n, 'lags': 6, 'alpha_ann': -0.012, 'alpha_tstat': -0.4, 'r2': 0.08, 'factors': load}
+    return {'source': {'truncated_at': '2025-12-31'}, 'main': block, 'walk_forward_oos': copy.deepcopy(block)}
+
+
+def test_multi_factor_attribution_from_the_evidence_block(v32_res):
+    """v33 exports put FF5 + momentum + reversal loadings in evidence.factors; the exhibit shows
+    them, while the text's market-proxy beta and alpha keep coming from factor_attribution."""
+    plain = bsd.factor_rows(v32_res)
+    assert not plain['multi_factor'] and [r['name'] for r in plain['rows']] == ['Market proxy'] * 2
+    res = copy.deepcopy(v32_res)
+    res['evidence'] = {'factors': _evidence_factors()}
+    fac = bsd.factor_rows(res)
+    assert fac['multi_factor'] and fac['market'] == plain['market']
+    main = [r for r in fac['rows'] if r['series'] == 'Main backtest']
+    assert [r['name'] for r in main] == list(bsd.FACTOR_LABELS.values())        # fixed order, readable names
+    st_rev = next(r for r in main if r['name'] == 'Short-term reversal')
+    assert (st_rev['beta'], st_rev['t']) == (0.01, 1.0)
+    assert st_rev['lo'] == pytest.approx(0.01 - 1.96 * 0.01, abs=1e-5)
+    assert fac['alpha'][0]['alpha_ann_pct'] == -1.2
+    # an unavailable attribution (no factor files) leaves the market-proxy view
+    res['evidence'] = {'factors': {'unavailable': 'factor data not loaded'}}
+    assert bsd.factor_rows(res)['rows'] == plain['rows']
+
+
+def test_power_from_the_evidence_block(tmp_path, v32_res):
+    """The run's own AR(1)-aware power report is used when no stats battery is committed."""
+    res = copy.deepcopy(v32_res)
+    res['evidence'] = {'main': {'n': 628, 'sr_ann': -0.07, 'se_ann': 0.66, 'critical_sr_ann': 1.1,
+                                'min_detectable_sr_ann': 1.7, 'upper_bound_ann': 1.02, 'skew': 0.17,
+                                'kurtosis': 6.7, 'rho': 0.05,
+                                'alternatives': [{'sr_ann': x, 'p_sr_at_least': 0.5 / (1 + x), 'min_trl_years': 3 / x}
+                                                 for x in (0.5, 1.0, 1.5, 2.0)]}}
+    study = bsd.build(_run_dir(tmp_path, res), results_root=tmp_path / 'results')
+    power, facts = study['dev']['power'], study['dev']['facts']
+    assert power['method'].startswith("the run's evidence block")
+    assert (power['mde'], power['ucb'], power['se']) == (1.7, 1.02, 0.66)
+    assert (facts['sharpe_mde'], facts['p_sr_ge_1'], facts['min_trl_years_0_5']) == (1.7, 0.25, 6.0)
 
 
 # ── the checker's study.* markers ──────────────────────────────────────────────

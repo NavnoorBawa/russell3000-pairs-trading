@@ -159,6 +159,7 @@ h1 { font: 500 39px/1.14 var(--serif); letter-spacing: -.015em; margin: 0 0 14px
 .lg-key.box { width: 10px; height: 10px; border: 0; border-radius: 2px; }
 .lg-key.box-light { opacity: .45; }
 .lg-key.dot { width: 9px; height: 9px; border: 0; border-radius: 50%; }
+.lg-key.ring { background: transparent !important; border: 2px solid currentColor; }   /* open dot */
 .lg-key.rule { width: 0; height: 12px; border-top: 0; border-left: 2px solid currentColor; }
 .ex-chart { position: relative; min-height: 40px; }
 .ex-chart svg { display: block; overflow: visible; max-width: 100%; height: auto; }
@@ -176,6 +177,7 @@ html.js .ex-nojs { display: none; }
 .ex-data summary:hover { color: var(--ink); }
 .ex-data[open] summary { margin-bottom: 8px; }
 html:not(.js) .ex-data, .exhibit.is-pending .ex-data { display: none; }
+.exhibit.is-pending .ex-foot.when-drawn { display: none; }   /* notes and source of a chart not drawn yet */
 .ex-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; }
 .ex-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 36px; }
 .ex-compact { margin-bottom: 28px; }
