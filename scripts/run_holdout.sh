@@ -192,6 +192,7 @@ latest_log() { ls -1 logs/${NAME}_a*_"$1".log | sort -V | tail -1; }
 "$PY" scripts/publish_run.py ${OUT}_residual $NAME/residual --log "$(latest_log residual)" --replace
 rm -rf "$RES/universe" "$RES/logs"
 mkdir -p "$RES/universe" "$RES/logs"
+cp "${PRICE_CACHE%.pkl}_manifest.json" "$RES/price_fetch_manifest.json"     # what was fetched, and when
 for f in "$UNIVERSE"/*; do
     cmp -s "$f" "reference/universe/$(basename "$f")" || cp "$f" "$RES/universe/"
 done

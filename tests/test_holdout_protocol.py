@@ -321,6 +321,7 @@ def test_the_runbook_records_a_crash_resumes_and_runs_once(frozen_repo):
     assert sorted(evaluation['strategies']) == sorted(ev.REGISTERED)
     assert evaluation['inputs']['expect_commit'] == head
     assert (repo / 'results' / 'holdout2026' / 'logs' / 'holdout2026_a1_v33.log').exists()
+    assert (repo / 'results' / 'holdout2026' / 'price_fetch_manifest.json').exists()
     # a third run is refused before anything runs
     n = len(_calls(stub))
     r = _run(repo, stub)
