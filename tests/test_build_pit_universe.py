@@ -7,6 +7,7 @@ second line alone reports a ticker, an issuer reported by ISIN only with a numer
 "ticker", an escrow line without identifiers, and a future whose reference instrument
 carries identifiers of its own). No network.
 """
+import argparse
 import hashlib
 import importlib.util
 import json
@@ -334,6 +335,17 @@ def test_issuer_succession_refuses(snaps, entries):
     assert b.issuer_successions(snaps, entries) == {}
 
 
+def test_issuer_succession_never_relinks_a_rejected_mapping():
+    # Wolfspeed's 2025 reorganisation cancelled 977852102; a new CUSIP of the same issuer
+    # number in the next snapshot is the new equity, which the price check rejected
+    snaps = [[_sec('977852102', 'Wolfspeed Inc')], [_sec('977852201', 'Wolfspeed Inc')]]
+    entries = {'977852102': {'status': 'reused', 'ticker': None}, '977852201': _active('WOLF')}
+    assert '977852102' in b.REJECTED_MAPPINGS and b.issuer_successions(snaps, entries) == {}
+    assert b.issuer_successions([[_sec('977852103', 'Wolfspeed Inc')], [_sec('977852201', 'Wolfspeed Inc')]],
+                                dict(entries, **{'977852103': {'status': 'unmapped', 'ticker': None}})) \
+        == {'977852103': {'successor': '977852201', 'ticker': 'WOLF'}}
+
+
 def test_ticker_candidates():
     data = _figi(('XOMCHF', 'X1'), ('1XOMM', 'L1'), ('XOM', 'UZ'), ('BRK/B', 'EU'), ('BRK/BEUR', 'X1'))['data']
     assert b.ticker_candidates(data) == ['XOM', 'BRK/B']
@@ -405,6 +417,75 @@ def test_query_openfigi_looks_up_reported_tickers(tmp_path, monkeypatch):
     assert asked == ['216648402', '000000019', 'COO']
     assert (entries['216648402']['ticker'], entries['216648402']['matched_by']) == ('COO', 'reported ticker')
     assert entries['000000019']['status'] == 'unmapped'
+
+
+def test_vet_mappings_takes_away_another_securitys_ticker(monkeypatch):
+    # BlackRock books OmniAb's earnout shares under OABI, the common stock's ticker
+    common = _resolve(_figi(('OABI', 'US'), name='OMNIAB INC'))
+    earnout = _resolve({'warning': 'No identifier found.'}, us_lines={'OABI': [_us('OABI', 'OMNIAB INC')]},
+                       reported='OABI', names=('OmniAb Inc',))
+    assert (earnout['status'], earnout['ticker'], earnout['matched_by']) == ('active', 'OABI', 'reported ticker')
+    entries = {'68218J103': common, '68218J202': earnout, '999999AA1': dict(earnout)}
+    snaps = [[_sec('68218J103', 'OmniAb Inc'), _sec('68218J202', 'OmniAb Inc')], [_sec('999999AA1', 'Other Inc')]]
+    assert b.vet_mappings(snaps, entries) == ['68218J202']
+    assert (entries['68218J202']['status'], entries['68218J202']['ticker']) == ('reused', None)
+    assert entries['68218J202']['note'] == 'OABI is the own US line of 68218J103, held alongside'
+    assert entries['68218J103'] == common and entries['999999AA1'] == earnout      # not held alongside: kept
+    assert b.vet_mappings(snaps, entries) == []                                    # idempotent
+    # two indirect matches held together, or a direct one that is not active: no owner, kept
+    entries = {'1': dict(earnout), '2': dict(earnout), '3': dict(common, status='delisted')}
+    assert b.vet_mappings([[_sec('1', 'A'), _sec('2', 'B'), _sec('3', 'C')]], entries) == []
+    # the price check's rejections, for the rejected ticker only
+    monkeypatch.setattr(b, 'REJECTED_MAPPINGS', {'78645L100': ('SAFE', "iStar's line")})
+    safe = _resolve({'warning': 'No identifier found.'}, us_lines={'SAFE': [_us('SAFE', 'SAFEHOLD INC')]},
+                    reported='SAFE', names=('Safehold Inc',))
+    entries = {'78645L100': safe}
+    assert b.vet_mappings([], entries) == ['78645L100']
+    assert (entries['78645L100']['status'], entries['78645L100']['note']) == ('reused', "SAFE is iStar's line")
+    rejected = entries['78645L100']
+    assert b.vet_mappings([], entries) == [] and entries['78645L100'] is rejected
+    # a reason edited after the rejection reaches the entry on the next build, date kept
+    monkeypatch.setattr(b, 'REJECTED_MAPPINGS', {'78645L100': ('SAFE', "iStar's line before 2023")})
+    assert b.vet_mappings([], entries) == ['78645L100']
+    assert entries['78645L100'] == dict(rejected, note="SAFE is iStar's line before 2023")
+    other = dict(rejected, note='SAFE now trades as SAFEHOLD INC (BBG000000000)')
+    entries = {'78645L100': other}                                     # reused for another reason: kept
+    assert b.vet_mappings([], entries) == [] and entries['78645L100'] is other
+    entries = {'78645L100': dict(safe, ticker='SAFX')}
+    assert b.vet_mappings([], entries) == [] and entries['78645L100']['ticker'] == 'SAFX'
+
+
+def test_rejected_mappings_name_a_ticker_and_a_reason():
+    for sid, (ticker, why) in b.REJECTED_MAPPINGS.items():
+        holding = {'cusip': sid, 'isin': ''} if len(sid) == 9 else {'cusip': '000000000', 'isin': sid}
+        assert b.security_id(holding)[0] == sid
+        assert ticker == b.normalise_ticker(ticker) and len(why) > 20
+
+
+def test_map_new_identifiers_vets_and_keeps_mapping_dates(tmp_path, monkeypatch):
+    old = dict(_resolve({'warning': 'No identifier found.'}), mapped_on='2026-01-02')
+    asked = []
+
+    def query(ids, entries, map_path, response_cache, api_key=None, refresh=False, reported=None):
+        asked.append((list(ids), refresh))
+        for sid, id_type in ids:
+            entries[sid] = _resolve({'warning': 'No identifier found.'}, id_type)    # mapped on 2026-10-20
+        b.write_map(entries, map_path)
+
+    monkeypatch.setattr(b, 'query_openfigi', query)
+    parsed_all = [(None, None, [dict(_sec('000000AA1', 'Alpha Inc'), reported_ticker='')], None, None)]
+    args = argparse.Namespace(openfigi_cache=str(tmp_path / 'figi.json'))
+    path = tmp_path / 'map.json'
+    got = b._map_new_identifiers(parsed_all, {'000000AA1': old}, path, args)
+    assert asked == [] and got == {'000000AA1': old} and not path.exists()      # nothing to ask, nothing written
+    got = b._map_new_identifiers(parsed_all, {'000000AA1': old}, path, args, reresolve=True)
+    assert asked == [([('000000AA1', 'ID_CUSIP')], False)] and got['000000AA1'] == old   # same answer, same date
+    assert b.read_map(path) == got
+    got = b._map_new_identifiers(parsed_all, {'000000AA1': old}, path, args, remap=True)
+    assert asked[-1][1] and got['000000AA1']['mapped_on'] == '2026-10-20'          # asked again: dated today
+    stale = {'000000AA1': old, '000000ZZ9': old}
+    got = b._map_new_identifiers(parsed_all, stale, path, args, prune=True)
+    assert list(got) == ['000000AA1'] and list(b.read_map(path)) == ['000000AA1']
 
 
 # --- the whole build, offline ----------------------------------------------------------------
@@ -587,3 +668,7 @@ def test_online_build_queries_only_unmapped_identifiers(tmp_path, monkeypatch):
     assert len(asked) == 1                                        # failures are cached too
     b.main(['--remap-missing'] + args)
     assert asked[-1] == ([('000000BB7', 'ID_CUSIP'), ('CH0114405324', 'ID_ISIN')], True)
+    b.main(['--reresolve'] + args)                                # from the cached responses
+    assert asked[-1] == ([('000000BB7', 'ID_CUSIP'), ('CH0114405324', 'ID_ISIN')], False)
+    with pytest.raises(SystemExit, match='exclude each other'):
+        b.main(['--reresolve', '--remap-missing'] + args)

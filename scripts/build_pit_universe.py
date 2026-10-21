@@ -57,6 +57,12 @@ split):
     next snapshot, by exactly one new CUSIP with the same six-character issuer number and
     the same issuer name inherits that CUSIP's ticker (issuer_successions; General
     Electric's CUSIP before its 2021 reverse split). The links are listed in index.json.
+On every online build, vet_mappings then takes a ticker away (status 'reused') where its
+price history is another security's: the mappings that a price check against N-PORT's own
+value per share rejected (REJECTED_MAPPINGS: the issuer that holds the ticker now also took
+the name, or the ticker's line is the equity of a later reorganisation), and a ticker that
+a holding reaches only indirectly while another holding of the same snapshot is mapped to
+it by its own CUSIP or ISIN.
 Tickers are normalised to Yahoo style (BRK/B -> BRK-B). The mapping is as of the mapping
 date: a CUSIP maps to the security's latest ticker, the key under which Yahoo serves its
 whole history.
@@ -65,7 +71,7 @@ OpenFIGI allows 25 requests/min of 10 jobs without a key; OPENFIGI_API_KEY raise
 25 requests/6 s of 100 jobs. EDGAR requests carry SEC_USER_AGENT and stay under 10/s.
 The outputs are deterministic given the caches: --offline rebuilds them byte for byte.
 
-usage: python scripts/build_pit_universe.py [--offline] [--include-sealed] [--remap-missing]
+usage: python scripts/build_pit_universe.py [--offline] [--include-sealed] [--remap-missing | --reresolve]
        python scripts/build_pit_universe.py --include-sealed --sealed-out DIR [--sealed-from DATE]
                                             [--through DATE] [--offline]
 """
@@ -124,6 +130,49 @@ _PLACEHOLDER_CUSIP = re.compile(r'[0-9]{3}(CVR|ESC)[0-9A-Z]{3}')
 # A ticker as N-PORT reports it (Bloomberg style, BRK/B); numeric codes, exchange suffixes
 # (GFF.NY) and when-issued lines (SAFE-W) are not tickers to look up.
 _REPORTED_TICKER = re.compile(r'[A-Z]{1,5}(/[A-Z])?')
+
+# Mappings the price check rejected (N-PORT's value per share against the ticker's
+# unadjusted close on every held date; reference/README.md). Identity data cannot tell them
+# from a genuine successor: the issuer that holds the ticker now also took the name, or the
+# ticker's line is the equity of a reorganisation that cancelled this one. Identifier ->
+# (the ticker it must not take, why); a different resolution is not covered and is checked
+# again. issuer_successions does not give these identifiers a ticker either.
+REJECTED_MAPPINGS = {
+    '05875B106': ('BALY', 'a line whose prices start on 2024-12-06 (another share class); on 2024-12-31, the only '
+                          "held date it covers, its close is 3.1% from N-PORT's price for this CUSIP"),
+    '127686103': ('CZR', 'Eldorado Resorts, renamed Caesars Entertainment in their 2020 merger (CUSIP 12769G100): '
+                         "before then its prices are Eldorado's, 2.1 to 4.4 times N-PORT's price for this CUSIP"),
+    '13057Q206': ('CRC', 'the equity issued in the 2020 reorganisation (CUSIP 13057Q305, prices from 2020-10-28), '
+                         'not this cancelled equity'),
+    '192479103': ('COHR', 'II-VI, renamed Coherent after acquiring this Coherent in 2022 (CUSIP 19247G107): '
+                          "N-PORT's price for this CUSIP is 2.0 to 5.2 times its close"),
+    '21873J108': ('CORZ', 'the equity issued in the 2024 reorganisation (CUSIP 21874A106, another share class, '
+                          'prices from 2024-01-24), not this cancelled equity'),
+    '224399105': ('CR', 'Crane Company, spun off in 2023 (CUSIP 224408104, prices from 2023-03-29); this Crane '
+                        'Co became Crane Holdings, now Crane NXT (CXT, CUSIP 224441105)'),
+    '253651103': ('DBD', 'the equity issued in the 2023 reorganisation (CUSIP 253651202, prices from 2023-08-14), '
+                         'not this cancelled equity'),
+    '402635304': ('GPOR', 'the equity issued in the 2021 reorganisation (CUSIP 402635502, prices from '
+                          '2021-05-18), not this cancelled equity'),
+    '45720L107': ('INBX', 'Inhibrx Biosciences, spun off when this Inhibrx was sold in 2024 (CUSIP 45720N103, '
+                          'prices from 2024-05-29)'),
+    '78645L100': ('SAFE', 'iStar, renamed Safehold in their 2023 merger (CUSIP 78646V107): before 2023 its '
+                          "prices are iStar's, and N-PORT's price for this CUSIP is 2.3 to 6.0 times its close"),
+    '78781P105': ('SAIL', 'SailPoint, Inc., listed in 2025 (CUSIP 78781J109, prices from 2025-02-13); this '
+                          'SailPoint was taken private in 2022'),
+    '80359A106': ('STRC', "Strategy Inc's line (prices from 2025-07-30); this security was last held on "
+                          '2023-03-31'),
+    '92918V109': ('VRM', 'the line listed after the 2025 reorganisation (prices from 2025-02-20); this security '
+                         'was last held on 2022-03-31'),
+    '977852102': ('WOLF', 'the equity issued in the 2025 reorganisation (another share class, prices from '
+                          '2025-09-29), not this cancelled equity'),
+    '98262P101': ('WW', 'the equity issued in the 2025 reorganisation (WW INTERNATIONAL INC-NEW, another share '
+                        'class, prices from 2025-06-27), not this cancelled equity'),
+    'BMG7998G1069': ('SDRL', 'the equity issued in the 2022 reorganisation (ISIN BMG7997W1029, prices from '
+                             '2022-10-14), not this cancelled equity'),
+    'VGG111961055': ('BHVN', 'Biohaven Ltd, spun off when this Biohaven was sold in 2022 (ISIN VGG1110E1079, '
+                             "prices from 2022-09-23): on 2022-09-30, N-PORT's price is 24.5 times its close"),
+}
 
 ATOM_NS = '{http://www.w3.org/2005/Atom}'
 
@@ -423,6 +472,41 @@ def _resolve_figi(result, id_type, us_lines, mapped_on):
             'name': data[0].get('name') if data else None, 'exchCode': None, 'note': note, 'mapped_on': mapped_on}
 
 
+def vet_mappings(snapshots, entries):
+    """Take a ticker away (status 'reused', with a note) where its price history is another
+    security's; returns the identifiers changed. `snapshots` is each snapshot's
+    equity_securities.
+
+    - REJECTED_MAPPINGS, the price check's rejections (an entry rejected earlier takes the
+      reason as it reads now);
+    - a ticker an identifier reaches only indirectly (N-PORT's reported ticker, a name or
+      share-class match) while a security held in the same snapshot is mapped to it by its
+      own CUSIP or ISIN as an active US line: the ticker is that security's (BlackRock books
+      OmniAb's earnout shares, 68218J202 and 68218J301, under OABI, the common stock's).
+    """
+    changed = []
+    for sid, (ticker, why) in sorted(REJECTED_MAPPINGS.items()):
+        e, note = entries.get(sid), f'{ticker} is {why}'
+        if e and (e.get('ticker') == ticker
+                  or (e['status'] == 'reused' and e.get('note', '').startswith(f'{ticker} is ') and e['note'] != note)):
+            entries[sid] = dict(e, status='reused', ticker=None, note=note)
+            changed.append(sid)
+    for securities in snapshots:
+        owner = {}
+        for s in securities:
+            e = entries.get(s['id']) if s['id'] else None
+            if e and e['status'] == 'active' and e.get('matched_by') in ('cusip', 'isin'):
+                owner.setdefault(e['ticker'], s['id'])
+        for s in securities:
+            e = entries.get(s['id']) if s['id'] else None
+            other = owner.get((e or {}).get('ticker'))
+            if other and other != s['id'] and e.get('matched_by') not in ('cusip', 'isin'):
+                entries[s['id']] = dict(e, status='reused', ticker=None,
+                                        note=f"{e['ticker']} is the own US line of {other}, held alongside")
+                changed.append(s['id'])
+    return changed
+
+
 def _job_key(job):
     return '|'.join((job['idType'], job['idValue'], job.get('exchCode', '')))
 
@@ -491,7 +575,9 @@ def write_map(entries, path):
                  'without an active US line, a candidate ticker whose exchCode-US record has the same '
                  'share-class FIGI or name; unmapped, or delisted under another ticker: the latest ticker '
                  "N-PORT reported, resolved the same way; ticker normalised to Yahoo style ('/' and '.' -> '-'); "
-                 'status active | delisted (last ticker kept) | reused (ticker now another security: null) | unmapped'),
+                 'status active | delisted (last ticker kept) | reused (ticker now another security: null) | unmapped; '
+                 'a mapping the price check rejected, or a ticker another holding of the snapshot has as its own '
+                 'US line: reused (note)'),
         ('n_entries', len(entries)),
         ('n_mapped', sum(1 for e in entries.values() if e.get('ticker'))),
         ('by_status', dict(sorted(Counter(str(e.get('status')) for e in entries.values()).items()))),
@@ -527,7 +613,9 @@ def issuer_successions(snapshots, entries):
     is the old security after a reverse split, a reclassification or a rename. The link is
     made only when exactly one such CUSIP has a ticker and no other security held alongside
     the old CUSIP carries that ticker (two share classes of one issuer never qualify: they
-    are held together). Chains resolve to the latest CUSIP's ticker.
+    are held together), and never for a CUSIP in REJECTED_MAPPINGS (a reorganisation can
+    cancel an equity and issue the new one under the same issuer number). Chains resolve to
+    the latest CUSIP's ticker.
     """
     held, first_name, last_name = {}, {}, {}
     for k, securities in enumerate(snapshots):
@@ -545,7 +633,7 @@ def issuer_successions(snapshots, entries):
         return out[sid]['ticker'] if sid in out else (entries.get(sid) or {}).get('ticker')
 
     for old in sorted(held, key=lambda sid: (-held[sid][-1], sid)):       # successors first
-        if (entries.get(old) or {}).get('status') == 'active' or not last_name[old]:
+        if (entries.get(old) or {}).get('status') == 'active' or not last_name[old] or old in REJECTED_MAPPINGS:
             continue
         nxt = [new for new in starting.get(held[old][-1] + 1, ())
                if new[:6] == old[:6] and first_name[new] == last_name[old] and ticker(new)]
@@ -638,26 +726,42 @@ def _parse_filing(f, raw, offline):
     return f, parsed, equity_securities(parsed['holdings']), hashlib.sha256(blob).hexdigest(), folder + name
 
 
-def _map_new_identifiers(parsed_all, entries, map_path, args, remap=False, prune=False):
+def _map_new_identifiers(parsed_all, entries, map_path, args, remap=False, prune=False, reresolve=False):
     """Query OpenFIGI for the identifiers `entries` lacks (online builds only), with the
     tickers N-PORT reported for them in `parsed_all`; returns the map.
 
-    `prune` drops the entries no snapshot in `parsed_all` holds any more (a full build
-    only: a sealed build parses the sealed filings alone)."""
+    `remap` asks OpenFIGI again for every identifier without an active US line;
+    `reresolve` resolves every entry but OpenFIGI's own active US line for the identifier
+    again from the cached responses (after a change of rules), asking only for what is not
+    cached. `prune` drops the entries no snapshot in `parsed_all` holds any more (a full
+    build only: a sealed build parses the sealed filings alone). vet_mappings runs on every
+    online build, and an entry that comes out as it was keeps its mapping date unless
+    `remap` asked OpenFIGI again."""
     held = [securities for _, _, securities, _, _ in parsed_all]
+    before = dict(entries)
     wanted = OrderedDict()
     for securities in held:
         for s in securities:
-            if s['id'] and (s['id'] not in entries
-                            or (remap and entries[s['id']].get('status') != 'active')):
+            e = entries.get(s['id']) if s['id'] else None
+            if s['id'] and (e is None or (remap and e.get('status') != 'active')
+                            or (reresolve and (e.get('status') != 'active'
+                                               or e.get('matched_by') not in ('cusip', 'isin')))):
                 wanted[s['id']] = s['id_type']
     if wanted:
         print(f'OpenFIGI: mapping {len(wanted)} identifiers', flush=True)
         query_openfigi(list(wanted.items()), entries, map_path, args.openfigi_cache,
                        os.environ.get('OPENFIGI_API_KEY'), refresh=remap, reported=reported_tickers(held))
-    held_ids = {s['id'] for securities in held for s in securities if s['id']}
-    if prune and set(entries) - held_ids:                   # identifiers no snapshot holds any more
+    for sid in vet_mappings(held, entries):
+        print(f"  {sid}: {entries[sid]['note']}", flush=True)
+    if not remap:
+        for sid, e in entries.items():
+            old = before.get(sid)
+            if old is not None and old is not e and dict(old, mapped_on=None) == dict(e, mapped_on=None):
+                entries[sid] = old
+    if prune:                                               # identifiers no snapshot holds any more
+        held_ids = {s['id'] for securities in held for s in securities if s['id']}
         entries = {k: e for k, e in entries.items() if k in held_ids}
+    if wanted or entries != before:
         write_map(entries, map_path)
     return entries
 
@@ -747,14 +851,19 @@ def main(argv=None):
     ap.add_argument('--through', metavar='DATE', help='with --sealed-out: and dated no later than DATE')
     ap.add_argument('--remap-missing', action='store_true',
                     help='query OpenFIGI again for identifiers without an active US listing')
+    ap.add_argument('--reresolve', action='store_true',
+                    help="resolve every identifier that is not OpenFIGI's own active US line again from the "
+                         'cached OpenFIGI responses (after a change of rules), querying only what is not cached')
     ap.add_argument('--openfigi-cache', default=str(ROOT / 'data' / 'raw' / 'openfigi' / 'responses.json'))
     ap.add_argument('--raw-dir', default=str(ROOT / 'data' / 'raw' / 'nport'))
     ap.add_argument('--out-dir', default=str(ROOT / 'reference' / 'universe'))
     args = ap.parse_args(argv)
     if args.sealed_out:
-        if not args.include_sealed or args.remap_missing:
-            raise SystemExit('--sealed-out needs --include-sealed and excludes --remap-missing')
+        if not args.include_sealed or args.remap_missing or args.reresolve:
+            raise SystemExit('--sealed-out needs --include-sealed and excludes --remap-missing and --reresolve')
         return build_sealed(args)
+    if args.remap_missing and args.reresolve:
+        raise SystemExit('--remap-missing and --reresolve exclude each other')
     if args.include_sealed:
         assert_unsealed(SEALED_FROM)
     raw, out = pathlib.Path(args.raw_dir), pathlib.Path(args.out_dir)
@@ -777,7 +886,8 @@ def main(argv=None):
     entries = read_map(map_path)
     held = [securities for _, _, securities, _, _ in parsed_all]
     if not args.offline:
-        entries = _map_new_identifiers(parsed_all, entries, map_path, args, remap=args.remap_missing, prune=True)
+        entries = _map_new_identifiers(parsed_all, entries, map_path, args, remap=args.remap_missing, prune=True,
+                                       reresolve=args.reresolve)
     successions = issuer_successions(held, entries)
 
     out.mkdir(parents=True, exist_ok=True)
