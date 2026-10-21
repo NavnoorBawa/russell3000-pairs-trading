@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-1a1a1a.svg)](LICENSE)
 
 **[Research note (live page) →](https://navnoorbawa.github.io/russell3000-pairs-trading/)** ·
-[Paper (PDF, v32 edition; the v33 edition is in preparation)](paper/pairs_study.pdf) ·
+[Paper (PDF)](paper/pairs_study.pdf) ·
 [Committed results](results/)
 
 One question, answered as strictly as free data allow: **does a cointegration pairs-trading
@@ -127,7 +127,7 @@ can falsify a large edge; it cannot confirm a small one.
 | [`reference/`](reference/) | IWV N-PORT holdings snapshots, the CUSIP-to-ticker map and the industry map, with how each was built and checked |
 | [`docs/`](docs/) | `PROGRESS.md` (the full engineering log, deliberately unflattering), `EXECUTION_COSTS.md`, `FREE_RESOURCES.md` |
 | `index.html`, [`assets/`](assets/) | The research note; `assets/study.json` is built from `results/` by `scripts/build_site_data.py` |
-| [`paper/`](paper/) | The Typst paper; the committed PDF is the v32 edition |
+| [`paper/`](paper/) | The Typst paper and its committed PDF, built from the same data as the page (`scripts/build_paper.py`) |
 | [`tests/`](tests/) | The test suite (below) |
 
 ## Reproduce

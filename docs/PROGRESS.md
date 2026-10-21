@@ -3156,8 +3156,8 @@ model are unchanged.
   on 2026-10-20 before any variant ran; the run is in progress.
 - **The trial registry** (`results/trial_registry.jsonl`, append-only) and the runbook
   `scripts/run_dev_studies.sh`.
-- **The site** reads every committed artefact (`scripts/build_site_data.py`); the paper's v33
-  edition is in preparation.
+- **The site** reads every committed artefact (`scripts/build_site_data.py`), and the paper
+  (`paper/pairs_study.pdf`, `scripts/build_paper.py`) is built from the same data.
 
 ### The result (development run of 2026-10-21, commit 7442705)
 
@@ -3210,12 +3210,14 @@ What the evidence layer shows:
 - **Cost scenarios change the trades.** Each scenario is a full re-run, and the trade count runs
   from <!--m:study.dev.cost_sensitivity.trades_min-->213<!--/m--> to
   <!--m:study.dev.cost_sensitivity.trades_max-->273<!--/m-->: positions are a share of equity (scaled by
-  recent outcomes and drawdown), the 30% gross cap binds, and the loss cool-off follows net P&L.
+  the win rate of the last closed trades and by the volatility of recent daily returns; drawdown
+  only triggers the 15% kill switch, which never binds), the 30% gross cap binds, and the loss
+  cool-off follows net P&L.
   The anatomy re-prices the headline trades under the same assumptions for the fixed-trade view.
 - **The random-pair control's levels are on committed capital.** Its 5th-percentile path ends at
   <!--m:study.dev.facts.random_p05_end|1-->−92.3<!--/m-->%: unhedged random pairs traded with the
   distance rule can lose most of their committed capital. The comparison is its Sharpe
   distribution, which does not depend on the basis.
 - **Still open:** the declared variant family (running); the pre-registration (to be filed, with
-  the price-fetch manifest of the development cache published beside the run); the paper's v33
-  edition; the `residual_dev` registry line was written without its run record.
+  the price-fetch manifest of the development cache published beside the run); the
+  `residual_dev` registry line was written without its run record.

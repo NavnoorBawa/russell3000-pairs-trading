@@ -1,9 +1,10 @@
 """scripts/build_paper.py (paper/build/paper_data.json, the figures, paper/pairs_study.pdf).
 
-The data extraction is checked on the committed v32 run and on copies of its site data
-altered to carry what later runs add (the second strategy family, the data-snooping tests,
-the evidence layer's anatomy, ...), so every renderer runs without new data. A result that
-does not exist yet has no exhibit or table in the body and is listed as forthcoming.
+The data extraction is checked on the committed v33 development run (results/v33_dev, with
+its evidence layer, the second strategy family, the validation and the published v32 run)
+and on copies of its site data altered to add what is still to come (the data-snooping
+tests) or to drop an optional section, so every renderer runs both ways. A result that does
+not exist yet has no exhibit or table in the body and is listed as forthcoming.
 Compiling the paper needs the optional typst package (pip install -e ".[paper]"); CI
 installs the pinned requirements only, so those tests skip there and the rest still run.
 """
@@ -84,7 +85,8 @@ def test_check_detects_stale_products(tmp_path, monkeypatch):
     assert bp.check() == 0
 
     data = (build / 'paper_data.json').read_text()
-    (build / 'paper_data.json').write_text(data.replace('"main.sharpe": "−0.07"', '"main.sharpe": "−0.08"'))
+    assert '"main.sharpe": "−0.06"' in data
+    (build / 'paper_data.json').write_text(data.replace('"main.sharpe": "−0.06"', '"main.sharpe": "−0.07"'))
     assert bp.check() == 1
     (build / 'paper_data.json').write_text(data)
 
@@ -116,36 +118,39 @@ def test_fmt_follows_the_site_conventions():
 
 
 def test_paper_numbers_agree_with_the_site(built):
-    """Every number the site marks and the paper also prints is the same number, shown to
-    the same precision (signs, '%' and '×' aside)."""
+    """Every number the site marks and the paper also prints is the same number, shown to a
+    precision the site uses for it (signs, '%' and '×' aside). The site prints a few numbers
+    at two precisions (the average cost per trade as 16.1 and 16.13); the paper's must be
+    one of them and agree with every rendering at that rendering's precision."""
     paper, _ = built
     markers, errors = chk.extract_markers((REPO / 'index.html').read_text(encoding='utf-8'))
     assert not errors
-    compared = 0
+    site = {}
     for key, body, line in markers:
-        text = paper['m'].get(key)
-        if text is None:
-            continue
-        site_value, site_dp = chk.parse_marker_value(body)
+        if paper['m'].get(key) is not None:
+            site.setdefault(key, []).append((chk.parse_marker_value(body), line, body))
+    for key, renderings in site.items():
+        text = paper['m'][key]
         value, dp = chk.parse_marker_value(text.rstrip('×'))
-        assert (value, dp) == (site_value, site_dp), f'index.html:{line} {key}: site {body!r}, paper {text!r}'
-        compared += 1
-    assert compared >= 80
+        assert dp in {r[0][1] for r in renderings}, f'{key}: paper {text!r}, site {[r[2] for r in renderings]}'
+        for (site_value, site_dp), line, body in renderings:
+            assert round(value, site_dp) == site_value if dp >= site_dp else value == round(site_value, dp), \
+                f'index.html:{line} {key}: site {body!r}, paper {text!r}'
+    assert len(site) >= 150
 
 
 def test_null_results_print_as_pending_never_as_a_number(built):
     paper, _ = built
     nulls = {k for k, v in paper['m'].items() if v is None}
-    assert nulls, 'the v32 data have pending results (holdout, residual arm, snooping tests)'
+    assert nulls, 'the committed data have pending results (the sealed holdout, the snooping tests)'
     for key in nulls:
         assert paper['why'][key].startswith('pending ('), key
         assert not re.search(r'\d+\.\d|[−+-]\d', paper['why'][key]), key
     assert set(paper['why']) == nulls
-    for key, cells in (('snooping', [r[1] for r in paper['tables']['snooping']]),
-                       ('validation', [r[2] for r in paper['tables']['validation']])):
-        assert all(c == 'pending' for c in cells), key
+    assert all(r[1] == 'pending' for r in paper['tables']['snooping'])
+    assert all(r[2] != 'pending' for r in paper['tables']['validation'])     # the validation is committed
     # the sealed holdout has no result column at all, only the arms and their hypotheses
-    assert [r[0] for r in paper['tables']['hypotheses']] == ['H1', 'H2', 'S3'] and all(len(r) == 3 for r in paper['tables']['hypotheses'])
+    assert [r[0] for r in paper['tables']['hypotheses']] == ['H1 · S1', 'H2 · S2', 'S3'] and all(len(r) == 3 for r in paper['tables']['hypotheses'])
     for name, path in paper['figures'].items():
         assert (path is None) == (name in paper['pending'])
 
@@ -178,18 +183,21 @@ def test_site_concordance_maps_every_site_exhibit(built):
             assert paper['figures'].get(target[3:]) or target in ('ex-pipeline',), target
 
 
-def test_power_under_both_dependence_assumptions(built):
-    """Allowing for lag-1 autocorrelation widens the Sharpe ratio's standard error and its
-    one-sided bound; the IID columns are the site's own figures."""
+def test_power_figures_are_the_evidence_blocks(inputs, built):
+    """The power, the bound and the track records the paper prints are those of the run's
+    evidence block (non-normal AR(1) variance), which pairs_trading.power reproduces from the
+    daily returns; the p-values fall as the alternative rises."""
     paper, _ = built
-    P = paper['m']
-    facts = bp.load_inputs()['study']['dev']['facts']
-    assert float(P['paper.power_ar1.se']) > facts['sharpe_se']
-    assert float(P['paper.power_ar1.ucb']) > facts['sharpe_ucb']
+    dev = inputs['study']['dev']
+    rep = bp.pw.power_report([x / 100 for x in dev['daily']['net']], periods=252)
+    assert rep['se_ann'] == pytest.approx(dev['power']['se'], abs=5e-4)
+    assert rep['upper_bound_ann'] == pytest.approx(dev['power']['ucb'], abs=5e-4)
+    assert rep['min_detectable_sr_ann'] == pytest.approx(dev['power']['mde'], abs=5e-4)
     rows = paper['tables']['alternatives']
-    assert [r[1] for r in rows] == [bp.fmt(a['p_ge'], '.3') for a in
-                                   bp.load_inputs()['study']['dev']['power']['alternatives']]
-    assert all(float(r[2]) >= float(r[1]) for r in rows)          # p rises with dependence
+    assert [r[0] for r in rows] == ['0.5', '1.0', '1.5', '2.0']
+    p = [a['p_ge'] for a in dev['power']['alternatives']]
+    assert p == sorted(p, reverse=True)
+    assert rows[-1][1] == '< 0.001' and rows[0][1] == paper['m']['study.dev.facts.p_sr_ge_0_5']
 
 
 def test_edge_per_trade_is_on_the_break_even_basis(inputs, built):
@@ -201,19 +209,21 @@ def test_edge_per_trade_is_on_the_break_even_basis(inputs, built):
     assert paper['m']['paper.edge.gross_bp'] == bp.fmt(e['gross_bp'], '+.1')
 
 
-def test_fetch_coverage_counts_symbols_with_prices(inputs, built):
-    paper, _ = built
-    f = bp.fetch_coverage(inputs['fetch_manifest'], 3000)
-    assert f['ok'] == inputs['study']['dev']['run']['symbols']
-    assert f['ok'] + f['errors'] + f['invalid'] + f['short'] + f['not_found'] == f['symbols']
-    assert paper['m']['paper.fetch.ok_pct'] == bp.fmt(100 * f['ok'] / f['symbols'], '.1%')
+def test_the_export_is_the_headline_runs(inputs):
+    """study.json also lists the published v32 run's export; the paper reads the export of the
+    run its headline JSON describes, never v32's."""
+    run_dir = inputs['headline_path'].rsplit('/', 1)[0]
+    assert inputs['results_path'].startswith(run_dir + '/')
+    assert len(inputs['results']['all_trades']) == inputs['headline']['main']['trades']
 
 
 def test_performance_table(built):
     paper, _ = built
     rows = {r[0]: r[1:] for r in paper['tables']['performance']}
-    assert rows['Trading days'] == ['628', '711', '628']
-    assert rows['Maximum drawdown, %'][0] == '−3.00'
+    assert rows['Trading days'] == ['628', '716', '628']
+    assert rows['Maximum drawdown, %'][0] == '−4.05'
+    # the main backtest's figures are the headline JSON's, as the text quotes them
+    assert rows['Annual turnover, × capital'][0] == paper['m']['main.annual_turnover_x'].rstrip('×')
     assert all(len(v) == 3 for v in rows.values())
 
 
@@ -241,8 +251,9 @@ def test_main_typ_has_no_hand_typed_results():
     either replaced by #m() or added below with its reason."""
     allowed = {
         # design parameters of the strategy and the tests (pairs_trading/, docs/)
-        '0.002', '0.05', '0.1', '0.20', '0.25', '0.3', '0.30', '0.5', '0.50', '0.6', '0.75', '1.0', '1.25',
-        '1.5', '1.8', '1.96', '2.5', '126', '252', '500',
+        '0.002', '0.05', '0.1', '0.20', '0.25', '0.3', '0.30', '0.4', '0.5', '0.50', '0.55', '0.6', '0.75', '1.0',
+        '1.25', '1.5', '1.8', '1.96', '2.5', '126', '252', '500',
+        '0.10',                                          # the Benjamini-Hochberg diagnostic's second level
         # published results quoted in the text (Avellaneda and Lee 2010; Almgren et al. 2005)
         '1.44', '1.1', '0.9', '0.314',
     }
@@ -295,54 +306,53 @@ def test_claims_follow_the_data(inputs):
 
 # ── optional results fill their sections ─────────────────────────────────────────
 
-def _with_later_results(inputs):
-    """The v32 inputs plus what the v33 runs, the evidence layer and the validation add."""
+def _with_snooping_results(inputs):
+    """The committed inputs plus the data-snooping tests the variant family's run will add."""
     inp = copy.deepcopy(inputs)
-    study = inp['study']
-    dev = study['dev']
-    n = len(dev['daily']['dates'])
-    dev['random_band'] = {'dates': dev['daily']['dates'], 'n_draws': 200,
-                          **{k: [round(z * 0.01 * (i + 1) ** 0.5, 4) for i in range(n)]
-                             for k, z in (('p05', -1.6), ('p25', -0.7), ('p50', 0.0), ('p75', 0.7), ('p95', 1.6))}}
-    dev['cost_curve'] = [{'k': k / 4, 'sharpe': 0.2 - 0.3 * k / 4, 'ret_pct': 0.5 - k / 4} for k in range(9)]
-    dev['exit_race'] = {'targets': 61, 'stops': 65, 'expected_targets': 63.0, 'z': -0.4}
-    dev['decay'] = [{'period': 'Formation', 'bp': 40.0, 'lo': 30.0, 'hi': 50.0, 'n': 900},
-                    {'period': 'Trading', 'bp': 11.4, 'lo': -50.0, 'hi': 72.0, 'n': 161}]
-    dev['persistence'] = {'chance_pct': 5.0, 'windows': [{'window': 'W1', 'pct': 22.0}, {'window': 'W2', 'pct': 9.0}]}
-    dev['capacity'] = [{'aum_musd': a, 'net_bp': 10.0 - a / 100} for a in (10, 100, 1000)]
-    dev['pvalue_hist'] = {'edges': [i / 20 for i in range(21)], 'counts': [3000] + [1700] * 19}
-    dev['universe_by_formation'] = [{'formation_date': '2022-12-30', 'snapshot': '2022-12-30', 'members': 2600,
-                                     'with_prices': 2550, 'missing': 50, 'missing_weight_pct': 0.4,
-                                     'unmapped_weight_pct': 1.7}]
-    dev['snooping']['results'] = {'spa_p': 0.41, 'reality_check_p': 0.63, 'romano_wolf_rejected': [],
-                                  'mcs_included': ['a', 'b'], 'effective_trials': 7.3, 'pbo': 0.48}
-    study['residual'] = {'sharpe': 0.31, 'ret_pct': 1.2, 'trades': 5400, 'lo': -0.9, 'hi': 1.5, 'p': 0.31,
-                         'period': ['2023-07-03', '2025-12-31'], 'commit': 'abc'}
-    study['validation'] = {'seeds': 5, 'all_pass': True,
-                           'edge': {'trades': 2241, 'mean_bp': 80.7, 'se_bp': 3.4, 't': 23.7, 'median_net_sharpe': 3.3,
-                                    'pass': True},
-                           'forced_null': {'trades': 2485, 'mean_bp': 4.6, 'se_bp': 4.0, 't': 1.15, 'pass': True},
-                           'hedge_ratio': {'median_abs_error': 0.031, 'p90_abs_error': 0.073},
-                           'selection': {'recall': 1.0, 'unrelated_per_planted_market': 2.4, 'per_null_market': 2.6,
-                                         'worst_fp_rate': 0.03, 'pass': True}}
+    inp['study']['dev']['snooping']['results'] = {'spa_p': 0.41, 'reality_check_p': 0.63, 'romano_wolf_rejected': [],
+                                                  'mcs_included': ['a', 'b'], 'effective_trials': 7.3, 'pbo': 0.48}
     return inp
 
 
-def test_later_results_fill_their_exhibits_and_tables(inputs):
-    paper, figs = bp.build_data(_with_later_results(inputs))
-    for name in ('costcurve', 'exitrace', 'decay', 'persistence', 'capacity', 'pvalues', 'universe',
-                 'residual', 'validation'):
-        assert figs.get(name), name
-        assert name not in paper['pending']
+def test_snooping_results_fill_their_table(inputs):
+    paper, figs = bp.build_data(_with_snooping_results(inputs))
     assert paper['pending'] == {'holdout': 'Sealed.'}
-    assert [r[0] for r in paper['forthcoming']] == ['multi_factor', 'holdout']
-    assert paper['m']['paper.residual.sharpe'] == '0.31'
+    assert [r[0] for r in paper['forthcoming']] == ['holdout']
     assert paper['m']['paper.snooping.pbo_pct'] == '48.0%'
-    assert not any(k.startswith(('paper.residual.', 'paper.snooping.')) for k in paper['why'])
+    assert not any(k.startswith('paper.snooping.') for k in paper['why'])
     assert 'pending' not in {r[1] for r in paper['tables']['snooping']}
-    assert paper['tables']['validation'][0][2].startswith('2,241 trades, +80.7 bp')
-    assert paper['flags']['random_band'] and paper['flags']['snooping'] and paper['flags']['residual']
-    assert paper['claims']['residual_pending'] is False
+    assert paper['flags']['snooping'] and paper['claims']['snooping_pending'] is False
+
+
+def test_committed_results_fill_every_exhibit(built):
+    """Every exhibit has its data except the sealed holdout's; only the snooping tests and the
+    holdout are forthcoming."""
+    paper, figs = built
+    for name in ('costcurve', 'exitrace', 'decay', 'persistence', 'halflife', 'capacity', 'scenarios', 'universe',
+                 'residual', 'validation', 'snapshots', 'schedules'):
+        assert figs.get(name), name
+    assert paper['pending'] == {'holdout': 'Sealed.'}
+    assert [r[0] for r in paper['forthcoming']] == ['snooping', 'holdout']
+    assert paper['tables']['validation'][0][2].startswith('4,692 trades, +82.6 bp')
+    assert paper['flags']['random_band'] and paper['flags']['residual'] and paper['flags']['scenarios']
+
+
+def test_an_absent_optional_section_is_listed_as_forthcoming(inputs):
+    """A run without the evidence layer, the scenarios, the second family or the validation
+    still builds: each missing exhibit is left out and listed as forthcoming, never drawn."""
+    inp = copy.deepcopy(inputs)
+    dev = inp['study']['dev']
+    for k in ('exit_race', 'decay', 'persistence', 'half_lives', 'capacity', 'cost_sensitivity', 'cost_curve'):
+        dev.pop(k)
+    inp['study'].pop('residual')
+    inp['study'].pop('validation')
+    paper, figs = bp.build_data(inp)
+    later = [r[0] for r in paper['forthcoming']]
+    for name in ('exitrace', 'decay', 'persistence', 'halflife', 'capacity', 'scenarios', 'costcurve', 'residual',
+                 'validation'):
+        assert name not in figs and name in later, name
+    assert paper['tables']['scenarios'] == [] and all(r[2] == 'pending' for r in paper['tables']['validation'])
+    assert paper['claims']['residual_ci_spans_zero'] is False          # the text cannot assert it
 
 
 def test_the_residual_arm_must_be_the_published_export_study_json_was_built_from(tmp_path):
@@ -359,13 +369,16 @@ def test_the_residual_arm_must_be_the_published_export_study_json_was_built_from
     def write(study_):
         (root / 'assets' / 'study.json').write_text(json.dumps(study_), encoding='utf-8')
 
+    published = 'results/residual_dev/residual_statarb.json'
+    study['meta']['sources'].pop(published)          # a study.json that does not list the export
+    (root / published).unlink()
     study['residual'] = {'sharpe': 0.31, 'ret_pct': 1.2, 'trades': 5400, 'lo': -0.9, 'hi': 1.5, 'p': 0.31,
                          'period': ['2023-07-03', '2025-12-31'], 'commit': 'abc'}
     write(study)
     with pytest.raises(bp.PaperDataError, match='residual'):
         bp.load_inputs(root)
     export = root / 'results' / 'residual_dev' / 'residual_statarb.json'
-    export.parent.mkdir(parents=True)
+    export.parent.mkdir(parents=True, exist_ok=True)
     export.write_text('{"summary": {}}', encoding='utf-8')
     study['meta']['sources']['results/residual_dev/residual_statarb.json'] = bp._sha256(export)
     write(study)
@@ -405,7 +418,7 @@ def test_paper_compiles_to_the_committed_pdf(built):
     pdf = bp.compile_pdf(paper)
     assert pdf.startswith(b'%PDF')
     pages = len(re.findall(rb'/Type\s*/Page(?![s\w])', pdf))
-    assert 14 <= pages <= 26, pages
+    assert 14 <= pages <= 32, pages          # 26 exhibits and the appendix tables; a runaway float would exceed it
     manifest = json.loads(bp.MANIFEST.read_text())
     if manifest['tools']['typst'] == bp._typst_version():
         assert pdf == bp.PDF.read_bytes()
