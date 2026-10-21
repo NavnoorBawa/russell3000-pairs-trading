@@ -3158,7 +3158,7 @@ model are unchanged.
   two tested arms; rehearsed on 2025 data.
 - **Data-snooping tests over a declared family** (`snooping.py`, `scripts/variant_family.py`,
   `results/variant_family/declaration.json`): a 27-point threshold grid and 11 toggles declared
-  on 2026-10-20 before any variant ran; the run is in progress.
+  on 2026-10-20 before any variant ran; results below.
 - **The trial registry** (`results/trial_registry.jsonl`, append-only) and the runbook
   `scripts/run_dev_studies.sh`.
 - **The site** reads every committed artefact (`scripts/build_site_data.py`), and the paper
@@ -3228,8 +3228,8 @@ What the evidence layer shows:
   at <!--m:study.dev.facts.random_p05_end|1-->−92.3<!--/m-->%: unhedged random pairs traded with the
   distance rule can lose most of their committed capital. The comparison is its Sharpe distribution,
   which does not depend on the basis.
-- **Still open:** the declared variant family (running); the pre-registration (to be filed); the
-  `residual_dev` registry line was written without its run record.
+- **Still open:** the pre-registration (to be filed); the `residual_dev` and `variant_family`
+  registry lines were written without run records.
 
 ### Review of the write-up (2026-10-21)
 
@@ -3255,3 +3255,44 @@ The write-up now:
 - adds threats for the sealed-not-prospective test, path dependence on the start date and the
   single regime, a performance table, and the capacity caveat that participation is measured
   against full-day volume while every fill is assumed in the closing auction.
+
+### The variant family and the robustness checks (2026-10-21)
+
+- **No variant beats cash or the distance method once the search is allowed for.** Of
+  the <!--m:study.dev.snooping.results.n-->38<!--/m--> declared variants,
+  only <!--m:study.dev.snooping.results.positive-->7<!--/m--> have a positive Sharpe ratio
+  (best <!--m:study.dev.snooping.results.sharpe_best-->+0.21<!--/m-->, the 300-name universe;
+  median <!--m:study.dev.snooping.results.sharpe_median-->−0.40<!--/m-->). Hansen's SPA against
+  cash: p = <!--m:study.dev.snooping.results.spa_zero.p-->0.964<!--/m-->; White's Reality
+  Check: <!--m:study.dev.snooping.results.spa_zero.rc_p-->0.977<!--/m-->; against the Gatev
+  series: <!--m:study.dev.snooping.results.spa_gatev.p-->0.219<!--/m-->. Romano–Wolf
+  rejects <!--m:study.dev.snooping.results.rw_rejected-->0<!--/m-->, and the 90% model confidence
+  set keeps all <!--m:study.dev.snooping.results.mcs_included-->38<!--/m-->.
+- **Picking parameters on this family would overfit.** PBO
+  is <!--m:study.dev.snooping.results.pbo_pct-->79.4<!--/m-->%, and the best variant of one half of
+  the days loses money on the other half
+  in <!--m:study.dev.snooping.results.pbo_is_best_loss_pct-->99.2<!--/m-->% of the splits. The v33
+  design ranks <!--m:study.dev.snooping.results.base_rank-->9<!--/m--> of 38; it is not re-chosen.
+- **The headline start date is the most favourable of
+  twelve.** Re-run from <!--m:study.dev.facts.start_n-->12<!--/m--> start
+  dates <!--m:study.dev.facts.start_step_days-->21<!--/m--> trading days apart, the main backtest's Sharpe ratio runs
+  from <!--m:study.dev.facts.start_sharpe_min-->−1.16<!--/m-->
+  to <!--m:study.dev.facts.start_sharpe_max-->−0.06<!--/m-->, the published start; the median
+  is <!--m:study.dev.facts.start_sharpe_median-->−0.65<!--/m-->. The threat row on path dependence
+  now says the published path flatters the result.
+- **No regime separates the returns**, by VIX (high minus low,
+  t = <!--m:study.dev.facts.vix_diff_t-->0.74<!--/m-->) or by sector dispersion
+  (t = <!--m:study.dev.facts.disp_diff_t-->−0.31<!--/m-->).
+- **Persistence on the strategy's own candidate pairs is at the base rate**
+  (<!--m:study.dev.facts.pers_s1_count-->62<!--/m--> of <!--m:study.dev.facts.pers_s1_of-->1,196<!--/m-->,
+  z = <!--m:study.dev.facts.pers_s1_z-->−0.55<!--/m-->), which settles the review's request to
+  re-run the persistence table on v33's universe.
+- **S2's per-trade gross t falls
+  from <!--m:study.residual.gross_t-->0.87<!--/m--> to <!--m:study.dev.facts.s2c_gross_month_t-->0.63<!--/m-->**
+  with standard errors clustered by entry month.
+- **Citations checked against the sources.** Goyal, Jegadeesh & Wu is the 2026 JFQA article
+  (the accepted manuscript is dated 2025); the "Y of about 0.28 and 0.64" in
+  `docs/EXECUTION_COSTS.md` is the project's own conversion, not the paper's; Chen et al. (2019)
+  explain pairs profits by short-term reversal and one-month industry momentum; the per-year
+  percentages attributed to Clegg (2014) could not be checked against the paper and were
+  removed.

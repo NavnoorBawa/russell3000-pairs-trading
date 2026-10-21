@@ -5,7 +5,7 @@
   "paper/build/figures/costcurve.svg": "1f85d27273c2c881086ecd81f2a30b3efcad8c884c174b2f4e6a18113c8273a8",
   "paper/build/figures/decay.svg": "0266a502fb54464463eb74fd242fb352fe210b0997de09989207383ba535ff17",
   "paper/build/figures/distribution.svg": "1b12211e480205357dc2da343dacccf1f29340da32fa4548feb799d5d61d0516",
-  "paper/build/figures/dsr.svg": "4b2c98dccadf7d031ec5a34622f6c02cf5ae1e02ba24df4a2d0590b1fbd8e54a",
+  "paper/build/figures/dsr.svg": "b960bbd637ee9b3026515a4740ef387e725f0f9ed194183ae8e06379b23ef0ad",
   "paper/build/figures/equity.svg": "f0a5a097edfa4a0a79856414a33d11c90b3ea85a8adda2dd767d4c358e418014",
   "paper/build/figures/exitrace.svg": "0dbe09e158840f60cd650863c51e7753b7180f4feb4d0faf5256fe7e9d7ea03c",
   "paper/build/figures/factors.svg": "e75aa3a04cc047103dfcae05497cdd69c69c6a9bcfda873268bd537b125f3329",
@@ -14,7 +14,7 @@
   "paper/build/figures/halflife.svg": "8168503d210c201da6015ba7e7c327eb3647a74fe03ec075d2284f88206abd27",
   "paper/build/figures/monthly.svg": "2aa53732185ab368270629e5e0b5790ea2e1914451598f772b51ffe2d5752dae",
   "paper/build/figures/persistence.svg": "2f9bcc0d8a876d90018e91510392916b6f0478684de514fc4fc4dcb3be4ff293",
-  "paper/build/figures/randomnull.svg": "8b05a09e84e7626964037240eb01b30222b3dea60b59520feb8f346c664554ae",
+  "paper/build/figures/randomnull.svg": "e007ac61127ddea4d3817f3e37d56495fff29c12d19676362bc3346c7c9dfdbd",
   "paper/build/figures/residual.svg": "3f202cc90dcf839dec37ca059d738dd0f202c94ed230b44de294f7eb7494b960",
   "paper/build/figures/rolling.svg": "dd276a2469ba72db31337d144ef243a23d4920e7d50f8cf42939bdb1936e7ec1",
   "paper/build/figures/scenarios.svg": "bcea7994787107dc8c2f86c776dbd7196a22c8dac728407bef0f6e1084341d71",
@@ -25,7 +25,7 @@
   "paper/build/figures/validation.svg": "1d4b03fe4d51646f7105362cfdcd361dc388e811be080a74a04fc1ce98e71876",
   "paper/build/figures/walkforward.svg": "8d101504caa54e3f8e56cbec2e8b4e865246dd8d1737c0c2b5f085724181cb94",
   "paper/build/figures/waterfall.svg": "fc21cdb8125af70b2ffed5536c3bcc9323ed8323ca8b3a8f71cbe573add6bce2",
-  "paper/build/paper_data.json": "748fd63bc0e19d82092219df72d324bad0f870bf4be9573ab3c3e0c43c0df4fe",
+  "paper/build/paper_data.json": "219b6b0b2ba3803ff8eaa94bacbcabaa7dc1410d16f3561f52d0264ce328d55b",
   "paper/fonts/IBMPlexMono-Regular.ttf": "884b41e7d9a8c0da2ab93b4dbb8b40a79d9089d4125c2bcb9e12dccdae68c5d4",
   "paper/fonts/IBMPlexSans-Italic.ttf": "dfb110b92a0c71bfcf84cb40e8e1cb0c37043556a5160bd2d3d910de4faabaf5",
   "paper/fonts/IBMPlexSans-Medium.ttf": "fe65f4a5bfdd7782de90619f60c9e43f846ecb1f9aecffdd8066a5b54d2aae40",
@@ -34,10 +34,10 @@
   "paper/fonts/IBMPlexSerif-Italic.ttf": "d8f43ba4ecefa3c2606a6e608e7f7f1f708e98c5d5e9e4586390e9ea5af148a3",
   "paper/fonts/IBMPlexSerif-Regular.ttf": "cf9b95014c561adb3215a83a2121071db032a9e6482e5064839eb2da7bf08630",
   "paper/fonts/IBMPlexSerif-SemiBold.ttf": "b81d99aed4f0534734303aee4dc606f15e9adc26f37a4b3b1ca8dff65c4e8461",
-  "paper/main.typ": "a42d1abd01d5be88b5cc6fba85b29875330d33fca4df821d6bf0ed136b32dd61",
-  "paper/references.bib": "986d08aa3f27c6934e51e42f5628236f099047ee5f00004d3c5d6fdec3091ffb"
+  "paper/main.typ": "d0faa7b5f58faa715cb4c1c6b29e4b80e9c925c3d1869b46b8d534a30d8c2889",
+  "paper/references.bib": "5edb9cd2a26fd4f442cda59b3a76a240ac0d70f6a823479a1f437753faf19457"
  },
- "pdf_sha256": "6f01911d7109f1f51fb9fe1fe1baf1316aa6b43cccc77c8a6fe56c35a9ac1ccc",
+ "pdf_sha256": "8d6b71f0a5246873d18946ac0454fb8d4ed15d993e5af9a3fd8bb6767d924782",
  "tools": {
   "matplotlib": "3.10.1",
   "typst": "0.15.0"

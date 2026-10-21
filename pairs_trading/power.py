@@ -10,7 +10,7 @@ out (one-sided upper confidence bound, tests of H0: SR >= x and equivalence test
 how strongly the data favour SR = SR0 over each alternative (Bayes factors).
 
 Every quantity rests on the asymptotic variance of the per-period Sharpe ratio estimator
-of López de Prado, Lipton & Zoonekynd (2025), which extends the non-normal IID variance
+of López de Prado, Lipton & Zoonekynd (2026), which extends the non-normal IID variance
 (Mertens 2002; Opdyke 2007) to AR(1) returns:
 
     Var(SR_hat) = (a - b * skew * SR + c * (kurt - 1) / 4 * SR^2) / T,
@@ -27,8 +27,11 @@ names in the authors' code (github.com/zoonek/2025-sharpe-ratio, functions.py) f
 single test (their K = 1); tests/test_power.py reproduces that file's unit tests.
 
 References:
-  López de Prado, Lipton & Zoonekynd (2025) "Sharpe Ratio Inference: A New Standard for
-    Reporting and Decision-Making", ADIA Lab (SSRN 5520741).
+  López de Prado, Lipton & Zoonekynd (2026) "Sharpe Ratio Inference: A New Standard for
+    Decision Making and Reporting", Journal of Portfolio Management 52(6), 6-50; working
+    paper "How to Use the Sharpe Ratio", ADIA Lab, SSRN 5520741 (2025). The authors' code
+    (whose README gives the title as "... A New Standard for Reporting and
+    Decision-Making") is what this module ports.
   Bailey & López de Prado (2012) "The Sharpe Ratio Efficient Frontier", Journal of Risk
     15(2) — minimum track record length.
   Mertens (2002) "Comments on variance of the IID estimator in Lo (2002)", working

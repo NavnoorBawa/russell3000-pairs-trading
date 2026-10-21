@@ -23,8 +23,9 @@ results JSON; its key numbers in headline_metrics.json):
   factors   Fama-French five factors + momentum + short- and long-term reversal
             attribution of daily returns in excess of the 1-month T-bill, Newey-West
             errors (significance.factor_attribution_multi; Ken French's daily files,
-            cached with their CRSP vintage). Gatev, Goetzmann & Rouwenhorst (2006) and
-            Chen et al. (2019) find pairs profits load on short-term reversal. Omitted,
+            cached with their CRSP vintage). Chen, Chen, Chen & Li (2019) find the
+            profits of a correlation-based pairs portfolio largely explained by short-term
+            reversal and a one-month version of industry momentum. Omitted,
             with the reason, when the files cannot be loaded.
   cash      the T-bill return over the main window: every return and Sharpe in this
             study is in excess of cash, because the engine's equity earns no interest.

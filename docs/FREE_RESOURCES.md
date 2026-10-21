@@ -31,10 +31,10 @@ checks), GitHub Actions and GitHub Pages.
 Avellaneda & Lee (2010); Bertram (2010); Gatev, Goetzmann & Rouwenhorst (2006); Do & Faff
 (2010, 2012); Krauss (2017); Clegg & Krauss (2018); Clegg (2014); Bailey & López de Prado
 (2012, 2014); Bailey, Borwein, López de Prado & Zhu (2017); López de Prado, Lipton &
-Zoonekynd (2025); Hansen (2005); White (2000); Romano & Wolf (2005, 2016); Hansen, Lunde &
+Zoonekynd (2026); Hansen (2005); White (2000); Romano & Wolf (2005, 2016); Hansen, Lunde &
 Nason (2011); Harvey, Liu & Zhu (2016); Ledoit & Wolf (2008); Politis & Romano (1994);
 Politis & White (2004); Newey & West (1987); Lo (2002); Almgren et al. (2005); Tóth et al.
-(2011); Frazzini, Israel & Moskowitz (2018); Goyal, Jegadeesh & Wu (2025); Muravyev, Pearson &
+(2011); Frazzini, Israel & Moskowitz (2018); Goyal, Jegadeesh & Wu (2026); Muravyev, Pearson &
 Pollet (2025); D'Avolio (2002); Kendall (1954).
 
 ## What free resources could not provide — and what the study does about it
@@ -43,7 +43,7 @@ Pollet (2025); D'Avolio (2002); Kendall (1954).
 |---|---|---|
 | Price histories of delisted stocks (CRSP, paid vendors) | survivorship: point-in-time members that later delisted cannot be traded | measured at every formation date (`universe_by_formation` in every export): in the v33 development run, after the cache's top-up, <!--m:study.dev.facts.gap_first_pct-->3.33<!--/m-->% of index weight at the first formation (snapshot 2022-12-30) and <!--m:study.dev.facts.gap_last_pct-->1.08<!--/m-->% at the last (snapshot 2025-06-30); the measurements before the top-up are in `reference/README.md`. By the fetch outcomes in `results/v33_dev/price_fetch_manifest.json`, <!--m:study.dev.facts.gap_first_not_found_pct-->2.75<!--/m--> points of the first formation's gap are names the vendor no longer serves (HTTP 404), largely acquired or delisted since, <!--m:study.dev.facts.gap_first_fetch_failed_pct-->0.34<!--/m--> points failed the fetch and <!--m:study.dev.facts.gap_first_data_checks_pct-->0.10<!--/m--> failed the data checks. Takeover targets and failures are the names likeliest to have had jump-driven spread breaks, so the gap probably flatters a convergence strategy; its effect is not measured |
 | The index provider's constituent lists | IWV's holdings stand in for the index (about 97% of its names; quarterly, not daily) | snapshots used strictly as of their report date |
-| Tick, quote and closing-auction data (TAQ, exchange feeds) | spreads and impact cannot be measured per stock and day | published estimates (Goyal-Jegadeesh-Wu 2025 auction impact, Frazzini et al. 2018) and a band test against them; cost scenarios re-run in full |
+| Tick, quote and closing-auction data (TAQ, exchange feeds) | spreads and impact cannot be measured per stock and day | published estimates (Goyal-Jegadeesh-Wu 2026 auction impact, Frazzini et al. 2018) and a band test against them; cost scenarios re-run in full |
 | Stock-borrow fees and availability (Markit, S3) | borrow is a single fee, specials are not modelled | the median buy-side fee plus 1% and 3% stress runs (net Sharpe <!--m:study.dev.cost_sensitivity.scenarios.borrow_1.full.sharpe-->−0.26<!--/m--> and <!--m:study.dev.cost_sensitivity.scenarios.borrow_3.full.sharpe-->−0.71<!--/m--> in the full re-runs) |
 | Point-in-time industry classification (GICS history) | today's SIC code is used for every date | industries rarely change; affects which pairs are candidates, not prices |
 | Ticker changes with a new CUSIP | a renamed or reorganised stock can look like a delisted one | remapped through N-PORT's reported ticker, the issuer's successor CUSIP, or a price check against N-PORT's value per share that gives 85 identifiers their successor's line; a search over every identifier still without a priced ticker finds no other |

@@ -503,7 +503,9 @@ def test_v33_page_data_comes_from_every_committed_artefact(v33_study):
                  'results/v33_dev/anatomy.json', 'results/v33_dev/cost_sensitivity.json',
                  'results/v33_dev/fund_type_comparison.json', 'results/residual_dev/residual_statarb.json',
                  'results/validation/synthetic_validation.json', 'results/variant_family/declaration.json',
-                 'results/v32_dev/headline_metrics.json', 'results/trial_registry.jsonl'):
+                 'results/v32_dev/headline_metrics.json', 'results/trial_registry.jsonl',
+                 'results/variant_family/snooping.json', 'results/variant_family/runs.json',
+                 'results/variant_family/daily_returns.csv', 'results/v33_dev/robustness.json'):
         assert name in sources, name
         assert sources[name] == hashlib.sha256((REPO / name).read_bytes()).hexdigest(), name
     dev = v33_study['dev']
@@ -512,6 +514,7 @@ def test_v33_page_data_comes_from_every_committed_artefact(v33_study):
         assert dev.get(key), key
     assert dev['factors']['multi_factor'] and 'Short-term reversal' in {r['name'] for r in dev['factors']['rows']}
     assert v33_study['residual'] and v33_study['validation'] and v33_study['v32'] and v33_study['trials']
+    assert dev['snooping']['results'] and dev['robustness']
 
 
 def test_facts_have_one_shape_whatever_the_run(v32_study, v33_study):
@@ -635,3 +638,93 @@ def test_trials_list_every_registered_run_in_order(v33_study):
     empty = bsd.trials([{'name': 'x', 'registered_utc': '2026-10-21T00:00:00+00:00', 'runs': []}])
     assert len(empty) == 1 and empty[0]['sharpe'] is None and empty[0]['registered'] == '2026-10-21'
     assert bsd.trials(None) is None
+    assert v33_study['registry'] == {'trials': len(lines), 'runs': len(rows)}
+
+
+# ── the declared variant family ────────────────────────────────────────────────
+
+def test_snooping_results_are_the_family_files(v33_study):
+    """Every number of the family's section is snooping.json's or runs.json's; the v33 design
+    is the variant whose daily returns are the main backtest's."""
+    sn = v33_study['dev']['snooping']['results']
+    rep = _json(REPO / 'results' / 'variant_family' / 'snooping.json')
+    runs = _json(REPO / 'results' / 'variant_family' / 'runs.json')['variants']
+    fam = rep['family']
+    assert sn['n'] == len(runs) == len(fam['members']) == v33_study['dev']['snooping']['grid_points'] + \
+        v33_study['dev']['snooping']['toggles']
+    assert sn['spa_zero']['p'] == round(fam['spa_vs_zero']['pvalues']['consistent'], 4)
+    assert sn['spa_zero']['rc_p'] == round(fam['spa_vs_zero']['reality_check']['pvalue'], 4)
+    assert sn['spa_gatev']['p'] == round(fam['spa_vs_gatev']['pvalues']['consistent'], 4)
+    assert sn['rw_rejected'] == len(fam['romano_wolf_vs_zero']['rejected'])
+    assert sn['mcs_included'] == len(fam['mcs']['included'])
+    assert sn['pbo_pct'] == round(100 * rep['pbo']['pbo'], 2)
+    assert sn['effective_rank'] == round(fam['effective_trials']['effective_rank'], 2)
+    sharpes = sorted(v['sharpe'] for v in runs)
+    assert sn['positive'] == sum(x > 0 for x in sharpes) and sn['sharpe_best'] == round(sharpes[-1], 4)
+    assert sn['sharpe_median'] == round(float(np.median(sharpes)), 4)
+    head = _json(V33 / 'headline_metrics.json')
+    base = [v for v in sn['variants'] if v['base']]
+    assert len(base) == 1 and round(base[0]['sharpe'], 2) == head['main']['sharpe']
+    assert sn['base_rank'] == 1 + sum(x > base[0]['sharpe'] for x in sharpes)
+    # the declared deflation: N = the effective rank rounded up, the variants' Sharpe dispersion
+    assert sn['dsr']['n_trials'] == math.ceil(fam['effective_trials']['effective_rank'])
+    assert 0 < sn['dsr']['dsr_pct'] < 100 * sn['dsr']['curve'][0]['dsr']
+
+
+def test_snooping_files_that_disagree_stop_the_build(v33_study):
+    decl = _json(REPO / 'results' / 'variant_family' / 'declaration.json')
+    rep = _json(REPO / 'results' / 'variant_family' / 'snooping.json')
+    runs = _json(REPO / 'results' / 'variant_family' / 'runs.json')
+    rows = [{'date': '2023-07-03', **{v['name']: '0.001' for v in runs['variants']}},
+            {'date': '2023-07-05', **{v['name']: '-0.001' for v in runs['variants']}}]
+    other = copy.deepcopy(runs)
+    other['variants'] = other['variants'][::-1]
+    with pytest.raises(ValueError, match='same declared variants'):
+        bsd.snooping(decl, rep, other, rows)
+    absent = bsd.snooping(decl, None, runs, rows)
+    assert absent['results'] is None and absent['grid_points'] == 27
+
+
+# ── the robustness checks ──────────────────────────────────────────────────────
+
+def test_robustness_section_is_the_runs_robustness_json(v33_study):
+    rob = _json(V33 / 'robustness.json')
+    r, f = v33_study['dev']['robustness'], v33_study['dev']['facts']
+    sharpes = [x['sharpe'] for x in rob['start_dates']['runs']]
+    assert [x['sharpe'] for x in r['start_dates']['runs']] == [round(x, 4) for x in sharpes]
+    assert r['start_dates']['headline_rank'] == 1 + sum(x > sharpes[0] for x in sharpes)
+    assert f['start_sharpe_median'] == round(float(np.median(sharpes)), 4)
+    assert f['vix_diff_t'] == round(rob['regimes']['vix']['net']['last_minus_first']['nw_t'], 4)
+    pooled = rob['persistence']['first_formation']['pooled_still_cointegrated']
+    assert (f['pers_s1_count'], f['pers_s1_of']) == (pooled['count'], pooled['of'])
+    assert f['s2c_gross_month_t'] == round(rob['s2_trade_edge']['gross_bp']['entry_month']['t_clustered'], 4)
+    # the independent-trades t is the export's, which the residual section also quotes
+    assert round(f['s2c_gross_t'], 2) == v33_study['residual']['gross_t']
+
+
+def _shape(x):
+    """Keys and list lengths of a nested structure, leaves dropped."""
+    if isinstance(x, dict):
+        return {k: _shape(v) for k, v in x.items()}
+    if isinstance(x, list):
+        return [_shape(v) for v in x] if x and isinstance(x[0], (dict, list)) else 'list'
+    return None
+
+
+def test_a_robustness_report_of_another_export_or_shape_stops_the_build(v33_study):
+    rob = _json(V33 / 'robustness.json')
+    with pytest.raises(ValueError, match='another results export'):
+        bsd.robustness(rob, '0' * 64)
+    sha = hashlib.sha256((V33 / RESULTS_NAME).read_bytes()).hexdigest()
+    short = copy.deepcopy(rob)
+    short['start_dates']['runs'] = short['start_dates']['runs'][:-1]
+    with pytest.raises(ValueError, match='expects'):
+        bsd.robustness(short, sha)
+    # without robustness.json: the same keys and list lengths with null values, so that every
+    # page marker names a key that every build has
+    skeleton = bsd.robustness(None, sha)
+    real = v33_study['dev']['robustness']
+    assert skeleton['available'] is False and real['available'] is True
+    assert _shape(skeleton) == _shape(real)
+    assert all(v is None for v in bsd.robustness_facts(skeleton).values())
+    assert all(v is None for v in bsd.robustness_facts(None).values())

@@ -20,13 +20,13 @@ from the signal-day close; the next close is only the fill price. (A next-open v
 |---|---|---|---|
 | Commission | shares x 0.2 cents, minimum $0.50 per order | 0.2 cents/share | electronic agency execution is quoted at 0.1-0.5 cents/share |
 | Half-spread | half of the stock's typical quoted spread, by its own 20-day dollar ADV | 1.5 / 4 / 10 / 30 / 80 bp full spread for ADV >= $500M / $100M / $20M / $5M / below | Frazzini, Israel & Moskowitz (2018); one tick for mega caps |
-| Market impact | Y x sigma_daily x sqrt(shares / ADV shares), capped at 50 bp | Y = 0.3 | Goyal, Jegadeesh & Wu (2025, JFQA), closing-auction impact: 4.5 bp (NYSE) and 10.2 bp (Nasdaq) for large caps at 1% of ADV, i.e. Y of about 0.28 and 0.64 |
+| Market impact | Y x sigma_daily x sqrt(shares / ADV shares), capped at 50 bp | Y = 0.3 | Goyal, Jegadeesh & Wu (2026, JFQA 61(6), Table 3 Model A), closing-auction impact for large stocks of 4.5 bp (NYSE) and 10.2 bp (Nasdaq) at an order imbalance of 1% of ADV; at 1.6% daily volatility these correspond to Y of about 0.28 and 0.64 (this project's conversion, not a figure of the paper). Their X is the auction's net order imbalance, not one trader's order, so the comparison is approximate |
 
 Holding costs, charged at the exit fill over the calendar days held:
 
 | Component | v32 profile | v33 profile | Source |
 |---|---|---|---|
-| Stock borrow (short leg) | 0.25%/yr general collateral | 0.38%/yr | D'Avolio (2002): GC loans ~17 bp, value-weighted ~25 bp; Muravyev, Pearson & Pollet (2025, Table 1): median buy-side indicative fee 0.38% |
+| Stock borrow (short leg) | 0.25%/yr general collateral | 0.38%/yr | D'Avolio (2002): GC loans ~17 bp, value-weighted ~25 bp; Muravyev, Pearson & Pollet (2025; Table 1 of the 2023 working paper, CRSP stocks matched to Markit, 2006-2020): median buy-side indicative fee 0.38%, 90th percentile 3% |
 | Prime-broker carry (short half of gross) | 0.50%/yr | none | v32 charged the short-rebate haircut twice (it IS the borrow fee for GC names); the book never runs leverage |
 
 Not modelled, disclosed: SEC Section 31 and FINRA TAF fees (below 0.3 bp on sells), auction

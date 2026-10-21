@@ -1,9 +1,9 @@
 """scripts/build_paper.py (paper/build/paper_data.json, the figures, paper/pairs_study.pdf).
 
 The data extraction is checked on the committed v33 development run (results/v33_dev, with
-its evidence layer, the second strategy family, the validation and the published v32 run)
-and on copies of its site data altered to add what is still to come (the data-snooping
-tests) or to drop an optional section, so every renderer runs both ways. A result that does
+its evidence layer, its robustness checks, the second strategy family, the declared variant
+family's data-snooping tests, the validation and the published v32 run) and on copies of its
+site data altered to drop an optional section, so every renderer runs both ways. A result that does
 not exist yet has no exhibit or table in the body and is listed as forthcoming.
 Compiling the paper needs the optional typst package (pip install -e ".[paper]"); CI
 installs the pinned requirements only, so those tests skip there and the rest still run.
@@ -142,12 +142,12 @@ def test_paper_numbers_agree_with_the_site(built):
 def test_null_results_print_as_pending_never_as_a_number(built):
     paper, _ = built
     nulls = {k for k, v in paper['m'].items() if v is None}
-    assert nulls, 'the committed data have pending results (the sealed holdout, the snooping tests)'
+    assert nulls, 'the committed data have pending results (the sealed holdout)'
     for key in nulls:
         assert paper['why'][key].startswith('pending ('), key
         assert not re.search(r'\d+\.\d|[−+-]\d', paper['why'][key]), key
     assert set(paper['why']) == nulls
-    assert all(r[1] == 'pending' for r in paper['tables']['snooping'])
+    assert not any('pending' in r[1] for r in paper['tables']['snooping'])         # the family's tests are committed
     assert all(r[2] != 'pending' for r in paper['tables']['validation'])     # the validation is committed
     # the sealed holdout has no result column at all, only the arms and their hypotheses
     assert [r[0] for r in paper['tables']['hypotheses']] == ['H1 · S1', 'H2 · S2', 'S3'] and all(len(r) == 3 for r in paper['tables']['hypotheses'])
@@ -255,8 +255,9 @@ def test_main_typ_has_no_hand_typed_results():
         '1.25', '1.5', '1.8', '1.96', '2.5', '126', '252', '500',
         '0.10',                                          # the Benjamini-Hochberg diagnostic's second level
         '404',                                           # the HTTP status of a symbol the vendor no longer serves
-        # published results quoted in the text (Avellaneda and Lee 2010; Almgren et al. 2005)
-        '1.44', '1.1', '0.9', '0.314',
+        # published results quoted in the text (Avellaneda and Lee 2010; Almgren et al. 2005;
+        # Do and Faff 2010; Chen et al. 2019; Goyal, Jegadeesh and Wu 2026; Clegg 2014)
+        '1.44', '1.1', '0.9', '0.314', '0.86', '0.37', '0.24', '1.40', '8.81', '4.5', '10.2', '860,000',
     }
     text = _main_typ()
     text = text.replace('Russell 3000', 'Russell')                     # the index's name
@@ -307,33 +308,43 @@ def test_claims_follow_the_data(inputs):
 
 # ── optional results fill their sections ─────────────────────────────────────────
 
-def _with_snooping_results(inputs):
-    """The committed inputs plus the data-snooping tests the variant family's run will add."""
+def test_absent_snooping_results_are_forthcoming(inputs):
+    """Without the variant family's results its numbers print as pending, its table holds no
+    number, its claims are false and it is listed as forthcoming; the exhibit keeps the
+    deflated Sharpe curve alone."""
     inp = copy.deepcopy(inputs)
-    inp['study']['dev']['snooping']['results'] = {'spa_p': 0.41, 'reality_check_p': 0.63, 'romano_wolf_rejected': [],
-                                                  'mcs_included': ['a', 'b'], 'effective_trials': 7.3, 'pbo': 0.48}
-    return inp
+    inp['study']['dev']['snooping']['results'] = None
+    paper, figs = bp.build_data(inp)
+    assert [r[0] for r in paper['forthcoming']] == ['snooping', 'holdout']
+    assert paper['m']['study.dev.snooping.results.spa_zero.p'] is None
+    assert paper['why']['study.dev.snooping.results.pbo_pct'].startswith('pending (')
+    assert all('pending' in r[1] for r in paper['tables']['snooping'])
+    assert not paper['flags']['snooping'] and paper['claims']['family_beats_neither_cash_nor_gatev'] is False
+    assert figs.get('dsr')                                     # the deflated Sharpe panel alone
 
 
-def test_snooping_results_fill_their_table(inputs):
-    paper, figs = bp.build_data(_with_snooping_results(inputs))
-    assert paper['pending'] == {'holdout': 'Sealed.'}
-    assert [r[0] for r in paper['forthcoming']] == ['holdout']
-    assert paper['m']['paper.snooping.pbo_pct'] == '48.0%'
-    assert not any(k.startswith('paper.snooping.') for k in paper['why'])
-    assert 'pending' not in {r[1] for r in paper['tables']['snooping']}
-    assert paper['flags']['snooping'] and paper['claims']['snooping_pending'] is False
+def test_snooping_and_robustness_numbers_are_the_site_data(inputs, built):
+    """The family's and the robustness checks' numbers are study.json's, formatted once."""
+    paper, _ = built
+    sn = inputs['study']['dev']['snooping']['results']
+    f = inputs['study']['dev']['facts']
+    assert paper['m']['study.dev.snooping.results.spa_zero.p'] == bp.fmt(sn['spa_zero']['p'], '.3')
+    assert paper['m']['study.dev.snooping.results.pbo_pct'] == bp.fmt(sn['pbo_pct'], '.1%')
+    assert paper['m']['study.dev.facts.start_sharpe_median'] == bp.fmt(f['start_sharpe_median'], '.2')
+    assert [r[0] for r in paper['tables']['startdates']][0].endswith('(published)')
+    assert len(paper['tables']['startdates']) == f['start_n'] and len(paper['tables']['halves']) == 2
+    assert paper['claims']['headline_start_most_favourable'] and paper['claims']['family_overfits']
+    assert len(paper['tables']['trials']) == inputs['study']['registry']['runs']
 
 
 def test_committed_results_fill_every_exhibit(built):
-    """Every exhibit has its data except the sealed holdout's; only the snooping tests and the
-    holdout are forthcoming."""
+    """Every exhibit has its data except the sealed holdout's, which alone is forthcoming."""
     paper, figs = built
     for name in ('costcurve', 'exitrace', 'decay', 'persistence', 'halflife', 'capacity', 'scenarios', 'universe',
                  'residual', 'validation', 'snapshots', 'schedules'):
         assert figs.get(name), name
     assert paper['pending'] == {'holdout': 'Sealed.'}
-    assert [r[0] for r in paper['forthcoming']] == ['snooping', 'holdout']
+    assert [r[0] for r in paper['forthcoming']] == ['holdout']
     assert paper['tables']['validation'][0][2].startswith('4,692 trades, +82.6 bp')
     assert paper['flags']['random_band'] and paper['flags']['residual'] and paper['flags']['scenarios']
 
@@ -419,7 +430,9 @@ def test_paper_compiles_to_the_committed_pdf(built):
     pdf = bp.compile_pdf(paper)
     assert pdf.startswith(b'%PDF')
     pages = len(re.findall(rb'/Type\s*/Page(?![s\w])', pdf))
-    assert 14 <= pages <= 32, pages          # 26 exhibits and the appendix tables; a runaway float would exceed it
+    # 26 exhibits, the start-date, snooping, persistence and regime tables and the appendix;
+    # a runaway float would exceed it
+    assert 14 <= pages <= 36, pages
     manifest = json.loads(bp.MANIFEST.read_text())
     if manifest['tools']['typst'] == bp._typst_version():
         assert pdf == bp.PDF.read_bytes()

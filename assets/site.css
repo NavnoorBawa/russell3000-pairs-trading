@@ -119,6 +119,9 @@ main { min-width: 0; padding-bottom: 48px; }
 .secno { font: 500 15px/1 var(--sans); color: var(--accent); font-variant-numeric: tabular-nums; width: 34px; flex: none; }
 .lede { max-width: 72ch; color: var(--ink); margin-bottom: 28px; }
 .note { max-width: 72ch; color: var(--ink-2); font-size: 15px; margin: 18px 0 28px; }
+.sub-h { font: 500 21px/1.3 var(--serif); margin: 44px 0 12px; }
+.prose { max-width: 72ch; color: var(--ink); margin-bottom: 22px; }
+.src { max-width: 72ch; color: var(--ink-3); font-size: 13px; line-height: 1.45; margin: 8px 0 32px; }
 .muted { color: var(--ink-3); }
 .status-pill, .pill, .verdict, .tag {
   display: inline-flex; align-items: center; gap: 6px; font: 500 11.5px/1 var(--sans); letter-spacing: .05em;
@@ -195,7 +198,7 @@ html:not(.js) .ex-data, .exhibit.is-pending .ex-data { display: none; }
 .ex-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 36px; }
 .ex-compact { margin-bottom: 28px; }
 .ex-compact .ex-title { font-size: 16px; }
-.ex-snoop { margin-top: 14px; }
+.ex-tables .tbl-wrap + .tbl-wrap { margin-top: 16px; }
 .multi { display: grid; gap: 14px; }           /* columns set by exhibits.js to match its pane widths */
 .multi-3 { gap: 24px; }
 .mc-title { font: 600 13px/1.3 var(--sans); color: var(--ink); margin: 0 0 2px; }
@@ -226,10 +229,12 @@ html:not(.js) .ex-data, .exhibit.is-pending .ex-data { display: none; }
 .tbl tbody th { font-weight: 500; color: var(--ink); }
 .tbl td { color: var(--ink-2); }
 .tbl .r, .tbl td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl td.r.wrap { white-space: normal; }
 .tbl-num td { color: var(--ink); }
 .tbl-spec tbody th { width: 120px; white-space: nowrap; }
 .tbl-scen thead th.grp { text-align: center; border-bottom: 1px solid var(--rule); padding-bottom: 6px; }
 .tbl-scen tbody th { white-space: nowrap; }
+.tbl .grp-row th { font: 600 11.5px/1.3 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); padding-top: 16px; }
 .tbl-perf tbody th { min-width: 15rem; }
 .threats td:nth-child(2) { white-space: nowrap; }
 .lit tbody th { min-width: 210px; }

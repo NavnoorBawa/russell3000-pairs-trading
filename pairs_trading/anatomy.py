@@ -1054,8 +1054,10 @@ def cointegration_persistence(prices: Dict[str, pd.DataFrame], symbols: Sequence
     250-day Gaussian random walks the test rejects 5.7%, standard error 0.3%). The base
     rate of Y + 1 is the model-free reference: if being cointegrated in Y carried no
     information about Y + 1, the conditional share would equal it. Pairs share legs, so
-    the binomial intervals overstate the precision. Clegg (2014) found ~5% of S&P 500
-    pairs cointegrated per year and ~5% of those still cointegrated a year later.
+    the binomial intervals overstate the precision. Clegg (2014), on pairs of S&P 500
+    constituents in each year of 2002-2012, finds that the evidence does not support
+    cointegration as a persistent property (the abstract; its per-year percentages were
+    not checked against the paper).
     """
     symbols = sorted(symbols)
     threshold = _persistence_selector().correlation_threshold

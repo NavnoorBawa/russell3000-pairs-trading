@@ -796,7 +796,7 @@ def effective_number_of_trials(R) -> dict:
     Correlated trials (a threshold grid, toggles of one gate) are fewer independent draws
     than their count. Two estimates from the correlation matrix C of the trial returns:
       * 'effective_rank': the entropy effective rank of Roy & Vetterli (2007), as in
-        López de Prado, Lipton & Zoonekynd (2025, effective_rank in their code): with
+        the code of López de Prado, Lipton & Zoonekynd (2026; effective_rank): with
         p_i = lambda_i / sum(lambda) over the positive eigenvalues of C,
         N_eff = exp(-sum_i p_i ln p_i) — N for uncorrelated trials, 1 for identical ones;
       * 'n_eff_avg_corr': N / (1 + (N - 1) rho_bar), rho_bar the average off-diagonal

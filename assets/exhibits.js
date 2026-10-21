@@ -534,45 +534,113 @@
     };
   };
 
-  // ── Exhibit 8: deflated Sharpe against the number of trials (+ snooping) ──
+  // ── Exhibit 8: the declared variant family, and the deflated Sharpe against N ──
+  // Left: each declared variant's net Sharpe ratio (a dodged dot strip), the v33 design and
+  // the Gatev baseline marked. Right: the main backtest's deflated Sharpe ratio against the
+  // number of trials N, with the null trial variance (the run's own) and with the variants'
+  // Sharpe dispersion (the declared deflation, its N the family's effective rank, rounded up).
   X.dsr = function (S, c) {
     var C = S.dev && S.dev.dsr_curve;
     if (!C || !C.length) return null;
     var P = global.Plot;
-    var rows = C.map(function (r) { return {n: r.n, dsr: 100 * r.dsr, star: r.sr_star}; });
-    var at = rows.filter(function (r) { return r.n === (S.dev.facts && S.dev.facts.dsr_trials); });
-    var node = plot(c, {
-      height: c.narrow ? 200 : 220, marginLeft: 40, marginRight: 24, marginTop: 20, marginBottom: 30,
-      x: {type: 'log', domain: [rows[0].n, rows[rows.length - 1].n], label: 'Number of independent trials N', labelArrow: 'none'},
-      y: {domain: [0, Math.max(50, rows[0].dsr * 1.1)], label: 'Deflated Sharpe, %', labelArrow: 'none'},
+    var R = S.dev.snooping && S.dev.snooping.results;
+    var reported = S.dev.facts && S.dev.facts.dsr_trials;
+    var nullRows = C.map(function (r) { return {n: r.n, dsr: 100 * r.dsr, star: r.sr_star, curve: 'null'}; });
+    var famRows = [], famAt = [];
+    if (R && R.dsr && R.dsr.dsr_pct !== null && R.dsr.dsr_pct !== undefined) {
+      famRows = R.dsr.curve.map(function (r) { return {n: r.n, dsr: 100 * r.dsr, star: r.sr_star, curve: 'family'}; });
+      famAt = [{n: R.dsr.n_trials, dsr: R.dsr.dsr_pct, star: R.dsr.sr_star, curve: 'family'}];
+      famRows = famRows.concat(famAt).sort(function (a, b) { return a.n - b.n; });
+    }
+    var nullAt = nullRows.filter(function (r) { return r.n === reported; });
+    var two = !!(R && R.variants && R.variants.length);
+    var cols = two && c.width >= 900 ? 2 : 1;
+    var cw = Math.floor((c.width - (cols - 1) * 28) / cols);
+    var cc = Object.assign({}, c, {width: cw, narrow: cw < 560});
+    var all = nullRows.concat(famRows);
+    var dsrNode = plot(cc, {
+      height: cc.narrow ? 210 : 230, marginLeft: 40, marginRight: 24, marginTop: 24, marginBottom: 30,
+      x: {type: 'log', domain: [nullRows[0].n, nullRows[nullRows.length - 1].n], label: 'Number of independent trials N', labelArrow: 'none'},
+      y: {domain: [0, Math.max(50, Math.max.apply(null, all.map(function (r) { return r.dsr; })) * 1.1)], label: 'Deflated Sharpe, %', labelArrow: 'none'},
       marks: [
         gridY(c, {ticks: 4}), axisY(c, {ticks: 4, label: 'Deflated Sharpe, %', labelArrow: 'none'}),
         axisX(c, {label: 'Number of independent trials N', labelArrow: 'none', tickFormat: function (v) { return global.d3.format(',')(v); }}),
         zeroY(c),
-        P.lineY(rows, {x: 'n', y: 'dsr', stroke: c.t.s1, strokeWidth: 2}),
-        P.dot(rows, {x: 'n', y: 'dsr', r: 3.5, fill: c.t.s1, stroke: c.t.paper, strokeWidth: 2}),
-        P.dot(at, {x: 'n', y: 'dsr', r: 5.5, fill: c.t.paper, stroke: c.t.s1, strokeWidth: 2}),
-        P.text(at, {x: 'n', y: 'dsr', text: function (r) { return 'N = ' + r.n + ' (reported): ' + num(r.dsr, 1) + '%'; }, dx: 10, dy: -10, textAnchor: 'start', fill: c.t.ink, fontWeight: 600}),
-        tip(c, rows, P.pointerX({x: 'n', y: 'dsr', title: function (r) { return 'N = ' + r.n + '\nDSR ' + num(r.dsr, 1) + '%\nExpected best null Sharpe ' + num(r.star, 2); }}))
+        P.lineY(nullRows, {x: 'n', y: 'dsr', stroke: c.t.ink2, strokeWidth: 1.5, strokeDasharray: '4,3'}),
+        P.lineY(famRows, {x: 'n', y: 'dsr', stroke: c.t.s1, strokeWidth: 2}),
+        P.dot(nullAt, {x: 'n', y: 'dsr', r: 5, fill: c.t.paper, stroke: c.t.ink2, strokeWidth: 2}),
+        P.dot(famAt, {x: 'n', y: 'dsr', r: 5.5, fill: c.t.paper, stroke: c.t.s1, strokeWidth: 2}),
+        // the two marked values, as a key in the top-right corner (the curves meet near zero)
+        P.text(famAt, {frameAnchor: 'top-right', text: function (r) { return 'N = ' + r.n + ', the family\u2019s effective trials: ' + num(r.dsr, 1) + '%'; }, dy: 2, textAnchor: 'end', fill: c.t.s1, fontWeight: 600, fontSize: 11}),
+        P.text(nullAt, {frameAnchor: 'top-right', text: function (r) { return 'N = ' + r.n + ', the trials reported: ' + num(r.dsr, 1) + '%'; }, dy: 19, textAnchor: 'end', fill: c.t.ink2, fontSize: 11}),
+        tip(c, all, P.pointer({x: 'n', y: 'dsr', title: function (r) {
+          return 'N = ' + r.n + (r.curve === 'family' ? ', the variants’ dispersion' : ', null trial variance') + '\nDSR ' + num(r.dsr, 1) + '%\nExpected best null Sharpe ' + num(r.star, 2);
+        }}))
       ]
     });
-    var sn = S.dev.snooping;
-    var slot = c.figure && c.figure.querySelector('[data-snoop]');
-    if (slot && sn && sn.results) {
-      var r = sn.results;
-      var tbl = buildTable(table('Data-snooping tests over the declared variant family.', ['Test', 'Result'], [false, true], [
-        ['Hansen SPA p (consistent)', num(r.spa_p, 3)], ['White Reality Check p', num(r.reality_check_p, 3)],
-        ['Romano–Wolf: variants rejected at 5%', String((r.romano_wolf_rejected || []).length)],
-        ['Model confidence set (90%): variants kept', String((r.mcs_included || []).length)],
-        ['Effective number of trials', num(r.effective_trials, 1)], ['PBO', r.pbo === null || r.pbo === undefined ? '–' : num(100 * r.pbo, 1, {suffix: '%'})]]));
-      slot.replaceChildren(tbl);
-    }
+    var dsrTable = table('Deflated Sharpe ratio of the main backtest by number of trials: with the null trial variance, and with the declared variants’ Sharpe dispersion.',
+      ['Trials N', 'Trial variance', 'DSR', 'Expected best null Sharpe'], [true, false, true, true],
+      nullRows.map(function (r) { return [String(r.n), 'null', num(r.dsr, 2, {suffix: '%'}), num(r.star, 2)]; })
+        .concat(famRows.map(function (r) { return [String(r.n), 'the variants’', num(r.dsr, 2, {suffix: '%'}), num(r.star, 2)]; })));
+    if (!two) return {nodes: [dsrNode], table: dsrTable};
+
+    var V = R.variants.map(function (v) {
+      return Object.assign({}, v, {color: v.base ? c.t.ink : v.kind === 'grid' ? c.t.s1 : c.t.s3});
+    });
+    var g = S.dev.gatev_sharpe;
+    var base = V.filter(function (v) { return v.base; });
+    var xs = domainPad(V.map(function (v) { return v.sharpe; }).concat(g !== null && g !== undefined ? [g] : []), 0.08, [0]);
+    var refs = [];
+    if (base.length) refs.push({key: 'base', x: base[0].sharpe, text: 'v33 design ' + signed(base[0].sharpe, 2) + ', ' + ordinalRank(base[0].rank) + ' of ' + V.length});
+    if (g !== null && g !== undefined) refs.push({key: 'gatev', x: g, text: 'Gatev ' + signed(g, 2)});
+    var famNode = plot(cc, {
+      height: cc.narrow ? 180 : 140, marginLeft: 16, marginRight: 16, marginTop: 44, marginBottom: 30,
+      x: {domain: xs, label: 'Annualised net Sharpe ratio, development period', labelArrow: 'none'},
+      y: {axis: null},
+      marks: [
+        gridX(c, {ticks: cc.narrow ? 4 : 6}),
+        axisX(c, {ticks: cc.narrow ? 4 : 6, label: 'Annualised net Sharpe ratio, development period', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }}),
+        P.ruleX([0], {stroke: c.t.axis, strokeWidth: 1}),
+        g !== null && g !== undefined ? P.ruleX([g], {stroke: c.t.s2, strokeWidth: 1.5, strokeDasharray: '4,3'}) : null,
+        P.ruleX(base, {x: 'sharpe', stroke: c.t.ink, strokeWidth: 1, strokeOpacity: 0.4}),
+        P.dot(V, P.dodgeY({anchor: 'bottom', x: 'sharpe', r: 6, fill: 'color', stroke: c.t.paper, strokeWidth: 1.5, padding: 1,
+          title: function (v) {
+            return v.label + (v.base ? ' (the v33 design)' : '') + '\nSharpe ' + signed(v.sharpe, 2) + ', rank ' + v.rank + ' of ' + V.length +
+              '\nReturn ' + pct(v.ret_pct) + ', ' + v.trades + ' trades\nRomano\u2013Wolf adjusted p ' + num(v.rw_p, 3) + '; MCS p ' + num(v.mcs_p, 3);
+          }, tip: {fill: c.t.surface, stroke: c.t.rule2, fontSize: 12, lineHeight: 1.35}})),
+        P.text(refs.filter(function (r) { return r.key === 'base'; }), {x: 'x', text: 'text', frameAnchor: 'top', dy: -26, textAnchor: 'end', dx: 4, fill: c.t.ink, fontWeight: 600, fontSize: 11}),
+        P.text(refs.filter(function (r) { return r.key === 'gatev'; }), {x: 'x', text: 'text', frameAnchor: 'top', dy: -10, textAnchor: 'end', dx: 4, fill: c.t.s2, fontSize: 11}),
+      ].filter(Boolean)
+    });
+    var wrap = document.createElement('div');
+    wrap.className = 'multi';
+    wrap.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+    [['The ' + V.length + ' declared variants', famNode], ['Deflated Sharpe ratio of the main backtest', dsrNode]].forEach(function (pp) {
+      var cell = document.createElement('div');
+      cell.className = 'multi-cell';
+      var h = document.createElement('p');
+      h.className = 'mc-title';
+      h.textContent = pp[0];
+      cell.appendChild(h);
+      cell.appendChild(pp[1]);
+      wrap.appendChild(cell);
+    });
+    var sorted = V.slice().sort(function (a, b) { return a.rank - b.rank; });
     return {
-      nodes: [node],
-      table: table('Deflated Sharpe ratio of the main backtest by number of trials.', ['Trials N', 'DSR', 'Expected best null Sharpe'],
-        [true, true, true], rows.map(function (r) { return [String(r.n), num(r.dsr, 2, {suffix: '%'}), num(r.star, 2)]; }))
+      nodes: [wrap],
+      legend: [{label: 'Threshold grid', color: '--series-1', kind: 'dot'}, {label: 'Design toggle', color: '--series-3', kind: 'dot'},
+               {label: 'v33 design', color: '--ink', kind: 'dot'}, {label: 'Gatev baseline', color: '--series-2', kind: 'rule'},
+               {label: 'DSR, the variants’ dispersion', color: '--series-1', kind: 'line'}, {label: 'DSR, null trial variance', color: '--ink-2', kind: 'line'}],
+      table: [table('The declared variants by net Sharpe ratio (development period, ' + R.days + ' days), with each one’s Romano–Wolf adjusted p-value against cash and its model-confidence-set p-value.',
+        ['Rank', 'Variant', 'Sharpe', 'Return', 'Trades', 'Romano–Wolf p', 'MCS p'], [true, false, true, true, true, true, true],
+        sorted.map(function (v) { return [String(v.rank), v.label + (v.base ? ' (v33 design)' : ''), signed(v.sharpe, 2), pct(v.ret_pct), String(v.trades), num(v.rw_p, 3), num(v.mcs_p, 3)]; })),
+        dsrTable]
     };
   };
+  function ordinalRank(n) {
+    var s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
 
   // ── Exhibit 9: implementation-shortfall waterfall ─────────────────────────
   X.waterfall = function (S, c) {
@@ -1336,6 +1404,12 @@
 
   // ── data tables (shared by site.js) ───────────────────────────────────────
   function buildTable(spec) {
+    if (Array.isArray(spec)) {                // several tables under one disclosure
+      var box = document.createElement('div');
+      box.className = 'ex-tables';
+      spec.forEach(function (one) { box.appendChild(buildTable(one)); });
+      return box;
+    }
     var wrap = document.createElement('div');
     wrap.className = 'tbl-wrap';
     wrap.setAttribute('role', 'region');

@@ -39,8 +39,12 @@ of the file, or null in a section of fixed shape, and the page shows it as pendi
     {dev}/anatomy.json                     evidence layer (scripts/anatomy_of_the_null.py):
                                            the sections in ANATOMY_KEYS pass through, and
                                            anatomy_facts() takes the numbers the text quotes
+    {dev}/robustness.json                  robustness checks (scripts/robustness_checks.py):
+                                           start dates, regimes, persistence on the strategy's
+                                           candidate pairs, S2's clustered per-trade t
     results/v32_dev/                       the published v32 run (history; the frozen arm S3)
-    results/variant_family/declaration.json, snooping.json   data-snooping tests
+    results/variant_family/declaration.json, snooping.json,  the declared variant family and
+        runs.json, daily_returns.csv                         its data-snooping tests
     results/residual_dev/residual_statarb.json, MANIFEST.json   Avellaneda-Lee arm, as
                                                              scripts/publish_run.py publishes
                                                              scripts/run_residual_statarb.py's
@@ -77,8 +81,8 @@ sys.path.insert(0, str(ROOT))
 
 from pairs_trading import power as pw  # noqa: E402
 from pairs_trading.significance import (  # noqa: E402
-    _circular_block_indices, block_bootstrap_sharpe_ci, deflated_sharpe_ratio, hac_tstat_mean,
-    probabilistic_sharpe_ratio,
+    _circular_block_indices, block_bootstrap_sharpe_ci, deflated_sharpe_ratio, dsr_curve as _dsr_curve,
+    hac_tstat_mean, probabilistic_sharpe_ratio, trial_sharpe_variance,
 )
 from pairs_trading.universe import normalise_ticker  # noqa: E402
 
@@ -139,6 +143,15 @@ FACTOR_LABELS = {'Mkt-RF': 'Market', 'SMB': 'Size (SMB)', 'HML': 'Value (HML)', 
 HOLDOUT_ARMS = (('v33_pairs', 'H1', 'v33 pairs (pre-registered design)'),
                 ('avellaneda_lee', 'H2', 'Avellaneda–Lee residual reversion'),
                 ('v32_pairs', None, 'v32 as published, frozen (descriptive)'))
+VARIANT_FAMILY = 'variant_family'    # results/variant_family: the declared family and its tests
+# The declared toggles (results/variant_family/declaration.json) by what each one changes.
+TOGGLE_LABELS = {'regime_gate_on': 'Regime gate on', 'cusum_gate_on': 'CUSUM entry gate on',
+                 'hurst_gate_on': 'Hurst entry gate on', 'no_rolling_corr_floor': 'No 20-day correlation floor',
+                 'ref_bars_40': 'z-score window 40 bars', 'ref_bars_90': 'z-score window 90 bars',
+                 'ranker_gbm': 'Learned ranker on', 'open_fills': 'Fills at the next open',
+                 'all_pairs': 'Pairs across industries', 'universe_300': '300 names, v32\'s size',
+                 'reform_every_63': 'Re-formation every 63 days'}
+ROBUSTNESS = 'robustness.json'       # {dev}/: scripts/robustness_checks.py
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1139,7 +1152,8 @@ def run_facts(res, universe_rows, gap_split=None):
 def facts(res, dev, anatomy=None):
     """Scalars quoted in the page's text, from the export `res`, the assembled section `dev`
     and the run's anatomy.json (evidence_facts, anatomy_facts, holdout_power_facts,
-    path_facts and run_facts add theirs; every key is present, null when unknown).
+    path_facts, run_facts and robustness_facts add theirs; every key is present, null when
+    unknown).
 
     Money is in $ thousands or millions; a *_loss_* or *_gain_* key is the size of a
     loss or gain (its sign is in the name, so the text can say "lost $9.80M").
@@ -1246,7 +1260,60 @@ def facts(res, dev, anatomy=None):
         **holdout_power_facts(res),
         **{f'wf_{k}': v for k, v in path_facts(res).items()},
         **run_facts(res, dev.get('universe_by_formation'), dev.get('survivorship')),
+        **robustness_facts(dev.get('robustness')),
     }
+
+
+def robustness_facts(rob):
+    """The robustness checks' numbers the text quotes (robustness(); null when the run has no
+    robustness.json): the 12 start dates (Sharpe range, median, the headline's rank, the
+    common days), the two halves as separate runs and inside the continuous run, the VIX and
+    dispersion terciles (low and high tercile mean, high minus low), persistence on S1's own
+    candidate pairs (first formation and the union of formations) and the second family's
+    per-trade t clustered by entry month, entry date and symbol."""
+    r = rob or {}
+    sd, reg = r.get('start_dates') or {}, r.get('regimes') or {}
+    halves = {h['half']: h for h in r.get('halves') or []}
+    pers = r.get('persistence') or {}
+    s2 = r.get('s2') or {}
+
+    def spread(key, field):
+        return _get(sd, key, field)
+
+    def tercile(block, which):
+        rows = {x['bucket']: x for x in _get(reg, block, 'net', 'rows', default=[])}
+        return _get(rows, which, 'mean_bp')
+
+    def pooled(which, field):
+        return _get(pers, which, 'pooled', field)
+    out = {
+        'start_n': sd.get('n'), 'start_step_days': sd.get('step_days'), 'start_headline_rank': sd.get('headline_rank'),
+        'start_common_days': _get(sd, 'common', 'days'),
+        **{f'start_sharpe_{f}': spread('sharpe', f) for f in ('min', 'max', 'median', 'mean', 'sd', 'range')},
+        **{f'start_common_sharpe_{f}': spread('sharpe_common', f) for f in ('min', 'max', 'median', 'sd')},
+        **{f'start_ret_{f}': spread('ret', f) for f in ('min', 'max', 'median')},
+        'start_trades_min': spread('trades', 'min'), 'start_trades_max': spread('trades', 'max'),
+        **{f'half{i}_{f}': _get(halves, name, src) for i, name in ((1, 'first'), (2, 'second'))
+           for f, src in (('sharpe', 'sharpe'), ('ret_pct', 'ret_pct'), ('trades', 'trades'), ('run_off_days', 'run_off_days'),
+                          ('inside_sharpe', 'inside_sharpe'), ('inside_ret_pct', 'inside_ret_pct'), ('days', 'days'))},
+        **{f'{tag}_{w}_bp': tercile(block, w) for tag, block in (('vix', 'vix'), ('disp', 'dispersion'))
+           for w in ('low', 'mid', 'high')},
+        **{f'{tag}_diff_{f}': _get(reg, block, 'net', 'diff', f) for tag, block in (('vix', 'vix'), ('disp', 'dispersion'))
+           for f in ('mean_bp', 't', 'p')},
+        'vix_break_lo': _r((_get(reg, 'vix', 'breakpoints') or [None])[0], 2),
+        'vix_break_hi': _r((_get(reg, 'vix', 'breakpoints') or [None, None])[1], 2),
+        'pers_s1_formations': pers.get('formations'),
+        **{f'pers_{tag}_{f}': pooled(which, f) for tag, which in (('s1', 'first'), ('s1u', 'union'))
+           for f in ('count', 'of', 'pct', 'lo_pct', 'hi_pct', 'expected', 'expected_pct', 'z')},
+        'pers_s1_symbols': _get(pers, 'first', 'symbols'), 'pers_s1_pairs': _get(pers, 'first', 'pairs'),
+        'pers_s1u_symbols': _get(pers, 'union', 'symbols'), 'pers_s1u_pairs': _get(pers, 'union', 'pairs'),
+        's2c_trades': s2.get('trades'),
+        **{f's2c_{series}_{f}': _get(s2, series, f) for series in ('gross', 'net') for f in ('mean_bp', 'se_bp', 't')},
+        **{f's2c_{series}_{tag}_{f}': _get(s2, series, by, f) for series in ('gross', 'net')
+           for tag, by in (('month', 'entry_month'), ('date', 'entry_date'), ('symbol', 'symbol'))
+           for f in ('clusters', 'se_bp', 't', 'p', 'design_effect')},
+    }
+    return out
 
 
 def schedule_facts(schedules):
@@ -1396,8 +1463,9 @@ def trials(lines):
                 'dir': r.get('dir'), 'profile': r.get('profile') or r.get('strategy'), 'calendar': r.get('calendar'),
                 'commit': commit[:7] if commit else None, 'dirty': r.get('git_dirty'), 'complete': r.get('complete'),
                 'period': [main.get('period_start'), main.get('period_end')] if main else None,
-                'sharpe': main.get('sharpe'), 'ret_pct': main.get('total_return_pct'), 'trades': main.get('trades'),
-                'oos_sharpe': oos.get('pooled_sharpe'), 'oos_ret_pct': oos.get('total_return_pct'),
+                'sharpe': _r(main.get('sharpe')), 'ret_pct': _r(main.get('total_return_pct')),
+                'trades': main.get('trades'),
+                'oos_sharpe': _r(oos.get('pooled_sharpe')), 'oos_ret_pct': _r(oos.get('total_return_pct')),
             })
     return rows
 
@@ -1429,7 +1497,54 @@ def holdout_section(evaluation):
     return {'status': 'complete', 'alpha': evaluation.get('alpha'), 'test': evaluation.get('test'), 'arms': arms}
 
 
-def snooping(declaration, results):
+def _variant_label(name):
+    """A readable label for a declared variant: 'grid ENTRY_Z=1.5 EXIT_Z=0.25 STOP_Z=1.0' ->
+    'Entry 1.5, exit 0.25, stop 1.0'; a toggle by TOGGLE_LABELS (else its own name)."""
+    if name.startswith('grid '):
+        parts = dict(p.split('=', 1) for p in name[5:].split())
+        return ', '.join(f"{k.split('_')[0].lower()} {v}" for k, v in parts.items()).capitalize()
+    return TOGGLE_LABELS.get(name, name)
+
+
+def _spa(x):
+    """One SPA test of the family's battery: Hansen's consistent p (with the lower and upper
+    p-values), White's Reality Check p, the best variant and its studentized statistic."""
+    if not x:
+        return None
+    return {'p': _r(_get(x, 'pvalues', 'consistent')), 'p_lower': _r(_get(x, 'pvalues', 'lower')),
+            'p_upper': _r(_get(x, 'pvalues', 'upper')), 'rc_p': _r(_get(x, 'reality_check', 'pvalue')),
+            'best': x.get('best_model'), 'best_label': _variant_label(x.get('best_model') or ''),
+            'best_t': _r(x.get('best_tstat'), 3), 'block': x.get('block'), 'reps': x.get('reps')}
+
+
+def _family_matrix(rows):
+    """results/variant_family/daily_returns.csv as (dates, names, T x K array of decimal returns)."""
+    if not rows:
+        return None
+    names = [k for k in rows[0] if k != 'date']
+    return ([r['date'] for r in rows], names,
+            np.array([[float(r[k]) for k in names] for r in rows], dtype=float))
+
+
+def snooping(declaration, results, runs=None, family_rows=None, main_r=None):
+    """The declared variant family (results/variant_family) and its data-snooping tests.
+
+    declaration   declaration.json: the grid and the toggles, declared before any variant ran
+    results       snooping.json (scripts/variant_family.py analyse): SPA and Reality Check
+                  against cash and the Gatev series, Romano-Wolf, the model confidence set,
+                  the effective number of trials and PBO by CSCV
+    runs          runs.json: each variant's Sharpe ratio, return and trades
+    family_rows   daily_returns.csv: each variant's daily net returns on the development days
+    main_r        the main backtest's daily net returns (decimal)
+
+    The results are published only when runs.json, the daily matrix and snooping.json hold the
+    same variants, in the declared order, and the matrix covers the main backtest's days; the
+    variant whose daily returns are the main backtest's is the v33 design (`base`). The
+    declaration also names a deflated Sharpe ratio with N = the entropy effective rank of the
+    variants' correlation matrix and the variants' own Sharpe dispersion; snooping.json holds
+    the rank but not the ratio, so it is computed here with pairs_trading.significance, N
+    rounded up (dsr_curve's rule) and the trial Sharpe variance of the daily matrix.
+    """
     if declaration is None:
         return None
     grid = declaration.get('grid') or {}
@@ -1437,15 +1552,248 @@ def snooping(declaration, results):
     out = {'declared_utc': declaration.get('declared_utc'),
            'grid_points': int(np.prod(sizes)) if sizes else 0,
            'toggles': len(declaration.get('toggles') or []), 'results': None}
-    if results:
-        spa = results.get('spa_vs_zero') or {}
-        out['results'] = {
-            'spa_p': _get(spa, 'pvalues', 'consistent'), 'reality_check_p': _get(spa, 'reality_check', 'pvalue'),
-            'romano_wolf_rejected': _get(results, 'romano_wolf_vs_zero', 'rejected', default=[]),
-            'mcs_included': _get(results, 'mcs', 'included', default=[]),
-            'effective_trials': _get(results, 'effective_trials', 'effective_rank'), 'pbo': results.get('pbo'),
-        }
+    fam = (results or {}).get('family') or {}
+    matrix = _family_matrix(family_rows)
+    if not fam or not runs or matrix is None:
+        return out
+    dates, names, M = matrix
+    declared = list(_get(results, 'declared_family', 'variants', default=[]))
+    run_rows = runs.get('variants') or []
+    if not (names == declared == list(fam.get('members') or []) == [v['name'] for v in run_rows]) \
+            or len(names) != out['grid_points'] + out['toggles']:
+        raise ValueError('results/variant_family: runs.json, daily_returns.csv and snooping.json do not hold '
+                         'the same declared variants in the same order')
+    base = None
+    if main_r is not None and len(main_r) == M.shape[0]:
+        hits = [k for k, n in enumerate(names) if np.max(np.abs(M[:, k] - main_r)) < 2e-7]
+        base = names[hits[0]] if len(hits) == 1 else None
+    sharpes = np.array([v['sharpe'] for v in run_rows], dtype=float)
+    order = np.argsort(-sharpes, kind='stable')
+    rank = {names[k]: i + 1 for i, k in enumerate(order)}
+    rw = {row['model']: row for row in _get(fam, 'romano_wolf_vs_zero', 'table', default=[])}
+    mcs = fam.get('mcs') or {}
+    mcs_p = mcs.get('pvalues') or {}
+    variants = [{'name': v['name'], 'label': _variant_label(v['name']),
+                 'kind': 'grid' if v['name'].startswith('grid ') else 'toggle', 'base': v['name'] == base,
+                 'sharpe': _r(v['sharpe']), 'ret_pct': _r(v['total_return_pct']), 'trades': v['trades'],
+                 'max_dd_pct': _r(v['max_drawdown_pct']), 'rank': rank[v['name']],
+                 'rw_p': _r(_get(rw, v['name'], 'p_adjusted')), 'mcs_p': _r(mcs_p.get(v['name']))}
+                for v in run_rows]
+    best, worst = run_rows[order[0]], run_rows[order[-1]]
+    eff = fam.get('effective_trials') or {}
+    pbo = (results or {}).get('pbo') or {}
+    rw_p = [r['rw_p'] for r in variants if r['rw_p'] is not None]
+    min_rw = min(variants, key=lambda r: r['rw_p'] if r['rw_p'] is not None else 2.0)
+    # the declared deflation: N = the effective rank, rounded up; the variants' Sharpe variance
+    # (fixed shape: null without the main backtest's returns on the family's days)
+    dsr = {'n_trials': None, 'sd_sr': None, 'sr_star': None, 'dsr_pct': None, 'curve': []}
+    if main_r is not None and eff.get('effective_rank') is not None:
+        n_eff = int(math.ceil(eff['effective_rank'] - 1e-9))
+        var = trial_sharpe_variance(M, PERIODS)
+        d = deflated_sharpe_ratio(main_r, n_eff, var, PERIODS)
+        dsr = {'n_trials': n_eff, 'sd_sr': _r(math.sqrt(var)), 'sr_star': _r(d['sr_star_ann']),
+               'dsr_pct': _r(100 * d['dsr'], 2),
+               'curve': [{'n': n, 'dsr': _r(x['dsr']), 'sr_star': _r(x['sr_star_ann'])}
+                         for n, x in zip(DSR_TRIALS, _dsr_curve(main_r, DSR_TRIALS, var, PERIODS))]}
+    out['results'] = {
+        'n': len(names), 'days': len(dates), 'first_day': dates[0], 'last_day': dates[-1],
+        'base': base, 'base_label': _variant_label(base) if base else None,
+        'base_rank': rank.get(base), 'base_sharpe': _r(run_rows[names.index(base)]['sharpe']) if base else None,
+        'variants': variants,
+        'positive': int((sharpes > 0).sum()), 'sharpe_median': _r(float(np.median(sharpes))),
+        'sharpe_best': _r(best['sharpe']), 'best': best['name'], 'best_label': _variant_label(best['name']),
+        'sharpe_worst': _r(worst['sharpe']), 'worst': worst['name'], 'worst_label': _variant_label(worst['name']),
+        'ret_best_pct': _r(max(v['total_return_pct'] for v in run_rows)),
+        'ret_worst_pct': _r(min(v['total_return_pct'] for v in run_rows)),
+        'trades_min': min(v['trades'] for v in run_rows), 'trades_max': max(v['trades'] for v in run_rows),
+        'spa_zero': _spa(fam.get('spa_vs_zero')), 'spa_gatev': _spa(fam.get('spa_vs_gatev')),
+        'spa_gatev_unit_vol': _spa(fam.get('spa_vs_gatev_unit_vol')),
+        'rw_rejected': len(_get(fam, 'romano_wolf_vs_zero', 'rejected', default=[])),
+        'rw_alpha': _get(fam, 'romano_wolf_vs_zero', 'alpha'),
+        'rw_min_p': min(rw_p) if rw_p else None, 'rw_min_label': min_rw['label'] if rw_p else None,
+        'mcs_size_pct': _r(100 * mcs['size'], 0) if mcs.get('size') is not None else None,
+        'mcs_included': len(mcs.get('included') or []), 'mcs_excluded': len(mcs.get('excluded') or []),
+        'mcs_min_p': _r(min(mcs_p.values()), 4) if mcs_p else None,
+        'effective_rank': _r(eff.get('effective_rank'), 2), 'avg_corr': _r(eff.get('avg_correlation'), 3),
+        'n_eff_avg_corr': _r(eff.get('n_eff_avg_corr'), 2),
+        'pbo_pct': _r(100 * pbo['pbo'], 2) if pbo.get('pbo') is not None else None,
+        'pbo_splits': pbo.get('n_combinations'), 'pbo_blocks': pbo.get('n_splits'),
+        'pbo_median_logit': _r(pbo.get('median_logit'), 3),
+        'pbo_is_best_oos_sharpe': _r(pbo.get('mean_oos_sharpe_of_is_best')),
+        'pbo_is_best_loss_pct': _r(100 * pbo['prob_oos_loss_of_is_best'], 2)
+        if pbo.get('prob_oos_loss_of_is_best') is not None else None,
+        'dsr': dsr,
+        'block': _get(fam, 'spa_vs_zero', 'block'), 'reps': _get(fam, 'spa_vs_zero', 'reps'),
+    }
     return out
+
+
+def _spread(x):
+    """The range, median, mean and sd of a list of numbers (robustness.json's 'spread' rows)."""
+    if not x:
+        return None
+    return {k: _r(x.get(k)) for k in ('min', 'max', 'median', 'mean', 'sd', 'range')} | {'n': x.get('n')}
+
+
+# The fixed shape of the robustness section (robustness_checks.py's design): 12 start dates,
+# two halves, terciles, three calendar years, five pairs of years of persistence. A run without
+# robustness.json gets this shape with every value null, so a page marker names a key that
+# every build has; a report of another shape stops the build.
+ROBUSTNESS_SHAPE = {'starts': 12, 'halves': 2, 'terciles': 3, 'years': 3, 'persistence_years': 5}
+
+
+def robustness_skeleton():
+    """robustness() for a run without robustness.json: the same keys and list lengths, null values."""
+    def row(keys):
+        return dict.fromkeys(keys)
+    spread = ('min', 'max', 'median', 'mean', 'sd', 'range', 'n')
+    start = ('offset', 'start', 'days', 'trades', 'sharpe', 'ret_pct', 'max_dd_pct', 'nw_t', 'common_sharpe',
+             'common_ret_pct')
+    half = ('half', 'entry', 'last_day', 'days', 'entry_days', 'trades', 'sharpe', 'ret_pct', 'nw_t', 'run_off_days',
+            'inside_days', 'inside_sharpe', 'inside_ret_pct')
+    bucket = ('bucket', 'days', 'mean_bp', 'sharpe', 't', 'p', 'ret_pct')
+    year = ('year', 'next_year', 'correlated', 'coint', 'coint_pct', 'still', 'still_of', 'still_pct', 'base_pct',
+            'p_vs_base')
+    pooled = ('count', 'of', 'pct', 'lo_pct', 'hi_pct', 'expected', 'expected_pct', 'z')
+    cluster = ('clusters', 'se_bp', 't', 'p', 'design_effect')
+
+    def regime(n):
+        def series():
+            return {'rows': [row(bucket) for _ in range(n)], 'diff': {'of': [], 'mean_bp': None, 't': None, 'p': None},
+                    'lags': None}
+        return {'breakpoints': [], 'net': series(), 'gross': series()}
+
+    def persistence():
+        return {'symbols': None, 'pairs': None,
+                'years': [row(year) for _ in range(ROBUSTNESS_SHAPE['persistence_years'])], 'pooled': row(pooled)}
+
+    def clustered():
+        return {**{by: row(cluster) for by in ('entry_month', 'entry_date', 'symbol')},
+                **row(('mean_bp', 'se_bp', 't', 'p'))}
+    return {
+        'code_commit': None,
+        'start_dates': {'n': None, 'step_days': None, 'window': [], 'common': row(('first', 'last', 'days')),
+                        'runs': [row(start) for _ in range(ROBUSTNESS_SHAPE['starts'])],
+                        'sharpe': row(spread), 'sharpe_common': row(spread), 'ret': row(spread), 'trades': row(spread),
+                        'headline_rank': None, 'reproduces': False},
+        'halves': [{**row(half), 'entry': []} for _ in range(ROBUSTNESS_SHAPE['halves'])],
+        'regimes': {'days': None, 'vix': regime(ROBUSTNESS_SHAPE['terciles']),
+                    'dispersion': regime(ROBUSTNESS_SHAPE['terciles']), 'year': regime(ROBUSTNESS_SHAPE['years'])},
+        'persistence': {'formations': None, 'first': persistence(), 'union': persistence()},
+        's2': {'trades': None, 'gross': clustered(), 'net': clustered(), 'reproduced': False},
+        'available': False,
+    }
+
+
+def robustness(report, results_sha256):
+    """The robustness checks of the run (scripts/robustness_checks.py, {dev}/robustness.json):
+    the main backtest from 12 start dates and the two halves as separate runs; returns by
+    previous-day VIX and sector-dispersion tercile and by year (Newey-West t); cointegration
+    persistence on S1's own candidate pairs; and the second family's per-trade edge with
+    standard errors clustered by entry month, date and symbol.
+
+    A report computed from another export than the run's (its recorded sha256 of the results
+    file differs) is not of this run and stops the build.
+    """
+    if report is None:
+        return robustness_skeleton()
+    if _get(report, 'inputs', 'results', 'sha256') != results_sha256:
+        raise ValueError('robustness.json was computed from another results export than this run\'s '
+                         f"(sha256 {_get(report, 'inputs', 'results', 'sha256')}); re-run "
+                         'scripts/robustness_checks.py')
+    sd = report.get('start_dates') or {}
+    runs = sd.get('runs') or []
+    sharpes = [r['sharpe'] for r in runs]
+    head = next((r for r in runs if r['offset_trading_days'] == 0), None)
+    starts = [{'offset': r['offset_trading_days'], 'start': r['start'], 'days': r['days'], 'trades': r['trades'],
+               'sharpe': _r(r['sharpe']), 'ret_pct': _r(r['total_return_pct']), 'max_dd_pct': _r(r['max_drawdown_pct']),
+               'nw_t': _r(r.get('nw_t'), 3), 'common_sharpe': _r(_get(r, 'common_window', 'sharpe')),
+               'common_ret_pct': _r(_get(r, 'common_window', 'total_return_pct'))} for r in runs]
+    halves = [{'half': h['half'], 'entry': h['entry_window'], 'last_day': h['last_day'], 'days': h['days'],
+               'entry_days': h.get('entry_days'), 'trades': h['trades'], 'sharpe': _r(h['sharpe']),
+               'ret_pct': _r(h['total_return_pct']), 'nw_t': _r(h.get('nw_t'), 3), 'run_off_days': h.get('run_off_days'),
+               'inside_days': _get(h, 'main_run_same_days', 'days'),
+               'inside_sharpe': _r(_get(h, 'main_run_same_days', 'sharpe')),
+               'inside_ret_pct': _r(_get(h, 'main_run_same_days', 'total_return_pct'))}
+              for h in sd.get('halves') or []]
+
+    def regime(block):
+        if not block:
+            return None
+
+        def buckets(series):
+            b = block.get(series) or {}
+            diff = b.get('last_minus_first') or {}
+            return {'rows': [{'bucket': str(x['bucket']), 'days': x['days'], 'mean_bp': _r(x['mean_daily_bp']),
+                              'sharpe': _r(x['sharpe']), 't': _r(x['nw_t']), 'p': _r(x['nw_p']),
+                              'ret_pct': _r(x.get('return_pct_on_these_days'))} for x in b.get('buckets') or []],
+                    'diff': {'of': [str(v) for v in diff.get('buckets') or []], 'mean_bp': _r(diff.get('mean_daily_bp')),
+                             't': _r(diff.get('nw_t')), 'p': _r(diff.get('nw_p'))}, 'lags': b.get('nw_lags')}
+        return {'breakpoints': _rl(block.get('breakpoints') or [], 6), 'net': buckets('net'), 'gross': buckets('gross')}
+    reg = report.get('regimes') or {}
+    pers = report.get('persistence') or {}
+
+    def persistence(p):
+        if not p:
+            return None
+        pooled = p.get('pooled_still_cointegrated') or {}
+        lo, hi = (pooled.get('ci95') or [None, None])[:2]
+        return {'symbols': p.get('symbols'), 'pairs': p.get('pairs'),
+                'years': [{'year': y['year'], 'next_year': y['next_year'], 'correlated': y['correlated_pairs'],
+                           'coint': y['cointegrated']['count'], 'coint_pct': _r(100 * y['cointegrated']['share'], 4),
+                           'still': y['still_cointegrated_next_year']['count'],
+                           'still_of': y['still_cointegrated_next_year']['of'],
+                           'still_pct': _r(100 * y['still_cointegrated_next_year']['share'], 4),
+                           'base_pct': _r(100 * y['still_cointegrated_next_year']['next_year_base_rate'], 4),
+                           'p_vs_base': _r(y['still_cointegrated_next_year']['binom_p_vs_next_year_base_rate'])}
+                          for y in p.get('years') or []],
+                'pooled': {'count': pooled.get('count'), 'of': pooled.get('of'),
+                           'pct': _r(100 * pooled['share'], 4) if pooled.get('share') is not None else None,
+                           'lo_pct': _r(100 * lo, 4) if lo is not None else None,
+                           'hi_pct': _r(100 * hi, 4) if hi is not None else None,
+                           'expected': _r(pooled.get('expected_at_next_year_base_rates'), 3),
+                           'expected_pct': _r(100 * pooled['expected_at_next_year_base_rates'] / pooled['of'], 4)
+                           if pooled.get('of') else None,
+                           'z': _r(pooled.get('z_vs_next_year_base_rates'), 4)}}
+    s2 = report.get('s2_trade_edge') or {}
+
+    def clustered(series):
+        out = {}
+        for by in ('entry_month', 'entry_date', 'symbol'):
+            c = _get(s2, series, by) or {}
+            out[by] = {'clusters': c.get('clusters'), 'se_bp': _r(c.get('se_clustered')), 't': _r(c.get('t_clustered')),
+                       'p': _r(c.get('p_clustered')), 'design_effect': _r(c.get('design_effect'))}
+        c = _get(s2, series, 'entry_month') or {}
+        out.update({'mean_bp': _r(c.get('mean')), 'se_bp': _r(c.get('se_independent')),
+                    't': _r(c.get('t_independent')), 'p': _r(c.get('p_independent'))})
+        return out
+    shape = (len(runs), len(sd.get('halves') or []), len(_get(report, 'regimes', 'vix', 'net', 'buckets', default=[])),
+             len(_get(report, 'regimes', 'calendar_year', 'net', 'buckets', default=[])),
+             len(_get(report, 'persistence', 'first_formation', 'years', default=[])))
+    if shape != tuple(ROBUSTNESS_SHAPE.values()):
+        raise ValueError(f'robustness.json has {shape} (starts, halves, terciles, years, persistence years); the page '
+                         f'expects {tuple(ROBUSTNESS_SHAPE.values())}')
+    return {
+        'available': True,
+        'code_commit': _get(report, 'code', 'git_commit'),
+        'start_dates': {'n': len(runs), 'step_days': _get(sd, 'design', 'step_trading_days'),
+                        'window': _get(sd, 'design', 'window'), 'common': sd.get('common_window'),
+                        'runs': starts, 'sharpe': _spread(_get(sd, 'spread', 'sharpe')),
+                        'sharpe_common': _spread(_get(sd, 'spread', 'sharpe_common_window')),
+                        'ret': _spread(_get(sd, 'spread', 'total_return_pct')),
+                        'trades': _spread(_get(sd, 'spread', 'trades')),
+                        # 1 = the most favourable start; the published run is offset 0
+                        'headline_rank': 1 + sum(1 for s in sharpes if head and s > head['sharpe']) if head else None,
+                        'reproduces': bool(_get(sd, 'offset_0_reproduces_published_main_backtest', 'verified'))},
+        'halves': halves,
+        'regimes': {'days': reg.get('days'), 'vix': regime(reg.get('vix')),
+                    'dispersion': regime(reg.get('sector_dispersion')), 'year': regime(reg.get('calendar_year'))},
+        'persistence': {'formations': len(pers.get('formations') or []),
+                        'first': persistence(pers.get('first_formation')),
+                        'union': persistence(pers.get('union_of_formations'))},
+        's2': {'trades': s2.get('trades'), 'gross': clustered('gross_bp'), 'net': clustered('net_bp'),
+               'reproduced': bool(_get(s2, 'export_check', 'reproduced'))} if s2 else None,
+    }
 
 
 def validation(report):
@@ -1486,8 +1834,11 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
     battery = src.load(dev / 'stats_battery.json')
     anatomy = src.load(dev / 'anatomy.json') or {}
     scenarios = src.load(dev / 'cost_sensitivity.json')
-    declaration = src.load(results_root / 'variant_family' / 'declaration.json')
-    snoop = src.load(results_root / 'variant_family' / 'snooping.json')
+    declaration = src.load(results_root / VARIANT_FAMILY / 'declaration.json')
+    snoop = src.load(results_root / VARIANT_FAMILY / 'snooping.json')
+    family_runs = src.load(results_root / VARIANT_FAMILY / 'runs.json')
+    family_rows = src.load_csv(results_root / VARIANT_FAMILY / 'daily_returns.csv')
+    rob = src.load(dev / ROBUSTNESS)
     residual = load_residual(src, results_root / 'residual_dev')
     holdout = src.load(results_root / 'holdout2026' / 'evaluation.json')
     known = src.load(results_root / 'validation' / 'synthetic_validation.json')
@@ -1554,7 +1905,10 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
         'cost_curve': cost_curve(daily),
         'cost_sensitivity': cost_scenarios(scenarios, res, anatomy),
         'half_lives': half_lives(anatomy),
-        'snooping': snooping(declaration, snoop),
+        # the family is compared with this run's main backtest only on the same days
+        'snooping': snooping(declaration, snoop, family_runs, family_rows,
+                             r_main if family_rows and [r['date'] for r in family_rows] == daily['dates'] else None),
+        'robustness': robustness(rob, _sha256(_results_file(dev))),
         **{key: anatomy[key] for key in ANATOMY_KEYS if anatomy.get(key) is not None},
     }
     rows = dev_out['universe_by_formation']
@@ -1583,6 +1937,8 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
         'validation': validation(known),
         'v32': v32,
         'trials': trials(registry),
+        # the registry's size: its trials (one line each) and their runs (the rows of 'trials')
+        'registry': {'trials': len(registry), 'runs': len(trials(registry))} if registry is not None else None,
     }
     return study
 

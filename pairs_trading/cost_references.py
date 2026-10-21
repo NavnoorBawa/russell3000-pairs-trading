@@ -14,7 +14,11 @@ and docs/EXECUTION_COSTS.md tabulates them side by side.
                     NOT a trading cost and is not used here.
   gjw_2025          closing-auction price impact for large caps, lambda * sqrt(p) with
                     lambda = 0.45% (NYSE) or 1.02% (Nasdaq), i.e. 4.5 / 10.2 bp at 1% of ADV
-                    (Goyal, Jegadeesh & Wu 2025, JFQA, Table 3 Model A). The study's fills are
+                    (Goyal, Jegadeesh & Wu 2026, JFQA 61(6), Table 3 Model A; the name keeps
+                    the year of the accepted manuscript, December 2025). Their X is the
+                    auction's first-disseminated net order imbalance over the prior 10-day
+                    ADV, not one trader's own participation, so applying it to the study's
+                    own market-on-close order is an approximation. The study's fills are
                     next-day closes, i.e. market-on-close orders in this auction.
   sqrt_law_y1       the square-root law with Y = 1, Y * sigma * sqrt(p) (Toth et al. 2011,
                     Phys. Rev. X: "Y of order unity") — a liquidity-demanding upper reference.

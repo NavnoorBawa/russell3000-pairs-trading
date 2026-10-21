@@ -14,6 +14,7 @@
   "coverage_rule_above_cached": true,
   "decay_in_sample_significant": true,
   "decay_oos_not_significant": true,
+  "design_not_the_best_variant": true,
   "dsr_low": true,
   "every_interval_spans_zero": true,
   "every_scenario_loses": true,
@@ -24,6 +25,11 @@
   "exit_race_rejects_selected_reversion": true,
   "exploratory_run_on_record": true,
   "factors_explain_little": true,
+  "family_beats_neither_cash_nor_gatev": true,
+  "family_dsr_not_significant": true,
+  "family_few_positive": true,
+  "family_mcs_keeps_all": true,
+  "family_overfits": true,
   "few_flat_days": true,
   "fewer_than_half_months_positive": true,
   "ff_alpha_main_not_significant": true,
@@ -40,6 +46,7 @@
   "gross_sharpe_not_significant": true,
   "half_lives_lengthen": true,
   "half_lives_within_rule_at_formation": true,
+  "headline_start_most_favourable": true,
   "holdout_sealed": true,
   "hurdles_above_bound": true,
   "impact_largest_cost": true,
@@ -64,10 +71,13 @@
   "oos_ucb_negative": true,
   "oos_windows_ci_spans_zero": true,
   "persistence_at_chance": true,
+  "persistence_s1_at_base_rate": true,
   "persistence_traded_near_chance": true,
+  "regimes_not_significant": true,
   "residual_ci_spans_zero": true,
   "residual_gross_below_cost": true,
   "residual_net_negative": true,
+  "s2_clustered_not_significant": true,
   "scenario_trades_differ": true,
   "schedules_gross_negative": true,
   "sharpe_1_5_and_2_rejected": true,
@@ -75,9 +85,10 @@
   "sharpe_break_even_below_one": true,
   "sharpe_half_not_rejected": true,
   "small_book_fixed_positive_full_not": true,
-  "snooping_pending": true,
   "st_reversal_loading": true,
   "start_date_changes_path": true,
+  "start_dates_all_negative": true,
+  "start_reproduces_published_run": true,
   "stops_offset_targets": true,
   "ucb_below_one": true,
   "v32_ci_spans_zero": true,
@@ -147,7 +158,7 @@
   ],
   [
    8,
-   "Deflated for 32 trials, the main backtest's Sharpe ratio is far from significant (deflated Sharpe ratio 1.4%); the data-snooping tests are running",
+   "None of the 38 declared variants beats cash or the distance method once the search is allowed for, and deflated for the search the design's Sharpe ratio is far from significant",
    "ex-dsr"
   ],
   [
@@ -278,18 +289,12 @@
   "random_band": true,
   "residual": true,
   "scenarios": true,
-  "snooping": false,
+  "snooping": true,
   "universe_pit": true,
   "validation": true,
   "wf_daily": true
  },
  "forthcoming": [
-  [
-   "snooping",
-   "Data-snooping tests",
-   "White's Reality Check, Hansen's SPA test, the Romano–Wolf stepdown, the model confidence set and the probability of backtest overfitting over the declared family (27-point grid, 11 toggles), whatever they show; the design is not re-chosen from them",
-   "The family's run on the development calendar, in progress"
-  ],
   [
    "holdout",
    "The 2026 holdout",
@@ -430,14 +435,8 @@
   "paper.sched_worst_ret": "−7.12%",
   "paper.schedules_lose_word": "five",
   "paper.schedules_n_word": "five",
-  "paper.snooping.effective_trials": null,
-  "paper.snooping.mcs_included": null,
-  "paper.snooping.pbo_pct": null,
-  "paper.snooping.reality_check_p": null,
-  "paper.snooping.romano_wolf_rejected": null,
-  "paper.snooping.spa_p": null,
-  "paper.trials_n": "6",
-  "paper.trials_word": "six",
+  "paper.trials_n": "10",
+  "paper.trials_word": "ten",
   "paper.trl_power_ratio": "2.3",
   "paper.universe_top": "500",
   "paper.v32_borrow_bp": "25",
@@ -565,6 +564,8 @@
   "study.dev.facts.decay_oos_t": "−1.17",
   "study.dev.facts.decay_oos_tc": "−0.88",
   "study.dev.facts.decay_pairs": "130",
+  "study.dev.facts.disp_diff_mean_bp": "−0.35",
+  "study.dev.facts.disp_diff_t": "−0.31",
   "study.dev.facts.dsr_trials": "32",
   "study.dev.facts.er_barrier": "149",
   "study.dev.facts.er_half_life": "15.8",
@@ -623,6 +624,13 @@
   "study.dev.facts.gross_t": "−0.25",
   "study.dev.facts.gross_usd_k": "1,520.1",
   "study.dev.facts.gross_usd_m": "1.52",
+  "study.dev.facts.half1_inside_sharpe": "+0.22",
+  "study.dev.facts.half1_ret_pct": "+0.26%",
+  "study.dev.facts.half1_run_off_days": "23",
+  "study.dev.facts.half1_sharpe": "+0.11",
+  "study.dev.facts.half2_inside_sharpe": "−0.31",
+  "study.dev.facts.half2_ret_pct": "−2.89%",
+  "study.dev.facts.half2_sharpe": "−0.85",
   "study.dev.facts.hedge_below_1_pct": "87.8%",
   "study.dev.facts.hedge_mean": "0.70",
   "study.dev.facts.hl_formation": "17.1",
@@ -686,6 +694,22 @@
   "study.dev.facts.pers_lo_pct": "4.56",
   "study.dev.facts.pers_of": "7,334",
   "study.dev.facts.pers_pct": "5.04%",
+  "study.dev.facts.pers_s1_count": "62",
+  "study.dev.facts.pers_s1_expected": "66.4",
+  "study.dev.facts.pers_s1_expected_pct": "5.5%",
+  "study.dev.facts.pers_s1_formations": "7",
+  "study.dev.facts.pers_s1_hi_pct": "6.6%",
+  "study.dev.facts.pers_s1_lo_pct": "4.0",
+  "study.dev.facts.pers_s1_of": "1,196",
+  "study.dev.facts.pers_s1_pairs": "5,369",
+  "study.dev.facts.pers_s1_pct": "5.18%",
+  "study.dev.facts.pers_s1_z": "−0.55",
+  "study.dev.facts.pers_s1u_count": "86",
+  "study.dev.facts.pers_s1u_expected": "89.1",
+  "study.dev.facts.pers_s1u_of": "1,546",
+  "study.dev.facts.pers_s1u_pairs": "7,141",
+  "study.dev.facts.pers_s1u_pct": "5.6%",
+  "study.dev.facts.pers_s1u_z": "−0.34",
   "study.dev.facts.pers_symbols": "300",
   "study.dev.facts.pers_traded_count": "6",
   "study.dev.facts.pers_traded_of": "115",
@@ -705,6 +729,14 @@
   "study.dev.facts.rolling_max": "+1.2",
   "study.dev.facts.rolling_min": "−2.5",
   "study.dev.facts.rolling_windows": "503",
+  "study.dev.facts.s2c_gross_date_t": "0.81",
+  "study.dev.facts.s2c_gross_month_clusters": "30",
+  "study.dev.facts.s2c_gross_month_design_effect": "1.9",
+  "study.dev.facts.s2c_gross_month_p": "0.53",
+  "study.dev.facts.s2c_gross_month_t": "0.63",
+  "study.dev.facts.s2c_gross_symbol_t": "0.86",
+  "study.dev.facts.s2c_net_mean_bp": "−4.54",
+  "study.dev.facts.s2c_net_month_t": "−0.53",
   "study.dev.facts.sched_gross_max_pct": "−0.08%",
   "study.dev.facts.sched_gross_min_pct": "−0.32%",
   "study.dev.facts.sched_gross_negative": "5",
@@ -731,10 +763,28 @@
   "study.dev.facts.st_rev_beta_main": "0.039",
   "study.dev.facts.st_rev_t_main": "4.01",
   "study.dev.facts.st_rev_t_oos": "3.80",
+  "study.dev.facts.start_common_days": "397",
+  "study.dev.facts.start_common_sharpe_max": "+0.48",
+  "study.dev.facts.start_common_sharpe_min": "−0.74",
+  "study.dev.facts.start_headline_rank": "1",
+  "study.dev.facts.start_n": "12",
+  "study.dev.facts.start_ret_max": "−0.39%",
+  "study.dev.facts.start_ret_min": "−6.27%",
+  "study.dev.facts.start_sharpe_max": "−0.06",
+  "study.dev.facts.start_sharpe_median": "−0.65",
+  "study.dev.facts.start_sharpe_min": "−1.16",
+  "study.dev.facts.start_step_days": "21",
   "study.dev.facts.stitched_pct": "−6.24%",
   "study.dev.facts.stop_loss_usd_m": "15.33",
   "study.dev.facts.target_gain_usd_m": "15.15",
   "study.dev.facts.trades": "213",
+  "study.dev.facts.vix_break_hi": "17.21",
+  "study.dev.facts.vix_break_lo": "14.72",
+  "study.dev.facts.vix_diff_mean_bp": "+0.92",
+  "study.dev.facts.vix_diff_p": "0.46",
+  "study.dev.facts.vix_diff_t": "0.74",
+  "study.dev.facts.vix_high_bp": "+0.36",
+  "study.dev.facts.vix_low_bp": "−0.56",
   "study.dev.facts.wf_common_corr": "0.50",
   "study.dev.facts.wf_common_days": "621",
   "study.dev.facts.wf_common_sharpe_main": "−0.09",
@@ -749,7 +799,52 @@
   "study.dev.funnel.pairs.1.expected": "254.1",
   "study.dev.rolling_sharpe.window": "126",
   "study.dev.snooping.grid_points": "27",
+  "study.dev.snooping.results.avg_corr": "0.42",
+  "study.dev.snooping.results.base_rank": "9",
+  "study.dev.snooping.results.base_sharpe": "−0.06",
+  "study.dev.snooping.results.best_label": "300 names, v32's size",
+  "study.dev.snooping.results.block": "5",
+  "study.dev.snooping.results.days": "628",
+  "study.dev.snooping.results.dsr.dsr_pct": "6.3%",
+  "study.dev.snooping.results.dsr.n_trials": "14",
+  "study.dev.snooping.results.dsr.sd_sr": "0.52",
+  "study.dev.snooping.results.dsr.sr_star": "0.91",
+  "study.dev.snooping.results.effective_rank": "13.7",
+  "study.dev.snooping.results.mcs_included": "38",
+  "study.dev.snooping.results.mcs_min_p": "0.60",
+  "study.dev.snooping.results.mcs_size_pct": "10%",
+  "study.dev.snooping.results.n": "38",
+  "study.dev.snooping.results.pbo_blocks": "10",
+  "study.dev.snooping.results.pbo_is_best_loss_pct": "99.2%",
+  "study.dev.snooping.results.pbo_is_best_oos_sharpe": "−0.87",
+  "study.dev.snooping.results.pbo_pct": "79.4%",
+  "study.dev.snooping.results.pbo_splits": "252",
+  "study.dev.snooping.results.positive": "7",
+  "study.dev.snooping.results.reps": "10,000",
+  "study.dev.snooping.results.ret_best_pct": "+1.14",
+  "study.dev.snooping.results.ret_worst_pct": "−9.63",
+  "study.dev.snooping.results.rw_min_p": "0.98",
+  "study.dev.snooping.results.rw_rejected": "0",
+  "study.dev.snooping.results.sharpe_best": "+0.21",
+  "study.dev.snooping.results.sharpe_median": "−0.40",
+  "study.dev.snooping.results.sharpe_worst": "−1.69",
+  "study.dev.snooping.results.spa_gatev.best_label": "Entry 1.8, exit 0.25, stop 1.0",
+  "study.dev.snooping.results.spa_gatev.best_t": "1.54",
+  "study.dev.snooping.results.spa_gatev.p": "0.219",
+  "study.dev.snooping.results.spa_gatev.rc_p": "0.232",
+  "study.dev.snooping.results.spa_gatev_unit_vol.p": "0.489",
+  "study.dev.snooping.results.spa_gatev_unit_vol.rc_p": "0.499",
+  "study.dev.snooping.results.spa_zero.best_label": "300 names, v32's size",
+  "study.dev.snooping.results.spa_zero.best_t": "0.38",
+  "study.dev.snooping.results.spa_zero.p": "0.964",
+  "study.dev.snooping.results.spa_zero.p_lower": "0.905",
+  "study.dev.snooping.results.spa_zero.p_upper": "0.975",
+  "study.dev.snooping.results.spa_zero.rc_p": "0.977",
+  "study.dev.snooping.results.trades_max": "333",
+  "study.dev.snooping.results.trades_min": "144",
   "study.dev.snooping.toggles": "11",
+  "study.registry.runs": "10",
+  "study.registry.trials": "7",
   "study.residual.avg_gross_x": "1.2×",
   "study.residual.avg_positions": "181",
   "study.residual.cost_bp": "11.30",
@@ -833,7 +928,7 @@
   "headline_sha256": "b09f239032db62196602447e8d1d780286b5c2674e8e85d02062beab946d0fb1",
   "paper_date": "2026-10-21",
   "run_dir": "results/v33_dev",
-  "study_sha256": "d8e8fca7332c56e51314d271b8244d2a99ced64c8d8dde04597f6592daefc5ea",
+  "study_sha256": "333b67ad0560af1bdfc02d95fb480569c46439947f1f12028d442a212acf50a0",
   "universe_index_sha256": "2afd0cb6a7a7b79e08e6d45a5fc78f7ac6d43903c3cafbde1a042bf048883c3c"
  },
  "pending": {
@@ -1032,6 +1127,22 @@
     "5th-95th percentile of 200 draws (a spread across draws, not a confidence interval)"
    ]
   ],
+  "halves": [
+   [
+    "First half: entries 3 Jul 2023 to 30 Sep 2024",
+    "106",
+    "+0.11",
+    "+0.26",
+    "+0.22"
+   ],
+   [
+    "Second half: entries 1 Oct 2024 to 31 Dec 2025",
+    "142",
+    "−0.85",
+    "−2.89",
+    "−0.31"
+   ]
+  ],
   "holdout_power": [
    [
     "126",
@@ -1114,7 +1225,7 @@
    ],
    [
     "Site data",
-    "assets/study.json, sha256 d8e8fca7332c56e51314d271b8244d2a99ced64c8d8dde04597f6592daefc5ea"
+    "assets/study.json, sha256 333b67ad0560af1bdfc02d95fb480569c46439947f1f12028d442a212acf50a0"
    ],
    [
     "Universe",
@@ -1211,6 +1322,143 @@
     "9.0",
     "—",
     "—"
+   ]
+  ],
+  "persistence_s1": [
+   [
+    "2020 → 2021",
+    "271 of 4,645",
+    "29 of 271 (10.7)",
+    "7.8",
+    "0.09"
+   ],
+   [
+    "2021 → 2022",
+    "312 of 3,979",
+    "12 of 312 (3.8)",
+    "4.8",
+    "0.51"
+   ],
+   [
+    "2022 → 2023",
+    "251 of 5,192",
+    "9 of 251 (3.6)",
+    "3.7",
+    "1.00"
+   ],
+   [
+    "2023 → 2024",
+    "175 of 4,705",
+    "6 of 175 (3.4)",
+    "4.8",
+    "0.59"
+   ],
+   [
+    "2024 → 2025",
+    "187 of 3,920",
+    "6 of 187 (3.2)",
+    "6.6",
+    "0.07"
+   ],
+   [
+    "Pooled",
+    "",
+    "62 of 1,196 (5.2; 4.0–6.6)",
+    "5.5",
+    "z = −0.55"
+   ],
+   [
+    "Pooled, all formations",
+    "",
+    "86 of 1,546 (5.6; 4.5–6.8)",
+    "5.8",
+    "z = −0.34"
+   ]
+  ],
+  "regimes": [
+   [
+    "Previous-day VIX, low tercile",
+    "210",
+    "−0.56",
+    "−0.74",
+    "−0.69"
+   ],
+   [
+    "Previous-day VIX, middle tercile",
+    "210",
+    "+0.05",
+    "+0.06",
+    "+0.05"
+   ],
+   [
+    "Previous-day VIX, high tercile",
+    "208",
+    "+0.36",
+    "+0.36",
+    "+0.38"
+   ],
+   [
+    "Previous-day VIX, high minus low",
+    "—",
+    "+0.92",
+    "—",
+    "+0.74"
+   ],
+   [
+    "Previous-day sector dispersion, low tercile",
+    "210",
+    "+0.12",
+    "+0.15",
+    "+0.15"
+   ],
+   [
+    "Previous-day sector dispersion, middle tercile",
+    "209",
+    "−0.03",
+    "−0.04",
+    "−0.04"
+   ],
+   [
+    "Previous-day sector dispersion, high tercile",
+    "209",
+    "−0.24",
+    "−0.24",
+    "−0.25"
+   ],
+   [
+    "Previous-day sector dispersion, high minus low",
+    "—",
+    "−0.35",
+    "—",
+    "−0.31"
+   ],
+   [
+    "Calendar year 2023 (from July)",
+    "126",
+    "+0.84",
+    "+1.04",
+    "+0.81"
+   ],
+   [
+    "Calendar year 2024",
+    "252",
+    "−0.21",
+    "−0.26",
+    "−0.23"
+   ],
+   [
+    "Calendar year 2025",
+    "250",
+    "−0.34",
+    "−0.37",
+    "−0.41"
+   ],
+   [
+    "2025 minus 2023",
+    "—",
+    "−1.18",
+    "—",
+    "−0.88"
    ]
   ],
   "scenarios": [
@@ -1444,28 +1692,60 @@
   ],
   "snooping": [
    [
-    "Hansen SPA p (consistent)",
-    "pending"
+    "Hansen SPA against cash, consistent p (lower, upper)",
+    "0.964 (0.905, 0.975)"
    ],
    [
-    "White Reality Check p",
-    "pending"
+    "White Reality Check against cash, p",
+    "0.977"
    ],
    [
-    "Romano–Wolf: variants rejected at 5%",
-    "pending"
+    "Best variant against cash: studentized mean",
+    "t = 0.38 (300 names, v32's size)"
    ],
    [
-    "Model confidence set (90%): variants kept",
-    "pending"
+    "Hansen SPA against the Gatev distance method, p (Reality Check)",
+    "0.219 (0.232)"
    ],
    [
-    "Effective number of trials",
-    "pending"
+    "The same with every series at unit volatility, p (Reality Check)",
+    "0.489 (0.499)"
    ],
    [
-    "Probability of backtest overfitting",
-    "pending"
+    "Best variant against the Gatev method: studentized mean",
+    "t = 1.54 (Entry 1.8, exit 0.25, stop 1.0)"
+   ],
+   [
+    "Romano–Wolf stepdown against cash: variants rejected at 5% (smallest adjusted p)",
+    "0 (0.98)"
+   ],
+   [
+    "Model confidence set, 90%: variants kept (smallest p)",
+    "38 of 38 (0.60)"
+   ],
+   [
+    "Effective number of independent trials (entropy effective rank)",
+    "13.7"
+   ],
+   [
+    "Deflated Sharpe ratio of the v33 design, N = 14, the variants' Sharpe dispersion",
+    "6.3%"
+   ],
+   [
+    "Probability of backtest overfitting (252 splits)",
+    "79.4%"
+   ],
+   [
+    "Best variant of one half of the days, on the other half: mean Sharpe; splits with a loss",
+    "−0.87; 99.2%"
+   ],
+   [
+    "Variants with a positive Sharpe ratio (best, median, worst)",
+    "7 of 38 (+0.21, −0.40, −1.69)"
+   ],
+   [
+    "The v33 design: rank by Sharpe ratio (Sharpe)",
+    "9 (−0.06)"
    ]
   ],
   "sources": [
@@ -1503,7 +1783,7 @@
    ],
    [
     "results/trial_registry.jsonl",
-    "1d3d9219aaab973f490ead6fa8580b43a71644bd2d33bf3b4981dedecb40e990"
+    "e320f0e53dd6d12cda05bbf851bfef2f127bab6560aca6f717439357555b4ef4"
    ],
    [
     "results/v32_dev/headline_metrics.json",
@@ -1538,12 +1818,28 @@
     "b00c6c31d28daee14f46797c3bc3e9f2239c1120e9fdf31bdece2fa94c3d4fd8"
    ],
    [
+    "results/v33_dev/robustness.json",
+    "f27c2705c2b3f7003d36a5d2fb50186f5e1a873dd0cc8c11f1094cafa39a18f6"
+   ],
+   [
     "results/validation/synthetic_validation.json",
     "1dd037fdb4d53d4946b3d5182226c45f0cd1f29171e85451ec7f7dcb2ba4485b"
    ],
    [
+    "results/variant_family/daily_returns.csv",
+    "dd9741c06468b0f22ce51eb5984c796ecb910a46e660e309330469b09619dc12"
+   ],
+   [
     "results/variant_family/declaration.json",
     "028b1a29935565931fbe191ac578d8f2756d36b1ddc1d7ecb4833b8f7ca66add"
+   ],
+   [
+    "results/variant_family/runs.json",
+    "f0c62841ead229805dd3bb47df36a2bd5b3e3bf083740532111738ef0b4c3648"
+   ],
+   [
+    "results/variant_family/snooping.json",
+    "af630c765002a529b16b445da8d3a660c3ae5fcc5be661ccb1515c5ba2f4a816"
    ],
    [
     "results/v32_dev/universe_meta.json",
@@ -1555,7 +1851,7 @@
    ],
    [
     "index.html",
-    "3fcc3f0d796b2c8854ecabd882a0950b44f6af0458b149890b6d2b23bd3f923c"
+    "938e9c9bb088c9c1d32d1e06ce7bb4d9f60b0c3af98656d4b104a2ae54ed07fb"
    ]
   ],
   "spec": [
@@ -1589,7 +1885,93 @@
    ],
    [
     "Evidence",
-    "Probabilistic and deflated Sharpe, Newey–West t, Politis–White block bootstrap, power and upper bounds under a non-normal AR(1) variance, a Bonferroni Sharpe hurdle for 32 trials and two field-wide hurdles, Ledoit–Wolf Sharpe-difference test; eight-factor attribution; the anatomy of the result (shortfall, exit race, decay, persistence, half-lives, capacity, cash); Gatev distance method and random pairs under the same costs and t + 1 fills."
+    "Probabilistic and deflated Sharpe, Newey–West t, Politis–White block bootstrap, power and upper bounds under a non-normal AR(1) variance, a Bonferroni Sharpe hurdle for 32 trials and two field-wide hurdles, Ledoit–Wolf Sharpe-difference test; eight-factor attribution; the anatomy of the result (shortfall, exit race, decay, persistence, half-lives, capacity, cash); Gatev distance method and random pairs under the same costs and t + 1 fills. A declared family of 38 variants with Hansen's SPA, White's Reality Check, the Romano–Wolf stepdown, the model confidence set, PBO and a deflated Sharpe ratio at its effective number of trials; robustness checks over start dates, regimes, the candidate pairs' persistence and clustered standard errors."
+   ]
+  ],
+  "startdates": [
+   [
+    "3 Jul 2023 (published)",
+    "213",
+    "−0.06",
+    "−0.39",
+    "−0.08"
+   ],
+   [
+    "2 Aug 2023",
+    "240",
+    "−1.16",
+    "−6.27",
+    "−0.30"
+   ],
+   [
+    "31 Aug 2023",
+    "208",
+    "−0.18",
+    "−0.97",
+    "+0.28"
+   ],
+   [
+    "2 Oct 2023",
+    "202",
+    "−0.30",
+    "−1.67",
+    "+0.48"
+   ],
+   [
+    "31 Oct 2023",
+    "205",
+    "−0.35",
+    "−1.66",
+    "−0.44"
+   ],
+   [
+    "30 Nov 2023",
+    "214",
+    "−0.72",
+    "−3.46",
+    "−0.65"
+   ],
+   [
+    "2 Jan 2024",
+    "215",
+    "−0.83",
+    "−3.64",
+    "−0.46"
+   ],
+   [
+    "1 Feb 2024",
+    "195",
+    "−0.81",
+    "−3.83",
+    "−0.50"
+   ],
+   [
+    "4 Mar 2024",
+    "172",
+    "−0.62",
+    "−2.85",
+    "−0.53"
+   ],
+   [
+    "3 Apr 2024",
+    "157",
+    "−0.97",
+    "−3.58",
+    "−0.47"
+   ],
+   [
+    "2 May 2024",
+    "169",
+    "−0.65",
+    "−2.68",
+    "−0.74"
+   ],
+   [
+    "3 Jun 2024",
+    "156",
+    "−0.65",
+    "−2.55",
+    "−0.65"
    ]
   ],
   "trials": [
@@ -1645,6 +2027,42 @@
     "−0.28",
     "−3.37",
     "10,916",
+    "—"
+   ],
+   [
+    "rehearsal2025",
+    "v33 · 2025",
+    "d83e033",
+    "−1.05",
+    "−2.10",
+    "102",
+    "—"
+   ],
+   [
+    "rehearsal2025",
+    "v32 · 2025",
+    "d83e033",
+    "−1.07",
+    "−0.44",
+    "12",
+    "—"
+   ],
+   [
+    "rehearsal2025",
+    "Avellaneda–Lee · 2025",
+    "d83e033",
+    "−0.17",
+    "−0.92",
+    "3,514",
+    "—"
+   ],
+   [
+    "variant_family",
+    "38 v33 variants · dev",
+    "—",
+    "−1.69 to +0.21",
+    "−9.63 to +1.14",
+    "144–333",
     "—"
    ]
   ],
@@ -1856,12 +2274,6 @@
   "paper.holdout.hi": "pending (sealed until the pre-registration is filed)",
   "paper.holdout.lo": "pending (sealed until the pre-registration is filed)",
   "paper.holdout.p": "pending (sealed until the pre-registration is filed)",
-  "paper.holdout.sharpe": "pending (sealed until the pre-registration is filed)",
-  "paper.snooping.effective_trials": "pending (the declared variant family's run)",
-  "paper.snooping.mcs_included": "pending (the declared variant family's run)",
-  "paper.snooping.pbo_pct": "pending (the declared variant family's run)",
-  "paper.snooping.reality_check_p": "pending (the declared variant family's run)",
-  "paper.snooping.romano_wolf_rejected": "pending (the declared variant family's run)",
-  "paper.snooping.spa_p": "pending (the declared variant family's run)"
+  "paper.holdout.sharpe": "pending (sealed until the pre-registration is filed)"
  }
 }

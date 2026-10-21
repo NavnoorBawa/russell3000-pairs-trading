@@ -47,6 +47,28 @@ still cointegrated, about the base rate of any correlated pair. A second family,
 residual reversion, agrees (Sharpe <!--m:study.residual.sharpe-->−0.28<!--/m-->
 over <!--m:study.residual.trades-->10,916<!--/m--> trades). The sample rules out a Sharpe ratio
 above <!--m:study.dev.facts.sharpe_ucb-->0.92<!--/m--> (one-sided 95%) but cannot tell 0 from 0.5.
+
+The search was tested too. Of <!--m:study.dev.snooping.results.n-->38<!--/m--> variants of the
+design declared before any ran (a <!--m:study.dev.snooping.grid_points-->27<!--/m-->-point grid of
+the entry, exit and stop thresholds and <!--m:study.dev.snooping.toggles-->11<!--/m--> design
+toggles), <!--m:study.dev.snooping.results.positive-->7<!--/m--> have a positive Sharpe ratio
+(best <!--m:study.dev.snooping.results.sharpe_best-->+0.21<!--/m-->,
+median <!--m:study.dev.snooping.results.sharpe_median-->−0.40<!--/m-->). None beats cash once the
+search is allowed for (Hansen's SPA p = <!--m:study.dev.snooping.results.spa_zero.p-->0.964<!--/m-->,
+White's Reality Check p = <!--m:study.dev.snooping.results.spa_zero.rc_p-->0.977<!--/m-->; the
+Romano–Wolf stepdown rejects <!--m:study.dev.snooping.results.rw_rejected-->0<!--/m-->) or the
+distance method (SPA p = <!--m:study.dev.snooping.results.spa_gatev.p-->0.219<!--/m-->), and the
+variant that is best on one half of the days ranks below the median on the other half
+in <!--m:study.dev.snooping.results.pbo_pct-->79.4<!--/m-->% of splits and loses money there
+in <!--m:study.dev.snooping.results.pbo_is_best_loss_pct-->99.2<!--/m-->%: choosing parameters on
+this family would overfit. Deflated with the family's effective number of trials
+(<!--m:study.dev.snooping.results.effective_rank-->13.7<!--/m-->) and its own Sharpe dispersion,
+the design's deflated Sharpe ratio is <!--m:study.dev.snooping.results.dsr.dsr_pct-->6.3<!--/m-->%.
+The headline is also the most favourable of <!--m:study.dev.facts.start_n-->12<!--/m--> start
+dates a month apart: their Sharpe ratios run
+from <!--m:study.dev.facts.start_sharpe_min-->−1.16<!--/m-->
+to <!--m:study.dev.facts.start_sharpe_max-->−0.06<!--/m--> (median
+of the twelve <!--m:study.dev.facts.start_sharpe_median-->−0.65<!--/m-->).
 The pre-registered falsification test on 2026 data,
 with <!--m:study.dev.facts.ho_power_1-->16<!--/m-->% power against a true Sharpe ratio of 1, is
 sealed until its protocol is filed.
@@ -106,9 +128,13 @@ null apart trade by trade, from the committed run:
   of <!--m:study.dev.facts.pers_of-->7,334<!--/m--> pairs cointegrated in one year of
   2020–2024, <!--m:study.dev.facts.pers_count-->370<!--/m--> were cointegrated the next,
   against <!--m:study.dev.facts.pers_expected-->403.4<!--/m--> at that year's base rate, itself
-  close to the test's 5% level (Clegg 2014 found the same); of the traded
-  pairs, <!--m:study.dev.facts.pers_traded_count-->6<!--/m-->
-  of <!--m:study.dev.facts.pers_traded_of-->115<!--/m-->.
+  close to the test's 5% level (on S&P 500 constituents, Clegg 2014 finds that the evidence does
+  not support persistence either); of the traded pairs, <!--m:study.dev.facts.pers_traded_count-->6<!--/m-->
+  of <!--m:study.dev.facts.pers_traded_of-->115<!--/m-->. On the strategy's own candidate pairs
+  (the same-industry pairs of the first formation) the pooled rate
+  is <!--m:study.dev.facts.pers_s1_pct-->5.18<!--/m-->% against a base rate
+  of <!--m:study.dev.facts.pers_s1_expected_pct-->5.55<!--/m-->%
+  (z = <!--m:study.dev.facts.pers_s1_z-->−0.55<!--/m-->).
 - **Costs and capacity only make it worse.** Each declared scenario re-runs the whole backtest
   (`scripts/cost_sensitivity.py`; trade counts differ because sizes are a share of equity and the
   30% gross cap binds): impact Y = 1.0 gives a Sharpe
@@ -153,7 +179,7 @@ is a falsification check: it can reject a large edge, but it cannot confirm a sm
 |---|---|
 | [`pairs_trading/`](pairs_trading/) | The system: study profiles and calendars (`study_config.py`), the point-in-time universe (`universe.py`), data and price anchoring (`data_processor.py`), pair selection with an exact numpy Engle–Granger (`pair_selector.py`, `fast_coint.py`), the engine (`trading_system.py`), costs (`transaction_costs.py`), significance, power and data-snooping tests (`significance.py`, `power.py`, `snooping.py`), baselines (`benchmark.py`), the evidence layer (`anatomy.py`, `evidence.py`) and the second family (`residual_statarb.py`) |
 | [`scripts/`](scripts/) | Runbooks (`run_dev_studies.sh`, `run_holdout.sh`), the evidence scripts, the holdout evaluator, the trial registry, the site and paper builders and the publication checker |
-| [`results/`](results/) | Every published run, with its provenance: `v33_dev/` (this study, with `anatomy.json` and `cost_sensitivity.json`), `residual_dev/` (S2), `validation/`, `v32_dev/` (the published v32 run), `variant_family/` (the declared family; its run is in progress) and `trial_registry.jsonl` (every trial whose result was seen) |
+| [`results/`](results/) | Every published run, with its provenance: `v33_dev/` (this study, with `anatomy.json`, `cost_sensitivity.json` and `robustness.json`), `residual_dev/` (S2), `validation/`, `v32_dev/` (the published v32 run), `variant_family/` (the declared family of variants, its runs and the data-snooping tests) and `trial_registry.jsonl` (every trial whose result was seen) |
 | [`reference/`](reference/) | IWV N-PORT holdings snapshots, the CUSIP-to-ticker map and the industry map, with how each was built and checked |
 | [`docs/`](docs/) | `PROGRESS.md` (the full engineering log, deliberately unflattering), `EXECUTION_COSTS.md`, `FREE_RESOURCES.md` |
 | `index.html`, [`assets/`](assets/) | The research note; `assets/study.json` is built from `results/` by `scripts/build_site_data.py` |
@@ -172,6 +198,10 @@ python3.12 -m venv .venv
 # main, anatomy, costs, residual, variants, validation, publish (each logs to logs/dev_<step>.log)
 PYTHON=.venv/bin/python bash scripts/run_dev_studies.sh
 PYTHON=.venv/bin/python bash scripts/run_dev_studies.sh main anatomy     # or any steps
+
+# the robustness checks: start dates, regimes, persistence on the candidate pairs and
+# clustered errors (results/v33_dev/robustness.json; not a step of run_dev_studies.sh)
+PYTHONHASHSEED=0 .venv/bin/python scripts/robustness_checks.py
 
 # the site's data, and the check of every marked number in README.md and index.html
 .venv/bin/python scripts/build_site_data.py              # results/v33_dev -> assets/study.json
@@ -246,14 +276,17 @@ and size.
 - **Design choices were made on the same data.** 33 versions on 2020–2025; the deflated Sharpe's
   32 trials are a lower bound; v33's changes were chosen after v32's results on this same period
   were seen; and an exploratory v33 run was seen before the published one (it is in the trial
-  registry). The pre-registered holdout and the declared variant family address it.
+  registry). The pre-registered holdout addresses it, and the declared variant family measures
+  it: no variant beats cash or the distance method once the search is allowed for, and parameter
+  choice on the family would overfit.
 - **The 2026 test is sealed, not prospective.** The test period ended before the pre-registration
   is filed, and the project was developed during it; the designers' general knowledge of 2026
   markets cannot be sealed.
 - **The path depends on the start date.** Sizing is a share of equity and the 30% cap binds, so
-  the same rule on the same days gives different trades from different start dates: on the days
-  they share, the main backtest and the walk-forward have Sharpe ratios a point apart, a spread
-  one path's bootstrap interval does not include.
+  the same rule on the same days gives different trades from different start dates. Of 12 start
+  dates a month apart the published one is the most favourable (median Sharpe of the
+  twelve <!--m:study.dev.facts.start_sharpe_median-->−0.65<!--/m-->), which flatters the headline; the
+  distribution and the two halves as separate runs are reported.
 - **Vendor prices carry corporate actions after the window.** Yahoo back-applies later splits
   and dividends to the whole history; price levels are anchored to N-PORT's price at each snapshot
   date, and returns are unaffected.
@@ -281,8 +314,10 @@ and size.
   reported with an eight-factor attribution.
 - **The main backtest and the walk-forward overlap.** With no model to refit they are one rule
   from two start dates; the holdout is the independent test.
-- **One period, one regime.** 30 months with T-bills near 5%, and one path; returns are not yet
-  split by volatility or dispersion regime.
+- **One period, one regime.** 30 months with T-bills near 5%, and one path. Within the period no
+  split by the previous day's VIX or sector dispersion separates the returns (highest minus lowest
+  VIX tercile, t = <!--m:study.dev.facts.vix_diff_t-->0.74<!--/m-->), but the terciles are the
+  period's own; the 2026 test is another period.
 - **The random-pair control trades a different rule.** Random pairs run through the Gatev rule,
   not this engine.
 
@@ -307,7 +342,7 @@ Full engineering log in [docs/PROGRESS.md](docs/PROGRESS.md).
 | v30 | leakage audit: survivorship confirmed, selection-clean window tagging |
 | v31–v31.1 | pre-launch audit: inverted stop-loss, same-bar exits, future re-selections in the walk-forward; results withdrawn |
 | v32 | full audit (about 270 confirmed findings) and rebuild of the engine, accounting, walk-forward, costs, ranker, benchmarks and outputs; synthetic known-answer validation; study run of 18 Oct 2026: no detectable edge. Kept as the published record and the frozen holdout arm |
-| v33 | the design to be pre-registered: point-in-time universe, same-industry pairs, full re-formation, no regime gate or ranker, one borrow fee; the evidence layer, a second strategy family, the trial registry and the sealed 2026 holdout. Development run of 21 Oct 2026: no detectable edge |
+| v33 | the design to be pre-registered: point-in-time universe, same-industry pairs, full re-formation, no regime gate or ranker, one borrow fee; the evidence layer, a second strategy family, the declared variant family and its data-snooping tests, robustness checks, the trial registry and the sealed 2026 holdout. Development run of 21 Oct 2026: no detectable edge |
 
 ---
 

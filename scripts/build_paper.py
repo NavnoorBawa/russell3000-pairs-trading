@@ -5,8 +5,7 @@ The paper is the site in print. It reads the site's data contract (assets/study.
 built by scripts/build_site_data.py, and the headline JSON that file was built from), so
 the two cannot disagree: every number the paper prints is formatted here, once, into
 paper/build/paper_data.json, and paper/main.typ only places the formatted strings. A
-result that does not exist yet (the data-snooping tests over the declared variant family,
-the sealed 2026 holdout) is null in that file; its exhibit or table is left out of the
+result that does not exist yet (the sealed 2026 holdout) is null in that file; its exhibit or table is left out of the
 body and listed, with what it will show, in the note's table of forthcoming results. A
 number that is null prints as "pending" with its reason, never as a number. Sentences whose
 wording depends on the data ("every interval spans zero") name a claim that is computed
@@ -80,7 +79,8 @@ WORDS = ('no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', '
 # (and the paper does not know) stops the build rather than going silently unprinted.
 KNOWN_STUDY = {'schema', 'meta', 'dev', 'holdout', 'residual', 'validation',
                'v32',          # the published v32 run: the history and the frozen arm S3
-               'trials'}       # results/trial_registry.jsonl: every trial whose result was seen
+               'trials',       # results/trial_registry.jsonl: every trial whose result was seen
+               'registry'}     # the registry's counts of trials and runs
 KNOWN_DEV = {'run', 'daily', 'gatev', 'random_band', 'random_sharpes', 'strategy_sharpe', 'gatev_sharpe',
              'random_percentile', 'walk_forward', 'monthly', 'annual', 'rolling_sharpe', 'forest', 'power',
              'dsr_curve', 'waterfall', 'trades', 'factors', 'funnel', 'universe_by_formation', 'cost_schedules',
@@ -90,7 +90,9 @@ KNOWN_DEV = {'run', 'daily', 'gatev', 'random_band', 'random_sharpes', 'strategy
              # the evidence layer's anatomy.json, passed through by the site builder
              'shortfall', 'exit_race', 'decay', 'persistence', 'capacity', 'half_lives',
              # scripts/cost_sensitivity.py: each declared scenario re-run in full
-             'cost_sensitivity'}
+             'cost_sensitivity',
+             # scripts/robustness_checks.py: start dates, regimes, persistence, clustering
+             'robustness'}
 
 
 class PaperDataError(ValueError):
@@ -391,7 +393,6 @@ def derived(inp):
     # declaration of the variant family), never the build machine's clock
     dated = [study['meta']['generated_utc'][:10], (sn.get('declared_utc') or '')[:10]]
     paper_date = max(d for d in dated if d)
-    snoop = sn.get('results') or {}
     trades = inp['results'].get('all_trades') or []
     boot = re.search(r'\((\d+) resamples, block (\d+) days\)', forest['main']['method'])
     boot_oos = re.search(r'block (\d+) days', forest['oos']['method'])
@@ -453,11 +454,6 @@ def derived(inp):
         'schedules_lose_word': word(len(neg)),
         'holdout': {'status': hold.get('status'), 'sharpe': hold.get('sharpe'), 'lo': hold.get('lo'),
                     'hi': hold.get('hi'), 'p': hold.get('p'), 'trades': hold.get('trades'), 'ret_pct': hold.get('ret_pct')},
-        'snooping': {'spa_p': snoop.get('spa_p'), 'reality_check_p': snoop.get('reality_check_p'),
-                     'romano_wolf_rejected': len(snoop['romano_wolf_rejected']) if snoop else None,
-                     'mcs_included': len(snoop['mcs_included']) if snoop else None,
-                     'effective_trials': snoop.get('effective_trials'),
-                     'pbo_pct': 100 * snoop['pbo'] if snoop.get('pbo') is not None else None},
         'iwv': ({'n': snaps['n'], 'first_long': long_date(snaps['first']), 'last_long': long_date(snaps['last']),
                  'equity_min': snaps['equity_min'], 'equity_max': snaps['equity_max'],
                  'unmapped_min_pct': snaps['unmapped_min_pct'], 'unmapped_max_pct': snaps['unmapped_max_pct'],
@@ -591,6 +587,21 @@ _FACTS = {
     'gap_last_members': ',.0', 'gap_last_missing': '.0',
     'anchor_moved': '.0', 'anchor_symbols': ',.0', 'anchor_moved_pct': '.1%', 'anchor_max_ratio': '.1',
     'anchor_min_ratio_inv': '.0',
+    # the robustness checks (results/v33_dev/robustness.json)
+    'start_n': '.0', 'start_step_days': '.0', 'start_headline_rank': '.0', 'start_common_days': '.0',
+    'start_sharpe_min': '.2', 'start_sharpe_max': '.2', 'start_sharpe_median': '.2',
+    'start_common_sharpe_min': '.2', 'start_common_sharpe_max': '+.2', 'start_ret_min': '.2%', 'start_ret_max': '.2%',
+    'half1_sharpe': '+.2', 'half2_sharpe': '.2', 'half1_inside_sharpe': '+.2', 'half2_inside_sharpe': '.2',
+    'half1_run_off_days': '.0', 'half1_ret_pct': '+.2%', 'half2_ret_pct': '.2%',
+    'vix_low_bp': '.2', 'vix_high_bp': '+.2', 'vix_diff_mean_bp': '+.2', 'vix_diff_t': '.2', 'vix_diff_p': '.2',
+    'vix_break_lo': '.2', 'vix_break_hi': '.2', 'disp_diff_mean_bp': '.2', 'disp_diff_t': '.2',
+    'pers_s1_count': '.0', 'pers_s1_of': ',.0', 'pers_s1_pct': '.2%', 'pers_s1_lo_pct': '.1', 'pers_s1_hi_pct': '.1%',
+    'pers_s1_expected': '.1', 'pers_s1_expected_pct': '.1%', 'pers_s1_z': '.2', 'pers_s1_pairs': ',.0',
+    'pers_s1_formations': '.0', 'pers_s1u_count': '.0', 'pers_s1u_of': ',.0', 'pers_s1u_pct': '.1%',
+    'pers_s1u_expected': '.1', 'pers_s1u_z': '.2', 'pers_s1u_pairs': ',.0',
+    's2c_gross_month_t': '.2', 's2c_gross_month_p': '.2', 's2c_gross_month_clusters': '.0',
+    's2c_gross_month_design_effect': '.1', 's2c_gross_date_t': '.2', 's2c_gross_symbol_t': '.2',
+    's2c_net_mean_bp': '.2', 's2c_net_month_t': '.2',
 }
 _RESIDUAL = {
     'sharpe': '.2', 'lo': '.2', 'hi': '+.2', 'p': '.3', 'hac_t': '.2', 'trades': ',.0', 'ret_pct': '.2%',
@@ -608,6 +619,20 @@ _V32 = {
     'gross_bp': '+.1', 'gross_t': '.2', 'cost_bp': '.1', 'flat_days': '.0', 'gate_blocked_days': '.0', 'days': '.0',
     'gatev_sharpe': '+.2', 'random_percentile': '.0', 'ranker_auc': '.3', 'pairs_tested': ',.0',
     'pairs_selected': ',.0', 'bh_q05': '.0',
+}
+_SNOOPING = {
+    'n': '.0', 'days': '.0', 'positive': '.0', 'sharpe_best': '+.2', 'sharpe_median': '.2', 'sharpe_worst': '.2',
+    'best_label': 'str', 'base_rank': '.0', 'base_sharpe': '.2', 'ret_best_pct': '+.2', 'ret_worst_pct': '.2',
+    'trades_min': '.0', 'trades_max': '.0',
+    'spa_zero.p': '.3', 'spa_zero.p_lower': '.3', 'spa_zero.p_upper': '.3', 'spa_zero.rc_p': '.3',
+    'spa_zero.best_t': '.2', 'spa_zero.best_label': 'str',
+    'spa_gatev.p': '.3', 'spa_gatev.rc_p': '.3', 'spa_gatev.best_t': '.2', 'spa_gatev.best_label': 'str',
+    'spa_gatev_unit_vol.p': '.3', 'spa_gatev_unit_vol.rc_p': '.3',
+    'rw_rejected': '.0', 'rw_min_p': '.2', 'mcs_included': '.0', 'mcs_min_p': '.2', 'mcs_size_pct': '.0%',
+    'effective_rank': '.1', 'avg_corr': '.2', 'pbo_pct': '.1%', 'pbo_splits': '.0', 'pbo_blocks': '.0',
+    'pbo_is_best_oos_sharpe': '.2', 'pbo_is_best_loss_pct': '.1%',
+    'dsr.n_trials': '.0', 'dsr.dsr_pct': '.1%', 'dsr.sd_sr': '.2', 'dsr.sr_star': '.2',
+    'reps': ',.0', 'block': '.0',
 }
 _VALIDATION = {
     'seeds': '.0', 'edge.trades': ',.0', 'edge.mean_bp': '+.1', 'edge.t': '.1', 'edge.median_net_sharpe': '.2',
@@ -693,14 +718,18 @@ METRICS = {
     **{f'paper.holdout_power.mde_05_{n}': '.2' for n in HOLDOUT_DAYS},
     **{f'paper.holdout_power.mde_normal_{n}': '.2' for n in HOLDOUT_DAYS},
     'paper.holdout.sharpe': '.2', 'paper.holdout.lo': '.2', 'paper.holdout.hi': '+.2', 'paper.holdout.p': '.3',
-    'paper.snooping.spa_p': '.3', 'paper.snooping.reality_check_p': '.3', 'paper.snooping.romano_wolf_rejected': '.0',
-    'paper.snooping.mcs_included': '.0', 'paper.snooping.effective_trials': '.1', 'paper.snooping.pbo_pct': '.1%',
+    # the declared variant family's data-snooping tests (results/variant_family)
+    **{f'study.dev.snooping.results.{k}': v for k, v in _SNOOPING.items()},
+    'study.registry.trials': '.0', 'study.registry.runs': '.0',
 }
 
 # A null is allowed only for results that do not exist yet; its reason prints in its place.
 PENDING = {
     'paper.holdout.': 'pending (sealed until the pre-registration is filed)',
-    'paper.snooping.': "pending (the declared variant family's run)",
+    'study.dev.snooping.results.': "pending (the declared variant family's run)",
+    # the robustness checks: absent until robustness.json is committed for the run
+    **{f'study.dev.facts.{p}': 'pending (the robustness checks)'
+       for p in ('start_', 'half1_', 'half2_', 'vix_', 'disp_', 'pers_s1', 's2c_')},
     'paper.iwv': 'pending (point-in-time universe index)',
     # optional sections of a run: absent until their study is committed
     'study.residual.': 'pending (the residual arm)',
@@ -781,6 +810,7 @@ def claims(data):
     alts = {a['sharpe']: a for a in dev['power']['alternatives']}
     U = dev.get('universe_by_formation') or []
     trials = study.get('trials') or []
+    sn = (dev.get('snooping') or {}).get('results') or {}
     return {
         # the verdict
         'main_ci_spans_zero': sig['main']['boot_lo'] < 0 < sig['main']['boot_hi'],
@@ -908,7 +938,30 @@ def claims(data):
         'exploratory_run_on_record': len(trials) > 1 and (trials[1].get('oos_sharpe') or 0) > 0
                                      and trials[1].get('dirty') is True,
         'holdout_sealed': (study.get('holdout') or {}).get('status') == 'sealed',
-        'snooping_pending': (dev.get('snooping') or {}).get('results') is None,
+        # the declared variant family (a claim is false while its results are absent)
+        'family_beats_neither_cash_nor_gatev': bool(sn) and all(
+            sn[k]['p'] > 0.05 and sn[k]['rc_p'] > 0.05 for k in ('spa_zero', 'spa_gatev', 'spa_gatev_unit_vol'))
+            and sn['rw_rejected'] == 0,
+        'family_mcs_keeps_all': bool(sn) and sn['mcs_included'] == sn['n'],
+        'family_overfits': bool(sn) and sn['pbo_pct'] > 50 and sn['pbo_is_best_loss_pct'] > 50
+                           and sn['pbo_is_best_oos_sharpe'] < 0,
+        'family_few_positive': bool(sn) and sn['positive'] < 0.5 * sn['n'] and sn['sharpe_median'] < 0,
+        'family_dsr_not_significant': bool(sn) and (sn.get('dsr') or {}).get('dsr_pct') is not None
+                                      and sn['dsr']['dsr_pct'] < 50,
+        'design_not_the_best_variant': bool(sn) and sn['base_rank'] is not None and sn['base_rank'] > 1,
+        # the robustness checks
+        'headline_start_most_favourable': facts.get('start_headline_rank') == 1
+                                          and facts['start_sharpe_median'] < facts['start_sharpe_max'],
+        'start_dates_all_negative': facts.get('start_sharpe_max') is not None and facts['start_sharpe_max'] < 0,
+        'start_reproduces_published_run': bool(_get(dev, 'robustness', 'start_dates', 'reproduces')),
+        'regimes_not_significant': facts.get('vix_diff_t') is not None and not _sig(facts['vix_diff_t'])
+                                   and not _sig(facts['disp_diff_t']),
+        'persistence_s1_at_base_rate': facts.get('pers_s1_z') is not None and not _sig(facts['pers_s1_z'])
+                                       and facts['pers_s1_lo_pct'] <= facts['pers_s1_expected_pct'] <= facts['pers_s1_hi_pct']
+                                       and not _sig(facts['pers_s1u_z']),
+        's2_clustered_not_significant': facts.get('s2c_gross_month_t') is not None
+                                        and not _sig(facts['s2c_gross_month_t'])
+                                        and abs(facts['s2c_gross_month_t']) < abs(res.get('gross_t') or 0),
     }
 
 
@@ -1060,12 +1113,65 @@ def tables(data, m):
     hypotheses = [['H1 · S1', f'{P["design"]} pairs, {design}', 'mean daily net return > 0'],
                   ['H2 · S2', 'Avellaneda–Lee residual reversion', 'mean daily net return > 0'],
                   ['S3', 'v32 as published, frozen', 'reported, not tested']]
-    snooping = [['Hansen SPA p (consistent)', cell('paper.snooping.spa_p')],
-                ['White Reality Check p', cell('paper.snooping.reality_check_p')],
-                ['Romano–Wolf: variants rejected at 5%', cell('paper.snooping.romano_wolf_rejected')],
-                ['Model confidence set (90%): variants kept', cell('paper.snooping.mcs_included')],
-                ['Effective number of trials', cell('paper.snooping.effective_trials')],
-                ['Probability of backtest overfitting', cell('paper.snooping.pbo_pct')]]
+    def sn(key):
+        return cell(f'study.dev.snooping.results.{key}')
+    snooping = [
+        ['Hansen SPA against cash, consistent p (lower, upper)',
+         f"{sn('spa_zero.p')} ({sn('spa_zero.p_lower')}, {sn('spa_zero.p_upper')})"],
+        ['White Reality Check against cash, p', sn('spa_zero.rc_p')],
+        ['Best variant against cash: studentized mean', f"t = {sn('spa_zero.best_t')} ({sn('spa_zero.best_label')})"],
+        ['Hansen SPA against the Gatev distance method, p (Reality Check)',
+         f"{sn('spa_gatev.p')} ({sn('spa_gatev.rc_p')})"],
+        ['The same with every series at unit volatility, p (Reality Check)',
+         f"{sn('spa_gatev_unit_vol.p')} ({sn('spa_gatev_unit_vol.rc_p')})"],
+        ['Best variant against the Gatev method: studentized mean',
+         f"t = {sn('spa_gatev.best_t')} ({sn('spa_gatev.best_label')})"],
+        ['Romano–Wolf stepdown against cash: variants rejected at 5% (smallest adjusted p)',
+         f"{sn('rw_rejected')} ({sn('rw_min_p')})"],
+        ['Model confidence set, 90%: variants kept (smallest p)', f"{sn('mcs_included')} of {sn('n')} ({sn('mcs_min_p')})"],
+        ['Effective number of independent trials (entropy effective rank)', sn('effective_rank')],
+        [f"Deflated Sharpe ratio of the {P['design']} design, N = {sn('dsr.n_trials')}, the variants' Sharpe dispersion",
+         sn('dsr.dsr_pct')],
+        [f"Probability of backtest overfitting ({sn('pbo_splits')} splits)", sn('pbo_pct')],
+        ['Best variant of one half of the days, on the other half: mean Sharpe; splits with a loss',
+         f"{sn('pbo_is_best_oos_sharpe')}; {sn('pbo_is_best_loss_pct')}"],
+        ['Variants with a positive Sharpe ratio (best, median, worst)',
+         f"{sn('positive')} of {sn('n')} ({sn('sharpe_best')}, {sn('sharpe_median')}, {sn('sharpe_worst')})"],
+        [f"The {P['design']} design: rank by Sharpe ratio (Sharpe)", f"{sn('base_rank')} ({sn('base_sharpe')})"],
+    ]
+    rob = dev.get('robustness') or {}
+    startdates = [[short_date(r['start']) + (' (published)' if r['offset'] == 0 else ''), fmt(r['trades'], '.0'),
+                   fmt(r['sharpe'], '.2'), fmt(r['ret_pct'], '.2'), fmt(r['common_sharpe'], '+.2')]
+                  for r in _get(rob, 'start_dates', 'runs', default=[]) if r.get('sharpe') is not None]
+    halves = [[f"{'First' if h['half'] == 'first' else 'Second'} half: entries {short_date(h['entry'][0])} to "
+               f"{short_date(h['entry'][1])}", fmt(h['trades'], '.0'), fmt(h['sharpe'], '+.2'), fmt(h['ret_pct'], '+.2'),
+               fmt(h['inside_sharpe'], '+.2')] for h in rob.get('halves') or [] if h.get('sharpe') is not None]
+    tercile = {'low': 'low', 'mid': 'middle', 'high': 'high'}
+    regimes = []
+    for key, title in (('vix', 'Previous-day VIX'), ('dispersion', 'Previous-day sector dispersion'),
+                       ('year', 'Calendar year')):
+        blk = _get(rob, 'regimes', key, 'net') or {}
+        for b in [b for b in blk.get('rows') or [] if b.get('mean_bp') is not None]:
+            label = (f"{title}, {tercile[b['bucket']]} tercile" if key != 'year'
+                     else f"{title} {b['bucket']}" + (' (from July)' if b['bucket'] == '2023' else ''))
+            regimes.append([label, fmt(b['days'], '.0'), fmt(b['mean_bp'], '+.2'), fmt(b['sharpe'], '+.2'),
+                            fmt(b['t'], '+.2')])
+        d = blk.get('diff') or {}
+        if d.get('mean_bp') is not None:
+            label = f"{title}, high minus low" if key != 'year' else f"{d['of'][0]} minus {d['of'][1]}"
+            regimes.append([label, '—', fmt(d['mean_bp'], '+.2'), '—', fmt(d['t'], '+.2')])
+    pers_s1 = []
+    first = _get(rob, 'persistence', 'first') or {}
+    for y in [y for y in first.get('years') or [] if y.get('coint') is not None]:
+        pers_s1.append([f"{y['year']} → {y['next_year']}", f"{fmt(y['coint'], ',.0')} of {fmt(y['correlated'], ',.0')}",
+                        f"{y['still']} of {y['still_of']} ({fmt(y['still_pct'], '.1')})", fmt(y['base_pct'], '.1'),
+                        fmt(y['p_vs_base'], '.2')])
+    for tag, which in (('Pooled', 'first'), ('Pooled, all formations', 'union')):
+        pl = _get(rob, 'persistence', which, 'pooled') or {}
+        if pl.get('count') is not None:
+            pers_s1.append([tag, '', f"{pl['count']} of {fmt(pl['of'], ',.0')} ({fmt(pl['pct'], '.1')}; "
+                                     f"{fmt(pl['lo_pct'], '.1')}–{fmt(pl['hi_pct'], '.1')})",
+                            fmt(pl['expected_pct'], '.1'), f"z = {fmt(pl['z'], '.2')}"])
     val = study.get('validation')
     if val:
         e, n, h, s = val['edge'], val['forced_null'], val['hedge_ratio'], val['selection']
@@ -1168,13 +1274,20 @@ def tables(data, m):
              m['benchmarks.random_control.strategy_percentile']],
         ]
     trials = []
+    family = (dev.get('snooping') or {}).get('results')
     for t in study.get('trials') or []:
         if t.get('sharpe') is None and t['name'] == 'residual_dev' and study.get('residual'):
             r = study['residual']
             row = [t['name'], 'Avellaneda–Lee · dev', (r.get('commit') or '')[:7], fmt(r['sharpe'], '.2'),
                    fmt(r['ret_pct'], '.2'), fmt(r['trades'], ',.0'), '—']
+        elif t.get('sharpe') is None and t['name'] == 'variant_family' and family:
+            row = [t['name'], f"{family['n']} {P['design']} variants · dev", '—',
+                   f"{fmt(family['sharpe_worst'], '.2')} to {fmt(family['sharpe_best'], '+.2')}",
+                   f"{fmt(family['ret_worst_pct'], '.2')} to {fmt(family['ret_best_pct'], '+.2')}",
+                   f"{family['trades_min']}–{family['trades_max']}", '—']
         else:
-            design_cal = f"{t.get('profile') or 'v32'} · {t.get('calendar') or 'dev'}".replace('rehearsal2025', '2025')
+            design_cal = f"{t.get('profile') or 'v32'} · {t.get('calendar') or 'dev'}".replace(
+                'rehearsal2025', '2025').replace('avellaneda_lee', 'Avellaneda–Lee')
             row = [t['name'], design_cal, (t.get('commit') or '—') + ('*' if t.get('dirty') else ''),
                    opt(t.get('sharpe'), '.2'), opt(t.get('ret_pct'), '.2'), opt(t.get('trades'), ',.0'),
                    opt(t.get('oos_sharpe'), '+.2')]
@@ -1219,13 +1332,18 @@ def tables(data, m):
                      f"{m['study.dev.facts.hurdle_tests']} trials and two field-wide hurdles, Ledoit–Wolf "
                      'Sharpe-difference test; eight-factor attribution; the anatomy of the result (shortfall, exit race, '
                      'decay, persistence, half-lives, capacity, cash); Gatev distance method and '
-                     'random pairs under the same costs and t + 1 fills.'],
+                     'random pairs under the same costs and t + 1 fills. A declared family of '
+                     f"{m['study.dev.snooping.results.n'] or 'pending'} variants with Hansen's SPA, White's Reality Check, the "
+                     'Romano–Wolf stepdown, the model confidence set, PBO and a deflated Sharpe ratio at its effective number '
+                     'of trials; robustness checks over start dates, regimes, the candidate pairs\' persistence and clustered '
+                     'standard errors.'],
     ]
     return {'significance': significance, 'forest': forest, 'alternatives': alternatives, 'hurdles': hurdles,
             'schedules': schedules, 'scenarios': scenarios, 'windows': windows, 'holdout_power': holdout_power_rows,
             'variants': variants, 'hypotheses': hypotheses, 'snooping': snooping, 'validation': validation,
             'manifest': manifest, 'sources': sources, 'design': design_rows, 'compare': compare, 'trials': trials,
-            'spec': spec, 'performance': performance_rows}
+            'spec': spec, 'performance': performance_rows, 'startdates': startdates, 'halves': halves,
+            'regimes': regimes, 'persistence_s1': pers_s1}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1593,22 +1711,84 @@ def fig_randomnull(dev, t, plt, width=FULL):
     return fig
 
 
+def _dodge(xs, gap):
+    """Stack levels for a dot strip: each value (in sorted order) takes the lowest level on which
+    no earlier dot lies within `gap` of it."""
+    levels, placed = [], []
+    for x in xs:
+        lvl = 0
+        while any(abs(x - px) < gap for px, pl in placed if pl == lvl):
+            lvl += 1
+        placed.append((x, lvl))
+        levels.append(lvl)
+    return levels
+
+
 def fig_dsr(dev, t, plt, width=FULL):
+    """The declared variants' Sharpe ratios (a dot strip, the v33 design and the Gatev baseline
+    marked) beside the main backtest's deflated Sharpe ratio against N, with the estimator's null
+    trial variance and with the variants' own Sharpe dispersion. Without the family's results,
+    the deflated Sharpe panel alone."""
     C = dev['dsr_curve']
+    sn = (dev.get('snooping') or {}).get('results')
+    at = dev['facts']['dsr_trials']
+    if sn:
+        fig, (axf, ax) = plt.subplots(1, 2, figsize=(width, 1.95), gridspec_kw={'width_ratios': [1.25, 1], 'wspace': 0.16})
+        V = sorted(sn['variants'], key=lambda v: v['sharpe'])
+        xs = [v['sharpe'] for v in V]
+        g = dev.get('gatev_sharpe')
+        lo, hi = min(xs + [g or 0]) - 0.12, max(xs + [0]) + 0.12
+        levels = _dodge(xs, (hi - lo) * 0.026)
+        colors = [t['ink'] if v['base'] else t['series-1'] if v['kind'] == 'grid' else t['series-3'] for v in V]
+        axf.scatter(xs, levels, s=17, c=colors, edgecolors='white', linewidths=0.5, zorder=3)
+        top = max(levels) + 2.6
+        axf.set_ylim(-0.8, top)
+        axf.set_xlim(lo, hi)
+        axf.axvline(0, color=t['axis'], lw=0.8, zorder=1)
+        if g is not None:
+            axf.axvline(g, color=t['series-2'], lw=1.0, ls=(0, (3, 2)), zorder=2)
+            axf.annotate('Gatev ' + fmt(g, '+.2'), (g, top), xytext=(-3, -1), textcoords='offset points',
+                         ha='right', va='top', fontsize=6.4, color=t['series-2'])
+        base = [v for v in V if v['base']]
+        if base:
+            b = base[0]
+            axf.axvline(b['sharpe'], color=t['ink'], lw=0.6, alpha=0.45, zorder=1)
+            axf.annotate(f"{dev['run']['name'].split('_')[0]} design, rank {b['rank']} of {len(V)}",
+                         (b['sharpe'], top), xytext=(-3, -9), textcoords='offset points', ha='right', va='top',
+                         fontsize=6.4, color=t['ink'], fontweight='semibold')
+        axf.set_yticks([])
+        axf.spines['bottom'].set_visible(True)
+        axf.grid(axis='y', visible=False)
+        axf.xaxis.set_major_locator(plt.MultipleLocator(0.5))
+        axf.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: _signed(v, 1)))
+        axf.set_xlabel('Net Sharpe ratio of each declared variant')
+        from matplotlib.lines import Line2D
+        axf.legend(handles=[Line2D([], [], lw=0, marker='o', markersize=4, markerfacecolor=c, markeredgecolor='white', label=lab)
+                            for c, lab in ((t['series-1'], 'Threshold grid'), (t['series-3'], 'Design toggle'))],
+                   loc='upper left', ncol=1, fontsize=6.3, handletextpad=0.2, borderaxespad=0.1, frameon=False)
+    else:
+        fig, ax = plt.subplots(figsize=(width, PAIR_HEIGHT if width < FULL else 1.95))
     n = [r['n'] for r in C]
     d = [100 * r['dsr'] for r in C]
-    at = dev['facts']['dsr_trials']
-    fig, ax = plt.subplots(figsize=(width, PAIR_HEIGHT if width < FULL else 1.95))
-    ax.plot(n, d, color=t['series-1'], lw=1.2, marker='o', markersize=3, markeredgecolor='white',
-            markeredgewidth=0.6, zorder=3)
-    _zero(ax, t)
+    ax.plot(n, d, color=t['ink-2'], lw=1.0, ls=(0, (3, 2)), zorder=3)
     for r in C:
         if r['n'] == at:
-            v = 100 * r['dsr']
-            ax.plot([r['n']], [v], marker='o', markersize=6, markerfacecolor='white', markeredgecolor=t['series-1'],
-                    markeredgewidth=1.1, zorder=4)
-            ax.annotate(f"N = {at}: {fmt(v, '.1%')}", (r['n'], v), xytext=(6, 7),
-                        textcoords='offset points', fontsize=6.8, color=t['ink'], fontweight='semibold')
+            ax.plot([r['n']], [100 * r['dsr']], marker='o', markersize=4.5, markerfacecolor='white',
+                    markeredgecolor=t['ink-2'], markeredgewidth=1.0, zorder=4)
+    if sn and (sn.get('dsr') or {}).get('dsr_pct') is not None:
+        F = sorted(sn['dsr']['curve'] + [{'n': sn['dsr']['n_trials'], 'dsr': sn['dsr']['dsr_pct'] / 100}],
+                   key=lambda r: r['n'])
+        ax.plot([r['n'] for r in F], [100 * r['dsr'] for r in F], color=t['series-1'], lw=1.2, zorder=3)
+        ax.plot([sn['dsr']['n_trials']], [sn['dsr']['dsr_pct']], marker='o', markersize=5, markerfacecolor='white',
+                markeredgecolor=t['series-1'], markeredgewidth=1.1, zorder=4)
+        ax.annotate(f"N = {sn['dsr']['n_trials']}, the family: {fmt(sn['dsr']['dsr_pct'], '.1%')}", (1, 1),
+                    xycoords='axes fraction', xytext=(0, -1), textcoords='offset points', ha='right', va='top',
+                    fontsize=6.4, color=t['series-1'], fontweight='semibold')
+    reported = next((100 * r['dsr'] for r in C if r['n'] == at), None)
+    if reported is not None:
+        ax.annotate(f"N = {at}, the trials reported: {fmt(reported, '.1%')}", (1, 1), xycoords='axes fraction',
+                    xytext=(0, -10), textcoords='offset points', ha='right', va='top', fontsize=6.4, color=t['ink-2'])
+    _zero(ax, t)
     ax.set_xscale('log')
     ax.set_xlim(n[0] * 0.8, n[-1] * 1.25)
     ax.set_ylim(0, max(50, d[0] * 1.1))
@@ -1616,7 +1796,8 @@ def fig_dsr(dev, t, plt, width=FULL):
     ax.set_xlabel('Independent trials N (log scale)')
     ax.set_ylabel('Deflated Sharpe, %')
     ax.grid(axis='x', visible=False)
-    fig.subplots_adjust(left=0.075 * FULL / width, right=0.97, top=0.97, bottom=0.25 if width < FULL else 0.2)
+    fig.subplots_adjust(left=0.03 if sn else 0.075 * FULL / width, right=0.985, top=0.97,
+                        bottom=0.25 if width < FULL and not sn else 0.2)
     return fig
 
 
@@ -2287,8 +2468,8 @@ def figures(data, tokens):
         'monthly': lambda: fig_monthly(dev, tokens, plt),
         'rolling': lambda: fig_rolling(dev, tokens, plt),
         'forest': lambda: fig_forest(dev, study, power, tokens, plt),
-        'randomnull': lambda: fig_randomnull(dev, tokens, plt, width=HALF),
-        'dsr': lambda: fig_dsr(dev, tokens, plt, width=HALF),
+        'randomnull': lambda: fig_randomnull(dev, tokens, plt),
+        'dsr': lambda: fig_dsr(dev, tokens, plt, width=FULL if (dev.get('snooping') or {}).get('results') else HALF),
         'waterfall': lambda: fig_waterfall(dev, tokens, plt),
         'anatomy': lambda: fig_anatomy(dev, tokens, plt),
         'exitrace': lambda: fig_exitrace(dev, tokens, plt),
