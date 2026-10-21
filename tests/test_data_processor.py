@@ -371,7 +371,8 @@ def test_a_short_top_up_changes_nothing_and_a_rerun_retries(tmp_path, monkeypatc
     asked.clear()
     with pytest.raises(RuntimeError, match='NOT changed'):
         dp.load_or_fetch_data(syms + new, max_workers=1)
-    assert sorted(asked) == new                                  # retried, not recorded as final
+    # retried, not recorded as final: asked in the burst and once more in the sequential pass
+    assert sorted(set(asked)) == new and sorted(asked) == sorted(new * 2)
 
 
 def _vendor_frame(traded, factor, dividend_drift=0.0):
@@ -413,3 +414,26 @@ def test_anchoring_steps_at_each_snapshot_and_skips_unusable_dates():
     assert np.allclose(ratio[120:], ratio[120]) and ratio[60] > ratio[120] > 1.0
     assert _P.anchor_point_in_time(df, pd.Series([50.0], index=[pd.Timestamp('2030-01-01')])) is df
     assert _P.anchor_point_in_time(df, pd.Series(dtype=float)) is df
+
+
+def test_a_transient_failure_gets_one_more_pass_and_final_outcomes_none(tmp_path, monkeypatch):
+    """A symbol whose burst attempts all fail transiently (HTTP errors, an empty reply) is
+    asked once more, one at a time, and cached when that succeeds; not_found, short and
+    invalid are final at once."""
+    dp = _P(start_date='2020-01-01', end_date='2021-06-30', data_file=str(tmp_path / 'c.pkl'))
+    asked, frame = [], pd.DataFrame({'Close': [1.0]})
+    first = {'THROT': 'error:HTTPError', 'EMPTY': 'empty', 'GONE': 'not_found', 'TINY': 'short',
+             'BAD': 'invalid', 'OK': 'ok'}
+
+    def fetch(symbol):
+        asked.append(symbol)
+        if symbol == 'OK' or (symbol in ('THROT', 'EMPTY') and asked.count(symbol) == 2):
+            dp.fetch_manifest[symbol] = 'ok'
+            return frame
+        dp.fetch_manifest[symbol] = first[symbol]
+        return None
+    monkeypatch.setattr(dp, 'fetch_stock_data', fetch)
+    out = dp._fetch_many(sorted(first), max_workers=3)
+    assert sorted(out) == ['EMPTY', 'OK', 'THROT']
+    assert sorted(asked) == sorted(list(first) + ['EMPTY', 'THROT'])
+    assert dp.fetch_manifest == {**first, 'THROT': 'ok', 'EMPTY': 'ok'}

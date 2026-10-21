@@ -40,3 +40,10 @@ def _pairs_switches_do_not_leak_between_tests():
     saved = _pairs_env()
     yield
     _restore(saved)
+
+
+@pytest.fixture(autouse=True)
+def _no_fetch_retry_pause(monkeypatch):
+    """The data processor waits before retrying transient fetch failures; tests do not."""
+    from pairs_trading.data_processor import EnhancedRussell3000DataProcessor
+    monkeypatch.setattr(EnhancedRussell3000DataProcessor, 'TRANSIENT_RETRY_PAUSE', 0.0)

@@ -704,11 +704,31 @@ class EnhancedRussell3000DataProcessor:
             raise RuntimeError(f"{len(late)} cached symbols have bars after {self.end_date} ({late[:5]}): "
                                f"{self.data_file} belongs to another period")
 
+    # A symbol whose every attempt failed transiently (a rate-limited burst: HTTP errors or
+    # empty replies) gets one more, sequential pass after this pause, so a throttled window
+    # does not drop it from the cache for good; outcomes that retrying cannot change
+    # (not_found, short, invalid) are final at once.
+    TRANSIENT_RETRY_PAUSE = 30.0
+
     def _fetch_many(self, symbols: List[str], max_workers: int) -> Dict[str, pd.DataFrame]:
-        """Fetch `symbols` concurrently; outcomes go to self.fetch_manifest. Sorted dict."""
+        """Fetch `symbols` concurrently, then retry the transient failures once, one at a
+        time; outcomes go to self.fetch_manifest. Sorted dict."""
         assert_unsealed(self.end_date)
+        results = self._fetch_pass(symbols, max_workers, "Fetching data")
+        transient = sorted(s for s in symbols if s not in results
+                           and str(self.fetch_manifest.get(s, '')).startswith(('error', 'empty')))
+        if transient:
+            logger.info(f"{len(transient)} symbols failed transiently; one more pass, one at a time, "
+                        f"after {self.TRANSIENT_RETRY_PAUSE:.0f}s")
+            time.sleep(self.TRANSIENT_RETRY_PAUSE)
+            recovered = self._fetch_pass(transient, 1, "Retrying")
+            results.update(recovered)
+            logger.info(f"Second pass: {len(recovered)}/{len(transient)} recovered")
+        return dict(sorted(results.items()))
+
+    def _fetch_pass(self, symbols: List[str], max_workers: int, desc: str) -> Dict[str, pd.DataFrame]:
         results = {}
-        with tqdm(total=len(symbols), desc="Fetching data", unit="symbol") as pbar:
+        with tqdm(total=len(symbols), desc=desc, unit="symbol") as pbar:
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                 future_to_symbol = {executor.submit(self.fetch_stock_data, s): s for s in symbols}
                 for future in concurrent.futures.as_completed(future_to_symbol):
@@ -721,7 +741,7 @@ class EnhancedRussell3000DataProcessor:
                         self.fetch_manifest[symbol] = f'error:{type(e).__name__}'
                     pbar.update(1)
                     pbar.set_postfix({'ok': len(results)})
-        return dict(sorted(results.items()))
+        return results
 
     def _top_up(self, saved_data: Dict[str, pd.DataFrame], wanted: set,
                 max_workers: int = 4) -> Dict[str, pd.DataFrame]:
