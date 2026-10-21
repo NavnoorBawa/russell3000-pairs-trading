@@ -8,10 +8,10 @@ abstract: >-
   power under non-normal autocorrelated returns, Gatev-distance and random-pair baselines, an
   evidence layer that explains the result trade by trade, a second strategy family
   (Avellaneda-Lee residual reversion) and a trial registry. The v33 design finds no detectable
-  edge on 2023-2025, before or after costs: the cointegration it selects does not persist beyond
-  chance, its in-sample edge vanishes out of sample, and its spreads behave like random walks;
-  the second family agrees. A pre-registered test on 2026 data is sealed until its protocol is
-  filed. Validated on synthetic markets with known answers.
+  edge on 2023-2025, before or after costs: its in-sample edge vanishes after formation, its
+  spreads then behave like random walks, and its pairs stay cointegrated only at about the base
+  rate; the second family agrees. A pre-registered falsification test on 2026 data is sealed
+  until its protocol is filed. Validated on synthetic markets with known answers.
 authors:
   - family-names: Bawa
     given-names: Navnoor

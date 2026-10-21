@@ -254,6 +254,7 @@ def test_main_typ_has_no_hand_typed_results():
         '0.002', '0.05', '0.1', '0.20', '0.25', '0.3', '0.30', '0.4', '0.5', '0.50', '0.55', '0.6', '0.75', '1.0',
         '1.25', '1.5', '1.8', '1.96', '2.5', '126', '252', '500',
         '0.10',                                          # the Benjamini-Hochberg diagnostic's second level
+        '404',                                           # the HTTP status of a symbol the vendor no longer serves
         # published results quoted in the text (Avellaneda and Lee 2010; Almgren et al. 2005)
         '1.44', '1.1', '0.9', '0.314',
     }

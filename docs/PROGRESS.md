@@ -2941,7 +2941,7 @@ that changes behaviour has a test.
   β-locked z. Now entry, target, stop and time stop all use the β-locked spread
   `lp1 − β_t·lp2` against its mean/std over the last 30–60 bars (3 × half-life), frozen at
   the signal.
-- **Hedge.** Legs are $1 : $β (v31: equal-dollar halves whatever β was). β outside
+- **Hedge.** Legs are \$1 : \$β (v31: equal-dollar halves whatever β was). β outside
   [0.25, 4] skips the signal rather than clamping it into a different position.
 - **Accounting.** Daily mark-to-market (v31 booked a trade's whole P&L on its exit day,
   understating daily volatility and drawdown); costs booked on fill days; share counts
@@ -3082,12 +3082,15 @@ accounting tests — no detectable edge after realistic execution and costs. Sti
 ## v33 — The design to be pre-registered, the evidence layer, a second family (2026-10-21)
 
 **Outcome.** The v33 design has no detectable edge on the development period, before or after
-costs, and the evidence layer shows why: the cointegration the selection finds does not persist
-beyond chance, so the rule's in-sample edge on its own pairs is gone out of sample and the spreads
-it trades behave like random walks. A second strategy family (Avellaneda–Lee residual reversion)
-agrees. The decisive test, a pre-registered run on 2026 data, is sealed: no daily price history
-of any security for dates after 2025-12-31 has been requested, and the fetch code refuses such a
-request until the registered commit unseals it. The pre-registration is not filed yet.
+costs, and the evidence layer is consistent with one mechanism: the rule's in-sample edge on its
+own pairs is gone after formation, the spreads it trades then behave like random walks, and the
+traded pairs stay cointegrated only at about the base rate. The walk-forward, the same rule
+started earlier, lost money. A second strategy family (Avellaneda–Lee residual reversion) agrees.
+The pre-registered falsification test on 2026 data, which has little power against a modest edge,
+is sealed: no daily price history of any security for dates after 2025-12-31 has been requested,
+and the fetch code refuses such a request until the registered commit unseals it. The test
+period has already ended and the project was developed during it, so the test is sealed, not
+prospective. The pre-registration is not filed yet.
 
 The numbers below are markers (`<!--m:KEY-->`) of the published run, results/v33_dev, and of
 assets/study.json built from it; they were checked with
@@ -3098,9 +3101,11 @@ when this entry was written.
 
 Every version so far was designed on 2020–2025, so the development period cannot test the
 design; only data that played no part in it can. v33 therefore fixes a design, freezes it with
-its test and decision rule before any 2026 price is fetched, and runs it once. Before freezing,
-v32's design was corrected where it was wrong for reasons that do not depend on its returns, and
-the study gained the measurements that explain a null instead of only reporting it.
+its test and decision rule before any 2026 daily price is fetched, and runs it once. Before
+freezing, v32's design was corrected where its design or its development run on this same period
+showed a defect, so the corrections were made after v32's development results were seen; none
+re-tunes a trading threshold. The study also gained the measurements that explain a null instead
+of only reporting it.
 
 ### The design: seven fields changed from v32
 
@@ -3111,11 +3116,11 @@ hash, `d54d21314c22`, so no design field changed after a v33 result was seen.
 | Field | v32 | v33 | Why |
 |---|---|---|---|
 | Universe | 3,000 largest US stocks by market cap on 2026-10-18, back-filled | Russell 3000 members as held by IWV in SEC N-PORT filings, the snapshot in force at each formation | today's largest names are survivors chosen with hindsight; point-in-time membership makes the survivorship gap measurable |
-| Names searched | 300 most liquid | 500 most liquid | the residual-reversion literature's universe size; both families trade the same names |
+| Names searched | 300 most liquid | 500 most liquid | a size at which both strategy families trade the same liquid names |
 | Candidate pairs | any two names | two names in one Fama–French 49 industry | an economic link is the premise of convergence (Do & Faff 2010); fewer tests, more power for the multiple-testing correction |
 | Re-formation | the 2022 pool re-tested every 90 trading days | the whole selection re-run every 126 trading days on the trailing three years | v32's pool could only shrink, and its 126-day re-test could not tell broken pairs from healthy ones |
 | Regime gate | VIX and dispersion scaling, hard stop | off (a declared variant) | fitted on windows now inside the test period; it blocked v32's entries on <!--m:study.v32.gate_blocked_days-->248<!--/m--> of <!--m:study.v32.days-->628<!--/m--> days |
-| Ranking | learned classifier | signal strength × pair quality (the learned ranker is a declared variant) | v32's ranker had no out-of-sample skill (AUC <!--m:study.v32.ranker_auc|3-->0.514<!--/m-->) |
+| Ranking | learned classifier | signal strength × pair quality (the learned ranker is a declared variant) | v32's ranker showed no skill after its training window (AUC <!--m:study.v32.ranker_auc|3-->0.514<!--/m-->) |
 | Borrow, financing | 25 bp borrow + 50 bp financing on the short half | one 0.38% fee on the short notional | the two charges double-count the cost of shorting; 0.38% is the median buy-side fee |
 
 Entry, exit and stop thresholds (1.8, 0.5, +1.5), next-day close fills and the rest of the cost
@@ -3128,11 +3133,11 @@ model are unchanged.
   issuer successions, and every changed or indirect mapping checked against N-PORT's own value per
   share. The survivorship gap is reported at every formation: <!--m:study.dev.facts.gap_first_pct-->3.33<!--/m-->%
   of index weight at the first formation and <!--m:study.dev.facts.gap_last_pct-->1.08<!--/m-->% at the last.
-- **Price anchoring** (`data_processor.anchor_point_in_time`): the vendor back-applies later
-  splits and dividends to the whole history, so point-in-time price levels are rescaled to
-  N-PORT's price at each snapshot date; the median rescaling exceeded 10% for
-  <!--m:study.dev.facts.anchor_moved-->732<!--/m--> of <!--m:study.dev.facts.anchor_symbols-->2,538<!--/m-->
-  symbols. Returns are unaffected.
+- **Price anchoring** (`data_processor.anchor_point_in_time`): the vendor back-applies later splits
+  and dividends to the whole history, so point-in-time price levels are rescaled to N-PORT's price
+  at each snapshot date; the median rescaling exceeded 10%
+  for <!--m:study.dev.facts.anchor_moved-->732<!--/m-->
+  of <!--m:study.dev.facts.anchor_symbols-->2,538<!--/m--> symbols. Returns are unaffected.
 - **Study profiles and calendars** (`study_config.py`): the v32 and v33 designs on one engine,
   the dev, rehearsal and holdout calendars, hashes recorded in every export, and the seal on 2026
   data in code (`assert_unsealed`).
@@ -3173,20 +3178,24 @@ model are unchanged.
 
 What the evidence layer shows:
 
-- Gross P&L of $<!--m:study.dev.facts.gross_usd_k-->1,520.1<!--/m-->k against
-  $<!--m:study.dev.facts.cost_usd_k-->1,907.4<!--/m-->k of costs; net breaks even at
-  <!--m:study.dev.facts.break_even_x-->0.80<!--/m-->× the modelled costs, and the gross is itself not
-  significant.
-- Pairs cointegrated in one year are cointegrated the next at the base rate:
-  <!--m:study.dev.facts.pers_count-->370<!--/m--> of <!--m:study.dev.facts.pers_of-->7,334<!--/m--> against
-  <!--m:study.dev.facts.pers_expected-->403.4<!--/m--> expected (z = <!--m:study.dev.facts.pers_z-->−1.71<!--/m-->).
+- Gross P&L of \$<!--m:study.dev.facts.gross_usd_k-->1,520.1<!--/m-->k against
+  \$<!--m:study.dev.facts.cost_usd_k-->1,907.4<!--/m-->k of costs; net breaks even
+  at <!--m:study.dev.facts.break_even_x-->0.80<!--/m-->× the modelled costs, and the gross is itself
+  not significant.
+- Pairs cointegrated in one year are cointegrated the next at the base
+  rate: <!--m:study.dev.facts.pers_count-->370<!--/m-->
+  of <!--m:study.dev.facts.pers_of-->7,334<!--/m-->
+  against <!--m:study.dev.facts.pers_expected-->403.4<!--/m--> expected (z
+  = <!--m:study.dev.facts.pers_z-->−1.71<!--/m-->).
 - The same rule on the same pairs: <!--m:study.dev.facts.decay_form_bp-->+64.7<!--/m--> bp a trade in
   sample (t = <!--m:study.dev.facts.decay_form_t-->8.35<!--/m-->), <!--m:study.dev.facts.decay_oos_bp-->−12.6<!--/m-->
-  bp out of sample (t = <!--m:study.dev.facts.decay_oos_t-->−1.17<!--/m-->).
-- Exit race: <!--m:study.dev.facts.er_targets-->72<!--/m--> targets and
-  <!--m:study.dev.facts.er_stops-->77<!--/m--> stops; a random-walk spread expects
-  <!--m:study.dev.facts.er_rw_expected-->65.9<!--/m--> targets, the selected mean reversion
-  <!--m:study.dev.facts.er_ou_expected-->121.0<!--/m--> (z = <!--m:study.dev.facts.er_ou_z-->−10.73<!--/m-->).
+  bp after formation (t = <!--m:study.dev.facts.decay_oos_t-->−1.17<!--/m-->); "after formation" is
+  development data, and "out of sample" is kept for the 2026 test.
+- Exit race: <!--m:study.dev.facts.er_targets-->72<!--/m--> targets
+  and <!--m:study.dev.facts.er_stops-->77<!--/m--> stops; a random-walk spread
+  expects <!--m:study.dev.facts.er_rw_expected-->65.9<!--/m--> targets, the selected mean
+  reversion <!--m:study.dev.facts.er_ou_expected-->121.0<!--/m--> (z
+  = <!--m:study.dev.facts.er_ou_z-->−10.73<!--/m-->).
 - The book loads on short-term reversal (t = <!--m:study.dev.facts.st_rev_t_main-->4.01<!--/m-->) and
   leaves an eight-factor alpha of <!--m:study.dev.facts.ff_alpha_main_pct-->−0.51<!--/m-->% a year.
 
@@ -3199,25 +3208,50 @@ What the evidence layer shows:
   profile does not record changed; the design did not (same hash). The positive walk-forward did
   not survive, and it stays in the registry.
 - **The v33 walk-forward is not an independent test.** With no model to refit it is the main
-  backtest's rule started on 2023-02-14 instead of 2023-07-03. Over their
-  <!--m:study.dev.facts.wf_common_days-->621<!--/m--> common days the two series correlate at
-  <!--m:study.dev.facts.wf_common_corr-->0.50<!--/m--> and their Sharpe ratios are
-  <!--m:study.dev.facts.wf_common_sharpe_main-->−0.09<!--/m--> and
-  <!--m:study.dev.facts.wf_common_sharpe_oos-->−0.82<!--/m-->: the 30% gross cap binds, so the path
-  depends on the start date. The walk-forward is also close to significantly negative (Wald upper
-  bound <!--m:study.dev.facts.oos_ucb-->−0.15<!--/m-->, eight-factor alpha t =
-  <!--m:study.dev.facts.ff_alpha_oos_t-->−2.25<!--/m-->).
+  backtest's rule started on 2023-02-14 instead of 2023-07-03. Over
+  their <!--m:study.dev.facts.wf_common_days-->621<!--/m--> common days the two series correlate
+  at <!--m:study.dev.facts.wf_common_corr-->0.50<!--/m--> and their Sharpe ratios
+  are <!--m:study.dev.facts.wf_common_sharpe_main-->−0.09<!--/m-->
+  and <!--m:study.dev.facts.wf_common_sharpe_oos-->−0.82<!--/m-->: the 30% gross cap binds, so the
+  path depends on the start date. The walk-forward is significantly negative at one-sided 5% (Wald
+  upper bound <!--m:study.dev.facts.oos_ucb-->−0.15<!--/m-->, eight-factor alpha t
+  = <!--m:study.dev.facts.ff_alpha_oos_t-->−2.25<!--/m-->), though its two-sided bootstrap interval
+  just includes zero.
 - **Cost scenarios change the trades.** Each scenario is a full re-run, and the trade count runs
-  from <!--m:study.dev.cost_sensitivity.trades_min-->213<!--/m--> to
-  <!--m:study.dev.cost_sensitivity.trades_max-->273<!--/m-->: positions are a share of equity (scaled by
-  the win rate of the last closed trades and by the volatility of recent daily returns; drawdown
-  only triggers the 15% kill switch, which never binds), the 30% gross cap binds, and the loss
-  cool-off follows net P&L.
-  The anatomy re-prices the headline trades under the same assumptions for the fixed-trade view.
-- **The random-pair control's levels are on committed capital.** Its 5th-percentile path ends at
-  <!--m:study.dev.facts.random_p05_end|1-->−92.3<!--/m-->%: unhedged random pairs traded with the
-  distance rule can lose most of their committed capital. The comparison is its Sharpe
-  distribution, which does not depend on the basis.
-- **Still open:** the declared variant family (running); the pre-registration (to be filed, with
-  the price-fetch manifest of the development cache published beside the run); the
+  from <!--m:study.dev.cost_sensitivity.trades_min-->213<!--/m-->
+  to <!--m:study.dev.cost_sensitivity.trades_max-->273<!--/m-->: positions are a share of equity
+  (scaled by the win rate of the last closed trades and by the volatility of recent daily returns;
+  drawdown only triggers the 15% kill switch, which never binds), the 30% gross cap binds, and the
+  loss cool-off follows net P&L. The anatomy re-prices the headline trades under the same
+  assumptions for the fixed-trade view.
+- **The random-pair control's levels are on committed capital.** Its 5th-percentile path ends
+  at <!--m:study.dev.facts.random_p05_end|1-->−92.3<!--/m-->%: unhedged random pairs traded with the
+  distance rule can lose most of their committed capital. The comparison is its Sharpe distribution,
+  which does not depend on the basis.
+- **Still open:** the declared variant family (running); the pre-registration (to be filed); the
   `residual_dev` registry line was written without its run record.
+
+### Review of the write-up (2026-10-21)
+
+Three reviews of the site, the paper and the README before the pre-registration is filed found
+the numbers reproduced correctly and several statements that said more than the numbers show.
+The write-up now:
+
+- states the data coverage as the share of requested symbols with price history
+  (<!--m:study.dev.facts.cached_pct-->82.2<!--/m-->%) and the share the vendor answered with HTTP
+  404 (<!--m:study.dev.facts.not_found_pct-->14.2<!--/m-->%), beside the fetch-coverage
+  rule's <!--m:study.dev.facts.coverage_pct-->98.8<!--/m-->%, which counts 404s and failed data
+  checks as resolved; publishes the fetch manifest as `results/v33_dev/price_fetch_manifest.json`;
+  and splits the survivorship gap by fetch outcome;
+- says the 2026 test is sealed, not prospective, calls it a falsification check rather than a
+  decisive test, and lists the 2026 inputs received;
+- reports the gross result on both bases
+  (size-weighted <!--m:study.dev.facts.sf_gross_bp-->+13.5<!--/m--> bp,
+  equal-weighted <!--m:study.dev.facts.gross_bp-->−7.9<!--/m--> bp a trade) with the gross Sharpe
+  ratio, instead of "no gross edge for costs to remove";
+- keeps "out of sample" for the 2026 test and calls post-formation results inside the development
+  period "after formation";
+- says that v33's design changes were made after v32's development results were seen;
+- adds threats for the sealed-not-prospective test, path dependence on the start date and the
+  single regime, a performance table, and the capacity caveat that participation is measured
+  against full-day volume while every fill is assumed in the closing auction.

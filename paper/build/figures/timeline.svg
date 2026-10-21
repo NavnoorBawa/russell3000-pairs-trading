@@ -211,7 +211,7 @@ L 437.69692 77.8296
 L 437.69692 83.3784
 L 387.617019 83.3784
 z
-" clip-path="url(#p75ff399320)" style="fill: url(#h258798bd40); stroke: #1baf7a; stroke-width: 0.7; stroke-linejoin: miter"/>
+" clip-path="url(#p75ff399320)" style="fill: url(#hcced441b4d); stroke: #16956a; stroke-width: 0.7; stroke-linejoin: miter"/>
    </g>
    <g id="line2d_8">
     <path d="M 198.522223 14.202
@@ -280,7 +280,7 @@ L 454.620472 89.784
   </clipPath>
  </defs>
  <defs>
-  <pattern id="h258798bd40" patternUnits="userSpaceOnUse" x="0" y="0" width="72" height="72">
+  <pattern id="hcced441b4d" patternUnits="userSpaceOnUse" x="0" y="0" width="72" height="72">
    <rect x="0" y="0" width="73" height="73" fill="#ffffff"/>
    <path d="M -36 36
 L 36 -36
@@ -332,7 +332,7 @@ M 33 105
 L 105 33
 M 36 108
 L 108 36
-" style="fill: #1baf7a; stroke: #1baf7a; stroke-width: 0.5; stroke-linecap: butt; stroke-linejoin: miter"/>
+" style="fill: #16956a; stroke: #16956a; stroke-width: 0.5; stroke-linecap: butt; stroke-linejoin: miter"/>
   </pattern>
  </defs>
 </svg>

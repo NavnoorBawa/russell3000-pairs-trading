@@ -298,12 +298,25 @@ def test_checks_a_real_export(tmp_path):
 def test_card_content_comes_from_the_json():
     c = og.card_content(_headline())
     assert [b[1] for b in c['bars']] == _headline()['oos']['window_returns_pct']
-    assert [b[0] for b in c['bars']][0] == 10 and c['bars'][-1][0] == 19
+    # windows numbered 1..N as on the site; the run's own index is kept beside them
+    assert [b[0] for b in c['bars']] == list(range(1, 11)) and c['run_ids'][0] == 10 and c['run_ids'][-1] == 19
     assert sum(1 for b in c['bars'] if b[2] == 0) == 3
-    assert c['subtitle'].splitlines()[0] == f'Walk-forward {MINUS}0.28%/qtr, pooled Sharpe {MINUS}1.23'
+    assert c['subtitle'].splitlines()[0] == (f'Main backtest Sharpe {MINUS}0.31 [{MINUS}1.70, +0.80]; '
+                                             f'walk-forward {MINUS}1.23 [{MINUS}2.41, +0.06]')
     assert 'loses to the textbook baseline' in c['subtitle'] and f'{MINUS}0.31 vs +0.26' in c['subtitle']
-    assert c['caption'] == '10 SELECTION-CLEAN WINDOWS  ·  1 POSITIVE  ·  3 TRADED NOTHING'
+    assert c['caption'] == '10 WALK-FORWARD WINDOWS  ·  1 POSITIVE  ·  3 TRADED NOTHING'
     assert c['eyebrow'].endswith('2020—2025')
+    assert c['title'].startswith('No detectable edge')            # the main interval spans zero
+
+
+def test_card_title_states_the_verdict_only_when_the_data_support_it():
+    h = _headline()
+    h['significance']['main'].update(boot_lo=0.2, boot_hi=1.9)
+    assert not og.card_content(h)['title'].startswith('No detectable edge')
+    del h['significance']
+    c = og.card_content(h)
+    assert c['subtitle'].splitlines()[0] == f'Walk-forward {MINUS}0.28%/qtr, pooled Sharpe {MINUS}1.23'
+    assert not c['title'].startswith('No detectable edge')
 
 
 def test_card_content_tracks_changed_results():
@@ -313,9 +326,11 @@ def test_card_content_tracks_changed_results():
                     period_start='2023-01-01', period_end='2023-12-31')
     h['main']['sharpe'] = 0.9
     c = og.card_content(h)
+    del h['significance']['main']
+    c = og.card_content(h)
     assert c['subtitle'].startswith('Walk-forward +0.35%/window, pooled Sharpe +1.10')   # not quarterly
     assert 'It beats the textbook baseline (Sharpe +0.90 vs +0.26).' in c['subtitle']
-    assert c['caption'] == '2 OOS WINDOWS  ·  2 POSITIVE'
+    assert c['caption'] == '2 WALK-FORWARD WINDOWS  ·  2 POSITIVE'
 
 
 @pytest.mark.parametrize('p,expected', [
@@ -502,6 +517,25 @@ def test_site_and_readme_list_the_same_limitations():
     assert len(readme) >= 8 and len(page) >= len(readme), (readme, page)
     norm = [lambda s: re.sub(r'\W+', ' ', s).lower().strip()]
     assert [norm[0](x) for x in readme] == [norm[0](x) for x in page[:len(readme)]], list(zip(readme, page))
+
+
+def test_markdown_lines_do_not_start_with_a_marker():
+    """In CommonMark (and on GitHub) a line that starts with '<!--', after at most three spaces,
+    opens an HTML block, which interrupts a paragraph: a marked number at the start of a line
+    would break the paragraph around it. The published Markdown files keep every marker
+    inside a line (final review of the v33 note)."""
+    import pathlib
+    import re
+    root = pathlib.Path(__file__).resolve().parents[1]
+    bad = []
+    for path in [root / 'README.md', *sorted((root / 'docs').glob('*.md'))]:
+        fence = False
+        for i, line in enumerate(path.read_text(encoding='utf-8').split('\n'), 1):
+            if line.lstrip().startswith('```'):
+                fence = not fence
+            elif not fence and re.match(r'^ {0,3}<!--m:', line):
+                bad.append(f'{path.name}:{i}')
+    assert not bad, bad
 
 
 def test_cost_sensitivity_reruns_the_same_trades_under_each_scenario(monkeypatch):

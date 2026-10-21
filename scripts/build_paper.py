@@ -48,7 +48,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from pairs_trading import power as pw  # noqa: E402
-from pairs_trading.significance import _autocorrelations, _circular_block_indices, hac_tstat_mean  # noqa: E402
+from pairs_trading.significance import _autocorrelations  # noqa: E402
 from pairs_trading.study_config import CALENDARS, PROFILES  # noqa: E402
 
 SCHEMA = 1
@@ -85,6 +85,8 @@ KNOWN_DEV = {'run', 'daily', 'gatev', 'random_band', 'random_sharpes', 'strategy
              'random_percentile', 'walk_forward', 'monthly', 'annual', 'rolling_sharpe', 'forest', 'power',
              'dsr_curve', 'waterfall', 'trades', 'factors', 'funnel', 'universe_by_formation', 'cost_schedules',
              'cost_curve', 'snooping', 'facts',
+             # the performance summary and the survivorship gap split by fetch outcome
+             'performance', 'survivorship',
              # the evidence layer's anatomy.json, passed through by the site builder
              'shortfall', 'exit_race', 'decay', 'persistence', 'capacity', 'half_lives',
              # scripts/cost_sensitivity.py: each declared scenario re-run in full
@@ -321,80 +323,19 @@ def universe_snapshots(index):
             'sealed': len(index.get('sealed') or [])}
 
 
-def drawdown(r):
-    """Maximum drawdown of a daily return series and its length in trading days.
-
-    (max drawdown in %, days from the peak to the trough, days from the peak until the
-    peak is regained or None if it never is)
-    """
-    w = np.cumprod(1.0 + np.asarray(r, dtype=float))
-    dd = w / np.maximum.accumulate(w) - 1.0
-    trough = int(np.argmin(dd))
-    peak = int(np.argmax(w[:trough + 1]))
-    back = next((j for j in range(trough, len(w)) if w[j] >= w[peak]), None)
-    return 100.0 * float(dd[trough]), trough - peak, (back - peak) if back is not None else None
-
-
-def volatility_interval(r, block):
-    """Annualised volatility, % a year, with its circular block-bootstrap 95% interval."""
-    r = np.asarray(r, dtype=float)
-    idx = _circular_block_indices(np.random.default_rng(BOOT_SEED), len(r), int(block), BOOT_RESAMPLES)
-    boots = r[idx].std(axis=1, ddof=1) * math.sqrt(PERIODS) * 100
-    return (float(r.std(ddof=1) * math.sqrt(PERIODS) * 100), float(np.percentile(boots, 2.5)),
-            float(np.percentile(boots, 97.5)))
-
-
-def mean_interval(mean_daily, t):
-    """Annualised mean return, % a year, with the 95% interval of its Newey-West t-statistic."""
-    se = abs(mean_daily / t) if t else float('nan')
-    return tuple(100 * PERIODS * v for v in (mean_daily, mean_daily - 1.96 * se, mean_daily + 1.96 * se))
-
-
-def performance(inp):
-    """The performance summary: main backtest, walk-forward and the Gatev baseline.
-
-    The main backtest, the walk-forward and the Gatev baseline all have daily series
-    (the walk-forward's is the export's walk_forward_daily).
-    """
-    res, head = inp['results'], inp['headline']
-    perf, sig = res['overall_performance'], res['significance']
-    main_r = np.array([d['daily_return_pct'] for d in res['daily_equity_curve']]) / 100.0
-    gatev = res['benchmarks']['distance_method']
-    gatev_r = np.asarray(gatev['daily_returns'], dtype=float)
-    wf_daily = inp['study']['dev']['walk_forward'].get('daily') or {}
-    wf_r = np.asarray(wf_daily.get('net') or [], dtype=float) / 100.0
-    blocks = {r['key']: re.search(r'block (\d+) days', r['method']) for r in inp['study']['dev']['forest']}
-    wf = res['walk_forward_validation']
-    out = {}
-    series = [('main', main_r, sig['main_backtest']), ('gatev', gatev_r, None)]
-    if len(wf_r):
-        series.append(('wf', wf_r, sig['oos_daily']))
-    for key, r, s in series:
-        h = s['hac'] if s else hac_tstat_mean(r)
-        dd, to_trough, to_back = drawdown(r)
-        block = blocks['oos' if key == 'wf' else key]
-        out[key] = {'ret': mean_interval(h['mean'], h['tstat']), 'vol': volatility_interval(r, int(block.group(1))),
-                    'max_dd': dd, 'dd_days': (to_trough, to_back), 'total': 100.0 * (float(np.prod(1.0 + r)) - 1.0)}
-    o = sig['oos_daily']
-    if 'wf' not in out:            # an export without the walk-forward's daily series
-        ret = mean_interval(o['hac']['mean'], o['hac']['tstat'])
-        out['wf'] = {'ret': ret, 'vol': (ret[0] / o['ann_sharpe'] if o['ann_sharpe'] else None, None, None),
-                     'max_dd': wf['max_drawdown_pct'], 'dd_days': (None, None), 'total': wf['stitched_total_return_pct']}
-    # the headline JSON's figures where it has them (the text quotes those; the export's
-    # two-decimal values would round differently, e.g. a turnover of 9.05 against 9.0)
-    hm = head['main']
-    out['main'].update(trades=hm['trades'], hit=hm['win_rate_pct'], hold=perf['avg_trading_days_held'],
-                       turnover=hm['annual_turnover_x'], gross=hm['avg_gross_exposure_pct'],
-                       ret_gross=out['main']['ret'][0] / (perf['avg_gross_exposure_pct_of_equity'] / 100.0))
-    out['wf'].update(trades=wf['total_trades'], hit=wf['win_rate_pct'], hold=None, turnover=None, gross=None,
-                     ret_gross=None)
-    out['gatev'].update(trades=gatev['n_trades'], hit=None, hold=gatev['avg_holding_days'], turnover=None, gross=None,
-                        ret_gross=None)
-    out['days'] = {'main': len(main_r), 'wf': o['n_days'], 'gatev': len(gatev_r)}
-    out['sharpe'] = {'main': (head['significance']['main']['ann_sharpe'], head['significance']['main']['boot_lo'],
-                              head['significance']['main']['boot_hi']),
-                     'wf': (head['significance']['oos_daily']['ann_sharpe'], head['significance']['oos_daily']['boot_lo'],
-                            head['significance']['oos_daily']['boot_hi'])}
+def performance(study):
+    """The performance summary of the main backtest, the walk-forward and the Gatev baseline,
+    as the site builder computes it (assets/study.json, dev.performance; the site prints the
+    same table), in the shape tables() reads."""
+    sp = study['dev'].get('performance')
+    if not sp:
+        raise PaperDataError('assets/study.json has no dev.performance section (rebuild it with '
+                             'scripts/build_site_data.py)')
+    cols = ('main', 'wf', 'gatev')
+    out = {c: {**sp[c], 'ret': tuple(sp[c]['ret']), 'vol': tuple(sp[c]['vol']), 'dd_days': tuple(sp[c]['dd_days'])}
+           for c in cols}
+    out['days'] = {c: sp[c]['days'] for c in cols}
+    out['sharpe'] = {c: tuple(sp[c]['sharpe']) for c in ('main', 'wf')}
     return out
 
 
@@ -553,7 +494,7 @@ def derived(inp):
         'oos_end_long': long_date(run['oos_period'][1]),
         'gatev_wf_sharpe': vs_wf.get('distance_sharpe'), 'wf_common_sharpe': vs_wf.get('strategy_sharpe'),
         'wf_common_days': vs_wf.get('n_common_days'),
-        'performance': performance(inp),
+        'performance': performance(study),
         # chance rejections among the "cointegrated" pairs: an upper bound (every pair null)
         'chance_share_pct': 100 * dev['funnel']['pairs'][1]['expected'] / fdr['significant_raw_p05'],
         # how much longer than the minimum track record 80% power takes (normal approximation)
@@ -581,6 +522,16 @@ _FACTS = {
     # the run and the book
     'trades': '.0', 'days': '.0', 'main_days': '.0', 'oos_days': '.0', 'capital_musd': '.0', 'flat_days': '.0',
     'avg_exposure_pct': '.1%', 'exposure_max_pct': '.2%', 'positions_max': '.0', 'coverage_pct': '.1%',
+    'cached_pct': '.1%', 'not_found_pct': '.1%', 'fetch_other_pct': '.1%', 'formations_traded': '.0',
+    'gap_heavy_members': '.0', 'wf_last_window_days': '.0',
+    'exposure_days_above_cap': '.0', 'position_min_pct': '.1%', 'position_max_pct': '.1%',
+    'sched_trades_min': '.0', 'sched_trades_max': '.0', 'sched_gross_negative': '.0',
+    'sched_gross_min_pct': '.2%', 'sched_gross_max_pct': '.2%', 'cash_tbill_yield_pct': '.2%',
+    **{f'gap_{tag}_{k}_pct': '.2' for tag in ('first', 'last') for k in ('not_found', 'fetch_failed', 'data_checks')},
+    **{f'gap_{tag}_{k}': '.0' for tag in ('first', 'last')
+       for k in ('heavy_missing', 'heavy_not_found', 'heavy_fetch_failed')},
+    'gap_first_heavy_missing_pct': '.2%', 'gap_last_heavy_missing_pct': '.2%',
+    'decay_engine_lo': '.1', 'decay_engine_hi': '+.1', 'decay_oos_lo': '.1', 'decay_oos_hi': '+.1',
     'hold_days': '.1', 'adv_participation_pct': '.2%', 'formations': '.0', 'pairs_traded': '.0',
     'oos_overlap_days': '.0', 'wf_common_days': '.0', 'wf_common_corr': '.2', 'wf_common_sharpe_main': '.2',
     'wf_common_sharpe_oos': '.2', 'stitched_pct': '.2%',
@@ -681,7 +632,7 @@ METRICS = {
     'significance.oos_daily.hac_p': '.3', 'significance.oos_daily.psr_pct': '.1%',
     'significance.oos_daily.dsr_pct': '.1%', 'significance.oos_daily.boot_lo': '.2',
     'significance.oos_daily.boot_hi': '+.2',
-    'significance.oos_windows.ci_lo_pct': '.3%', 'significance.oos_windows.ci_hi_pct': '+.3%',
+    'significance.oos_windows.ci_lo_pct': '.2%', 'significance.oos_windows.ci_hi_pct': '+.2%',
     'significance.oos_windows.p': '.3', 'significance.oos_windows.t': '.2',
     'benchmarks.gatev.total_return_pct': '.2%', 'benchmarks.gatev.sharpe': '.2',
     'benchmarks.random_control.median_sharpe': '+.2', 'benchmarks.random_control.p5_sharpe': '.2',
@@ -703,7 +654,7 @@ METRICS = {
     **{f'study.dev.cost_sensitivity.scenarios.{s}.full.{k}': v
        for s in ('headline', 'impact_0_6', 'impact_1_0', 'borrow_1', 'borrow_3', 'capital_10m', 'capital_1b',
                  'capital_5b')
-       for k, v in (('sharpe', '.2'), ('ret_pct', '.2%'), ('trades', '.0'))},
+       for k, v in (('sharpe', '.2'), ('ret_pct', '.2%'), ('trades', '.0'), ('adv_pct', '.2%'))},
     'study.dev.cost_sensitivity.scenarios.capital_10m.fixed.ret_pct': '+.2%',
     'study.dev.cost_sensitivity.scenarios.capital_10m.fixed.sharpe': '+.2',
     'study.trials.1.oos_sharpe': '+.2', 'study.trials.1.sharpe': '.2',
@@ -898,6 +849,8 @@ def claims(data):
         # selection
         'excess_cointegration': head['fdr']['significant_raw_p05'] > dev['funnel']['pairs'][1]['expected'],
         'chance_about_half': 0.4 <= dev['funnel']['pairs'][1]['expected'] / head['fdr']['significant_raw_p05'] <= 0.6,
+        # the initial selection at the cutoff was replaced before the first trading day
+        'initial_formation_governed_no_trade': facts['formations_traded'] == facts['formations'] - 1,
         'bh_none_at_5pct': head['fdr']['survive_bh_fdr_q05'] == 0,
         'v32_tested_more_pairs': v32.get('pairs_tested', 0) > head['fdr']['pairs_tested'],
         # costs, scenarios and capacity
@@ -914,6 +867,8 @@ def claims(data):
         'cost_curve_falls': len(curve) > 1 and all(a['sharpe'] > b['sharpe'] for a, b in zip(curve, curve[1:])),
         'sharpe_break_even_below_one': facts['sharpe_break_even_x'] < 1,
         'all_schedules_lose': bool(sched_ret) and all(r < 0 for r in sched_ret),
+        'schedules_gross_negative': bool(schedules) and all(s.get('gross_pct') is not None and s['gross_pct'] < 0
+                                                            for s in schedules) and facts['gross_usd_k'] > 0,
         'no_schedule_significant': all(s['sharpe'] < facts['sharpe_critical'] for s in schedules),
         'best_schedule_cheapest': bool(schedules) and (
             min(schedules, key=lambda s: s['cost_pct'])['id'] == P['sched_best_id']
@@ -936,6 +891,13 @@ def claims(data):
         'v32_ranker_no_skill': bool(v32) and v32['ranker_auc'] < 0.55,
         # the universe
         'gap_shrinks': facts['gap_first_pct'] > facts['gap_last_pct'],
+        # most of the missing weight is names the vendor answers with 404, at both ends
+        'gap_mostly_not_found': all(facts[f'gap_{x}_not_found_pct'] is not None
+                                    and facts[f'gap_{x}_not_found_pct'] > 0.5 * U[i]['missing_weight_pct']
+                                    for x, i in (('first', 0), ('last', -1))) if U else False,
+        'coverage_rule_above_cached': facts['coverage_pct'] > facts['cached_pct'] + facts['not_found_pct'] - 0.2,
+        'walk_forward_bound_below_zero_ci_spans': facts['oos_ucb'] < 0 < sig['oos_daily']['boot_hi'],
+        'cap_exceeded_marked_to_market': facts['exposure_days_above_cap'] > 0 and facts['exposure_max_pct'] < 31,
         'gap_first_is_first_formation': bool(U) and abs(U[0]['missing_weight_pct'] + U[0]['unmapped_weight_pct']
                                                         - facts['gap_first_pct']) < 0.01,
         'iwv_gap_shrinks': P['iwv'] is not None and P['iwv_unmapped_first_pct'] > P['iwv_unmapped_last_pct'],
@@ -991,7 +953,8 @@ def tables(data, m):
         ['Annualised Sharpe ratio, net', cell('significance.main.ann_sharpe'), cell('significance.oos_daily.ann_sharpe')],
         ['Newey–West t (mean ≠ 0)', cell('significance.main.hac_t'), cell('significance.oos_daily.hac_t')],
         ['Newey–West p', cell('significance.main.hac_p'), cell('significance.oos_daily.hac_p')],
-        ['Probabilistic Sharpe, P(SR > 0)', cell('significance.main.psr_pct'), cell('significance.oos_daily.psr_pct')],
+        ['Probabilistic Sharpe ratio (one minus the one-sided p of SR ≤ 0)', cell('significance.main.psr_pct'),
+         cell('significance.oos_daily.psr_pct')],
         [f"Deflated Sharpe ({m['study.dev.facts.dsr_trials']} trials)", cell('significance.main.dsr_pct'),
          cell('significance.oos_daily.dsr_pct')],
         ['Block-bootstrap 95% interval', ci('significance.main.boot_lo', 'significance.main.boot_hi'),
@@ -1020,8 +983,8 @@ def tables(data, m):
     hurdles = [['One test, one-sided 5%', fmt(_Z95, '.2'), fmt(hz.get('single_test'), '.2')],
                [f"Bonferroni over {m['study.dev.facts.hurdle_tests']} trials, one-sided", '—',
                 fmt(hz.get('bonferroni_one_sided'), '.2')],
-               ['Harvey, Liu and Zhu (2016)', m['study.dev.facts.hurdle_hlz_t'], fmt(hz.get('hlz'), '.2')],
-               ['Chordia, Goyal and Saretto (2020)', m['study.dev.facts.hurdle_cgs_t'], fmt(hz.get('cgs'), '.2')]]
+               ['Harvey, Liu and Zhu (2016), field-wide', m['study.dev.facts.hurdle_hlz_t'], fmt(hz.get('hlz'), '.2')],
+               ['Chordia, Goyal and Saretto (2020), field-wide', m['study.dev.facts.hurdle_cgs_t'], fmt(hz.get('cgs'), '.2')]]
     perf = P['performance']
 
     def interval(v, signed=True):
@@ -1060,8 +1023,9 @@ def tables(data, m):
     schedules = [[s['id'], fmt(s['commission_bps'], '.1'), fmt(s['half_spread_bps'], '.1'),
                   fmt(s['impact_cap_bps'], '.0'), fmt(s['borrow_pct'], '.2'), fmt(s['financing_pct'], '.2'),
                   f"{fmt(s['position_pct'][0], '.0')}–{fmt(s['position_pct'][1], '.0')}",
+                  opt(s.get('gross_pct'), '+.2'), fmt(s['cost_pct'], '.2'),
                   fmt(fund(s, 'total_return_pct'), '.2'), fmt(fund(s, 'sharpe'), '.2'),
-                  fmt(fund(s, 'max_drawdown_pct'), '.2'), fmt(s['cost_pct'], '.2'), fmt(s['peak_gross_x'], '.2'),
+                  fmt(fund(s, 'max_drawdown_pct'), '.2'), fmt(s['peak_gross_x'], '.2'),
                   fmt(s['trades'], '.0')]
                  for s in dev.get('cost_schedules') or []]
     cs = dev.get('cost_sensitivity') or {}
@@ -1129,8 +1093,11 @@ def tables(data, m):
                 ['Price cache', f"sha256 {run['price_cache_sha256']}"],
                 ['Headline JSON', f"{data['_headline_path']}, sha256 {study['meta']['headline_sha256']}"],
                 ['Site data', f"assets/study.json, sha256 {data['_study_sha256']}"],
-                ['Universe', f"IWV N-PORT snapshots (reference/universe/); {m['study.dev.facts.coverage_pct']} of "
-                             f"requested symbols fetched, {m['paper.names_prices']} with price history"],
+                ['Universe', f"IWV N-PORT snapshots (reference/universe/); price history for "
+                             f"{m['study.dev.facts.cached_pct']} of the requested symbols ({m['paper.names_prices']}), "
+                             f"{m['study.dev.facts.not_found_pct']} no longer served (HTTP 404); fetch-coverage rule "
+                             f"met at {m['study.dev.facts.coverage_pct']}"],
+                ['Fetch manifest', f"{P['run_dir']}/price_fetch_manifest.json"],
                 ['Seed', f"PAIRS_SEED={run['seed']}, PYTHONHASHSEED=0"],
                 ['Stack', ' · '.join(f'{k} {v[k]}' for k in ('python', 'numpy', 'pandas', 'scipy', 'statsmodels')
                                      if v.get(k))]]
@@ -1150,7 +1117,7 @@ def tables(data, m):
          "Today's largest names are survivors chosen with hindsight; point-in-time membership removes that "
          'look-ahead and makes the survivorship gap a measured quantity'],
         ['Names searched', f'{pv32.max_universe} most liquid', f'{pv33.max_universe} most liquid',
-         'The universe size of the residual-reversion literature, so that both families trade the same names'],
+         'A size at which both strategy families trade the same liquid names'],
         ['Candidate pairs', 'Any two names', 'Two names in the same Fama–French 49 industry',
          f"An economic link is the premise of convergence (Do and Faff 2010); fewer tests raise the power of the "
          f"multiple-testing correction ({m['fdr.pairs_tested']} against {m['study.v32.pairs_tested']})"],
@@ -1166,7 +1133,8 @@ def tables(data, m):
          f"on {m['study.v32.gate_blocked_days']} of {m['study.v32.days']} days"],
         ['Ranking', 'A learned classifier orders same-day candidates',
          'Signal strength × pair quality (the learned ranker is a declared variant)',
-         f"v32's ranker had no out-of-sample skill (AUC {m['study.v32.ranker_auc']}; 0.5 is none)"],
+         f"v32's ranker showed no skill on the trades after its training window (AUC {m['study.v32.ranker_auc']}; "
+         "0.5 is none)"],
         ['Borrow and financing', f"{fmt(1e4 * pv32.borrow_rate, '.0')} bp general-collateral borrow plus a "
                                  f"{fmt(1e4 * pv32.pb_financing_spread, '.0')} bp prime-broker spread on the short "
                                  'half of gross',
@@ -1188,11 +1156,11 @@ def tables(data, m):
             ['Walk-forward windows positive', f"{m['study.v32.oos.windows_positive']} of {m['study.v32.oos.windows']}",
              f"{m['oos.windows_positive']} of {m['oos.windows']}"],
             ['Trades', m['study.v32.main.trades'], m['main.trades']],
-            ['Gross bp per trade (t)', f"{m['study.v32.gross_bp']} ({m['study.v32.gross_t']})",
+            ['Gross bp per trade, equal-weighted (t)', f"{m['study.v32.gross_bp']} ({m['study.v32.gross_t']})",
              f"{m['study.dev.facts.gross_bp']} ({m['study.dev.facts.gross_t']})"],
-            ['Cost bp per trade', m['study.v32.cost_bp'], m['study.dev.facts.cost_bp']],
-            ['Average gross exposure, % of capital', m['study.v32.main.avg_exposure_pct'],
-             m['main.avg_gross_exposure_pct']],
+            ['Cost bp per trade, equal-weighted', m['study.v32.cost_bp'], m['study.dev.facts.cost_bp']],
+            ['Average gross exposure, % of capital', m['study.v32.main.avg_exposure_pct'].rstrip('%'),
+             m['main.avg_gross_exposure_pct'].rstrip('%')],
             ['Days with no position', m['study.v32.flat_days'], m['study.dev.facts.flat_days']],
             ['Pairs tested at the first formation', m['study.v32.pairs_tested'], m['fdr.pairs_tested']],
             ['Gatev distance method, Sharpe', m['study.v32.gatev_sharpe'], m['benchmarks.gatev.sharpe']],
@@ -1213,9 +1181,15 @@ def tables(data, m):
         trials.append(row)
     spec = [
         ['Universe', f"Russell 3000 members as held by the iShares Russell 3000 ETF (IWV), from its quarterly SEC "
-                     f"N-PORT filings: the latest snapshot whose period ends on or before each formation date. Holdings "
-                     f"mapped to tickers with OpenFIGI and checked against N-PORT's own value per share; daily prices "
-                     f"{P['data_years']} for {m['study.dev.facts.coverage_pct']} of the requested symbols. Screens on "
+                     f"N-PORT filings: the latest snapshot whose period ends on or before each formation date, used "
+                     f"from its period date, about two months before the filing was public (IWV's holdings stand in "
+                     f"for the index membership FTSE Russell had already published). Holdings mapped to tickers with "
+                     f"OpenFIGI and checked against N-PORT's own value per share. Daily prices {P['data_years']}: "
+                     f"price history for {m['study.dev.facts.cached_pct']} of the requested symbols; "
+                     f"{m['study.dev.facts.not_found_pct']} no longer served by the vendor (HTTP 404) and "
+                     f"{m['study.dev.facts.fetch_other_pct']} failed the fetch or the data checks; the fetch-coverage "
+                     f"rule, which counts 404s and failed data checks as resolved, is met at "
+                     f"{m['study.dev.facts.coverage_pct']}. Screens on "
                      f"point-in-time price (at least $5, anchored to N-PORT) and dollar volume (at least $10M a day), "
                      f"volatility and missing data; the {pv33.max_universe} most liquid enter the pair search."],
         ['Selection', f"Pairs within one Fama–French 49 industry (SEC SIC codes); positive return correlation ≥ 0.25; "
@@ -1228,20 +1202,23 @@ def tables(data, m):
         ['Rule', 'One β-locked z-score against its mean and standard deviation over the last 30–60 bars, frozen at the '
                  'signal. Entry |z| ≥ 1.8; target once z reverts past −0.5 (long) or +0.5 (short); stop 1.5 further '
                  'against; time stop max(10, min(⌊2.5 × half-life⌋, 25)) days. Gates: pair quality ≥ 0.55, 20-day '
-                 'correlation ≥ 0.20, β in [0.25, 4], a 30-day pause after three net losses on a pair. No regime gate.'],
+                 'correlation ≥ 0.20, β in [0.25, 4], a 30-day pause after three consecutive losing trades on a pair. '
+                 'No regime gate.'],
         ['Book', f"${m['study.dev.facts.capital_musd']}M notional; 3–10% of equity per pair before risk scaling "
-                 f"({m['paper.position_min_pct']} to {m['paper.position_max_pct']} as traded); 30% gross cap; at most "
-                 '8 entries a day, ordered by signal strength × pair quality; no shared legs; daily mark-to-market; '
-                 'drawdown and daily-loss kill switch.'],
+                 f"({m['paper.position_min_pct']} to {m['paper.position_max_pct']} as traded), scaled by the win rate "
+                 'of the last five closed trades and the volatility of recent daily returns; 30% gross cap on '
+                 'exposure at entry; at most 8 entries a day, ordered by signal strength × pair quality; no shared '
+                 'legs; daily mark-to-market; drawdown, daily-loss and exposure kill switch.'],
         ['Costs', f"Per execution: $0.002 a share (minimum $0.50), half the quoted spread by 20-day dollar ADV, "
                   f"square-root impact (Y = 0.3, cap 50 bp); one {fmt(100 * pv33.borrow_rate, '.2')}% a year borrow "
                   'fee on the short notional, charged over the days held.'],
         ['Walk-forward', f"The same rule on the same formations from {P['oos_start_long']}, one continuous simulation "
                          'cut into 63-day test windows; there is no model to refit.'],
         ['Evidence', 'Probabilistic and deflated Sharpe, Newey–West t, Politis–White block bootstrap, power and upper '
-                     f"bounds under a non-normal AR(1) variance, Sharpe hurdles for {m['study.dev.facts.hurdle_tests']} "
-                     'trials, Ledoit–Wolf Sharpe-difference test; eight-factor attribution; the anatomy of the result '
-                     '(shortfall, exit race, decay, persistence, half-lives, capacity, cash); Gatev distance method and '
+                     f"bounds under a non-normal AR(1) variance, a Bonferroni Sharpe hurdle for "
+                     f"{m['study.dev.facts.hurdle_tests']} trials and two field-wide hurdles, Ledoit–Wolf "
+                     'Sharpe-difference test; eight-factor attribution; the anatomy of the result (shortfall, exit race, '
+                     'decay, persistence, half-lives, capacity, cash); Gatev distance method and '
                      'random pairs under the same costs and t + 1 fills.'],
     ]
     return {'significance': significance, 'forest': forest, 'alternatives': alternatives, 'hurdles': hurdles,
@@ -1717,14 +1694,17 @@ def fig_schedules(dev, t, plt):
     allv = [v for s in C for v in s['cum']] + [0.0]
     span = max(allv) - min(allv)
     yl = (min(allv) - 0.08 * span, max(allv) + 0.08 * span)
-    fig, axes = plt.subplots(1, len(C), figsize=(FULL, 1.35), sharey=True)
+    fig, axes = plt.subplots(1, len(C), figsize=(FULL, 1.5), sharey=True)
     for ax, s in zip(np.atleast_1d(axes), C):
         x = _dates(s.get('dates') or dates)
         _zero(ax, t)
         ax.plot(x, s['cum'], color=t['series-1'], lw=1.0)
         ax.plot([x[-1]], [s['cum'][-1]], marker='o', markersize=3, color=t['series-1'], markeredgecolor='white',
                 markeredgewidth=0.7)
-        ax.set_title(f"Schedule {s['id']}: {fmt(s['ret_pct'], '+.2%')}", fontsize=7, color=t['ink'])
+        title = f"Schedule {s['id']}: {fmt(s['ret_pct'], '+.2%')}"
+        if s.get('gross_pct') is not None:
+            title += f"\ngross {fmt(s['gross_pct'], '+.2%')}"
+        ax.set_title(title, fontsize=7, color=t['ink'], linespacing=1.15)
         ax.set_ylim(*yl)
         import matplotlib.dates as mdates
         ax.xaxis.set_major_locator(mdates.YearLocator())
@@ -1732,8 +1712,7 @@ def fig_schedules(dev, t, plt):
         ax.yaxis.set_major_locator(plt.MaxNLocator(4, integer=True))
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: _signed(v, 0)))
         ax.margins(x=0.02)
-    np.atleast_1d(axes)[0].set_ylabel('Cumulative net, %', labelpad=2)
-    fig.subplots_adjust(left=0.08, right=0.975, top=0.84, bottom=0.15, wspace=0.14)
+    fig.subplots_adjust(left=0.06, right=0.975, top=0.76, bottom=0.15, wspace=0.14)
     return fig
 
 
@@ -1828,7 +1807,9 @@ def fig_funnel(dev, t, plt):
     fig, ax = plt.subplots(figsize=(FULL, 0.42 + 0.3 * len(rows)))
     # log scale: the last stage (100 pairs) is a hairline on a linear axis to 35,000
     for i, r in enumerate(rows):
-        ax.barh(i, r['n'], height=0.5, color=ramp[min(i, len(ramp) - 1)], zorder=3)
+        # the pairs traded across all formations are not a share of the first formation's stages
+        ax.barh(i, r['n'], height=0.5, color=t['neutral-series'] if r.get('separate') else ramp[min(i, len(ramp) - 1)],
+                zorder=3)
         count = fmt(r['n'], ',.0')
         ax.annotate(count, (r['n'], i), xytext=(3, 0), textcoords='offset points', va='center',
                     fontsize=6.8, color=t['ink'], fontweight='semibold')
@@ -1848,7 +1829,7 @@ def fig_funnel(dev, t, plt):
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: fmt(v, ',.0')))
     ax.set_xlabel('Pairs (log scale)')
     ax.grid(axis='y', visible=False)
-    fig.subplots_adjust(left=0.2, right=0.99, top=0.97, bottom=0.4 / (0.42 + 0.3 * len(rows)) + 0.03)
+    fig.subplots_adjust(left=0.25, right=0.99, top=0.97, bottom=0.4 / (0.42 + 0.3 * len(rows)) + 0.03)
     return fig
 
 
@@ -1949,7 +1930,7 @@ def fig_universe(dev, t, plt):
     ax.set_ylim(len(U) - 0.5, -0.5)
     ax.set_xlim(0, max(u['members'] for u in U) * 1.55)
     ax2.set_xlim(0, max((u['missing_weight_pct'] or 0) + (u['unmapped_weight_pct'] or 0) for u in U) * 1.3)
-    ax.set_title('Index members at each formation: with price history, without', fontsize=7, color=t['ink'])
+    ax.set_title('Index members at each formation, with and without price history', fontsize=7, color=t['ink'])
     ax2.set_title('Index weight without price history or a usable ticker, %', fontsize=7, color=t['ink'])
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: fmt(v, ',.0')))
     ax.xaxis.set_major_locator(plt.MaxNLocator(4))
@@ -2058,7 +2039,7 @@ def fig_persistence(dev, t, plt, width=HALF):
 
     def tick(w):
         m_ = re.fullmatch(r'(\d{4})\D+(\d{4})', w['window'])
-        return f"’{m_.group(1)[2:]}→’{m_.group(2)[2:]}" if m_ else 'Traded,\nOOS'
+        return f"’{m_.group(1)[2:]}→’{m_.group(2)[2:]}" if m_ else 'Traded,\nafter'
     fig, ax = plt.subplots(figsize=(width, PAIR_HEIGHT))
     xs = list(range(len(W)))
     ax.bar(xs, [w['pct'] for w in W], width=0.62, color=t['series-1'], zorder=3)
@@ -2189,7 +2170,7 @@ def fig_validation(study, t, plt):
         m_, se = V[key].get('mean_bp'), V[key].get('se_bp')
         if m_ is not None and se is not None:
             rows.append({'label': label, 'v': m_, 'lo': m_ - 1.96 * se, 'hi': m_ + 1.96 * se, 'color': c,
-                         'text': f"{fmt(m_, '+.1')} bp (t = {fmt(V[key]['t'], '.2')})"})
+                         'text': f"{fmt(m_, '+.1')} bp (t = {fmt(V[key]['t'], '.1' if abs(V[key]['t']) >= 10 else '.2')})"})
     if not rows:
         return None
     fig, ax = plt.subplots(figsize=(FULL, 0.55 + 0.27 * len(rows)))
@@ -2213,7 +2194,9 @@ _STEP_LABELS = {'paper': 'Paper P&L at the signal closes', 'entry_delay': 'Entry
                 'financing': 'Financing', 'net': 'Net P&L'}
 
 
-_DECAY_LABELS = {'Formation (in sample), same rule': 'In sample', 'Out of sample, same rule': 'Out of sample',
+# The anatomy's labels say "out of sample" for data after formation; the note keeps that
+# term for the 2026 holdout.
+_DECAY_LABELS = {'Formation (in sample), same rule': 'Formation window', 'Out of sample, same rule': 'After formation',
                  'Engine trades': "The book's trades"}
 
 
@@ -2240,7 +2223,7 @@ def fig_halflife(dev, t, plt, width=HALF):
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: fmt(float(v), '.0')))
     ax.yaxis.set_minor_locator(plt.NullLocator())
     ax.set_xlabel('Half-life at formation, trading days')
-    ax.set_ylabel('Out of sample, days')
+    ax.set_ylabel('After formation, days')
     fig.subplots_adjust(left=0.15, right=0.97, top=0.95, bottom=0.25)
     return fig
 
@@ -2369,9 +2352,9 @@ FORTHCOMING = (
     ('decay', 'Decay from formation to trading',
      'Gross return per trade of the same rule on the same pairs, formation period against trading period', _DEV),
     ('persistence', 'Persistence of cointegration',
-     'The share of cointegrated pairs still cointegrated a year later, against the chance base rate', _DEV),
-    ('halflife', 'Half-lives out of sample',
-     "Each traded pair's spread half-life on its formation window and out of sample", _DEV),
+     "The share of cointegrated pairs still cointegrated a year later, against the next year's base rate", _DEV),
+    ('halflife', 'Half-lives after formation',
+     "Each traded pair's spread half-life on its formation window and after formation", _DEV),
     ('capacity', 'Capacity',
      'Net and impact cost per trade when the same trades are re-priced at other book sizes', _DEV),
     ('multi_factor', 'Multi-factor attribution',
@@ -2385,7 +2368,7 @@ FORTHCOMING = (
     ('holdout', 'The 2026 holdout',
      "Each arm's net Sharpe ratio, one-sided upper bound, Holm-adjusted p-value and decision (S1 and S2; S3 "
      'descriptive), and its cumulative return',
-     'The pre-registration, filed before any 2026 price is fetched, then a single run of each arm on 2026 data'),
+     'The pre-registration, filed before any 2026 daily price is fetched, then a single run of each arm on 2026 data'),
 )
 
 

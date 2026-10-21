@@ -137,7 +137,31 @@
     drawnWidth.set(fig, width);
   }
 
-  function redrawAll() { if (study) figures.forEach(draw); }
+  function redrawAll() { if (study) figures.forEach(draw); syncScrollable(); }
+
+  // A table region takes keyboard focus (so it can be scrolled from the keyboard) only while
+  // its table is wider or taller than its frame; it then shows an edge shadow (site.css).
+  function syncScrollable() {
+    document.querySelectorAll('.tbl-wrap').forEach(function (w) {
+      var scrolls = w.clientWidth > 0 && (w.scrollWidth > w.clientWidth + 1 || w.scrollHeight > w.clientHeight + 1);
+      w.classList.toggle('is-scrollable', scrolls);
+      if (scrolls) w.tabIndex = 0;
+      else w.removeAttribute('tabindex');
+    });
+  }
+  syncScrollable();
+  var scrollFrame = null;
+  window.addEventListener('resize', function () {
+    if (scrollFrame === null) scrollFrame = requestAnimationFrame(function () { scrollFrame = null; syncScrollable(); });
+  });
+  // each data-table disclosure names its exhibit, and is re-checked for scrolling when opened
+  document.querySelectorAll('details.ex-data').forEach(function (d) {
+    var fig = d.closest('figure');
+    var label = fig && fig.querySelector('.ex-label');
+    var summary = d.querySelector('summary');
+    if (summary && label) summary.setAttribute('aria-label', 'Data table, ' + label.textContent.trim());
+    d.addEventListener('toggle', syncScrollable);
+  });
 
   // Before printing, draw the charts in the light palette (the print stylesheet is light).
   var printTheme = null;

@@ -7,9 +7,11 @@
   "break_even_below_one": true,
   "break_even_is_edge_over_cost": true,
   "cap_close_to_binding": true,
+  "cap_exceeded_marked_to_market": true,
   "capacity_monotone": true,
   "chance_about_half": true,
   "cost_curve_falls": true,
+  "coverage_rule_above_cached": true,
   "decay_in_sample_significant": true,
   "decay_oos_not_significant": true,
   "dsr_low": true,
@@ -27,6 +29,7 @@
   "ff_alpha_main_not_significant": true,
   "ff_alpha_oos_negative": true,
   "gap_first_is_first_formation": true,
+  "gap_mostly_not_found": true,
   "gap_shrinks": true,
   "gatev_below_strategy": true,
   "gatev_ci_spans_zero": true,
@@ -40,6 +43,7 @@
   "holdout_sealed": true,
   "hurdles_above_bound": true,
   "impact_largest_cost": true,
+  "initial_formation_governed_no_trade": true,
   "inside_random_spread": true,
   "iwv_gap_shrinks": true,
   "kurtosis_fat": true,
@@ -65,6 +69,7 @@
   "residual_gross_below_cost": true,
   "residual_net_negative": true,
   "scenario_trades_differ": true,
+  "schedules_gross_negative": true,
   "sharpe_1_5_and_2_rejected": true,
   "sharpe_1_rejected": true,
   "sharpe_break_even_below_one": true,
@@ -79,6 +84,7 @@
   "v32_ranker_no_skill": true,
   "v32_tested_more_pairs": true,
   "validation_passes": true,
+  "walk_forward_bound_below_zero_ci_spans": true,
   "win_rate_ci_spans_half": true
  },
  "colors": {
@@ -100,7 +106,7 @@
   "rule-2": "#c9c8be",
   "series-1": "#2a78d6",
   "series-2": "#eb6834",
-  "series-3": "#1baf7a",
+  "series-3": "#16956a",
   "sunk": "#f1f0ec"
  },
  "concordance": [
@@ -131,7 +137,7 @@
   ],
   [
    6,
-   "Every Sharpe interval spans zero, gross or net, in both families; the data exclude only Sharpe ratios above about 0.92",
+   "Every bootstrap interval spans zero, gross or net, in both families; the main backtest excludes Sharpe ratios above 0.92, and the walk-forward's one-sided bound is below zero",
    "ex-forest"
   ],
   [
@@ -141,37 +147,37 @@
   ],
   [
    8,
-   "Deflated for 32 trials, the main backtest's Sharpe ratio has a 1.4% probability of beating the best of chance; the data-snooping tests are running",
+   "Deflated for 32 trials, the main backtest's Sharpe ratio is far from significant (deflated Sharpe ratio 1.4%); the data-snooping tests are running",
    "ex-dsr"
   ],
   [
    9,
-   "From paper to net P&L: the next-day fill costs little, and costs exceed what the trades earned before them",
+   "From paper P&L to net: the next-day fill gives up part of the paper P&L, and costs exceed what the trades earned before them",
    "ex-waterfall"
   ],
   [
    10,
-   "Stops lost $15.33M and targets earned $15.15M: the outcomes are symmetric around zero",
+   "Targets and stops offset each other; long-spread trades made $1.04M and short-spread trades lost $1.43M, consistent with hedge ratios below one",
    "ex-anatomy"
   ],
   [
    11,
-   "Out of sample, spreads hit their targets as often as a random walk would, not as the selection implies",
+   "After formation, spreads hit their targets about as often as a random walk would, not as the selection implies",
    "ex-exitrace"
   ],
   [
    12,
-   "The rule's edge on its own pairs is in-sample only: +64.7 bp a trade on the selection data, −12.6 bp afterwards",
+   "The rule's edge on its own pairs is in-sample only: +64.7 bp a trade on the selection data, −12.6 bp after formation",
    "ex-decay"
   ],
   [
    13,
-   "Cointegration does not persist: a pair cointegrated one year is cointegrated the next at the base rate",
+   "Cointegration persists only at the base rate: a pair cointegrated one year is cointegrated the next about as often as any correlated pair",
    "ex-persistence"
   ],
   [
    14,
-   "Out of sample, 60.8% of the traded pairs' half-lives exceed the rule's 25-day maximum",
+   "After formation, 60.8% of the traded pairs' half-lives exceed the rule's 25-day maximum",
    "ex-halflife"
   ],
   [
@@ -191,7 +197,7 @@
   ],
   [
    18,
-   "Re-costed under five other cost and sizing schedules, the same trades lose money in all five",
+   "Re-sizing the same trades changes even the sign of their gross P&L: negative under all 5 other schedules, against +$1.52M in the headline run",
    "ex-schedules"
   ],
   [
@@ -206,7 +212,7 @@
   ],
   [
    21,
-   "From 5,082 candidate pairs to 130 traded; chance alone accounts for about half the “cointegrated” pairs",
+   "From 5,082 pairs tested at the first formation, chance alone could account for up to about half the “cointegrated” ones",
    "ex-funnel"
   ],
   [
@@ -288,7 +294,7 @@
    "holdout",
    "The 2026 holdout",
    "Each arm's net Sharpe ratio, one-sided upper bound, Holm-adjusted p-value and decision (S1 and S2; S3 descriptive), and its cumulative return",
-   "The pre-registration, filed before any 2026 price is fetched, then a single run of each arm on 2026 data"
+   "The pre-registration, filed before any 2026 daily price is fetched, then a single run of each arm on 2026 data"
   ]
  ],
  "layout": {
@@ -464,33 +470,41 @@
   "significance.oos_daily.hac_p": "0.061",
   "significance.oos_daily.hac_t": "−1.87",
   "significance.oos_daily.psr_pct": "3.9%",
-  "significance.oos_windows.ci_hi_pct": "+0.124%",
-  "significance.oos_windows.ci_lo_pct": "−1.283%",
+  "significance.oos_windows.ci_hi_pct": "+0.12%",
+  "significance.oos_windows.ci_lo_pct": "−1.28%",
   "significance.oos_windows.p": "0.096",
   "significance.oos_windows.t": "−1.84",
+  "study.dev.cost_sensitivity.scenarios.borrow_1.full.adv_pct": "1.42%",
   "study.dev.cost_sensitivity.scenarios.borrow_1.full.ret_pct": "−1.79%",
   "study.dev.cost_sensitivity.scenarios.borrow_1.full.sharpe": "−0.26",
   "study.dev.cost_sensitivity.scenarios.borrow_1.full.trades": "262",
+  "study.dev.cost_sensitivity.scenarios.borrow_3.full.adv_pct": "1.42%",
   "study.dev.cost_sensitivity.scenarios.borrow_3.full.ret_pct": "−4.61%",
   "study.dev.cost_sensitivity.scenarios.borrow_3.full.sharpe": "−0.71",
   "study.dev.cost_sensitivity.scenarios.borrow_3.full.trades": "265",
   "study.dev.cost_sensitivity.scenarios.capital_10m.fixed.ret_pct": "+0.49%",
   "study.dev.cost_sensitivity.scenarios.capital_10m.fixed.sharpe": "+0.10",
+  "study.dev.cost_sensitivity.scenarios.capital_10m.full.adv_pct": "0.15%",
   "study.dev.cost_sensitivity.scenarios.capital_10m.full.ret_pct": "−0.09%",
   "study.dev.cost_sensitivity.scenarios.capital_10m.full.sharpe": "0.00",
   "study.dev.cost_sensitivity.scenarios.capital_10m.full.trades": "245",
+  "study.dev.cost_sensitivity.scenarios.capital_1b.full.adv_pct": "13.26%",
   "study.dev.cost_sensitivity.scenarios.capital_1b.full.ret_pct": "−5.88%",
   "study.dev.cost_sensitivity.scenarios.capital_1b.full.sharpe": "−1.02",
   "study.dev.cost_sensitivity.scenarios.capital_1b.full.trades": "244",
+  "study.dev.cost_sensitivity.scenarios.capital_5b.full.adv_pct": "72.84%",
   "study.dev.cost_sensitivity.scenarios.capital_5b.full.ret_pct": "−8.07%",
   "study.dev.cost_sensitivity.scenarios.capital_5b.full.sharpe": "−1.50",
   "study.dev.cost_sensitivity.scenarios.capital_5b.full.trades": "236",
+  "study.dev.cost_sensitivity.scenarios.headline.full.adv_pct": "1.61%",
   "study.dev.cost_sensitivity.scenarios.headline.full.ret_pct": "−0.39%",
   "study.dev.cost_sensitivity.scenarios.headline.full.sharpe": "−0.06",
   "study.dev.cost_sensitivity.scenarios.headline.full.trades": "213",
+  "study.dev.cost_sensitivity.scenarios.impact_0_6.full.adv_pct": "1.41%",
   "study.dev.cost_sensitivity.scenarios.impact_0_6.full.ret_pct": "−2.66%",
   "study.dev.cost_sensitivity.scenarios.impact_0_6.full.sharpe": "−0.41",
   "study.dev.cost_sensitivity.scenarios.impact_0_6.full.trades": "273",
+  "study.dev.cost_sensitivity.scenarios.impact_1_0.full.adv_pct": "1.46%",
   "study.dev.cost_sensitivity.scenarios.impact_1_0.full.ret_pct": "−4.38%",
   "study.dev.cost_sensitivity.scenarios.impact_1_0.full.sharpe": "−0.70",
   "study.dev.cost_sensitivity.scenarios.impact_1_0.full.trades": "248",
@@ -513,6 +527,7 @@
   "study.dev.facts.bid_ask_usd_k": "432.4",
   "study.dev.facts.borrow_usd_k": "130.7",
   "study.dev.facts.break_even_x": "0.80×",
+  "study.dev.facts.cached_pct": "82.2%",
   "study.dev.facts.cap_100m_impact_bp": "10.6",
   "study.dev.facts.cap_100m_net_bp": "−24.0",
   "study.dev.facts.cap_10m_impact_bp": "3.4",
@@ -523,6 +538,7 @@
   "study.dev.facts.cap_5b_net_bp": "−75.1",
   "study.dev.facts.capital_musd": "100",
   "study.dev.facts.cash_tbill_pct": "12.72%",
+  "study.dev.facts.cash_tbill_yield_pct": "4.79%",
   "study.dev.facts.commission_usd_k": "58.2",
   "study.dev.facts.cost_0x_sharpe": "+0.29",
   "study.dev.facts.cost_2x_sharpe": "−0.42",
@@ -534,6 +550,8 @@
   "study.dev.facts.coverage_pct": "98.8%",
   "study.dev.facts.days": "628",
   "study.dev.facts.decay_engine_bp": "−7.9",
+  "study.dev.facts.decay_engine_hi": "+52.9",
+  "study.dev.facts.decay_engine_lo": "−68.7",
   "study.dev.facts.decay_engine_n": "213",
   "study.dev.facts.decay_engine_t": "−0.25",
   "study.dev.facts.decay_form_bp": "+64.7",
@@ -541,6 +559,8 @@
   "study.dev.facts.decay_form_t": "8.35",
   "study.dev.facts.decay_form_tc": "5.60",
   "study.dev.facts.decay_oos_bp": "−12.6",
+  "study.dev.facts.decay_oos_hi": "+8.6",
+  "study.dev.facts.decay_oos_lo": "−33.8",
   "study.dev.facts.decay_oos_n": "1,698",
   "study.dev.facts.decay_oos_t": "−1.17",
   "study.dev.facts.decay_oos_tc": "−0.88",
@@ -559,7 +579,9 @@
   "study.dev.facts.er_share_pct": "48.3%",
   "study.dev.facts.er_stops": "77",
   "study.dev.facts.er_targets": "72",
+  "study.dev.facts.exposure_days_above_cap": "5",
   "study.dev.facts.exposure_max_pct": "30.11%",
+  "study.dev.facts.fetch_other_pct": "3.6%",
   "study.dev.facts.ff_alpha_main_pct": "−0.51%",
   "study.dev.facts.ff_alpha_main_t": "−0.38",
   "study.dev.facts.ff_alpha_oos_pct": "−2.59%",
@@ -568,11 +590,27 @@
   "study.dev.facts.ff_r2_oos": "0.148",
   "study.dev.facts.flat_days": "2",
   "study.dev.facts.formations": "7",
+  "study.dev.facts.formations_traded": "6",
+  "study.dev.facts.gap_first_data_checks_pct": "0.10",
+  "study.dev.facts.gap_first_fetch_failed_pct": "0.34",
+  "study.dev.facts.gap_first_heavy_fetch_failed": "3",
+  "study.dev.facts.gap_first_heavy_missing": "19",
+  "study.dev.facts.gap_first_heavy_missing_pct": "1.29%",
+  "study.dev.facts.gap_first_heavy_not_found": "16",
   "study.dev.facts.gap_first_members": "2,574",
   "study.dev.facts.gap_first_missing": "444",
+  "study.dev.facts.gap_first_not_found_pct": "2.75",
   "study.dev.facts.gap_first_pct": "3.33%",
+  "study.dev.facts.gap_heavy_members": "500",
+  "study.dev.facts.gap_last_data_checks_pct": "0.09",
+  "study.dev.facts.gap_last_fetch_failed_pct": "0.25",
+  "study.dev.facts.gap_last_heavy_fetch_failed": "3",
+  "study.dev.facts.gap_last_heavy_missing": "8",
+  "study.dev.facts.gap_last_heavy_missing_pct": "0.37%",
+  "study.dev.facts.gap_last_heavy_not_found": "5",
   "study.dev.facts.gap_last_members": "2,658",
   "study.dev.facts.gap_last_missing": "237",
+  "study.dev.facts.gap_last_not_found_pct": "0.72",
   "study.dev.facts.gap_last_pct": "1.08%",
   "study.dev.facts.gatev_hi": "+0.40",
   "study.dev.facts.gatev_lo": "−1.98",
@@ -631,6 +669,7 @@
   "study.dev.facts.net_bp_capital": "−38.7",
   "study.dev.facts.net_t": "−0.77",
   "study.dev.facts.net_usd_k": "−387.3",
+  "study.dev.facts.not_found_pct": "14.2%",
   "study.dev.facts.oos_critical": "0.90",
   "study.dev.facts.oos_days": "716",
   "study.dev.facts.oos_mde": "1.37",
@@ -652,6 +691,8 @@
   "study.dev.facts.pers_traded_of": "115",
   "study.dev.facts.pers_traded_pct": "5.2%",
   "study.dev.facts.pers_z": "−1.71",
+  "study.dev.facts.position_max_pct": "10.0%",
+  "study.dev.facts.position_min_pct": "2.2%",
   "study.dev.facts.positions_max": "10",
   "study.dev.facts.random_p05_end": "−92.3%",
   "study.dev.facts.random_p25_end": "−5.7%",
@@ -664,6 +705,11 @@
   "study.dev.facts.rolling_max": "+1.2",
   "study.dev.facts.rolling_min": "−2.5",
   "study.dev.facts.rolling_windows": "503",
+  "study.dev.facts.sched_gross_max_pct": "−0.08%",
+  "study.dev.facts.sched_gross_min_pct": "−0.32%",
+  "study.dev.facts.sched_gross_negative": "5",
+  "study.dev.facts.sched_trades_max": "213",
+  "study.dev.facts.sched_trades_min": "206",
   "study.dev.facts.sf_entry_delay_gain_usd_k": "61.3",
   "study.dev.facts.sf_exit_delay_loss_usd_k": "234.5",
   "study.dev.facts.sf_gross_bp": "13.49",
@@ -695,6 +741,7 @@
   "study.dev.facts.wf_common_sharpe_oos": "−0.82",
   "study.dev.facts.wf_gross_hac_p": "0.211",
   "study.dev.facts.wf_gross_sharpe": "−0.69",
+  "study.dev.facts.wf_last_window_days": "86",
   "study.dev.facts.win_hi_pct": "54.6%",
   "study.dev.facts.win_lo_pct": "41.3",
   "study.dev.facts.wins": "102",
@@ -786,7 +833,7 @@
   "headline_sha256": "b09f239032db62196602447e8d1d780286b5c2674e8e85d02062beab946d0fb1",
   "paper_date": "2026-10-21",
   "run_dir": "results/v33_dev",
-  "study_sha256": "34f841b8f9b93fef94cf41eaf660691c503b57e0285fcc159804c68de0a0c1fd",
+  "study_sha256": "d8e8fca7332c56e51314d271b8244d2a99ced64c8d8dde04597f6592daefc5ea",
   "universe_index_sha256": "2afd0cb6a7a7b79e08e6d45a5fc78f7ac6d43903c3cafbde1a042bf048883c3c"
  },
  "pending": {
@@ -848,19 +895,19 @@
     "213"
    ],
    [
-    "Gross bp per trade (t)",
+    "Gross bp per trade, equal-weighted (t)",
     "+11.4 (0.37)",
     "−7.9 (−0.25)"
    ],
    [
-    "Cost bp per trade",
+    "Cost bp per trade, equal-weighted",
     "12.5",
     "16.1"
    ],
    [
     "Average gross exposure, % of capital",
-    "15.1%",
-    "26.9%"
+    "15.1",
+    "26.9"
    ],
    [
     "Days with no position",
@@ -894,7 +941,7 @@
     "Names searched",
     "300 most liquid",
     "500 most liquid",
-    "The universe size of the residual-reversion literature, so that both families trade the same names"
+    "A size at which both strategy families trade the same liquid names"
    ],
    [
     "Candidate pairs",
@@ -918,7 +965,7 @@
     "Ranking",
     "A learned classifier orders same-day candidates",
     "Signal strength × pair quality (the learned ranker is a declared variant)",
-    "v32's ranker had no out-of-sample skill (AUC 0.514; 0.5 is none)"
+    "v32's ranker showed no skill on the trades after its training window (AUC 0.514; 0.5 is none)"
    ],
    [
     "Borrow and financing",
@@ -1017,12 +1064,12 @@
     "1.75"
    ],
    [
-    "Harvey, Liu and Zhu (2016)",
+    "Harvey, Liu and Zhu (2016), field-wide",
     "3.00",
     "1.78"
    ],
    [
-    "Chordia, Goyal and Saretto (2020)",
+    "Chordia, Goyal and Saretto (2020), field-wide",
     "3.80",
     "2.26"
    ]
@@ -1067,11 +1114,15 @@
    ],
    [
     "Site data",
-    "assets/study.json, sha256 34f841b8f9b93fef94cf41eaf660691c503b57e0285fcc159804c68de0a0c1fd"
+    "assets/study.json, sha256 d8e8fca7332c56e51314d271b8244d2a99ced64c8d8dde04597f6592daefc5ea"
    ],
    [
     "Universe",
-    "IWV N-PORT snapshots (reference/universe/); 98.8% of requested symbols fetched, 2,538 with price history"
+    "IWV N-PORT snapshots (reference/universe/); price history for 82.2% of the requested symbols (2,538), 14.2% no longer served (HTTP 404); fetch-coverage rule met at 98.8%"
+   ],
+   [
+    "Fetch manifest",
+    "results/v33_dev/price_fetch_manifest.json"
    ],
    [
     "Seed",
@@ -1261,10 +1312,11 @@
     "0.10",
     "0.00",
     "2–5",
+    "−0.19",
+    "0.37",
     "−0.56",
     "−0.26",
     "−1.85",
-    "0.37",
     "0.21",
     "210"
    ],
@@ -1276,10 +1328,11 @@
     "6.00",
     "3.00",
     "2–5",
+    "−0.09",
+    "4.78",
     "−4.87",
     "−2.33",
     "−5.33",
-    "4.78",
     "0.21",
     "206"
    ],
@@ -1291,10 +1344,11 @@
     "2.00",
     "1.50",
     "4–10",
+    "−0.08",
+    "6.61",
     "−6.69",
     "−1.60",
     "−7.81",
-    "6.61",
     "0.42",
     "212"
    ],
@@ -1306,10 +1360,11 @@
     "0.60",
     "0.50",
     "12–30",
+    "−0.32",
+    "6.80",
     "−7.12",
     "−0.55",
     "−12.63",
-    "6.80",
     "1.25",
     "213"
    ],
@@ -1321,10 +1376,11 @@
     "1.00",
     "1.00",
     "8–20",
+    "−0.14",
+    "6.94",
     "−7.08",
     "−0.84",
     "−10.30",
-    "6.94",
     "0.83",
     "213"
    ]
@@ -1346,7 +1402,7 @@
     "0.061"
    ],
    [
-    "Probabilistic Sharpe, P(SR > 0)",
+    "Probabilistic Sharpe ratio (one minus the one-sided p of SR ≤ 0)",
     "46.1%",
     "3.9%"
    ],
@@ -1414,6 +1470,30 @@
   ],
   "sources": [
    [
+    "reference/universe/iwv_2022-12-30.csv",
+    "72768e4abbef6d0ec94e249b05fc7b6681822fe4c5511d212463d67ad0688f63"
+   ],
+   [
+    "reference/universe/iwv_2023-06-30.csv",
+    "80be0c0e308e7634e7ffba4444a2185532114539e984ffd63ec3fca997fe0e65"
+   ],
+   [
+    "reference/universe/iwv_2023-12-31.csv",
+    "d1c115e4abdb710cd592ef11d2f7d91318675be51fcfa166e3a7f63c5cd6c4e5"
+   ],
+   [
+    "reference/universe/iwv_2024-06-30.csv",
+    "95837ee080ec2d627747aa44ed37b5f7d48c143540e8ce3f385ae09e6fe5a82a"
+   ],
+   [
+    "reference/universe/iwv_2024-12-31.csv",
+    "acdd6cecd2fbd94082e5226aff910f33efba53cafb3039e60310057d12f888df"
+   ],
+   [
+    "reference/universe/iwv_2025-06-30.csv",
+    "767b8602838b419c9e7ebab5f76a113938e28df0c433c00064d7ebc9932304f0"
+   ],
+   [
     "results/residual_dev/MANIFEST.json",
     "1a89276294d27e0b9c6dd12004085153403840962da91659c3ace30df8a4e0ee"
    ],
@@ -1454,6 +1534,10 @@
     "0209861c37c3bb97bd9a2f79723490956a4a35af20462a396ec5493622f06b21"
    ],
    [
+    "results/v33_dev/price_fetch_manifest.json",
+    "b00c6c31d28daee14f46797c3bc3e9f2239c1120e9fdf31bdece2fa94c3d4fd8"
+   ],
+   [
     "results/validation/synthetic_validation.json",
     "1dd037fdb4d53d4946b3d5182226c45f0cd1f29171e85451ec7f7dcb2ba4485b"
    ],
@@ -1471,13 +1555,13 @@
    ],
    [
     "index.html",
-    "cc6a02cb13cdf9722280130a07c8db4159bf008dcbd89cf43b968f3035193a12"
+    "3fcc3f0d796b2c8854ecabd882a0950b44f6af0458b149890b6d2b23bd3f923c"
    ]
   ],
   "spec": [
    [
     "Universe",
-    "Russell 3000 members as held by the iShares Russell 3000 ETF (IWV), from its quarterly SEC N-PORT filings: the latest snapshot whose period ends on or before each formation date. Holdings mapped to tickers with OpenFIGI and checked against N-PORT's own value per share; daily prices 2020–2025 for 98.8% of the requested symbols. Screens on point-in-time price (at least $5, anchored to N-PORT) and dollar volume (at least $10M a day), volatility and missing data; the 500 most liquid enter the pair search."
+    "Russell 3000 members as held by the iShares Russell 3000 ETF (IWV), from its quarterly SEC N-PORT filings: the latest snapshot whose period ends on or before each formation date, used from its period date, about two months before the filing was public (IWV's holdings stand in for the index membership FTSE Russell had already published). Holdings mapped to tickers with OpenFIGI and checked against N-PORT's own value per share. Daily prices 2020–2025: price history for 82.2% of the requested symbols; 14.2% no longer served by the vendor (HTTP 404) and 3.6% failed the fetch or the data checks; the fetch-coverage rule, which counts 404s and failed data checks as resolved, is met at 98.8%. Screens on point-in-time price (at least $5, anchored to N-PORT) and dollar volume (at least $10M a day), volatility and missing data; the 500 most liquid enter the pair search."
    ],
    [
     "Selection",
@@ -1489,11 +1573,11 @@
    ],
    [
     "Rule",
-    "One β-locked z-score against its mean and standard deviation over the last 30–60 bars, frozen at the signal. Entry |z| ≥ 1.8; target once z reverts past −0.5 (long) or +0.5 (short); stop 1.5 further against; time stop max(10, min(⌊2.5 × half-life⌋, 25)) days. Gates: pair quality ≥ 0.55, 20-day correlation ≥ 0.20, β in [0.25, 4], a 30-day pause after three net losses on a pair. No regime gate."
+    "One β-locked z-score against its mean and standard deviation over the last 30–60 bars, frozen at the signal. Entry |z| ≥ 1.8; target once z reverts past −0.5 (long) or +0.5 (short); stop 1.5 further against; time stop max(10, min(⌊2.5 × half-life⌋, 25)) days. Gates: pair quality ≥ 0.55, 20-day correlation ≥ 0.20, β in [0.25, 4], a 30-day pause after three consecutive losing trades on a pair. No regime gate."
    ],
    [
     "Book",
-    "$100M notional; 3–10% of equity per pair before risk scaling (2.2% to 10.0% as traded); 30% gross cap; at most 8 entries a day, ordered by signal strength × pair quality; no shared legs; daily mark-to-market; drawdown and daily-loss kill switch."
+    "$100M notional; 3–10% of equity per pair before risk scaling (2.2% to 10.0% as traded), scaled by the win rate of the last five closed trades and the volatility of recent daily returns; 30% gross cap on exposure at entry; at most 8 entries a day, ordered by signal strength × pair quality; no shared legs; daily mark-to-market; drawdown, daily-loss and exposure kill switch."
    ],
    [
     "Costs",
@@ -1505,7 +1589,7 @@
    ],
    [
     "Evidence",
-    "Probabilistic and deflated Sharpe, Newey–West t, Politis–White block bootstrap, power and upper bounds under a non-normal AR(1) variance, Sharpe hurdles for 32 trials, Ledoit–Wolf Sharpe-difference test; eight-factor attribution; the anatomy of the result (shortfall, exit race, decay, persistence, half-lives, capacity, cash); Gatev distance method and random pairs under the same costs and t + 1 fills."
+    "Probabilistic and deflated Sharpe, Newey–West t, Politis–White block bootstrap, power and upper bounds under a non-normal AR(1) variance, a Bonferroni Sharpe hurdle for 32 trials and two field-wide hurdles, Ledoit–Wolf Sharpe-difference test; eight-factor attribution; the anatomy of the result (shortfall, exit race, decay, persistence, half-lives, capacity, cash); Gatev distance method and random pairs under the same costs and t + 1 fills."
    ]
   ],
   "trials": [

@@ -142,13 +142,13 @@ L 199.854276 5.76
     <g id="ytick_1">
      <g id="line2d_15"/>
      <g id="text_9">
-      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: end; fill: #141413" x="61.119685" y="26.603273" transform="rotate(-0 61.119685 26.603273)">In sample</text>
+      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: end; fill: #141413" x="61.119685" y="26.603273" transform="rotate(-0 61.119685 26.603273)">Formation window</text>
      </g>
     </g>
     <g id="ytick_2">
      <g id="line2d_16"/>
      <g id="text_10">
-      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: end; fill: #141413" x="61.119685" y="51.039636" transform="rotate(-0 61.119685 51.039636)">Out of sample</text>
+      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: end; fill: #141413" x="61.119685" y="51.039636" transform="rotate(-0 61.119685 51.039636)">After formation</text>
      </g>
     </g>
     <g id="ytick_3">

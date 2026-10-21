@@ -141,7 +141,7 @@
               gatev: gatevByDate[d] === undefined ? null : gatevByDate[d], rnd: bandByDate[d] || null};
     });
     var dom = [rows[0].date, rows[rows.length - 1].date];
-    var mL = 46, mR = c.narrow ? 58 : 62;
+    var mL = 46, mR = c.narrow ? 66 : 62;
     var last = rows[rows.length - 1];
     var common = {marginLeft: mL, marginRight: mR, x: {type: 'utc', domain: dom, axis: null}};
     var P = global.Plot;
@@ -180,10 +180,10 @@
       y: {domain: [Math.min(minDd.dd * 1.15, -0.5), 0], label: 'Drawdown, %', labelArrow: 'none'},
       marks: [
         gridY(c, {ticks: 3}), axisY(c, {ticks: 3, label: 'Drawdown, %', labelArrow: 'none', tickFormat: function (v) { return num(v, 1); }}),
-        P.areaY(rows, {x: 'date', y: 'dd', fill: c.t.s1, fillOpacity: 0.12}),
-        P.lineY(rows, {x: 'date', y: 'dd', stroke: c.t.s1, strokeWidth: 1.5}),
+        P.areaY(rows, {x: 'date', y: 'dd', fill: c.t.neg, fillOpacity: 0.14}),
+        P.lineY(rows, {x: 'date', y: 'dd', stroke: c.t.neg, strokeWidth: 1.5}),
         zeroY(c),
-        P.dot([minDd], {x: 'date', y: 'dd', r: 4, fill: c.t.s1, stroke: c.t.paper, strokeWidth: 2}),
+        P.dot([minDd], {x: 'date', y: 'dd', r: 4, fill: c.t.neg, stroke: c.t.paper, strokeWidth: 2}),
         P.text([minDd], {x: 'date', y: 'dd', text: function (d) { return 'max ' + pct(d.dd); }, dx: 8, textAnchor: 'start', fill: c.t.ink, fontSize: 11.5})
       ]
     }));
@@ -308,9 +308,11 @@
     var P = global.Plot;
     // windows are numbered 1..N here; the run's own index (it counts windows inside the
     // formation period too) stays in the data table
+    // a window ends on its last day in the daily series (the last one runs past its 63-day slot)
     var W = WF.windows.map(function (w, i) {
-      var a = parse(w.test_start), b = parse(w.test_end);
-      return {k: i + 1, n: w.n, a: a, b: b, mid: new Date((+a + +b) / 2), ret: w.ret_pct, trades: w.trades, sharpe: w.sharpe, auc: w.ranker_auc};
+      var a = parse(w.test_start), b = parse(w.end || w.test_end);
+      return {k: i + 1, n: w.n, a: a, b: b, mid: new Date((+a + +b) / 2), ret: w.ret_pct, trades: w.trades, sharpe: w.sharpe,
+              auc: w.ranker_auc, days: w.n_days};
     });
     var path = [{date: W[0].a, cum: 0}].concat(WF.stitched.map(function (s) { return {date: parse(s.date), cum: s.cum_pct}; }));
     if (WF.daily) path = WF.daily.dates.map(function (d, i) { return {date: parse(d), cum: WF.daily.cum[i]}; });
@@ -330,14 +332,14 @@
         P.text(pos, {x: 'mid', y: 'ret', text: label, dy: -8, fill: c.t.ink2, fontSize: 11}),
         P.text(neg, {x: 'mid', y: 'ret', text: label, dy: 9, fill: c.t.ink2, fontSize: 11}),
         tip(c, W, P.pointerX({x: 'mid', y: 'ret', title: function (w) {
-          return 'Window ' + w.k + ' of ' + W.length + ' · ' + fmtDate(w.a) + ' – ' + fmtDate(w.b) + '\nNet return ' + pct(w.ret, 3) +
+          return 'Window ' + w.k + ' of ' + W.length + ' · ' + fmtDate(w.a) + ' – ' + fmtDate(w.b) + (w.days ? ' (' + w.days + ' days)' : '') + '\nNet return ' + pct(w.ret, 3) +
             '\nTrades entered ' + w.trades + '\nSharpe ' + num(w.sharpe, 2) + (w.auc !== null ? '\nRanker AUC ' + num(w.auc, 3) : '');
         }}))
       ]
     });
     var lastP = path[path.length - 1];
     var pane2 = plot(c, {
-      height: c.narrow ? 140 : 150, marginLeft: 46, marginRight: c.narrow ? 46 : 60, marginTop: 20, marginBottom: 26,
+      height: c.narrow ? 140 : 150, marginLeft: 46, marginRight: c.narrow ? 56 : 60, marginTop: 20, marginBottom: 26,
       x: {type: 'utc', domain: dom},
       y: {domain: domainPad(path.map(function (p) { return p.cum; }), 0.15, [0]), label: 'Stitched path, %', labelArrow: 'none'},
       marks: [
@@ -357,10 +359,10 @@
       legend: [{label: 'Window gain', color: '--pos', kind: 'box'}, {label: 'Window loss', color: '--neg', kind: 'box'},
                {label: 'Labels: trades entered in the window', color: '--ink-3', kind: 'none'}],
       table: table('Walk-forward test windows (net, % of capital).',
-        ['Window', 'Test start', 'Test end', 'Net return', 'Sharpe', 'Trades', 'Ranker AUC', 'Stitched', "Run's window no."],
-        [false, false, false, true, true, true, true, true, true],
+        ['Window', 'Test start', 'Test end', 'Days', 'Net return', 'Sharpe', 'Trades', 'Ranker AUC', 'Stitched', "Run's window no."],
+        [false, false, false, true, true, true, true, true, true, true],
         W.map(function (w, i) {
-          return [String(w.k), fmtISO(w.a), fmtISO(w.b), pct(w.ret, 3), num(w.sharpe, 2), String(w.trades),
+          return [String(w.k), fmtISO(w.a), fmtISO(w.b), w.days ? String(w.days) : '–', pct(w.ret, 3), num(w.sharpe, 2), String(w.trades),
                   num(w.auc, 3), pct(WF.stitched[i] ? WF.stitched[i].cum_pct : null, 3), String(w.n)];
         }))
     };
@@ -377,7 +379,8 @@
     var cols = MONTHS.concat(['Year']);
     var m = Math.max.apply(null, cells.map(function (d) { return Math.abs(d.v); })) || 1;
     var fillOf = global.d3.scaleLinear().domain([-m, 0, m]).range([c.t.neg, c.t.mid, c.t.pos]).interpolate(global.d3.interpolateLab);
-    var strong = function (d) { return contrast(fillOf(d.v), c.t.paper) > contrast(fillOf(d.v), c.t.ink); };
+    // each label in black or white, whichever contrasts more with its cell (at least 4.6:1 on any fill)
+    var strong = function (d) { return contrast(fillOf(d.v), '#ffffff') > contrast(fillOf(d.v), '#000000'); };
     var t = c.narrow;            // transpose on phones: months down, years across
     var xk = t ? 'year' : 'col', yk = t ? 'col' : 'year';
     var cellH = t ? 26 : 40;
@@ -388,8 +391,8 @@
       color: {type: 'linear', domain: [-m, 0, m], range: [c.t.neg, c.t.mid, c.t.pos], interpolate: 'lab'},
       marks: [
         P.cell(cells, {x: xk, y: yk, fill: 'v', rx: 2}),
-        P.text(cells.filter(function (d) { return !strong(d); }), {x: xk, y: yk, text: function (d) { return signed(d.v, 2); }, fill: c.t.ink, fontSize: t ? 11 : 12}),
-        P.text(cells.filter(strong), {x: xk, y: yk, text: function (d) { return signed(d.v, 2); }, fill: c.t.paper, fontSize: t ? 11 : 12, fontWeight: 600}),
+        P.text(cells.filter(function (d) { return !strong(d); }), {x: xk, y: yk, text: function (d) { return signed(d.v, 2); }, fill: '#000000', fontSize: t ? 11 : 12}),
+        P.text(cells.filter(strong), {x: xk, y: yk, text: function (d) { return signed(d.v, 2); }, fill: '#ffffff', fontSize: t ? 11 : 12, fontWeight: 600}),
         tip(c, cells, P.pointer({x: xk, y: yk, title: function (d) {
           return d.col === 'Year' ? d.year + ' (' + d.months + ' months): ' + pct(d.v) : d.col + ' ' + d.year + ': ' + pct(d.v);
         }}))
@@ -454,11 +457,11 @@
       rows.push({key: 'holdout', label: 'Holdout 2026, v33 pairs, net', kind: 'ci', sharpe: held.sharpe, lo: held.lo, hi: held.hi, days: held.days, color: c.t.s3, method: 'block bootstrap'});
     } else pending.push({label: 'Holdout 2026, net', status: 'sealed'});
     var labels = rows.map(function (r) { return r.label; }).concat(pending.map(function (p) { return p.label; }));
-    var devRows = rows.filter(function (r) { return r.key !== 'residual' && r.key !== 'holdout'; });
     var xdom = domainPad(rows.map(function (r) { return r.lo; }).concat(rows.map(function (r) { return r.hi; })), 0.06, [pw.mde || 0, 0]);
     var main = rows.filter(function (r) { return r.key === 'main'; });
+    // the 80%-power mark and the upper bound are the main backtest's: both sit on its row only
     var refs = [];
-    if (pw.mde) refs.push({x: pw.mde, text: 'detectable at 80% power: ' + num(pw.mde, 2)});
+    if (pw.mde && main.length) refs.push({x: pw.mde, text: (c.narrow ? 'main: 80% power ' : 'main backtest: detectable at 80% power, ') + num(pw.mde, 2)});
     var node = plot(c, {
       height: labels.length * (c.narrow ? 40 : 34) + 50, marginLeft: c.narrow ? 132 : 212, marginRight: 16, marginTop: 30, marginBottom: 30,
       x: {domain: xdom, label: 'Annualised Sharpe ratio', labelArrow: 'none'},
@@ -467,13 +470,12 @@
         gridX(c, {ticks: c.narrow ? 4 : 8}), axisX(c, {ticks: c.narrow ? 4 : 8, label: 'Annualised Sharpe ratio', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }}),
         axisY(c, {lineWidth: c.narrow ? 10 : 20, lineHeight: 1.15, fill: c.t.ink, fontSize: c.narrow ? 11 : 12}),
         zeroX(c),
-        // the development period's reference lines span its rows, not the other arms' or pending rows
-        P.ruleX(refs, {x: 'x', y1: function () { return devRows[0].label; }, y2: function () { return devRows[devRows.length - 1].label; }, stroke: c.t.ink3, strokeWidth: 1}),
-        P.text(refs, {x: 'x', frameAnchor: 'top', text: 'text', dy: -16, textAnchor: 'end', dx: -4, fill: c.t.ink2, fontSize: 11}),
+        P.tickX(refs, {x: 'x', y: function () { return main[0].label; }, stroke: c.t.ink3, strokeWidth: 1.5, strokeDasharray: '3,2'}),
+        P.text(refs, {x: 'x', frameAnchor: 'top', text: 'text', dy: -16, textAnchor: 'end', dx: 4, fill: c.t.ink2, fontSize: 11}),
         P.ruleY(rows, {y: 'label', x1: 'lo', x2: 'hi', stroke: 'color', strokeWidth: 2}),
         P.dot(rows, {x: 'sharpe', y: 'label', r: 4.5, fill: 'color', stroke: c.t.paper, strokeWidth: 2}),
         main.length && pw.ucb ? P.tickX(main, {x: function () { return pw.ucb; }, y: 'label', stroke: c.t.ink, strokeWidth: 1.5}) : null,
-        main.length && pw.ucb ? P.text(main, halo(c, {x: function () { return pw.ucb; }, y: 'label', text: function () { return (c.narrow ? '95% bound ' : 'one-sided 95% bound ') + num(pw.ucb, 2); }, dy: -13, textAnchor: 'end', dx: 3, fill: c.t.ink2, fontSize: 11})) : null,
+        main.length && pw.ucb ? P.text(main, halo(c, {x: function () { return pw.ucb; }, y: 'label', text: function () { return (c.narrow ? '95% bound ' : 'main backtest: one-sided 95% bound, ') + num(pw.ucb, 2); }, dy: -13, textAnchor: 'end', dx: 3, fill: c.t.ink2, fontSize: 11})) : null,
         // pending rows say so at the frame's left edge, which stays on screen at any width
         P.text(pending, halo(c, {y: 'label', frameAnchor: 'left', text: 'status', textAnchor: 'start', dx: 2, fill: c.t.ink3, fontSize: 11.5, fontStyle: 'italic'})),
         tip(c, rows, P.pointer({x: 'sharpe', y: 'label', title: function (r) {
@@ -623,23 +625,29 @@
     if (!T || !T.by_exit) return null;
     var P = global.Plot;
     var panels = [['By exit', T.by_exit], ['By side of the spread', T.by_side], ['By |z| at entry', T.by_z]];
-    var groups = [].concat(T.by_exit, T.by_side, T.by_z);
     var wrap = document.createElement('div');
     wrap.className = 'multi multi-3';
-    var cols = c.narrow ? 1 : 3;
+    // one panel per row unless each of three columns can hold its bar labels
+    var cols = c.width >= 1100 ? 3 : 1;
     var cw = Math.floor((c.width - (cols - 1) * 24) / cols);
     wrap.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
-    var mL = 86, mR = 8;
-    // one x scale for the three panels, wide enough for every "n = ..." label beyond its bar
-    var xs = fitLabels(domainPad(groups.map(function (g) { return g.net_usd / 1e6; }), 0.04, [0]), groups.map(function (g) {
-      return {x: g.net_usd / 1e6, px: textWidth('n = ' + g.n, 11) + 10, side: g.net_usd >= 0 ? 'right' : 'left'};
-    }), cw - mL - mR);
+    // each bar labelled with its net P&L and its trade count; on a narrow panel the count
+    // moves into the row label, so the value labels leave room for the bars
+    var compact = cw < 560;
+    var mL = compact ? 116 : 86, mR = 12;
+    var barLabel = function (g) { return compact ? money(g.net_usd) : money(g.net_usd) + ' (n = ' + g.n + ')'; };
+    var rowLabel = function (g) { return compact ? g.label + ' (' + g.n + ')' : g.label; };
     // side by side, the panels share one height and baseline: a panel with fewer rows keeps
     // the same row step and centres its rows in the frame
     var ROW = 36, MT = 6, MB = 28;
     var maxRows = Math.max.apply(null, panels.map(function (pp) { return pp[1].length; }));
     panels.forEach(function (pp) {
-      var rows = pp[1].map(function (g) { return Object.assign({}, g, {k: g.net_usd / 1e6}); });
+      var rows = pp[1].map(function (g) { return Object.assign({}, g, {k: g.net_usd / 1e6, y: rowLabel(g)}); });
+      // each panel on its own scale, wide enough for every label beyond its bar: the exit
+      // panel's $15M bars would otherwise leave the side and |z| panels as slivers
+      var xs = fitLabels(domainPad(rows.map(function (r) { return r.k; }), 0.04, [0]), rows.map(function (r) {
+        return {x: r.k, px: textWidth(barLabel(r), 11) + 10, side: r.k >= 0 ? 'right' : 'left'};
+      }), cw - mL - mR);
       var cell = document.createElement('div');
       cell.className = 'multi-cell';
       var h = document.createElement('p');
@@ -652,15 +660,15 @@
       cell.appendChild(plot(Object.assign({}, c, {width: cw}), {
         height: slots * ROW + MT + MB + 2, marginLeft: mL, marginRight: mR, marginTop: MT, marginBottom: MB,
         x: {domain: xs, label: '$ millions', labelArrow: 'none'},
-        y: {domain: rows.map(function (r) { return r.label; }), label: null, padding: 0.3, range: [top, top + rows.length * ROW + 2]},
+        y: {domain: rows.map(function (r) { return r.y; }), label: null, padding: 0.3, range: [top, top + rows.length * ROW + 2]},
         marks: [
-          gridX(c, {ticks: 4}), axisX(c, {ticks: 4, label: '$ millions', labelArrow: 'none', tickFormat: function (v) { return signed(v, 0); }}),
+          gridX(c, {ticks: 3}), axisX(c, {ticks: 3, label: '$ millions', labelArrow: 'none', tickFormat: function (v) { return signed(v, Math.abs(xs[1] - xs[0]) < 6 ? 1 : 0); }}),
           axisY(c, {fill: c.t.ink}),
           zeroX(c),
-          P.barX(rows, {y: 'label', x: 'k', fill: function (r) { return signColor(c)(r.k); }, rx2: 3}),
-          P.text(pos, {y: 'label', x: 'k', text: function (r) { return 'n = ' + r.n; }, dx: 5, textAnchor: 'start', fill: c.t.ink2, fontSize: 11}),
-          P.text(neg, {y: 'label', x: 'k', text: function (r) { return 'n = ' + r.n; }, dx: -5, textAnchor: 'end', fill: c.t.ink2, fontSize: 11}),
-          tip(c, rows, P.pointerY({y: 'label', x: 'k', title: function (r) {
+          P.barX(rows, {y: 'y', x: 'k', fill: function (r) { return signColor(c)(r.k); }, rx2: 3}),
+          P.text(pos, {y: 'y', x: 'k', text: barLabel, dx: 5, textAnchor: 'start', fill: c.t.ink2, fontSize: 11}),
+          P.text(neg, {y: 'y', x: 'k', text: barLabel, dx: -5, textAnchor: 'end', fill: c.t.ink2, fontSize: 11}),
+          tip(c, rows, P.pointerY({y: 'y', x: 'k', title: function (r) {
             return r.label + ' · ' + r.n + ' trades, ' + r.wins + ' winners\nNet ' + money(r.net_usd) + '\nGross ' + money(r.gross_usd) + ', costs ' + money(-r.cost_usd) +
               '\nMean net ' + signed(r.mean_net_bp, 1) + ' bp of notional';
           }}))
@@ -687,6 +695,7 @@
     if (!C || !C.length) return null;
     var P = global.Plot;
     var dates = S.dev.daily.dates;
+    var gross = function (s) { return s.gross_pct === null || s.gross_pct === undefined ? '' : ' · gross ' + pct(s.gross_pct); };
     var all = [];
     C.forEach(function (s) { all = all.concat(s.cum); });
     var ys = domainPad(all, 0.08, [0]);
@@ -703,11 +712,11 @@
       cell.className = 'multi-cell';
       var h = document.createElement('p');
       h.className = 'mc-title';
-      h.textContent = 'Schedule ' + s.id + ': ' + pct(s.ret_pct);
+      h.textContent = 'Schedule ' + s.id + ': ' + pct(s.ret_pct) + gross(s);
       var p = document.createElement('p');
       p.textContent = num(s.commission_bps, 1) + ' bp commission · ' + num(s.half_spread_bps, 1) + ' bp half-spread · impact cap ' +
         num(s.impact_cap_bps, 0) + ' bp · borrow ' + num(s.borrow_pct, 2) + '% · financing ' + num(s.financing_pct, 2) + '% · positions ' +
-        num(s.position_pct[0], 0) + '–' + num(s.position_pct[1], 0) + '%';
+        num(s.position_pct[0], 0) + '–' + num(s.position_pct[1], 0) + '% · ' + s.trades + ' trades replayed';
       cell.appendChild(h);
       cell.appendChild(p);
       cell.appendChild(plot(Object.assign({}, c, {width: cw}), {
@@ -729,12 +738,12 @@
       nodes: [wrap],
       table: table('Cost schedules A–E: parameters and results of the replay.',
         ['Schedule', 'Commission, bp', 'Half-spread, bp', 'Impact cap, bp', 'Borrow, %/yr', 'Financing, %/yr', 'Position, % equity',
-         'Net return', 'Sharpe', 'Max drawdown', 'Costs, % capital', 'Peak gross, ×'],
-        [false, true, true, true, true, true, false, true, true, true, true, true],
+         'Trades replayed', 'Gross, % capital', 'Costs, % capital', 'Net return', 'Sharpe', 'Max drawdown', 'Peak gross, ×'],
+        [false, true, true, true, true, true, false, true, true, true, true, true, true, true],
         C.map(function (s) {
           return [s.id, num(s.commission_bps, 1), num(s.half_spread_bps, 1), num(s.impact_cap_bps, 0), num(s.borrow_pct, 2), num(s.financing_pct, 2),
-                  num(s.position_pct[0], 0) + '–' + num(s.position_pct[1], 0), pct(s.ret_pct), num(s.sharpe, 2), num(s.max_dd_pct, 2, {suffix: '%'}),
-                  num(s.cost_pct, 2), num(s.peak_gross_x, 2)];
+                  num(s.position_pct[0], 0) + '–' + num(s.position_pct[1], 0), String(s.trades), signed(s.gross_pct, 2), num(s.cost_pct, 2),
+                  pct(s.ret_pct), num(s.sharpe, 2), num(s.max_dd_pct, 2, {suffix: '%'}), num(s.peak_gross_x, 2)];
         }))
     };
   };
@@ -825,7 +834,12 @@
     if (!F || !F.pairs || !F.pairs.length) return null;
     var P = global.Plot;
     var ramp = [c.t.ord1, c.t.ord2, c.t.ord3, c.t.ord4, c.t.ord4];
-    var rows = F.pairs.map(function (s, i) { return Object.assign({}, s, {color: ramp[Math.min(i, ramp.length - 1)], share: i ? s.n / F.pairs[i - 1].n : null}); });
+    // a 'separate' stage (the pairs traded across every formation) is not a share of the stage
+    // above it, which is the first formation's alone: it gets no share and a neutral bar
+    var rows = F.pairs.map(function (s, i) {
+      return Object.assign({}, s, {color: s.separate ? c.t.neutral : ramp[Math.min(i, ramp.length - 1)],
+                                   share: i && !s.separate ? s.n / F.pairs[i - 1].n : null});
+    });
     var exp = rows.filter(function (r) { return r.expected; });
     var maxN = Math.max.apply(null, rows.map(function (r) { return r.n; }));
     var node = plot(c, {
@@ -862,6 +876,9 @@
   X.universe = function (S, c) {
     var U = S.dev && S.dev.universe_by_formation;
     if (!U || !U.length) return null;
+    // the gap split by fetch outcome (null when the run's price manifest is not published)
+    var split = S.dev.survivorship, splitBy = {};
+    ((split && split.formations) || []).forEach(function (f) { splitBy[f.formation_date] = f; });
     var P = global.Plot, fmtN = global.d3.format(',');
     var rows = U.map(function (u) {
       return Object.assign({}, u, {label: fmtDate(parse(u.formation_date)), cover: 100 * u.with_prices / u.members,
@@ -897,7 +914,8 @@
       x: {domain: [0, maxM * 1.02], label: 'Members', labelArrow: 'none'},
       y: {domain: labels, label: null, padding: 0.28},
       marks: [
-        gridX(c, {ticks: 4}), axisX(c, {ticks: 4, label: 'Members', labelArrow: 'none', tickFormat: fmtN}),
+        gridX(c, {ticks: c.narrow ? [0, 1000, 2000] : 4}),
+        axisX(c, {ticks: c.narrow ? [0, 1000, 2000] : 4, label: 'Members', labelArrow: 'none', tickFormat: c.narrow ? function (v) { return v ? num(v / 1000, 0) + 'k' : '0'; } : fmtN}),
         axisY(c, {fill: c.t.ink}),
         P.barX(counts, {y: 'label', x: 'v', fill: 'fill'}),
         zeroX(c),
@@ -930,13 +948,21 @@
       label: 'Two panels by formation date: index members split into those with and without price history, and the index weight not covered.',
       legend: [{label: 'With price history', color: '--series-1', kind: 'box'}, {label: 'Without price history', color: '--neutral-series', kind: 'box'},
                {label: 'No usable ticker (weight only)', color: '--neutral-series', kind: 'box box-light'}],
-      table: table('Point-in-time universe at each formation date (weights in % of the snapshot\'s equity value).',
-        ['Formation date', 'Snapshot', 'Filed', 'Members', 'With prices', 'Without prices', 'Coverage', 'Weight without prices', 'Weight without ticker', 'Heaviest without prices'],
-        [false, false, false, true, true, true, true, true, true, false],
+      table: table('Point-in-time universe at each formation date (weights in % of the snapshot\'s equity value). Members without prices are split by '
+        + 'the outcome of their fetch: no longer served by the vendor (HTTP 404), fetch failed (an HTTP error or an empty answer), failed the data checks; '
+        + 'the last columns count those among the snapshot\'s ' + (split ? split.heaviest_members : 500) + ' heaviest members.',
+        ['Formation date', 'Snapshot', 'Filed', 'Members', 'With prices', 'Without prices', 'Coverage', 'Weight without prices',
+         'of which 404', 'fetch failed', 'data checks', 'Weight without ticker', 'Heaviest members without prices', 'their weight', 'Heaviest without prices'],
+        [false, false, false, true, true, true, true, true, true, true, true, true, true, true, false],
         rows.map(function (r) {
+          var s = splitBy[r.formation_date], by = {};
+          ((s && s.by_outcome) || []).forEach(function (o) { by[o.key] = o; });
+          var w = function (k) { return by[k] ? num(by[k].weight_pct, 2, {suffix: '%'}) : '–'; };
           return [r.formation_date, r.snapshot, r.snapshot_filed || '–', fmtN(r.members), fmtN(r.with_prices), fmtN(r.missing), num(r.cover, 1, {suffix: '%'}),
-                  num(r.missing_weight_pct, 2, {suffix: '%'}), num(r.unmapped_weight_pct, 2, {suffix: '%'}),
-                  (r.missing_heaviest || []).map(function (h) { return h[0] + ' ' + num(h[1], 2) + '%'; }).join(', ') || '–'];
+                  num(r.missing_weight_pct, 2, {suffix: '%'}), w('not_found'), w('fetch_failed'), w('data_checks'), num(r.unmapped_weight_pct, 2, {suffix: '%'}),
+                  s ? String(s.heaviest_missing) : '–', s ? num(s.heaviest_missing_weight_pct, 2, {suffix: '%'}) : '–',
+                  s ? s.heaviest_missing_names.map(function (h) { return h[0] + ' ' + num(h[2], 2) + '% (' + ({not_found: '404', fetch_failed: 'fetch failed', data_checks: 'data checks'}[h[3]] || h[3]) + ')'; }).join(', ')
+                    : (r.missing_heaviest || []).map(function (h) { return h[0] + ' ' + num(h[1], 2) + '%'; }).join(', ') || '–'];
         }))
     };
   };
@@ -961,7 +987,8 @@
         zeroY(c), P.ruleX([1], {stroke: c.t.ink3}),
         P.text([1], halo(c, {x: function (v) { return v; }, frameAnchor: 'top', text: function () { return 'modelled'; }, dy: 8, dx: 4, textAnchor: 'start', fill: c.t.ink2, fontSize: 11})),
         P.lineY(C, {x: 'k', y: 'sharpe', stroke: c.t.s1, strokeWidth: 2}), P.dot(C, {x: 'k', y: 'sharpe', r: 3.5, fill: c.t.s1, stroke: c.t.paper, strokeWidth: 2}),
-        be === null ? null : P.text([be], halo(c, {x: function (v) { return v; }, y: function () { return 0; }, text: function (v) { return 'break-even ' + num(v, 2) + '×'; }, dy: -10, fill: c.t.ink, fontSize: 11})),
+        be === null ? null : P.dot([be], {x: function (v) { return v; }, y: function () { return 0; }, r: 4, fill: c.t.paper, stroke: c.t.ink, strokeWidth: 1.5}),
+        be === null ? null : P.text([be], halo(c, {x: function (v) { return v; }, y: function () { return 0; }, text: function (v) { return 'zero at ' + num(v, 2) + '×'; }, dy: 14, dx: -6, textAnchor: 'end', fill: c.t.ink, fontSize: 11})),
         note === null ? null : P.text([note], halo(c, {frameAnchor: 'bottom-left', text: function (v) { return v; }, dx: 6, dy: -6, textAnchor: 'start', fill: c.t.ink2, fontSize: 11})),
         tip(c, C, P.pointerX({x: 'k', y: 'sharpe', title: function (r) { return num(r.k, 2) + '× costs\nSharpe ' + signed(r.sharpe, 2) + '\nReturn ' + pct(r.ret_pct); }}))].filter(Boolean)
     });
@@ -1006,22 +1033,26 @@
     var D = S.dev && S.dev.decay;
     if (!D || !D.length) return null;
     var P = global.Plot;
-    var short = {'Formation (in sample), same rule': 'In sample', 'Out of sample, same rule': 'Out of sample', 'Engine trades': 'The book'};
-    var rows = D.map(function (r) { return Object.assign({}, r, {k: short[r.period] || r.period}); });
+    // the anatomy's labels say "out of sample" for data after formation; this note keeps that
+    // term for the 2026 holdout, so the periods are relabelled here
+    var short = {'Formation (in sample), same rule': 'Formation window', 'Out of sample, same rule': 'After formation', 'Engine trades': 'The book'};
+    var long = {'Formation (in sample), same rule': 'Formation window (in sample), same rule', 'Out of sample, same rule': 'After formation, same rule',
+                'Engine trades': 'The book\'s own trades'};
+    var rows = D.map(function (r) { return Object.assign({}, r, {k: short[r.period] || r.period, name: long[r.period] || r.period}); });
     var node = plot(c, {
-      height: rows.length * 40 + 40, marginLeft: 104, marginRight: 16, marginTop: 8, marginBottom: 30,
+      height: rows.length * 40 + 40, marginLeft: 116, marginRight: 16, marginTop: 8, marginBottom: 30,
       x: {domain: domainPad(rows.map(function (r) { return r.lo; }).concat(rows.map(function (r) { return r.hi; })), 0.08, [0]), label: 'Gross bp per trade (95% interval)', labelArrow: 'none'},
       y: {domain: rows.map(function (r) { return r.k; }), label: null, padding: 0.4},
       marks: [gridX(c, {ticks: 5}), axisX(c, {ticks: 5, label: 'Gross bp per trade (95% interval)', labelArrow: 'none', tickFormat: function (v) { return signed(v, 0); }}),
         axisY(c, {fill: c.t.ink}), zeroX(c),
         P.ruleY(rows, {y: 'k', x1: 'lo', x2: 'hi', stroke: c.t.s1, strokeWidth: 2}),
         P.dot(rows, {x: 'bp', y: 'k', r: 4.5, fill: c.t.s1, stroke: c.t.paper, strokeWidth: 2}),
-        tip(c, rows, P.pointer({x: 'bp', y: 'k', title: function (r) { return r.period + '\n' + signed(r.bp, 1) + ' bp (t = ' + num(r.t, 2) + ', n = ' + r.n + ')\n95% ' + num(r.lo, 1) + ' to ' + signed(r.hi, 1); }}))]
+        tip(c, rows, P.pointer({x: 'bp', y: 'k', title: function (r) { return r.name + '\n' + signed(r.bp, 1) + ' bp (t = ' + num(r.t, 2) + ', n = ' + r.n + ')\n95% ' + num(r.lo, 1) + ' to ' + signed(r.hi, 1); }}))]
     });
-    return {nodes: [node], label: 'Dot plot of gross basis points per trade, in sample, out of sample and in the book, with 95% intervals.',
+    return {nodes: [node], label: 'Dot plot of gross basis points per trade, in sample, after formation and in the book, with 95% intervals.',
       table: table('Gross bp per trade of the same rule on the same pairs (t clustered by signal month in the last column).',
         ['Period', 'Trades', 'bp', 'Lower', 'Upper', 't', 't, month-clustered'], [false, true, true, true, true, true, true],
-        rows.map(function (r) { return [r.period, String(r.n), signed(r.bp, 1), num(r.lo, 1), signed(r.hi, 1), num(r.t, 2), num(r.t_month_clustered, 2)]; }))};
+        rows.map(function (r) { return [r.name, String(r.n), signed(r.bp, 1), num(r.lo, 1), signed(r.hi, 1), num(r.t, 2), num(r.t_month_clustered, 2)]; }))};
   };
 
   // Exhibit 13: persistence. anatomy.json persistence: {chance_pct, windows: [{window, pct, base_pct, pairs}]}
@@ -1031,7 +1062,7 @@
     var P = global.Plot;
     var tick = function (w) {
       var m = /^(\d{4})\D+(\d{4})$/.exec(w.window);
-      return m ? '’' + m[1].slice(2) + '→’' + m[2].slice(2) : 'Traded, OOS';
+      return m ? '’' + m[1].slice(2) + '→’' + m[2].slice(2) : (c.narrow ? 'Traded' : 'Traded, after');
     };
     var W = Pd.windows.map(function (w) { return Object.assign({}, w, {k: tick(w)}); });
     var withBase = W.filter(function (w) { return w.base_pct !== null && w.base_pct !== undefined; });
@@ -1049,14 +1080,14 @@
         }}))]
     });
     return {nodes: [node], label: 'Bars of the share of cointegrated pairs still cointegrated a year later, with ticks at the next year\'s base rate and a line at the 5% chance rate.',
-      legend: [{label: 'Still cointegrated', color: '--series-1', kind: 'box'}, {label: 'Base rate of the next year', color: '--ink', kind: 'rule'},
+      legend: [{label: 'Still cointegrated', color: '--series-1', kind: 'box'}, {label: 'Base rate of the next year', color: '--ink', kind: 'line'},
                {label: 'Chance, ' + num(Pd.chance_pct, 0) + '%', color: '--ink-3', kind: 'line dash'}],
       table: table('Cointegration persistence: pairs cointegrated in one year that are cointegrated the next (chance ' + num(Pd.chance_pct, 1) + '%).',
         ['Window', 'Pairs', 'Still cointegrated', 'Next year’s base rate'], [false, true, true, true],
         W.map(function (w) { return [w.window, String(w.pairs), num(w.pct, 1, {suffix: '%'}), w.base_pct ? num(w.base_pct, 1, {suffix: '%'}) : '–']; }))};
   };
 
-  // Exhibit 14: the traded pairs' half-lives, on the formation window and out of sample
+  // Exhibit 14: the traded pairs' half-lives, on the formation window and after formation
   // (anatomy.persistence_detail.traded_pairs, passed through as dev.half_lives)
   X.halflife = function (S, c) {
     var H = S.dev && S.dev.half_lives;
@@ -1066,12 +1097,13 @@
       var clipped = r.o === null || r.o > CAP;
       return {pair: r.pair, f: r.f, o: clipped ? CAP : Math.max(r.o, LO), raw: r.o, clipped: clipped, trades: r.trades, p_f: r.p_f, p_o: r.p_o};
     });
-    var diag = [[4, 4], [max + 1, max + 1]];
+    // y = x drawn on a log y axis: sampled densely, or the straight segment between two points is a chord
+    var diag = global.d3.range(4, max + 1.01, 0.25).map(function (v) { return [v, v]; });
     var node = plot(c, {
       height: 240, marginLeft: 44, marginRight: 14, marginTop: 26, marginBottom: 30,
       x: {domain: [0, max + 1], label: 'Half-life at formation, days', labelArrow: 'none'},
-      y: {type: 'log', domain: [LO, CAP * 1.35], label: 'Half-life out of sample, days', labelArrow: 'none'},
-      marks: [gridY(c, {ticks: [2, 5, 10, 25, 50, 100, 400]}), axisY(c, {ticks: [2, 5, 10, 25, 50, 100, 400], tickFormat: function (v) { return String(v); }, label: 'Half-life out of sample, days', labelArrow: 'none'}),
+      y: {type: 'log', domain: [LO, CAP * 1.35], label: 'Half-life after formation, days', labelArrow: 'none'},
+      marks: [gridY(c, {ticks: [2, 5, 10, 25, 50, 100, 400]}), axisY(c, {ticks: [2, 5, 10, 25, 50, 100, 400], tickFormat: function (v) { return String(v); }, label: 'Half-life after formation, days', labelArrow: 'none'}),
         axisX(c, {ticks: 5, label: 'Half-life at formation, days', labelArrow: 'none'}),
         P.ruleY([max], {stroke: c.t.ink3, strokeWidth: 1, strokeDasharray: '4,3'}),
         P.text([max], halo(c, {y: function (v) { return v; }, frameAnchor: 'left', text: function () { return 'rule’s maximum, ' + max + ' days'; }, dy: -7, dx: 4, textAnchor: 'start', fill: c.t.ink2, fontSize: 11})),
@@ -1080,14 +1112,14 @@
         P.dot(rows.filter(function (r) { return r.clipped; }), {x: 'f', y: 'o', r: 4, symbol: 'triangle', fill: c.t.s1}),
         tip(c, rows, P.pointer({x: 'f', y: 'o', title: function (r) {
           return r.pair + ' (' + r.trades + ' trade' + (r.trades === 1 ? '' : 's') + ')\nformation ' + num(r.f, 1) + ' days, p = ' + num(r.p_f, 3) +
-            '\nout of sample ' + (r.raw === null ? 'no mean reversion' : num(r.raw, 1) + ' days') + ', p = ' + num(r.p_o, 3);
+            '\nafter formation ' + (r.raw === null ? 'no mean reversion' : num(r.raw, 1) + ' days') + ', p = ' + num(r.p_o, 3);
         }}))]
     });
     var above = rows.filter(function (r) { return r.raw === null || r.raw > max; }).length;
-    return {nodes: [node], label: 'Scatter of each traded pair\'s spread half-life on its formation window against its half-life out of sample, with the rule\'s 25-day maximum marked.',
+    return {nodes: [node], label: 'Scatter of each traded pair\'s spread half-life on its formation window against its half-life after formation, with the rule\'s 25-day maximum marked.',
       legend: [{label: 'Traded pair', color: '--series-1', kind: 'dot'}, {label: 'Equal half-lives', color: '--ink-3', kind: 'line'}],
-      table: table('Half-lives of the ' + rows.length + ' traded pairs (' + above + ' above ' + max + ' days out of sample); Engle–Granger p in each window.',
-        ['Pair', 'Trades', 'Formation, days', 'Formation p', 'Out of sample, days', 'Out-of-sample p'], [false, true, true, true, true, true],
+      table: table('Half-lives of the ' + rows.length + ' traded pairs (' + above + ' above ' + max + ' days after formation); Engle–Granger p in each window.',
+        ['Pair', 'Trades', 'Formation, days', 'Formation p', 'After formation, days', 'After-formation p'], [false, true, true, true, true, true],
         rows.map(function (r) { return [r.pair, String(r.trades), num(r.f, 1), num(r.p_f, 3), r.raw === null ? 'none' : num(r.raw, 1), num(r.p_o, 3)]; }))};
   };
 
@@ -1127,7 +1159,7 @@
     });
     return {nodes: [node], label: 'Dot plot of the net Sharpe ratio under each declared cost or capacity scenario: the full re-run (filled) and the headline trades re-priced (open), joined by a line.',
       legend: [{label: 'Full re-run (trades change)', color: '--series-1', kind: 'dot'}, {label: 'Headline trades re-priced', color: '--series-1', kind: 'dot ring'}],
-      table: table('Cost and capacity scenarios: the full re-run and the headline run\'s 213 trades re-priced.',
+      table: table('Cost and capacity scenarios: the full re-run and the headline run\'s ' + ((S.dev.facts && S.dev.facts.trades) || '') + ' trades re-priced.',
         ['Scenario', 'Trades', 'Net return', 'Sharpe', 'Max drawdown', 'Costs, % capital', 'Cost, bp of notional', 'Larger leg, % ADV', 'Same trades: return', 'Same trades: Sharpe'],
         [false, true, true, true, true, true, true, true, true, true],
         rows.map(function (r) {

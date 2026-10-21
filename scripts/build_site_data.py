@@ -60,10 +60,13 @@ meta.generated_utc is the newest input run's timestamp for that reason, and
 meta.headline_sha256 ties the file to the headline JSON the checker reads.
 """
 import argparse
+import csv
 import hashlib
+import io
 import json
 import math
 import pathlib
+import re
 import sys
 
 import numpy as np
@@ -74,8 +77,10 @@ sys.path.insert(0, str(ROOT))
 
 from pairs_trading import power as pw  # noqa: E402
 from pairs_trading.significance import (  # noqa: E402
-    block_bootstrap_sharpe_ci, deflated_sharpe_ratio, probabilistic_sharpe_ratio,
+    _circular_block_indices, block_bootstrap_sharpe_ci, deflated_sharpe_ratio, hac_tstat_mean,
+    probabilistic_sharpe_ratio,
 )
+from pairs_trading.universe import normalise_ticker  # noqa: E402
 
 SCHEMA = 1
 DEFAULT_DEV = ROOT / 'results' / 'v33_dev'
@@ -89,6 +94,18 @@ HOLDOUT_SESSIONS = 200
 HOLM_FIRST_ALPHA = 0.025             # Holm's first step across the two confirmatory arms
 HOLDOUT_ALTERNATIVES = (1.0, 2.0, 3.0)
 PERIODS = 252
+BOOT_SEED, BOOT_RESAMPLES = 42, 5000  # the run's own bootstrap settings (seed, resamples)
+PRICE_MANIFEST = 'price_fetch_manifest.json'   # {dev}/: the price cache's fetch manifest, as the run left it
+UNIVERSE_DIR = ('reference', 'universe')       # the committed IWV snapshots (iwv_<period>.csv)
+HEAVIEST_MEMBERS = 500               # the survivorship gap among the heaviest members of a snapshot
+# A member without price history, by the outcome its symbol's last fetch recorded in the price
+# manifest (data_processor._download_history): the vendor answered 404, the fetch itself failed
+# (an HTTP error or an empty answer on the last attempt), the history failed the data checks
+# (too short or invalid), or the symbol was never requested.
+GAP_OUTCOMES = (('not_found', 'No longer served by the vendor (HTTP 404)'),
+                ('fetch_failed', 'Fetch failed (HTTP error or empty answer)'),
+                ('data_checks', 'Failed the data checks (too short or invalid)'),
+                ('never_fetched', 'Never fetched'))
 ROLLING_WINDOW = 126                 # trading days (half a year), as in pyfolio's tear sheet
 DSR_TRIALS = (1, 2, 5, 10, 32, 100, 300, 1000)
 COST_MULTIPLIERS = tuple(k / 4 for k in range(9))          # 0, 0.25, ..., 2x modelled costs
@@ -186,6 +203,14 @@ class Sources:
             return None
         self.hashes[self._name(path)] = _sha256(path)
         return [json.loads(line) for line in path.read_text(encoding='utf-8').splitlines() if line.strip()]
+
+    def load_csv(self, path):
+        """A CSV file as a list of dicts (one per row), or None if absent."""
+        path = pathlib.Path(path)
+        if not path.is_file():
+            return None
+        self.hashes[self._name(path)] = _sha256(path)
+        return list(csv.DictReader(io.StringIO(path.read_text(encoding='utf-8'))))
 
 
 def _results_file(dev):
@@ -315,6 +340,77 @@ def universe_coverage(res):
     return rows or None
 
 
+def _gap_outcome(outcome):
+    """The GAP_OUTCOMES class of a symbol's recorded fetch outcome (None: never requested)."""
+    if outcome is None:
+        return 'never_fetched'
+    if outcome == 'not_found':
+        return 'not_found'
+    if outcome in ('short', 'invalid'):
+        return 'data_checks'
+    return 'fetch_failed'           # 'empty', 'error:<type>' and anything else the fetch recorded
+
+
+def survivorship(rows, manifest, snapshots):
+    """The survivorship gap at each formation, split by why a member has no price history.
+
+    rows       universe_coverage(): the snapshot in force at each formation and the run's own
+               index weight of the members without prices
+    manifest   {dev}/price_fetch_manifest.json: cached_symbols and each symbol's fetch outcome
+    snapshots  {period: rows of reference/universe/iwv_<period>.csv} (ticker, name, weight)
+
+    A member is mapped (has a ticker) and has no price history when its ticker is not among
+    the cached symbols; its index weight is the snapshot's weight summed over its ticker, as
+    the run computes it. The split is published only if it reproduces the run's own missing
+    weight at every formation (to 0.002 points); otherwise the section is null. For each
+    formation it also gives the members without prices among the HEAVIEST_MEMBERS heaviest of
+    the snapshot, with their names and fetch outcomes (the run's top-500 screen ranks by dollar
+    volume, which a member without prices does not have; index weight stands in for it).
+    """
+    if not rows or not manifest or not snapshots:
+        return None
+    cached = {normalise_ticker(s) for s in manifest.get('cached_symbols') or []}
+    outcomes = {normalise_ticker(s): o for s, o in (manifest.get('outcomes') or {}).items()}
+    out = []
+    for row in rows:
+        snap = snapshots.get(row['snapshot'])
+        if snap is None:
+            return None
+        weight, name = {}, {}
+        for h in snap:
+            t = h.get('ticker') or ''
+            if t == '':             # a holding without a usable ticker: the unmapped weight
+                continue
+            weight[t] = weight.get(t, 0.0) + float(h['weight'])
+            name.setdefault(t, h.get('name') or t)
+        missing = {t: w for t, w in weight.items() if t not in cached}
+        split = {k: 0.0 for k, _ in GAP_OUTCOMES}
+        count = {k: 0 for k, _ in GAP_OUTCOMES}
+        for t, w in missing.items():
+            k = _gap_outcome(outcomes.get(t))
+            split[k] += 100.0 * w
+            count[k] += 1
+        total = sum(split.values())
+        if row['missing_weight_pct'] is None or abs(total - row['missing_weight_pct']) > 0.002 \
+                or len(missing) != row['missing']:
+            return None
+        heaviest = sorted(weight.items(), key=lambda kv: (-kv[1], kv[0]))[:HEAVIEST_MEMBERS]
+        top_missing = [(t, w) for t, w in heaviest if t not in cached]
+        out.append({
+            'formation_date': row['formation_date'], 'snapshot': row['snapshot'],
+            'missing_weight_pct': _r(total, 4),
+            'by_outcome': [{'key': k, 'label': label, 'members': count[k], 'weight_pct': _r(split[k], 4)}
+                           for k, label in GAP_OUTCOMES],
+            'heaviest_n': len(heaviest),
+            'heaviest_missing': len(top_missing),
+            'heaviest_missing_weight_pct': _r(100.0 * sum(w for _, w in top_missing), 4),
+            'heaviest_missing_names': [[t, name[t], _r(100.0 * w, 3), _gap_outcome(outcomes.get(t))]
+                                       for t, w in top_missing],
+        })
+    return {'heaviest_members': HEAVIEST_MEMBERS, 'outcomes': [label for _, label in GAP_OUTCOMES],
+            'formations': out}
+
+
 def rolling_sharpe(dates, net_pct, window=ROLLING_WINDOW):
     """Rolling annualised Sharpe with a +-1.96 SE band, SE = sqrt((1 + SR_d^2 / 2) / n).
 
@@ -350,12 +446,25 @@ def monthly_table(res):
 
 
 def walk_forward(res):
+    """The walk-forward's test windows, their stitched path and the daily series.
+
+    A window's `end` is the date of its last day in the daily series (test_start plus its
+    n_days trading days): the export's test_end is the end of the window's 63-day grid slot,
+    and the last window runs on to the walk-forward's last day, so its n_days (and end)
+    exceed the slot's. Without a daily series `end` is the export's test_end.
+    """
     wf = res.get('walk_forward_validation') or {}
+    daily = res.get('walk_forward_daily') or []
+    day_index = {d['date']: i for i, d in enumerate(daily)}
     windows = []
     for w in wf.get('windows') or []:
+        end = w['test_end']
+        i0, n = day_index.get(w['test_start']), w.get('n_days')
+        if i0 is not None and n and i0 + n - 1 < len(daily):
+            end = daily[i0 + n - 1]['date']
         windows.append({
             'n': w['window'], 'train_start': w.get('train_start'), 'train_end': w.get('train_end'),
-            'test_start': w['test_start'], 'test_end': w['test_end'],
+            'test_start': w['test_start'], 'test_end': w['test_end'], 'end': end, 'n_days': n,
             'ret_pct': _r(w['total_return_pct'], 4), 'sharpe': _r(w.get('sharpe_ratio'), 3),
             'trades': int(w.get('total_trades') or 0), 'win_rate_pct': _r(w.get('win_rate_pct'), 2),
             'max_dd_pct': _r(w.get('max_drawdown_pct'), 4),
@@ -366,9 +475,8 @@ def walk_forward(res):
     cum, stitched = 1.0, []
     for w in windows:
         cum *= 1.0 + (w['ret_pct'] or 0.0) / 100.0
-        stitched.append({'date': w['test_end'], 'cum_pct': _r((cum - 1.0) * 100.0, 4)})
+        stitched.append({'date': w['end'], 'cum_pct': _r((cum - 1.0) * 100.0, 4)})
     out = {'windows': windows, 'stitched': stitched}
-    daily = res.get('walk_forward_daily') or []
     if daily:
         net = [d['daily_return_pct'] for d in daily]
         out['daily'] = {'dates': [d['date'] for d in daily], 'net': _rl(net, 5), 'cum': _rl(_cum_pct(net), 4)}
@@ -490,6 +598,79 @@ def forest(res, gatev_daily_pct, gross_daily_pct=None):
                      'days': None, 'method': f"5th-95th percentile of {_get(bench, 'random_control', 'n_draws')} draws "
                                              "(a spread across draws, not a confidence interval)"})
     return rows
+
+
+def _drawdown(r):
+    """Maximum drawdown of a daily return series (%), and its length in trading days: from
+    the peak to the trough, and from the peak until the peak is regained (None if never)."""
+    w = np.cumprod(1.0 + np.asarray(r, dtype=float))
+    dd = w / np.maximum.accumulate(w) - 1.0
+    trough = int(np.argmin(dd))
+    peak = int(np.argmax(w[:trough + 1]))
+    back = next((j for j in range(trough, len(w)) if w[j] >= w[peak]), None)
+    return 100.0 * float(dd[trough]), trough - peak, (back - peak) if back is not None else None
+
+
+def _volatility_interval(r, block):
+    """Annualised volatility, % a year, with its circular block-bootstrap 95% interval."""
+    r = np.asarray(r, dtype=float)
+    idx = _circular_block_indices(np.random.default_rng(BOOT_SEED), len(r), int(block), BOOT_RESAMPLES)
+    boots = r[idx].std(axis=1, ddof=1) * math.sqrt(PERIODS) * 100
+    return [_r(r.std(ddof=1) * math.sqrt(PERIODS) * 100, 6), _r(np.percentile(boots, 2.5), 6),
+            _r(np.percentile(boots, 97.5), 6)]
+
+
+def _mean_interval(mean_daily, t):
+    """Annualised mean return, % a year, with the 95% interval of its Newey-West t-statistic."""
+    se = abs(mean_daily / t) if t else float('nan')
+    return [_r(100 * PERIODS * v, 6) for v in (mean_daily, mean_daily - 1.96 * se, mean_daily + 1.96 * se)]
+
+
+def performance(res, headline, wf, forest_rows):
+    """The standard performance statistics of the main backtest, the walk-forward and the
+    Gatev baseline: total and annualised return (Newey-West 95% interval), annualised
+    volatility (block-bootstrap 95% interval, the Sharpe ratio's block length), the
+    Sharpe ratio, the maximum drawdown and its length, gross exposure and the return on it,
+    trades, hit rate, holding period and turnover. Null when a series is missing.
+
+    The main backtest's trade figures are the headline JSON's (the text quotes those).
+    """
+    perf, sig = res.get('overall_performance') or {}, res.get('significance') or {}
+    gatev = _get(res, 'benchmarks', 'distance_method') or {}
+    curve = res.get('daily_equity_curve') or []
+    if not curve or not gatev.get('daily_returns') or not sig.get('main_backtest') or not sig.get('oos_daily'):
+        return None
+    main_r = np.array([d['daily_return_pct'] for d in curve]) / 100.0
+    gatev_r = np.asarray(gatev['daily_returns'], dtype=float)
+    wf_r = np.asarray((wf.get('daily') or {}).get('net') or [], dtype=float) / 100.0
+    if not len(wf_r):
+        return None
+    blocks = {r['key']: re.search(r'block (\d+) days', r['method']) for r in forest_rows}
+    out = {}
+    for key, r, s in (('main', main_r, sig['main_backtest']), ('gatev', gatev_r, None), ('wf', wf_r, sig['oos_daily'])):
+        h = s['hac'] if s else hac_tstat_mean(r)
+        block = blocks.get('oos' if key == 'wf' else key)
+        if block is None:
+            return None
+        dd, to_trough, to_back = _drawdown(r)
+        out[key] = {'days': len(r), 'total': _r(100.0 * (float(np.prod(1.0 + r)) - 1.0), 6),
+                    'ret': _mean_interval(h['mean'], h['tstat']), 'vol': _volatility_interval(r, int(block.group(1))),
+                    'max_dd': _r(dd, 6), 'dd_days': [to_trough, to_back]}
+    hm, wfv = headline.get('main') or {}, res.get('walk_forward_validation') or {}
+    gross = perf.get('avg_gross_exposure_pct_of_equity')
+    out['main'].update(trades=hm.get('trades'), hit=hm.get('win_rate_pct'), hold=perf.get('avg_trading_days_held'),
+                       turnover=hm.get('annual_turnover_x'), gross=hm.get('avg_gross_exposure_pct'),
+                       ret_gross=_r(out['main']['ret'][0] / (gross / 100.0), 6) if gross else None)
+    out['wf'].update(days=_get(sig, 'oos_daily', 'n_days', default=out['wf']['days']), trades=wfv.get('total_trades'),
+                     hit=wfv.get('win_rate_pct'), hold=None, turnover=None, gross=None, ret_gross=None)
+    out['gatev'].update(trades=gatev.get('n_trades'), hit=None, hold=gatev.get('avg_holding_days'), turnover=None,
+                        gross=None, ret_gross=None)
+    hs = headline.get('significance') or {}
+    gr = next((r for r in forest_rows if r['key'] == 'gatev'), {})
+    out['main']['sharpe'] = [_get(hs, 'main', k) for k in ('ann_sharpe', 'boot_lo', 'boot_hi')]
+    out['wf']['sharpe'] = [_get(hs, 'oos_daily', k) for k in ('ann_sharpe', 'boot_lo', 'boot_hi')]
+    out['gatev']['sharpe'] = [_get(headline, 'benchmarks', 'gatev', 'sharpe'), gr.get('lo'), gr.get('hi')]
+    return out
 
 
 def trade_groups(trades):
@@ -620,6 +801,10 @@ def cost_schedules(funds, calendar):
             'ret_pct': _r(p.get('total_return_pct'), 4), 'sharpe': _r(p.get('sharpe_ratio'), 3),
             'max_dd_pct': _r(p.get('max_drawdown_pct'), 4), 'cost_pct': _r(p.get('total_cost_pct_of_capital'), 4),
             'peak_gross_x': _r(p.get('max_gross_leverage'), 3), 'trades': p.get('total_trades'),
+            # gross P&L of the replay: its net P&L plus its costs, over its starting capital
+            'gross_pct': _r(100.0 * (p['replayed_net_pnl'] + p['total_cost_dollars'])
+                            / float(_get(funds, 'metadata', 'initial_capital_usd', p['profile_key'], default=1e8)), 4)
+            if p.get('replayed_net_pnl') is not None and p.get('total_cost_dollars') is not None else None,
             **({'dates': dates} if dates != calendar else {}),
             'cum': _rl(((c['value'] / v0 - 1) * 100 for c in curve), 4) if v0 else [],
         })
@@ -631,11 +816,14 @@ def funnel(res, universe):
     traded = len({t['pair'] for t in res.get('all_trades') or []})
     names = [{'stage': 'Names in the universe file', 'n': _get(universe, 'selected')},
              {'stage': 'Names with price history', 'n': _get(res, 'run_config', 'data', 'n_symbols')}]
+    # The first three stages are the first formation's; the pairs traded come from every
+    # formation that governed trading, so that bar is not a share of the stage above it
+    # ('separate').
     pairs = [{'stage': 'Pairs tested (Engle–Granger)', 'n': fdr.get('pairs_tested')},
              {'stage': 'Cointegrated at raw p < 0.05', 'n': fdr.get('significant_raw_p05'),
               'expected': _r(fdr.get('expected_false_positives_at_p05'), 1)},
              {'stage': 'Selected (half-life, quality)', 'n': fdr.get('final_selected_pairs')},
-             {'stage': 'Traded at least once', 'n': traded}]
+             {'stage': 'Distinct pairs traded, all formations', 'n': traded, 'separate': True}]
     return {'names': [s for s in names if s['n'] is not None], 'pairs': [s for s in pairs if s['n'] is not None],
             'bh_q05': fdr.get('survive_bh_fdr_q05'), 'bh_q10': fdr.get('survive_bh_fdr_q10'),
             'pvalue_hist': fdr.get('pvalue_histogram')}
@@ -810,7 +998,7 @@ def anatomy_facts(anatomy):
         **{f'decay_{k}_{f}': _r(_get(decay, name, src), dp) for k, name in (('form', 'formation'), ('oos', 'out'),
                                                                             ('engine', 'engine'))
            for f, src, dp in (('bp', 'bp', 2), ('t', 't', 2), ('tc', 't_month_clustered', 2),
-                              ('lo', 'lo', 2), ('hi', 'hi', 2))},
+                              ('lo', 'lo', 4), ('hi', 'hi', 4))},
         **{f'decay_{k}_n': _get(decay, name, 'n') for k, name in (('form', 'formation'), ('oos', 'out'), ('engine', 'engine'))},
         'decay_pairs': _get(a, 'decay_detail', 'pairs'),
         # cointegration persistence (Clegg 2014) and the traded pairs' half-lives
@@ -890,13 +1078,35 @@ def path_facts(res):
             'common_sharpe_main': _r(_sharpe(a), 2), 'common_sharpe_oos': _r(_sharpe(b), 2)}
 
 
-def run_facts(res, universe_rows):
-    """Data facts of the run: price-level anchoring to N-PORT, the survivorship gap at the
-    first and last formation, and the signals the 30% gross cap and the cool-off turned away."""
-    anchor = _get(res, 'run_config', 'data', 'price_anchor') or {}
+def run_facts(res, universe_rows, gap_split=None):
+    """Data facts of the run: what the price fetch covered, price-level anchoring to N-PORT,
+    the survivorship gap at the first and last formation (split by fetch outcome when the
+    run's price manifest is published), the formations that governed trading, and the
+    signals the 30% gross cap and the cool-off turned away."""
+    data = _get(res, 'run_config', 'data') or {}
+    anchor = data.get('price_anchor') or {}
     largest = [r for _, r in anchor.get('largest') or []]
     rej = _get(res, 'overall_performance', 'signal_rejections') or {}
     rows = universe_rows or []
+    cached, not_found = data.get('universe_cached_fraction'), data.get('universe_not_found_fraction')
+    # a formation governs trading unless the next one replaced it before the first trading day
+    # (the initial selection at the cutoff, superseded at the first session after it)
+    days = [d['date'] for d in (res.get('walk_forward_daily') or []) + (res.get('daily_equity_curve') or [])]
+    dates = sorted({r['formation_date'] for r in rows})
+    first_day = min(days) if days else None
+    traded = [d for i, d in enumerate(dates) if first_day is None or i + 1 == len(dates) or dates[i + 1] > first_day]
+    split = {}
+    for tag, row in (('first', (gap_split or {}).get('formations', [None])[0]),
+                     ('last', ((gap_split or {}).get('formations') or [None])[-1])):
+        by = {o['key']: o for o in (row or {}).get('by_outcome') or []}
+        for key, _ in GAP_OUTCOMES:
+            split[f'gap_{tag}_{key}_pct'] = _get(by, key, 'weight_pct')
+            split[f'gap_{tag}_{key}_n'] = _get(by, key, 'members')
+        heavy = [h for h in (row or {}).get('heaviest_missing_names') or []]
+        split[f'gap_{tag}_heavy_missing'] = (row or {}).get('heaviest_missing')
+        split[f'gap_{tag}_heavy_missing_pct'] = (row or {}).get('heaviest_missing_weight_pct')
+        split[f'gap_{tag}_heavy_not_found'] = sum(1 for h in heavy if h[3] == 'not_found') if row else None
+        split[f'gap_{tag}_heavy_fetch_failed'] = sum(1 for h in heavy if h[3] == 'fetch_failed') if row else None
 
     def gap(row):
         if row is None or row['missing_weight_pct'] is None:
@@ -913,6 +1123,15 @@ def run_facts(res, universe_rows):
         'gap_first_missing': first['missing'] if first else None, 'gap_first_members': first['members'] if first else None,
         'gap_last_missing': last['missing'] if last else None, 'gap_last_members': last['members'] if last else None,
         'formations': len({r['formation_date'] for r in rows}) or None,
+        'formations_traded': len(traded) or None,
+        'gap_heavy_members': HEAVIEST_MEMBERS,
+        # the price fetch: requested symbols with price history, those the vendor answered 404,
+        # and the rest (fetch errors, failed data checks, never fetched); 'coverage_pct' is the
+        # fetch-coverage rule's share, which counts 404s and failed data checks as resolved
+        'cached_pct': _r(100 * cached, 1) if cached is not None else None,
+        'not_found_pct': _r(100 * not_found, 1) if not_found is not None else None,
+        'fetch_other_pct': _r(100 * (1 - cached - not_found), 1) if cached is not None and not_found is not None else None,
+        **split,
         'rej_cap_signal': rej.get('risk: would'), 'rej_cap_fill': rej.get('gross_exposure_cap'),
         'rej_cooloff': rej.get('cooloff'), 'signals_evaluated': rej.get('evaluated'),
     }
@@ -939,6 +1158,7 @@ def facts(res, dev, anatomy=None):
         return float(x.mean() / (x.std(ddof=1) / math.sqrt(len(x)))) if len(x) > 2 else None
 
     wins = sum(t['net_pnl_dollars'] > 0 for t in trades)
+    pos = [t['position_pct_of_equity'] for t in trades if t.get('position_pct_of_equity') is not None]
     step = {s['key']: s['usd'] for s in steps}           # empty when the run made no trade
     notional = sum(t['position_size_dollars'] for t in trades)
     costs = -sum(step[k] for k, _ in COST_STEPS) if step else None
@@ -963,6 +1183,8 @@ def facts(res, dev, anatomy=None):
         'capital_musd': _r(capital / 1e6, 0),
         'days': len(daily['dates']), 'flat_days': flat, 'flat_pct': _r(100 * flat / len(daily['dates']), 1),
         'exposure_max_pct': _r(max(daily['exposure']), 2), 'positions_max': max(daily['positions']),
+        # marked-to-market gross above the 30% cap, which applies to exposure at entry
+        'exposure_days_above_cap': sum(1 for x in daily['exposure'] if x > 30.0),
         'trades': n, 'wins': wins,
         'win_lo_pct': _r(100 * sps.beta.ppf(0.025, wins + 1, n - wins + 1), 1) if n else None,
         'win_hi_pct': _r(100 * sps.beta.ppf(0.975, wins + 1, n - wins + 1), 1) if n else None,
@@ -984,6 +1206,8 @@ def facts(res, dev, anatomy=None):
         'long_gain_usd_m': m(_get(group, 'Long spread', 'net_usd')),
         'short_loss_usd_m': m(-_get(group, 'Short spread', 'net_usd', default=float('nan'))),
         'pairs_traded': len({t['pair'] for t in trades}),
+        # position size, % of equity at entry: 3-10% before the risk manager's scaling
+        'position_min_pct': _r(min(pos), 2) if pos else None, 'position_max_pct': _r(max(pos), 2) if pos else None,
         'adv_participation_pct': _r(perf.get('avg_max_leg_adv_participation_pct'), 2),
         'hold_days': _r(perf.get('avg_trading_days_held'), 1),
         'gate_blocked_days': _get(perf, 'signal_rejections', 'regime_hard_stop_day'),
@@ -995,6 +1219,8 @@ def facts(res, dev, anatomy=None):
         'main_days': _get(sig, 'main_backtest', 'n_days'), 'oos_days': _get(sig, 'oos_daily', 'n_days'),
         'oos_overlap_days': _get(res, 'benchmarks', 'vs_strategy', 'walk_forward_oos', 'n_common_days'),
         'stitched_pct': wf['stitched'][-1]['cum_pct'] if wf['stitched'] else None,
+        # the last walk-forward window runs on to the walk-forward's last day
+        'wf_last_window_days': wf['windows'][-1]['n_days'] if wf['windows'] else None,
         'best_month_pct': _r(best['return_pct'], 2) if best else None,
         'months': len(months), 'months_positive': sum(1 for m in months if m['return_pct'] > 0),
         'beta_main': beta_main.get('beta'), 'beta_main_t': beta_main.get('t'),
@@ -1012,12 +1238,27 @@ def facts(res, dev, anatomy=None):
         # the random-pair draws' cumulative-return quantiles on the last day (committed-capital basis)
         **{f'random_{q}_end': (dev['random_band'] or {}).get(q, [None])[-1] if dev.get('random_band') else None
            for q in ('p05', 'p25', 'p50', 'p75', 'p95')},
+        # the cost-schedule replay of the same trades: how many each schedule replays (its own
+        # daily entry limit), and the sign of its gross P&L (net plus costs)
+        **schedule_facts(dev.get('cost_schedules')),
         **evidence_facts(res),
         **anatomy_facts(anatomy),
         **holdout_power_facts(res),
         **{f'wf_{k}': v for k, v in path_facts(res).items()},
-        **run_facts(res, dev.get('universe_by_formation')),
+        **run_facts(res, dev.get('universe_by_formation'), dev.get('survivorship')),
     }
+
+
+def schedule_facts(schedules):
+    """The cost-schedule replay (schedules A-E): the number of schedules, the range of trades
+    replayed, how many end with a negative gross P&L, and the range of that gross P&L."""
+    s = schedules or []
+    gross = [x['gross_pct'] for x in s if x.get('gross_pct') is not None]
+    trades = [x['trades'] for x in s if x.get('trades') is not None]
+    return {'sched_n': len(s) or None,
+            'sched_trades_min': min(trades) if trades else None, 'sched_trades_max': max(trades) if trades else None,
+            'sched_gross_negative': sum(1 for g in gross if g < 0) if gross else None,
+            'sched_gross_min_pct': min(gross) if gross else None, 'sched_gross_max_pct': max(gross) if gross else None}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1240,6 +1481,7 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
     headline = src.load(headline_path, required=True)
     res = src.load(_results_file(dev), required=True)
     funds = src.load(dev / 'fund_type_comparison.json')
+    price_manifest = src.load(dev / PRICE_MANIFEST)
     universe = src.load(dev / 'universe_meta.json')
     battery = src.load(dev / 'stats_battery.json')
     anatomy = src.load(dev / 'anatomy.json') or {}
@@ -1265,6 +1507,7 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
     else:
         power = power_from_returns(r_main)
     wf = walk_forward(res)
+    forest_rows = forest(res, gatev['net'] if gatev else None, daily['gross'])
     trades = res.get('all_trades') or []
     groups = trade_groups(trades)
     net_usd = float(_get(res, 'overall_performance', 'final_portfolio_value', default=capital)) - capital
@@ -1297,7 +1540,7 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
         'walk_forward': wf,
         'monthly': months, 'annual': annual,
         'rolling_sharpe': rolling_sharpe(daily['dates'], daily['net']),
-        'forest': forest(res, gatev['net'] if gatev else None, daily['gross']),
+        'forest': forest_rows,
         'power': power,
         'dsr_curve': dsr_curve(r_main, battery),
         'waterfall': steps,
@@ -1305,6 +1548,8 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
         'factors': fac,
         'funnel': funnel(res, universe),
         'universe_by_formation': universe_coverage(res),
+        'survivorship': None,
+        'performance': performance(res, headline, wf, forest_rows),
         'cost_schedules': cost_schedules(funds, daily['dates']),
         'cost_curve': cost_curve(daily),
         'cost_sensitivity': cost_scenarios(scenarios, res, anatomy),
@@ -1312,6 +1557,12 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
         'snooping': snooping(declaration, snoop),
         **{key: anatomy[key] for key in ANATOMY_KEYS if anatomy.get(key) is not None},
     }
+    rows = dev_out['universe_by_formation']
+    if rows and price_manifest:
+        snaps = {r['snapshot']: src.load_csv(pathlib.Path(root).joinpath(*UNIVERSE_DIR, f"iwv_{r['snapshot']}.csv"))
+                 for r in rows}
+        if all(v is not None for v in snaps.values()):
+            dev_out['survivorship'] = survivorship(rows, price_manifest, snaps)
     hurdles = _get(evidence, 'hurdles', 'hurdles')
     if hurdles:                                   # reference lines of the forest plot
         power['hurdles'] = {k: _r(_get(hurdles, k, 'sr_ann')) for k in ('single_test', 'bonferroni_one_sided', 'hlz', 'cgs')}
