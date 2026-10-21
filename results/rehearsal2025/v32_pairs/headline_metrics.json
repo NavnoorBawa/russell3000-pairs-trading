@@ -1,0 +1,277 @@
+{
+  "schema": 1,
+  "version": "32.0.0",
+  "complete": true,
+  "non_default_switches": [],
+  "pipeline_errors": [],
+  "run_config": {
+    "package_version": "32.0.0",
+    "git_commit": "d83e03392c25b4760a2ae5ecd7d4eaa0172b6b44",
+    "git_dirty": false,
+    "git_changed_during_run": false,
+    "run_started_utc": "2026-10-21T08:09:55+00:00",
+    "run_timestamp_utc": "2026-10-21T08:15:36+00:00",
+    "env": {
+      "PAIRS_PROFILE": "v32",
+      "PAIRS_CALENDAR": "rehearsal2025",
+      "PAIRS_SEED": "42",
+      "PAIRS_FILL": null,
+      "PAIRS_USE_TRANSFORMER": null,
+      "PAIRS_RANKER": null,
+      "PAIRS_RESELECT": null,
+      "PAIRS_DEMO_UNIVERSE": null,
+      "PAIRS_SKIP_REPROCESS": null,
+      "PAIRS_ALLOW_PARTIAL_FETCH": null,
+      "PAIRS_N_JOBS": null,
+      "PAIRS_OUTPUT_DIR": "outputs/rehearsal2025_v32",
+      "PYTHONHASHSEED": "0",
+      "PAIRS_UNSEAL": null,
+      "PAIRS_EXPECTED_COMMIT": "d83e03392c25b4760a2ae5ecd7d4eaa0172b6b44"
+    },
+    "effective": {
+      "profile": "v32",
+      "calendar": "rehearsal2025",
+      "fill": "close",
+      "ranker": "transformer",
+      "use_transformer_ranker": true,
+      "reselect": "pool",
+      "regime_gate": true
+    },
+    "study": {
+      "profile": {
+        "name": "v32",
+        "universe": "marketcap",
+        "max_universe": 300,
+        "same_industry": false,
+        "reselect": "pool",
+        "reselect_every": 90,
+        "formation_calendar_days": 730,
+        "regime_gate": true,
+        "ranker": "transformer",
+        "borrow_rate": 0.0025,
+        "pb_financing_spread": 0.005
+      },
+      "calendar": {
+        "name": "rehearsal2025",
+        "data_start": "2022-01-01",
+        "data_end": "2025-10-17",
+        "selection_cutoff": "2024-12-31",
+        "model_train_end": "2024-12-31",
+        "backtest_start": "2025-01-02",
+        "walk_forward": false,
+        "price_cache": "data/rehearsal2025_prices.pkl",
+        "macro_cache": "data/rehearsal2025_macro.pkl"
+      },
+      "profile_hash": "b5665398f3ad",
+      "calendar_hash": "aad3ad2a0b80"
+    },
+    "data": {
+      "data_start": "2022-01-03",
+      "data_end": "2025-10-17",
+      "backtest_start": "2025-01-02",
+      "backtest_end": "2025-10-17",
+      "n_symbols": 2775,
+      "n_pairs": 1777,
+      "universe_coverage": 0.966,
+      "universe_cached_fraction": 0.9253,
+      "universe_not_found_fraction": 0.0,
+      "price_cache": {
+        "path": "data/rehearsal2025_prices.pkl",
+        "size_bytes": 809959091,
+        "mtime_utc": "2026-10-21T08:06:24+00:00",
+        "sha256": "a97be0bb8250977e995da3740f79a11a5dcf18f382dbf01f415b69adcea91b75"
+      },
+      "macro_cache": {
+        "path": "data/rehearsal2025_macro.pkl",
+        "size_bytes": 279781,
+        "mtime_utc": "2026-10-21T07:57:27+00:00",
+        "sha256": "587d5dfb5fbcad02b29d4b48dafc11a6e94f910b5a8c0b9b57736c245dd7e9ee"
+      },
+      "universe_file": {
+        "path": "data/marketcap.csv",
+        "size_bytes": 288705,
+        "mtime_utc": "2026-10-21T07:49:28+00:00",
+        "sha256": "34661d82644fd36d80b91f4a129cc8435afcbf69faf6a61b89977a461197ca3e"
+      },
+      "price_anchor": null
+    },
+    "versions": {
+      "python": "3.12.3",
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "torch": "2.13.0+cpu",
+      "scipy": "1.15.2",
+      "statsmodels": "0.14.4"
+    },
+    "platform": "Linux-6.18.44-fc-v139-x86_64-with-glibc2.39"
+  },
+  "main": {
+    "period_start": "2025-01-02",
+    "period_end": "2025-10-17",
+    "total_return_pct": -0.44,
+    "sharpe": -1.07,
+    "trades": 12,
+    "win_rate_pct": 50.0,
+    "max_drawdown_pct": -0.64,
+    "exit_reasons": {
+      "end_of_data": 5,
+      "stop": 5,
+      "target": 2
+    },
+    "avg_gross_exposure_pct": 1.6,
+    "annual_turnover_x": 1.6
+  },
+  "ranker": {
+    "trained": true,
+    "train_samples": 15000,
+    "oos_signals": 4000,
+    "oos_auc": 0.521,
+    "wf_pooled_auc": null,
+    "wf_windows_trained": null
+  },
+  "oos": {
+    "period_start": null,
+    "period_end": null,
+    "windows": null,
+    "windows_positive": null,
+    "windows_no_trades": null,
+    "windows_selection_clean": null,
+    "windows_skipped": null,
+    "avg_window_return_pct": null,
+    "median_window_return_pct": null,
+    "pooled_sharpe": null,
+    "total_return_pct": null,
+    "trades": null,
+    "max_drawdown_pct": null,
+    "window_ids": [],
+    "window_returns_pct": [],
+    "window_trades": []
+  },
+  "significance": {
+    "main": {
+      "ann_sharpe": -1.07,
+      "hac_t": -1.07,
+      "hac_p": 0.284,
+      "psr": 0.1434,
+      "psr_pct": 14.3,
+      "boot_lo": -2.77,
+      "boot_hi": 0.86,
+      "dsr": 0.0003,
+      "dsr_pct": 0.0
+    },
+    "oos_daily": {
+      "ann_sharpe": null,
+      "hac_t": null,
+      "hac_p": null,
+      "psr": null,
+      "psr_pct": null,
+      "boot_lo": null,
+      "boot_hi": null,
+      "dsr": null,
+      "dsr_pct": null
+    },
+    "oos_windows": {
+      "n": null,
+      "mean_pct": null,
+      "t": null,
+      "p": null,
+      "p_one_sided_negative": null,
+      "ci_lo_pct": null,
+      "ci_hi_pct": null,
+      "boot_ci_lo_pct": null,
+      "boot_ci_hi_pct": null,
+      "positive": null
+    }
+  },
+  "benchmarks": {
+    "gatev": {
+      "total_return_pct": 4.56,
+      "sharpe": 1.35
+    },
+    "random_control": {
+      "median_sharpe": 0.42,
+      "p5_sharpe": -1.04,
+      "p95_sharpe": 1.52,
+      "n_draws": 200,
+      "strategy_percentile": 5.0
+    },
+    "sharpe_diff_vs_gatev": {
+      "diff": -2.42,
+      "p": 0.139,
+      "ci_lo": -5.77,
+      "ci_hi": 0.92
+    }
+  },
+  "fdr": {
+    "pairs_tested": 29608,
+    "significant_raw_p05": 4084,
+    "survive_bh_fdr_q05": 0,
+    "survive_bh_fdr_q10": 0,
+    "final_selected_pairs": 1777
+  },
+  "fund_profiles": {
+    "quant_hf": {
+      "name": "Systematic Stat-Arb",
+      "total_return_pct": -1.12,
+      "sharpe": -1.26,
+      "max_drawdown_pct": -1.52,
+      "max_gross_leverage": 0.62
+    },
+    "multi_strat": {
+      "name": "Multi-Manager Pod",
+      "total_return_pct": -0.82,
+      "sharpe": -1.39,
+      "max_drawdown_pct": -1.06,
+      "max_gross_leverage": 0.41
+    },
+    "fundamental_ls": {
+      "name": "Discretionary Long/Short",
+      "total_return_pct": -0.53,
+      "sharpe": -1.8,
+      "max_drawdown_pct": -0.62,
+      "max_gross_leverage": 0.21
+    },
+    "institutional": {
+      "name": "Patient Institutional",
+      "total_return_pct": -0.05,
+      "sharpe": -0.32,
+      "max_drawdown_pct": -0.17,
+      "max_gross_leverage": 0.1
+    },
+    "retail": {
+      "name": "Retail / Small Prop",
+      "total_return_pct": -0.2,
+      "sharpe": -1.69,
+      "max_drawdown_pct": -0.23,
+      "max_gross_leverage": 0.08
+    }
+  },
+  "evidence": {
+    "main_min_detectable_sharpe": 3.0989,
+    "main_upper_bound_95": 0.4448,
+    "main_sharpe_se": 0.9222,
+    "oos_min_detectable_sharpe": null,
+    "oos_upper_bound_95": null,
+    "hurdle_hlz_sharpe": 3.1252,
+    "gross_bp_per_trade": -67.7939,
+    "gross_t_per_trade": -0.9304,
+    "cost_bp_per_trade": 9.5707,
+    "breakeven_cost_multiple": null,
+    "gross_to_cost_ratio": -6.0537,
+    "gross_sharpe": -0.9103,
+    "sharpe_at_zero_cost": -0.9103,
+    "sharpe_at_double_cost": -1.2344,
+    "factor_alpha_ann_pct": -0.5078,
+    "factor_alpha_t": -1.1296,
+    "factor_r2": 0.0684,
+    "factor_st_rev_t": 1.2876,
+    "tbill_return_pct": 4.0598
+  },
+  "universe": {
+    "formation_date": null,
+    "members": null,
+    "with_prices": null,
+    "missing_value_weight_pct": null,
+    "unmapped_value_weight_pct": null
+  }
+}
