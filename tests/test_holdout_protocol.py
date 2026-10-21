@@ -400,6 +400,10 @@ def test_the_runbook_records_a_crash_resumes_and_runs_once(frozen_repo):
     ('untracked', 'untracked changes'),
     ('code', 'code changed since the pre-registration'),
     ('crash_fix_decision', 'may not change'),
+    ('crash_fix_runbook', 'may not change'),
+    ('crash_fix_records', 'may not change'),
+    ('crash_fix_pins', 'may not change'),
+    ('crash_fix_reference', 'may not change'),
     ('input', 'differs from reference/holdout_inputs.sha256'),
 ])
 def test_the_runbook_refuses_before_any_data_step(frozen_repo, change, needle):
@@ -407,12 +411,15 @@ def test_the_runbook_refuses_before_any_data_step(frozen_repo, change, needle):
     env = {}
     if change == 'untracked':
         (repo / 'pairs_trading' / 'extra.py').write_text('x = 1\n')
-    elif change in ('code', 'crash_fix_decision'):
-        target = 'scripts/evaluate_holdout.py' if change == 'crash_fix_decision' else 'scripts/publish_run.py'
+    elif change == 'code' or change.startswith('crash_fix_'):
+        # a crash fix may change the engine, never these (NEVER_FIXED)
+        target = {'code': 'scripts/publish_run.py', 'crash_fix_decision': 'scripts/evaluate_holdout.py',
+                  'crash_fix_runbook': 'scripts/run_holdout.sh', 'crash_fix_records': 'scripts/register_trial.py',
+                  'crash_fix_pins': 'requirements.txt', 'crash_fix_reference': 'reference/README'}[change]
         with open(repo / target, 'a') as f:
             f.write('# changed\n')
         _git(repo, 'commit', '-qam', 'change')
-        env = {'HOLDOUT_CRASH_FIX': 'x'} if change == 'crash_fix_decision' else {}
+        env = {} if change == 'code' else {'HOLDOUT_CRASH_FIX': 'x'}
     else:
         (repo / 'data' / 'marketcap.csv').write_text('Symbol\nBBB\n')
     r = _run(repo, stub, **env)
