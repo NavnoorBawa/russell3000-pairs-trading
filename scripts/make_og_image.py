@@ -106,7 +106,7 @@ def card_content(data):
         if 75 <= days / n <= 105:
             unit = 'qtr'
 
-    subtitle = f'Out-of-sample {_signed(avg)}%/{unit}, pooled Sharpe {_signed(pooled)}'
+    subtitle = f'Walk-forward {_signed(avg)}%/{unit}, pooled Sharpe {_signed(pooled)}'
     main_sharpe, gatev_sharpe = _get(data, 'main.sharpe'), _get(data, 'benchmarks.gatev.sharpe')
     if main_sharpe is not None and gatev_sharpe is not None:
         # The Sharpe-difference test, when the run has one, decides the wording: a point

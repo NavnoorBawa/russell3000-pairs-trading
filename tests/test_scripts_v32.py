@@ -300,7 +300,7 @@ def test_card_content_comes_from_the_json():
     assert [b[1] for b in c['bars']] == _headline()['oos']['window_returns_pct']
     assert [b[0] for b in c['bars']][0] == 10 and c['bars'][-1][0] == 19
     assert sum(1 for b in c['bars'] if b[2] == 0) == 3
-    assert c['subtitle'].splitlines()[0] == f'Out-of-sample {MINUS}0.28%/qtr, pooled Sharpe {MINUS}1.23'
+    assert c['subtitle'].splitlines()[0] == f'Walk-forward {MINUS}0.28%/qtr, pooled Sharpe {MINUS}1.23'
     assert 'loses to the textbook baseline' in c['subtitle'] and f'{MINUS}0.31 vs +0.26' in c['subtitle']
     assert c['caption'] == '10 SELECTION-CLEAN WINDOWS  ·  1 POSITIVE  ·  3 TRADED NOTHING'
     assert c['eyebrow'].endswith('2020—2025')
@@ -313,7 +313,7 @@ def test_card_content_tracks_changed_results():
                     period_start='2023-01-01', period_end='2023-12-31')
     h['main']['sharpe'] = 0.9
     c = og.card_content(h)
-    assert c['subtitle'].startswith('Out-of-sample +0.35%/window, pooled Sharpe +1.10')   # not quarterly
+    assert c['subtitle'].startswith('Walk-forward +0.35%/window, pooled Sharpe +1.10')   # not quarterly
     assert 'It beats the textbook baseline (Sharpe +0.90 vs +0.26).' in c['subtitle']
     assert c['caption'] == '2 OOS WINDOWS  ·  2 POSITIVE'
 

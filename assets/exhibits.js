@@ -147,7 +147,10 @@
     var P = global.Plot;
 
     var cumVals = rows.map(function (r) { return r.cum; }).concat(rows.map(function (r) { return r.gatev; }));
-    if (band) cumVals = cumVals.concat(band.map(function (b) { return b.p05; }), band.map(function (b) { return b.p95; }));
+    // The draws' middle half is drawn. Their tails can lie far outside the strategy's range (the
+    // draws' returns are on committed capital, and an unhedged random pair can lose most of it),
+    // so the 5th-95th percentile path is in the data table and the notes, not on the scale.
+    if (band) cumVals = cumVals.concat(band.map(function (b) { return b.p25; }), band.map(function (b) { return b.p75; }));
     var endLabels = [{y: last.cum, text: pct(last.cum), color: c.t.s1}];
     if (last.gatev !== null) endLabels.push({y: last.gatev, text: pct(last.gatev), color: c.t.s2});
     if (endLabels.length === 2 && Math.abs(endLabels[0].y - endLabels[1].y) < 0.3) {   // keep end labels apart
@@ -159,7 +162,6 @@
       y: {domain: domainPad(cumVals, 0.08, [0]), label: 'Cumulative net return, %', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }},
       marks: [
         gridY(c), axisY(c, {label: 'Cumulative net return, %', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }}),
-        band ? P.areaY(band, {x: 'date', y1: 'p05', y2: 'p95', fill: c.t.neutral, fillOpacity: 0.14}) : null,
         band ? P.areaY(band, {x: 'date', y1: 'p25', y2: 'p75', fill: c.t.neutral, fillOpacity: 0.22}) : null,
         zeroY(c),
         G ? P.lineY(rows, {x: 'date', y: 'gatev', stroke: c.t.s2, strokeWidth: 2, curve: 'linear'}) : null,
@@ -204,12 +206,9 @@
 
     var legend = [{label: 'Strategy, net', color: '--series-1', kind: 'line'}];
     if (G) legend.push({label: 'Gatev distance method, net', color: '--series-2', kind: 'line'});
-    if (band) {
-      legend.push({label: 'Random pairs, 5–95% of ' + (B.n_draws || '') + ' draws', color: '--neutral-series', kind: 'band'});
-      legend.push({label: '25–75%', color: '--neutral-series', kind: 'band band-inner'});
-    }
+    if (band) legend.push({label: 'Random pairs, middle half of ' + (B.n_draws || '') + ' draws', color: '--neutral-series', kind: 'band band-inner'});
     var columns = ['Date', 'Strategy cumulative', 'Gatev cumulative'];
-    if (band) columns = columns.concat(['Random 5%', 'Random median', 'Random 95%']);
+    if (band) columns = columns.concat(['Random 5%', 'Random 25%', 'Random median', 'Random 75%', 'Random 95%']);
     columns = columns.concat(['Drawdown', 'Gross exposure', 'Open positions']);
 
     return {
@@ -219,7 +218,7 @@
         columns.map(function (_, i) { return i > 0; }),
         rows.map(function (r) {
           var cells = [r.iso, pct(r.cum, 3), r.gatev === null ? '–' : pct(r.gatev, 3)];
-          if (band) cells = cells.concat(r.rnd ? [pct(r.rnd.p05, 3), pct(r.rnd.p50, 3), pct(r.rnd.p95, 3)] : ['–', '–', '–']);
+          if (band) cells = cells.concat(r.rnd ? [pct(r.rnd.p05, 3), pct(r.rnd.p25, 3), pct(r.rnd.p50, 3), pct(r.rnd.p75, 3), pct(r.rnd.p95, 3)] : ['–', '–', '–', '–', '–']);
           return cells.concat([num(r.dd, 3, {suffix: '%'}), num(r.exp, 2, {suffix: '%'}), String(r.pos)]);
         })),
       mount: function (container) { crosshair(container, [pane1, pane2, pane3], rows, c); }
@@ -280,7 +279,7 @@
       tipEl.appendChild(d);
       tipEl.appendChild(row('Strategy', c.t.s1, pct(r.cum)));
       if (r.gatev !== null) tipEl.appendChild(row('Gatev', c.t.s2, pct(r.gatev)));
-      if (r.rnd) tipEl.appendChild(row('Random, median', null, pct(r.rnd.p50) + ' [' + pct(r.rnd.p05, 1) + ', ' + pct(r.rnd.p95, 1) + ']'));
+      if (r.rnd) tipEl.appendChild(row('Random, median', null, pct(r.rnd.p50) + ' [middle half ' + pct(r.rnd.p25, 1) + ', ' + pct(r.rnd.p75, 1) + ']'));
       tipEl.appendChild(row('Drawdown', null, num(r.dd, 2, {suffix: '%'})));
       tipEl.appendChild(row('Gross exposure', null, num(r.exp, 1, {suffix: '%'})));
       tipEl.appendChild(row('Open positions', null, String(r.pos)));
@@ -485,8 +484,9 @@
     });
     return {
       nodes: [node],
-      legend: [{label: 'Strategy', color: '--series-1', kind: 'dot'}, {label: 'Gatev baseline', color: '--series-2', kind: 'dot'},
-               {label: 'Difference', color: '--ink-2', kind: 'dot'}, {label: 'Random pairs', color: '--neutral-series', kind: 'dot'}],
+      legend: [{label: 'Pairs strategy', color: '--series-1', kind: 'dot'}, {label: 'Gatev baseline', color: '--series-2', kind: 'dot'},
+               {label: 'Difference', color: '--ink-2', kind: 'dot'}, {label: 'Random pairs', color: '--neutral-series', kind: 'dot'}]
+        .concat(rows.some(function (r) { return r.key === 'residual'; }) ? [{label: 'Avellaneda–Lee', color: '--series-3', kind: 'dot'}] : []),
       table: table('Sharpe ratios and intervals. Power: ' + (pw.method || '') + '.', ['Series', 'Sharpe', 'Lower', 'Upper', 'Days', 'Interval'],
         [false, true, true, true, true, false],
         rows.map(function (r) { return [r.label, signed(r.sharpe, 2), num(r.lo, 2), signed(r.hi, 2), r.days ? String(r.days) : '–', r.method]; })
@@ -578,9 +578,11 @@
     if (!steps.length) return null;
     var P = global.Plot;
     var cap = (S.dev.run && S.dev.run.capital) || 1e8;
-    var rows = steps.map(function (s) {
+    var SHORT = {paper: 'Paper P&L', entry_delay: 'Entry delay', exit_delay: 'Exit delay', gross: 'Gross P&L', bid_ask: 'Half-spread',
+                 market_impact: 'Market impact', commission: 'Commission', borrow: 'Borrow', financing: 'Financing', net: 'Net P&L'};
+    var rows = steps.filter(function (s) { return s.usd !== 0 || s.key === 'gross' || s.key === 'net'; }).map(function (s) {
       var total = s.key === 'gross' || s.key === 'net' || s.key === 'paper';
-      return {step: s.step, a: s.start / 1e3, b: s.end / 1e3, usd: s.usd, total: total, bp: s.usd / cap * 1e4};
+      return {step: SHORT[s.key] || s.step, name: s.step, a: s.start / 1e3, b: s.end / 1e3, usd: s.usd, total: total, bp: s.usd / cap * 1e4};
     });
     var fill = function (r) { return r.total ? c.t.ink2 : signColor(c)(r.usd); };
     var right = rows.filter(function (r) { return r.b >= r.a; });      // bar grows rightwards: label at its end
@@ -604,14 +606,14 @@
         P.text(right, halo(c, {y: 'step', x: 'b', text: function (r) { return usdk(r.usd); }, dx: 6, textAnchor: 'start', fill: c.t.ink, fontSize: 11.5})),
         P.text(left, halo(c, {y: 'step', x: function (r) { return Math.min(r.a, r.b); }, text: function (r) { return usdk(r.usd); }, dx: -6, textAnchor: 'end', fill: c.t.ink, fontSize: 11.5})),
         tip(c, rows, P.pointerY({y: 'step', x: 'b', title: function (r) {
-          return r.step + '\n' + money(r.usd) + '\n' + signed(r.bp, 1) + ' bp of starting capital';
+          return r.name + '\n' + money(r.usd) + '\n' + signed(r.bp, 1) + ' bp of starting capital';
         }}))
       ]
     });
     return {
       nodes: [node],
       table: table('Implementation shortfall, main backtest.', ['Step', '$', 'bp of capital', 'Running total, $'],
-        [false, true, true, true], rows.map(function (r) { return [r.step, signed(r.usd, 2), signed(r.bp, 1), signed(r.b * 1e3, 2)]; }))
+        [false, true, true, true], rows.map(function (r) { return [r.name, signed(r.usd, 2), signed(r.bp, 1), signed(r.b * 1e3, 2)]; }))
     };
   };
 
@@ -777,7 +779,7 @@
     });
     return {
       nodes: [node],
-      legend: multi ? [{label: 'Main backtest', color: '--series-1', kind: 'dot'}, {label: 'Walk-forward OOS', color: '--series-1', kind: 'dot ring'}] : null,
+      legend: multi ? [{label: 'Main backtest', color: '--series-1', kind: 'dot'}, {label: 'Walk-forward', color: '--series-1', kind: 'dot ring'}] : null,
       table: table('Factor loadings (Newey–West) and annualised alpha; ' + (multi ? 'factors: ' : 'proxy: ') + (F.proxy || 'n/a') + '.',
         ['Series', 'Factor', 'Beta', 't', 'Lower', 'Upper'], [false, false, true, true, true, true],
         rows.map(function (r) { return [r.series, r.name, signed(r.beta, 4), num(r.t, 2), num(r.lo, 4), signed(r.hi, 4)]; })
@@ -831,7 +833,7 @@
       x: {domain: [0, maxN * 1.02], label: 'Pairs', labelArrow: 'none'},
       y: {domain: rows.map(function (r) { return r.stage; }), label: null, padding: 0.32},
       marks: [
-        gridX(c, {ticks: 4}), axisX(c, {ticks: 4, label: 'Pairs', labelArrow: 'none', tickFormat: global.d3.format(',')}),
+        gridX(c, {ticks: c.narrow ? 3 : 4}), axisX(c, {ticks: c.narrow ? 3 : 4, label: 'Pairs', labelArrow: 'none', tickFormat: global.d3.format(c.narrow ? '~s' : ',')}),
         axisY(c, {fill: c.t.ink, lineWidth: c.narrow ? 10 : 22}),
         P.barX(rows, {y: 'stage', x: 'n', fill: 'color', rx2: 3}),
         zeroX(c),
@@ -928,17 +930,18 @@
       label: 'Two panels by formation date: index members split into those with and without price history, and the index weight not covered.',
       legend: [{label: 'With price history', color: '--series-1', kind: 'box'}, {label: 'Without price history', color: '--neutral-series', kind: 'box'},
                {label: 'No usable ticker (weight only)', color: '--neutral-series', kind: 'box box-light'}],
-      table: table('Point-in-time universe at each formation date.',
-        ['Formation date', 'Snapshot', 'Members', 'With prices', 'Without prices', 'Coverage', 'Weight without prices', 'Weight without ticker'],
-        [false, false, true, true, true, true, true, true],
+      table: table('Point-in-time universe at each formation date (weights in % of the snapshot\'s equity value).',
+        ['Formation date', 'Snapshot', 'Filed', 'Members', 'With prices', 'Without prices', 'Coverage', 'Weight without prices', 'Weight without ticker', 'Heaviest without prices'],
+        [false, false, false, true, true, true, true, true, true, false],
         rows.map(function (r) {
-          return [r.formation_date, r.snapshot, fmtN(r.members), fmtN(r.with_prices), fmtN(r.missing), num(r.cover, 1, {suffix: '%'}),
-                  num(r.missing_weight_pct, 2, {suffix: '%'}), num(r.unmapped_weight_pct, 2, {suffix: '%'})];
+          return [r.formation_date, r.snapshot, r.snapshot_filed || '–', fmtN(r.members), fmtN(r.with_prices), fmtN(r.missing), num(r.cover, 1, {suffix: '%'}),
+                  num(r.missing_weight_pct, 2, {suffix: '%'}), num(r.unmapped_weight_pct, 2, {suffix: '%'}),
+                  (r.missing_heaviest || []).map(function (h) { return h[0] + ' ' + num(h[1], 2) + '%'; }).join(', ') || '–'];
         }))
     };
   };
 
-  // Exhibit 11: Sharpe against a cost multiplier (needs the daily gross/cost split)
+  // Exhibit 16: Sharpe against a cost multiplier, the trades held fixed (needs the daily gross/cost split)
   X.costcurve = function (S, c) {
     var C = S.dev && S.dev.cost_curve;
     if (!C || !C.length) return null;
@@ -963,81 +966,201 @@
         tip(c, C, P.pointerX({x: 'k', y: 'sharpe', title: function (r) { return num(r.k, 2) + '× costs\nSharpe ' + signed(r.sharpe, 2) + '\nReturn ' + pct(r.ret_pct); }}))].filter(Boolean)
     });
     return {nodes: [node], label: 'Line of net Sharpe ratio against the multiple of modelled costs.',
-      table: table('Net Sharpe and return by cost multiple.', ['Cost multiple', 'Sharpe', 'Return'], [true, true, true],
+      table: table('Net Sharpe and return by cost multiple, the headline trades held fixed.', ['Cost multiple', 'Sharpe', 'Return'], [true, true, true],
         C.map(function (r) { return [num(r.k, 2) + '×', signed(r.sharpe, 2), pct(r.ret_pct)]; }))};
   };
 
-  // Exhibit 12: exit race. anatomy.json exit_race: {targets, stops, expected_targets, z}
+  // Exhibit 11: exit race. anatomy.json exit_race: targets and stops among the barrier exits,
+  // and the targets each null expects (nulls.random_walk: no mean reversion; nulls.ou: an OU
+  // spread at the pair's formation half-life, the reversion the selection promised)
   X.exitrace = function (S, c) {
     var E = S.dev && S.dev.exit_race;
-    if (!E) return null;
-    var P = global.Plot;
-    var rows = [{k: 'Targets hit first', v: E.targets, e: E.expected_targets}, {k: 'Stops hit first', v: E.stops, e: (E.targets + E.stops) - E.expected_targets}];
+    if (!E || !E.barrier_exits) return null;
+    var P = global.Plot, N = E.nulls || {};
+    var n = E.targets + E.stops;
+    var rw = N.random_walk || {expected_targets: E.expected_targets, z: E.z};
+    var rows = [{k: 'Observed', share: 100 * E.targets / n, count: E.targets, fill: c.t.s1, z: null},
+                {k: 'Random-walk spread', share: 100 * rw.expected_targets / n, count: rw.expected_targets, fill: c.t.neutral, z: rw.z}];
+    if (N.ou) rows.push({k: 'Reverting as selected', share: 100 * N.ou.expected_targets / n, count: N.ou.expected_targets, fill: c.t.neutral, z: N.ou.z});
+    var mL = c.narrow ? 112 : 124;
     var node = plot(c, {
-      height: 140, marginLeft: 120, marginRight: 40, marginTop: 10, marginBottom: 28,
-      x: {label: 'Trades', labelArrow: 'none'}, y: {domain: rows.map(function (r) { return r.k; }), label: null, padding: 0.3},
-      marks: [gridX(c), axisX(c, {label: 'Trades', labelArrow: 'none'}), axisY(c, {fill: c.t.ink}),
-        P.barX(rows, {y: 'k', x: 'v', fill: c.t.s1, rx2: 3}), P.tickX(rows, {y: 'k', x: 'e', stroke: c.t.ink, strokeWidth: 2}), zeroX(c),
-        tip(c, rows, P.pointerY({y: 'k', x: 'v', title: function (r) { return r.k + ': ' + r.v + '\nexpected with no mean reversion: ' + num(r.e, 1); }}))]
+      height: rows.length * 44 + 40, marginLeft: mL, marginRight: 46, marginTop: 8, marginBottom: 30,
+      x: {domain: [0, 100], label: 'Targets hit first, % of ' + n + ' barrier exits', labelArrow: 'none'},
+      y: {domain: rows.map(function (r) { return r.k; }), label: null, padding: 0.3},
+      marks: [gridX(c, {ticks: 5}), axisX(c, {ticks: 5, label: 'Targets hit first, % of ' + n + ' barrier exits', labelArrow: 'none', tickFormat: function (v) { return num(v, 0); }}),
+        axisY(c, {fill: c.t.ink, lineWidth: (mL - 12) / 12, lineHeight: 1.1}),
+        P.barX(rows, {y: 'k', x: 'share', fill: function (r) { return r.fill; }, rx2: 3}), zeroX(c),
+        P.text(rows, halo(c, {y: 'k', x: 'share', text: function (r) { return num(r.share, 1, {suffix: '%'}); }, dx: 5, textAnchor: 'start', fill: c.t.ink, fontSize: 11})),
+        tip(c, rows, P.pointerY({y: 'k', x: 'share', title: function (r) {
+          return r.k + '\n' + (r.z === null ? r.count + ' targets of ' + n : num(r.count, 1) + ' targets expected of ' + n + '\nobserved against it: z = ' + signed(r.z, 2));
+        }}))]
     });
-    return {nodes: [node], label: 'Bars of target and stop exits with ticks at the counts expected without mean reversion.',
-      legend: [{label: 'Observed', color: '--series-1', kind: 'box'}, {label: 'Expected under the null', color: '--ink', kind: 'rule'}],
-      table: table('Exit race (z = ' + num(E.z, 2) + ').', ['Exit', 'Observed', 'Expected'], [false, true, true],
-        rows.map(function (r) { return [r.k, String(r.v), num(r.e, 1)]; }))};
+    return {nodes: [node], label: 'Bars of the share of barrier exits that hit the profit target: observed, and expected for a random-walk spread and for a spread reverting at its formation half-life.',
+      table: table('Exit race: target exits among the ' + n + ' target and stop exits (' + E.other_exits + ' trades left at the time stop or the end of data).',
+        ['Spread', 'Targets', 'Share', 'z (observed vs expected)'], [false, true, true, true],
+        rows.map(function (r) { return [r.k, r.z === null ? String(r.count) : num(r.count, 1), num(r.share, 1, {suffix: '%'}), r.z === null ? '' : signed(r.z, 2)]; }))};
   };
 
-  // Exhibit 13: decay. anatomy.json decay: [{period, bp, lo, hi, n}]
+  // Exhibit 12: decay. anatomy.json decay: [{period, bp, lo, hi, n, t}]
   X.decay = function (S, c) {
     var D = S.dev && S.dev.decay;
     if (!D || !D.length) return null;
     var P = global.Plot;
+    var short = {'Formation (in sample), same rule': 'In sample', 'Out of sample, same rule': 'Out of sample', 'Engine trades': 'The book'};
+    var rows = D.map(function (r) { return Object.assign({}, r, {k: short[r.period] || r.period}); });
     var node = plot(c, {
-      height: D.length * 40 + 50, marginLeft: 150, marginRight: 20, marginTop: 10, marginBottom: 30,
-      x: {domain: domainPad(D.map(function (r) { return r.lo; }).concat(D.map(function (r) { return r.hi; })), 0.1, [0]), label: 'Gross bp per trade', labelArrow: 'none'},
-      y: {domain: D.map(function (r) { return r.period; }), label: null, padding: 0.4},
-      marks: [gridX(c), axisX(c, {label: 'Gross bp per trade', labelArrow: 'none'}), axisY(c, {fill: c.t.ink, lineWidth: 14}), zeroX(c),
-        P.ruleY(D, {y: 'period', x1: 'lo', x2: 'hi', stroke: c.t.s1, strokeWidth: 2}),
-        P.dot(D, {x: 'bp', y: 'period', r: 4.5, fill: c.t.s1, stroke: c.t.paper, strokeWidth: 2}),
-        tip(c, D, P.pointer({x: 'bp', y: 'period', title: function (r) { return r.period + '\n' + signed(r.bp, 1) + ' bp (n = ' + r.n + ')'; }}))]
+      height: rows.length * 40 + 40, marginLeft: 104, marginRight: 16, marginTop: 8, marginBottom: 30,
+      x: {domain: domainPad(rows.map(function (r) { return r.lo; }).concat(rows.map(function (r) { return r.hi; })), 0.08, [0]), label: 'Gross bp per trade (95% interval)', labelArrow: 'none'},
+      y: {domain: rows.map(function (r) { return r.k; }), label: null, padding: 0.4},
+      marks: [gridX(c, {ticks: 5}), axisX(c, {ticks: 5, label: 'Gross bp per trade (95% interval)', labelArrow: 'none', tickFormat: function (v) { return signed(v, 0); }}),
+        axisY(c, {fill: c.t.ink}), zeroX(c),
+        P.ruleY(rows, {y: 'k', x1: 'lo', x2: 'hi', stroke: c.t.s1, strokeWidth: 2}),
+        P.dot(rows, {x: 'bp', y: 'k', r: 4.5, fill: c.t.s1, stroke: c.t.paper, strokeWidth: 2}),
+        tip(c, rows, P.pointer({x: 'bp', y: 'k', title: function (r) { return r.period + '\n' + signed(r.bp, 1) + ' bp (t = ' + num(r.t, 2) + ', n = ' + r.n + ')\n95% ' + num(r.lo, 1) + ' to ' + signed(r.hi, 1); }}))]
     });
-    return {nodes: [node], label: 'Dot plot of gross basis points per trade by period with 95% intervals.',
-      table: table('Gross bp per trade by period.', ['Period', 'bp', 'Lower', 'Upper', 'Trades'], [false, true, true, true, true],
-        D.map(function (r) { return [r.period, signed(r.bp, 1), num(r.lo, 1), signed(r.hi, 1), String(r.n)]; }))};
+    return {nodes: [node], label: 'Dot plot of gross basis points per trade, in sample, out of sample and in the book, with 95% intervals.',
+      table: table('Gross bp per trade of the same rule on the same pairs (t clustered by signal month in the last column).',
+        ['Period', 'Trades', 'bp', 'Lower', 'Upper', 't', 't, month-clustered'], [false, true, true, true, true, true, true],
+        rows.map(function (r) { return [r.period, String(r.n), signed(r.bp, 1), num(r.lo, 1), signed(r.hi, 1), num(r.t, 2), num(r.t_month_clustered, 2)]; }))};
   };
 
-  // Exhibit 14: persistence. anatomy.json persistence: {chance_pct, windows: [{window, pct}]}
+  // Exhibit 13: persistence. anatomy.json persistence: {chance_pct, windows: [{window, pct, base_pct, pairs}]}
   X.persistence = function (S, c) {
     var Pd = S.dev && S.dev.persistence;
     if (!Pd || !Pd.windows || !Pd.windows.length) return null;
     var P = global.Plot;
+    var tick = function (w) {
+      var m = /^(\d{4})\D+(\d{4})$/.exec(w.window);
+      return m ? '’' + m[1].slice(2) + '→’' + m[2].slice(2) : 'Traded, OOS';
+    };
+    var W = Pd.windows.map(function (w) { return Object.assign({}, w, {k: tick(w)}); });
+    var withBase = W.filter(function (w) { return w.base_pct !== null && w.base_pct !== undefined; });
+    var ymax = Math.max.apply(null, W.map(function (w) { return Math.max(w.pct, w.base_pct || 0); }).concat([Pd.chance_pct])) * 1.18;
     var node = plot(c, {
-      height: 200, marginLeft: 40, marginRight: 16, marginTop: 16, marginBottom: 30,
-      x: {domain: Pd.windows.map(function (w) { return w.window; }), label: null}, y: {label: 'Still cointegrated, %', labelArrow: 'none'},
-      marks: [gridY(c), axisY(c, {label: 'Still cointegrated, %', labelArrow: 'none'}), axisX(c, {}),
-        P.barY(Pd.windows, {x: 'window', y: 'pct', fill: c.t.s1, ry2: 3}), zeroY(c),
-        P.ruleY([Pd.chance_pct], {stroke: c.t.ink, strokeWidth: 1.5}),
-        tip(c, Pd.windows, P.pointerX({x: 'window', y: 'pct', title: function (w) { return w.window + ': ' + num(w.pct, 1) + '%'; }}))]
+      height: 200, marginLeft: 36, marginRight: 8, marginTop: 14, marginBottom: 30,
+      x: {domain: W.map(function (w) { return w.k; }), label: null, padding: 0.25},
+      y: {domain: [0, ymax], label: 'Still cointegrated, %', labelArrow: 'none'},
+      marks: [gridY(c, {ticks: 4}), axisY(c, {ticks: 4, label: 'Still cointegrated, %', labelArrow: 'none'}), axisX(c, {fontSize: c.narrow ? 10 : 11}),
+        P.barY(W, {x: 'k', y: 'pct', fill: c.t.s1, ry2: 2}), zeroY(c),
+        P.ruleY([Pd.chance_pct], {stroke: c.t.ink3, strokeWidth: 1, strokeDasharray: '4,3'}),
+        P.tickY(withBase, {x: 'k', y: 'base_pct', stroke: c.t.ink, strokeWidth: 2}),
+        tip(c, W, P.pointerX({x: 'k', y: 'pct', title: function (w) {
+          return w.window + '\n' + num(w.pct, 1) + '% of ' + w.pairs + ' pairs still cointegrated' + (w.base_pct ? '\nbase rate of the next year ' + num(w.base_pct, 1) + '%' : '');
+        }}))]
     });
-    return {nodes: [node], label: 'Bars of the share of pairs still cointegrated by window against the chance rate.',
-      legend: [{label: 'Selected pairs still cointegrated', color: '--series-1', kind: 'box'}, {label: 'Chance rate', color: '--ink', kind: 'line'}],
-      table: table('Cointegration persistence (chance ' + num(Pd.chance_pct, 1) + '%).', ['Window', 'Still cointegrated'], [false, true],
-        Pd.windows.map(function (w) { return [w.window, num(w.pct, 1, {suffix: '%'})]; }))};
+    return {nodes: [node], label: 'Bars of the share of cointegrated pairs still cointegrated a year later, with ticks at the next year\'s base rate and a line at the 5% chance rate.',
+      legend: [{label: 'Still cointegrated', color: '--series-1', kind: 'box'}, {label: 'Base rate of the next year', color: '--ink', kind: 'rule'},
+               {label: 'Chance, ' + num(Pd.chance_pct, 0) + '%', color: '--ink-3', kind: 'line dash'}],
+      table: table('Cointegration persistence: pairs cointegrated in one year that are cointegrated the next (chance ' + num(Pd.chance_pct, 1) + '%).',
+        ['Window', 'Pairs', 'Still cointegrated', 'Next year’s base rate'], [false, true, true, true],
+        W.map(function (w) { return [w.window, String(w.pairs), num(w.pct, 1, {suffix: '%'}), w.base_pct ? num(w.base_pct, 1, {suffix: '%'}) : '–']; }))};
   };
 
-  // Exhibit 16: capacity. anatomy.json capacity: [{aum_musd, net_bp}]
+  // Exhibit 14: the traded pairs' half-lives, on the formation window and out of sample
+  // (anatomy.persistence_detail.traded_pairs, passed through as dev.half_lives)
+  X.halflife = function (S, c) {
+    var H = S.dev && S.dev.half_lives;
+    if (!H || !H.pairs || !H.pairs.length) return null;
+    var P = global.Plot, CAP = 400, LO = 2, max = H.max_half_life || 25;
+    var rows = H.pairs.filter(function (r) { return r.f !== null; }).map(function (r) {
+      var clipped = r.o === null || r.o > CAP;
+      return {pair: r.pair, f: r.f, o: clipped ? CAP : Math.max(r.o, LO), raw: r.o, clipped: clipped, trades: r.trades, p_f: r.p_f, p_o: r.p_o};
+    });
+    var diag = [[4, 4], [max + 1, max + 1]];
+    var node = plot(c, {
+      height: 240, marginLeft: 44, marginRight: 14, marginTop: 26, marginBottom: 30,
+      x: {domain: [0, max + 1], label: 'Half-life at formation, days', labelArrow: 'none'},
+      y: {type: 'log', domain: [LO, CAP * 1.35], label: 'Half-life out of sample, days', labelArrow: 'none'},
+      marks: [gridY(c, {ticks: [2, 5, 10, 25, 50, 100, 400]}), axisY(c, {ticks: [2, 5, 10, 25, 50, 100, 400], tickFormat: function (v) { return String(v); }, label: 'Half-life out of sample, days', labelArrow: 'none'}),
+        axisX(c, {ticks: 5, label: 'Half-life at formation, days', labelArrow: 'none'}),
+        P.ruleY([max], {stroke: c.t.ink3, strokeWidth: 1, strokeDasharray: '4,3'}),
+        P.text([max], halo(c, {y: function (v) { return v; }, frameAnchor: 'left', text: function () { return 'rule’s maximum, ' + max + ' days'; }, dy: -7, dx: 4, textAnchor: 'start', fill: c.t.ink2, fontSize: 11})),
+        P.line(diag, {stroke: c.t.ink3, strokeWidth: 1}),
+        P.dot(rows.filter(function (r) { return !r.clipped; }), {x: 'f', y: 'o', r: 3, fill: c.t.s1, fillOpacity: 0.75}),
+        P.dot(rows.filter(function (r) { return r.clipped; }), {x: 'f', y: 'o', r: 4, symbol: 'triangle', fill: c.t.s1}),
+        tip(c, rows, P.pointer({x: 'f', y: 'o', title: function (r) {
+          return r.pair + ' (' + r.trades + ' trade' + (r.trades === 1 ? '' : 's') + ')\nformation ' + num(r.f, 1) + ' days, p = ' + num(r.p_f, 3) +
+            '\nout of sample ' + (r.raw === null ? 'no mean reversion' : num(r.raw, 1) + ' days') + ', p = ' + num(r.p_o, 3);
+        }}))]
+    });
+    var above = rows.filter(function (r) { return r.raw === null || r.raw > max; }).length;
+    return {nodes: [node], label: 'Scatter of each traded pair\'s spread half-life on its formation window against its half-life out of sample, with the rule\'s 25-day maximum marked.',
+      legend: [{label: 'Traded pair', color: '--series-1', kind: 'dot'}, {label: 'Equal half-lives', color: '--ink-3', kind: 'line'}],
+      table: table('Half-lives of the ' + rows.length + ' traded pairs (' + above + ' above ' + max + ' days out of sample); Engle–Granger p in each window.',
+        ['Pair', 'Trades', 'Formation, days', 'Formation p', 'Out of sample, days', 'Out-of-sample p'], [false, true, true, true, true, true],
+        rows.map(function (r) { return [r.pair, String(r.trades), num(r.f, 1), num(r.p_f, 3), r.raw === null ? 'none' : num(r.raw, 1), num(r.p_o, 3)]; }))};
+  };
+
+  // Exhibit 15: the declared cost and capacity scenarios two ways: the whole backtest re-run
+  // (scripts/cost_sensitivity.py; the trades change) and the headline run's trades re-priced
+  // (anatomy.json; the trades are fixed)
+  X.scenarios = function (S, c) {
+    var C = S.dev && S.dev.cost_sensitivity;
+    if (!C || !C.available) return null;
+    var P = global.Plot;
+    var names = {headline: 'Headline (Y = 0.3, borrow 0.38%, $100M)', impact_0_6: 'Impact Y = 0.6', impact_1_0: 'Impact Y = 1.0',
+                 borrow_1: 'Borrow 1% a year', borrow_3: 'Borrow 3% a year', capital_10m: 'Book of $10M', capital_1b: 'Book of $1B', capital_5b: 'Book of $5B'};
+    if (c.narrow) names.headline = 'Headline';
+    var rows = C.order.map(function (k) { var r = C.scenarios[k]; return {k: k, label: names[k] || r.label, full: r.full, fixed: r.fixed}; })
+      .filter(function (r) { return r.full.sharpe !== null; });
+    var full = rows.map(function (r) { return {label: r.label, x: r.full.sharpe, trades: r.full.trades, r: r}; });
+    var fixed = rows.filter(function (r) { return r.fixed.sharpe !== null; }).map(function (r) { return {label: r.label, x: r.fixed.sharpe, r: r}; });
+    var links = fixed.map(function (f) { return {label: f.label, a: f.x, b: f.r.full.sharpe}; });
+    var xs = domainPad(full.map(function (d) { return d.x; }).concat(fixed.map(function (d) { return d.x; })), 0.1, [0]);
+    var mL = c.narrow ? 112 : 176, mR = c.narrow ? 46 : 70;
+    var node = plot(c, {
+      height: rows.length * 38 + 50, marginLeft: mL, marginRight: mR, marginTop: 22, marginBottom: 30,
+      x: {domain: xs, label: 'Net Sharpe ratio, annualised', labelArrow: 'none'},
+      y: {domain: rows.map(function (r) { return r.label; }), label: null, padding: 0.4},
+      marks: [gridX(c, {ticks: c.narrow ? 4 : 6}), axisX(c, {ticks: c.narrow ? 4 : 6, label: 'Net Sharpe ratio, annualised', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }}),
+        axisY(c, {fill: c.t.ink, lineWidth: (mL - 12) / 12, lineHeight: 1.1}), zeroX(c),
+        P.link(links, {y1: 'label', y2: 'label', x1: 'a', x2: 'b', stroke: c.t.rule2, strokeWidth: 2}),
+        P.dot(fixed, {x: 'x', y: 'label', r: 4.5, fill: c.t.paper, stroke: c.t.s1, strokeWidth: 2}),
+        P.dot(full, {x: 'x', y: 'label', r: 4.5, fill: c.t.s1, stroke: c.t.paper, strokeWidth: 1.5}),
+        P.text(full, {y: 'label', frameAnchor: 'right', text: function (d) { return String(d.trades); }, dx: mR - 4, textAnchor: 'end', fill: c.t.ink2, fontSize: 11}),
+        P.text(['Trades'], {frameAnchor: 'top-right', text: function () { return 'trades, re-run'; }, dx: mR - 4, dy: -16, textAnchor: 'end', fill: c.t.ink3, fontSize: 11}),
+        tip(c, full, P.pointer({x: 'x', y: 'label', title: function (d) {
+          var r = d.r;
+          return d.label + '\nfull re-run: Sharpe ' + signed(r.full.sharpe, 2) + ', ' + pct(r.full.ret_pct) + ', ' + r.full.trades + ' trades, costs ' + num(r.full.cost_bp, 1) + ' bp of notional' +
+            (r.fixed.sharpe === null ? '' : '\nsame trades re-priced: Sharpe ' + signed(r.fixed.sharpe, 2) + ', ' + pct(r.fixed.ret_pct));
+        }}))]
+    });
+    return {nodes: [node], label: 'Dot plot of the net Sharpe ratio under each declared cost or capacity scenario: the full re-run (filled) and the headline trades re-priced (open), joined by a line.',
+      legend: [{label: 'Full re-run (trades change)', color: '--series-1', kind: 'dot'}, {label: 'Headline trades re-priced', color: '--series-1', kind: 'dot ring'}],
+      table: table('Cost and capacity scenarios: the full re-run and the headline run\'s 213 trades re-priced.',
+        ['Scenario', 'Trades', 'Net return', 'Sharpe', 'Max drawdown', 'Costs, % capital', 'Cost, bp of notional', 'Larger leg, % ADV', 'Same trades: return', 'Same trades: Sharpe'],
+        [false, true, true, true, true, true, true, true, true, true],
+        rows.map(function (r) {
+          return [r.label, String(r.full.trades), pct(r.full.ret_pct), signed(r.full.sharpe, 2), num(r.full.max_dd_pct, 2, {suffix: '%'}), num(r.full.cost_pct, 2),
+                  num(r.full.cost_bp, 1), num(r.full.adv_pct, 2), r.fixed.ret_pct === null ? '–' : pct(r.fixed.ret_pct), r.fixed.sharpe === null ? '–' : signed(r.fixed.sharpe, 2)];
+        }))};
+  };
+
+  // Exhibit 17: capacity. anatomy.json capacity: [{aum_musd, net_bp, impact_bp}] (the same trades, re-priced)
   X.capacity = function (S, c) {
     var C = S.dev && S.dev.capacity;
     if (!C || !C.length) return null;
     var P = global.Plot;
-    var node = plot(c, {
-      height: 200, marginLeft: 40, marginRight: 16, marginTop: 16, marginBottom: 30,
-      x: {type: 'log', label: 'Book size, $M', labelArrow: 'none'}, y: {label: 'Net bp per trade', labelArrow: 'none'},
-      marks: [gridY(c), axisY(c, {label: 'Net bp per trade', labelArrow: 'none'}), axisX(c, {label: 'Book size, $M', labelArrow: 'none'}), zeroY(c),
-        P.lineY(C, {x: 'aum_musd', y: 'net_bp', stroke: c.t.s1, strokeWidth: 2}),
-        tip(c, C, P.pointerX({x: 'aum_musd', y: 'net_bp', title: function (r) { return '$' + r.aum_musd + 'M: ' + signed(r.net_bp, 1) + ' bp'; }}))]
+    var pts = [];
+    C.forEach(function (r) {
+      pts.push({aum: r.aum_musd, v: r.net_bp, s: 'Net, bp per trade', color: c.t.s1});
+      if (r.impact_bp !== undefined && r.impact_bp !== null) pts.push({aum: r.aum_musd, v: -r.impact_bp, s: 'Market impact, bp per trade', color: c.t.s2});
     });
-    return {nodes: [node], label: 'Line of net basis points per trade against book size.',
-      table: table('Capacity curve.', ['Book size, $M', 'Net bp per trade'], [true, true], C.map(function (r) { return [String(r.aum_musd), signed(r.net_bp, 1)]; }))};
+    var series = [['Net, bp per trade', c.t.s1], ['Market impact, bp per trade', c.t.s2]];
+    var node = plot(c, {
+      height: 200, marginLeft: 40, marginRight: 14, marginTop: 14, marginBottom: 30,
+      x: {type: 'log', domain: [C[0].aum_musd * 0.8, C[C.length - 1].aum_musd * 1.25], label: 'Book size, $M (log scale)', labelArrow: 'none'},
+      y: {domain: domainPad(pts.map(function (d) { return d.v; }), 0.1, [0]), label: 'bp per trade', labelArrow: 'none'},
+      marks: [gridY(c, {ticks: 4}), axisY(c, {ticks: 4, label: 'bp per trade', labelArrow: 'none', tickFormat: function (v) { return signed(v, 0); }}),
+        axisX(c, {ticks: 4, label: 'Book size, $M (log scale)', labelArrow: 'none', tickFormat: global.d3.format(',')}), zeroY(c),
+        P.lineY(pts, {x: 'aum', y: 'v', z: 's', stroke: 'color', strokeWidth: 2}),
+        P.dot(pts, {x: 'aum', y: 'v', fill: 'color', r: 3.5, stroke: c.t.paper, strokeWidth: 1.5}),
+        tip(c, pts, P.pointer({x: 'aum', y: 'v', title: function (d) { return '$' + global.d3.format(',')(d.aum) + 'M\n' + d.s + ': ' + signed(d.v, 1); }}))]
+    });
+    return {nodes: [node], label: 'Lines of net basis points per trade and of market impact per trade against book size, for the same trades re-priced.',
+      legend: series.map(function (s, i) { return {label: s[0].replace('Market impact', 'Market impact (negative)'), color: i ? '--series-2' : '--series-1', kind: 'line'}; }),
+      table: table('Capacity: the headline trades re-priced at other book sizes (impact re-priced per execution).', ['Book size, $M', 'Net bp per trade', 'Impact bp per trade', 'Sharpe', 'Net return'],
+        [true, true, true, true, true], C.map(function (r) { return [global.d3.format(',')(r.aum_musd), signed(r.net_bp, 1), num(r.impact_bp, 1), signed(r.sharpe, 2), pct(r.total_return_pct)]; }))};
   };
 
   // Exhibit 20: p-value histogram. {edges: [21 values], counts: [20]}
@@ -1071,10 +1194,10 @@
       height: arms.length * 40 + 56, marginLeft: mL, marginRight: 20, marginTop: 10, marginBottom: 34,
       x: {domain: domainPad(arms.map(function (a) { return a.lo; }).concat(arms.map(function (a) { return a.hi; })), 0.1, [0]), label: 'Annualised Sharpe ratio', labelArrow: 'none'},
       y: {domain: arms.map(function (a) { return a.label; }), label: null, padding: 0.4},
-      marks: [gridX(c), axisX(c, {label: 'Annualised Sharpe ratio', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }}),
+      marks: [gridX(c, {ticks: c.narrow ? 4 : 8}), axisX(c, {ticks: c.narrow ? 4 : 8, label: 'Annualised Sharpe ratio', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }}),
         axisY(c, {fill: c.t.ink, fontSize: 12, lineWidth: (mL - 12) / 12}), zeroX(c),     // wrap only past the margin
         P.ruleY(arms, {y: 'label', x1: 'lo', x2: 'hi', stroke: 'color', strokeWidth: 2}),
-        P.dot(arms, {x: 'sharpe', y: 'label', r: 4.5, fill: 'color', stroke: c.t.paper, strokeWidth: 2}),
+        P.dot(arms, {x: 'sharpe', y: 'label', r: 4.5, fill: function (a) { return a.open ? c.t.paper : a.color; }, stroke: function (a) { return a.open ? a.color : c.t.paper; }, strokeWidth: 2}),
         tip(c, arms, P.pointer({x: 'sharpe', y: 'label', title: function (a) { return a.label + '\nSharpe ' + signed(a.sharpe, 2) + ' [' + num(a.lo, 2) + ', ' + signed(a.hi, 2) + ']'; }}))]
     });
     return {nodes: [node], label: 'Sharpe ratios with 95% intervals by strategy arm.',
@@ -1084,10 +1207,38 @@
   X.residual = function (S, c) {
     var R = S.residual;
     if (!R || R.sharpe === null || R.sharpe === undefined) return null;
-    var main = (S.dev.forest || []).filter(function (r) { return r.key === 'main'; })[0];
+    var P = global.Plot, F = {};
+    (S.dev.forest || []).forEach(function (r) { F[r.key] = r; });
     var arms = [{label: 'Avellaneda–Lee, net', sharpe: R.sharpe, lo: R.lo, hi: R.hi, trades: R.trades, color: c.t.s3}];
-    if (main) arms.push({label: 'Pairs, main backtest, net', sharpe: main.sharpe, lo: main.lo, hi: main.hi, trades: S.dev.facts.trades, color: c.t.s1});
-    return armSummary(c, arms, 'Second strategy family against the pairs strategy, development period.');
+    if (R.gross_sharpe !== null && R.gross_sharpe !== undefined) arms.push({label: 'Avellaneda–Lee, gross', sharpe: R.gross_sharpe, lo: R.gross_lo, hi: R.gross_hi, trades: R.trades, color: c.t.s3, open: true});
+    if (F.main) arms.push({label: 'Pairs, net', sharpe: F.main.sharpe, lo: F.main.lo, hi: F.main.hi, trades: S.dev.facts.trades, color: c.t.s1});
+    if (F.gross) arms.push({label: 'Pairs, gross', sharpe: F.gross.sharpe, lo: F.gross.lo, hi: F.gross.hi, trades: S.dev.facts.trades, color: c.t.s1, open: true});
+    var out = armSummary(c, arms, 'Second strategy family against the pairs strategy, development period, net and gross of costs.');
+    out.legend = [{label: 'Avellaneda–Lee', color: '--series-3', kind: 'dot'}, {label: 'Pairs (v33)', color: '--series-1', kind: 'dot'},
+                  {label: 'Gross of costs', color: '--ink-2', kind: 'dot ring'}];
+    if (R.paths && S.dev.daily) {
+      var dates = R.paths.dates || S.dev.daily.dates, pairsBy = {};
+      S.dev.daily.dates.forEach(function (d, i) { pairsBy[d] = S.dev.daily.cum[i]; });
+      var rows = dates.map(function (d, i) { return {date: parse(d), al: R.paths.net[i], pr: pairsBy[d] === undefined ? null : pairsBy[d]}; });
+      var last = rows[rows.length - 1];
+      var ends = [{y: last.al, text: pct(last.al), color: c.t.s3}];
+      if (last.pr !== null) ends.push({y: last.pr, text: pct(last.pr), color: c.t.s1});
+      var pane = plot(c, {
+        height: c.narrow ? 180 : 210, marginLeft: 46, marginRight: c.narrow ? 58 : 62, marginTop: 18, marginBottom: 26,
+        x: {type: 'utc', domain: [rows[0].date, last.date]},
+        y: {domain: domainPad(rows.map(function (r) { return r.al; }).concat(rows.map(function (r) { return r.pr; })), 0.08, [0]), label: 'Cumulative net return, %', labelArrow: 'none'},
+        marks: [gridY(c), axisY(c, {label: 'Cumulative net return, %', labelArrow: 'none', tickFormat: function (v) { return signed(v, 0); }}),
+          axisX(c, {ticks: c.narrow ? 4 : 8}), zeroY(c),
+          P.lineY(rows, {x: 'date', y: 'pr', stroke: c.t.s1, strokeWidth: 2}),
+          P.lineY(rows, {x: 'date', y: 'al', stroke: c.t.s3, strokeWidth: 2}),
+          P.dot(ends, {x: function () { return last.date; }, y: 'y', r: 4, fill: function (d) { return d.color; }, stroke: c.t.paper, strokeWidth: 2}),
+          P.text(ends, {x: function () { return last.date; }, y: 'y', text: 'text', dx: 8, textAnchor: 'start', fill: c.t.ink, fontWeight: 600, fontSize: 12}),
+          tip(c, rows, P.pointerX({x: 'date', y: 'al', title: function (r) { return fmtDate(r.date) + '\nAvellaneda–Lee ' + pct(r.al) + (r.pr === null ? '' : '\nPairs ' + pct(r.pr)); }}))]
+      });
+      pane.classList.add('plot-pane');
+      out.nodes.push(pane);
+    }
+    return out;
   };
   // Exhibit 1: the evaluated holdout, one row per pre-registered strategy; also fills the
   // hypotheses table above it (Sharpe, Holm-adjusted p, decision at the registered alpha)

@@ -1,8 +1,11 @@
 """scripts/build_site_data.py (assets/study.json) and the checker's study.* markers.
 
-The builder is exercised on the committed v32 run and on copies of it altered to carry
-what later exports add (the random-pair quantiles, point-in-time universe coverage, the
-daily gross/cost split, a _compact twin), so every optional path runs without new data.
+The page is built from the committed v33 development run (results/v33_dev), whose
+artefacts the builder reads in full: the export's evidence block, anatomy.json,
+cost_sensitivity.json, the residual arm, the validation, the published v32 run and the
+trial registry. The code paths of older exports are exercised on the committed v32 run and
+on copies of it altered to carry what later exports add (the random-pair quantiles,
+point-in-time universe coverage, the daily gross/cost split, a _compact twin).
 """
 import copy
 import hashlib
@@ -17,6 +20,7 @@ import pytest
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 V32 = REPO / 'results' / 'v32_dev'
+V33 = REPO / 'results' / 'v33_dev'
 RESULTS_NAME = 'pairs_trading_results_2023_2025_unbiased.json'
 
 
@@ -41,6 +45,16 @@ def v32_study():
     return bsd.build(V32)
 
 
+@pytest.fixture(scope='module')
+def v33_study():
+    """The committed page data: assets/study.json, as the page reads it."""
+    return json.loads((REPO / 'assets' / 'study.json').read_text(encoding='utf-8'))
+
+
+def _json(path):
+    return json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
+
+
 def _run_dir(tmp_path, res, name='run'):
     """A run directory holding the v32 headline JSON and the export `res`."""
     d = tmp_path / name
@@ -59,13 +73,18 @@ def _quantiles(n):
 # ── the committed file ─────────────────────────────────────────────────────────
 
 def test_committed_study_json_is_current():
-    """assets/study.json is what the builder makes from results/v32_dev, byte for byte."""
+    """assets/study.json is what the builder makes from results/v33_dev, byte for byte."""
+    assert bsd.DEFAULT_DEV == V33
     assert bsd.main(['--check']) == 0
 
 
 def test_committed_page_passes_the_publication_checker(capsys):
-    """Every number in README.md and index.html matches the v32 headline JSON or study.json."""
-    assert chk.main(['--json', str(V32 / 'headline_metrics.json')]) == 0
+    """Every number in README.md and index.html matches the v33 headline JSON or study.json,
+    and the checker's default JSON is the one the committed study.json was built from."""
+    assert chk.DEFAULT_JSON == V33 / 'headline_metrics.json'
+    meta = _json(REPO / 'assets' / 'study.json')['meta']
+    assert meta['headline_sha256'] == hashlib.sha256(chk.DEFAULT_JSON.read_bytes()).hexdigest()
+    assert chk.main([]) == 0
     assert '0 failure(s)' in capsys.readouterr().out
 
 
@@ -136,9 +155,15 @@ def test_universe_coverage_by_formation():
         {'formation_date': '2023-07-06', 'snapshot': '2023-06-30', 'members': 2391, 'with_prices': 2180,
          'missing': 211, 'missing_value_weight': 0.0182047, 'unmapped_value_weight': None}]}
     rows = bsd.universe_coverage(res)
-    assert rows[0] == {'formation_date': '2022-12-31', 'snapshot': '2022-12-30', 'members': 2283,
-                       'with_prices': 2062, 'missing': 221, 'missing_weight_pct': 2.137, 'unmapped_weight_pct': 2.146}
+    assert rows[0] == {'formation_date': '2022-12-31', 'snapshot': '2022-12-30', 'snapshot_filed': None, 'members': 2283,
+                       'with_prices': 2062, 'missing': 221, 'missing_weight_pct': 2.137, 'unmapped_weight_pct': 2.146,
+                       'missing_heaviest': [], 'unmapped_heaviest': []}
     assert rows[1]['unmapped_weight_pct'] is None
+    res['universe_by_formation'][0].update({'snapshot_filed': '2023-02-24',
+                                            'missing_heaviest': [['ATVI', 0.0015687], ['PXD', 0.0014391], ['HES', 0.00106], ['EA', 0.0009]]})
+    row = bsd.universe_coverage(res)[0]
+    assert row['snapshot_filed'] == '2023-02-24'
+    assert row['missing_heaviest'] == [['ATVI', 0.157], ['PXD', 0.144], ['HES', 0.106]]     # the three heaviest, in %
     assert bsd.universe_coverage({}) is None and bsd.universe_coverage({'universe_by_formation': []}) is None
 
 
@@ -304,10 +329,14 @@ def test_optional_arms_fill_their_sections(tmp_path, v32_res, residual_export):
     assert (v33['sharpe'], v33['lo'], v33['hi'], v33['p_holm'], v33['edge']) == (0.8, -0.7, 2.3, 0.45, False)
     doc = json.loads((published / 'residual_statarb.json').read_text(encoding='utf-8'))
     s, sig = doc['summary'], doc['significance']
-    assert study['residual'] == {
+    r = study['residual']
+    assert {k: r[k] for k in ('sharpe', 'ret_pct', 'trades', 'lo', 'hi', 'p', 'period', 'commit')} == {
         'sharpe': round(s['sharpe'], 2), 'ret_pct': round(100 * s['total_return'], 2), 'trades': doc['total_trades'],
         'lo': round(sig['boot_lo'], 2), 'hi': round(sig['boot_hi'], 2), 'p': round(sig['hac_p'], 3),
         'period': [s['start'], s['end']], 'commit': 'f' * 40}
+    assert r['gross_sharpe'] == round(s['gross_sharpe'], 2) and r['gross_lo'] < r['gross_sharpe'] < r['gross_hi']
+    assert (r['gross_bp'], r['net_bp']) == (round(s['gross_bp_per_trade']['mean'], 2), round(s['net_bp_per_trade']['mean'], 2))
+    assert len(r['paths']['net']) == len(doc['daily_net_returns']) and 'dates' in r['paths']   # its own calendar
     assert {p.split('/')[-1] for p in study['meta']['sources'] if 'residual_dev' in p} == {
         'residual_statarb.json', 'MANIFEST.json'}
     sealed = bsd.build(V32, results_root=tmp_path / 'nothing')
@@ -464,3 +493,145 @@ def test_write_refreshes_study_markers_from_the_site_data(tmp_path):
     assert chk.main(args) == 1
     assert chk.main(args + ['--write']) == 0
     assert '+11.4' in (tmp_path / 'index.html').read_text(encoding='utf-8')
+
+
+# ── the v33 run: every committed artefact is read ──────────────────────────────
+
+def test_v33_page_data_comes_from_every_committed_artefact(v33_study):
+    sources = v33_study['meta']['sources']
+    for name in ('results/v33_dev/headline_metrics.json', 'results/v33_dev/' + RESULTS_NAME,
+                 'results/v33_dev/anatomy.json', 'results/v33_dev/cost_sensitivity.json',
+                 'results/v33_dev/fund_type_comparison.json', 'results/residual_dev/residual_statarb.json',
+                 'results/validation/synthetic_validation.json', 'results/variant_family/declaration.json',
+                 'results/v32_dev/headline_metrics.json', 'results/trial_registry.jsonl'):
+        assert name in sources, name
+        assert sources[name] == hashlib.sha256((REPO / name).read_bytes()).hexdigest(), name
+    dev = v33_study['dev']
+    for key in ('shortfall', 'exit_race', 'decay', 'persistence', 'capacity', 'half_lives', 'cost_sensitivity',
+                'universe_by_formation', 'random_band', 'cost_curve'):
+        assert dev.get(key), key
+    assert dev['factors']['multi_factor'] and 'Short-term reversal' in {r['name'] for r in dev['factors']['rows']}
+    assert v33_study['residual'] and v33_study['validation'] and v33_study['v32'] and v33_study['trials']
+
+
+def test_facts_have_one_shape_whatever_the_run(v32_study, v33_study):
+    """Every fact key exists in every build (null when its source is missing), so a page
+    marker names a key that a run without that source still has."""
+    assert set(v32_study['dev']['facts']) == set(v33_study['dev']['facts'])
+    f32 = v32_study['dev']['facts']
+    assert f32['er_targets'] is None and f32['decay_form_bp'] is None and f32['cash_tbill_pct'] is None
+    assert v32_study['dev']['cost_sensitivity']['available'] is False
+    assert set(v32_study['dev']['cost_sensitivity']['scenarios']) == {k for k, _, _ in bsd.COST_SCENARIOS}
+
+
+def test_cost_scenarios_are_the_report_and_the_anatomy_side_by_side(v33_study):
+    report, anatomy = _json(V33 / 'cost_sensitivity.json'), _json(V33 / 'anatomy.json')
+    res = _json(V33 / RESULTS_NAME)
+    cs = v33_study['dev']['cost_sensitivity']
+    by_label = {s['label']: s for s in report['scenarios']}
+    assert cs['available'] and cs['order'] == [k for k, _, _ in bsd.COST_SCENARIOS]
+    for key, label, (group, value) in bsd.COST_SCENARIOS:
+        row, src = cs['scenarios'][key], by_label[label]
+        assert (row['full']['trades'], row['full']['sharpe']) == (src['trades'], round(src['sharpe'], 4)), key
+    # the headline row is the run itself; the full re-runs change the trades, the re-pricing does not
+    assert cs['scenarios']['headline']['full']['trades'] == res['overall_performance']['total_trades']
+    assert cs['trades_min'] == min(s['trades'] for s in report['scenarios'])
+    assert cs['trades_max'] == max(s['trades'] for s in report['scenarios']) > cs['trades_min']
+    impact = {s['coefficient']: s for s in anatomy['gross_vs_net']['impact_sensitivity']['scenarios']}
+    assert cs['scenarios']['impact_1_0']['fixed']['sharpe'] == round(impact[1.0]['sharpe'], 4)
+    cap = {r['aum_musd']: r for r in anatomy['capacity']}
+    assert cs['scenarios']['capital_5b']['fixed']['net_bp'] == round(cap[5000.0]['net_bp'], 2)
+
+
+def test_a_cost_report_of_another_run_stops_the_build():
+    report, res = _json(V33 / 'cost_sensitivity.json'), _json(V33 / RESULTS_NAME)
+    other = copy.deepcopy(report)
+    other['scenarios'][0]['trades'] += 1
+    with pytest.raises(ValueError, match='not a scenario report of this run'):
+        bsd.cost_scenarios(other, res, {})
+    other = copy.deepcopy(report)
+    other['calendar'] = 'rehearsal2025'
+    with pytest.raises(ValueError, match='not a scenario report of this run'):
+        bsd.cost_scenarios(other, res, {})
+    absent = bsd.cost_scenarios(None, res, {})
+    assert not absent['available'] and absent['scenarios']['impact_0_6']['full']['sharpe'] is None
+    # without a re-pricing the headline row still carries the run's own numbers
+    assert absent['scenarios']['headline']['fixed']['sharpe'] == round(res['overall_performance']['sharpe_ratio'], 4)
+
+
+def test_anatomy_facts_are_the_anatomy_numbers(v33_study):
+    a, f = _json(V33 / 'anatomy.json'), v33_study['dev']['facts']
+    er = a['exit_race']
+    assert (f['er_targets'], f['er_stops']) == (er['targets'], er['stops'])
+    assert f['er_rw_expected'] == round(er['nulls']['random_walk']['expected_targets'], 1)
+    assert f['er_ou_expected'] == round(er['nulls']['ou']['expected_targets'], 1)
+    form, oos = a['decay'][0], a['decay'][1]
+    assert (f['decay_form_bp'], f['decay_form_n']) == (round(form['bp'], 2), form['n'])
+    assert (f['decay_oos_bp'], f['decay_oos_t']) == (round(oos['bp'], 2), round(oos['t'], 2))
+    pooled = a['persistence_detail']['clegg']['pooled_still_cointegrated']
+    assert (f['pers_count'], f['pers_of']) == (pooled['count'], pooled['of'])
+    assert f['pers_expected_pct'] == round(100 * pooled['expected_at_next_year_base_rates'] / pooled['of'], 2)
+    sf = a['shortfall_detail']['totals']
+    assert f['sf_paper_usd_k'] == round(sf['paper']['usd'] / 1e3, 1)
+    assert f['sf_exit_delay_loss_usd_k'] == round(sf['exit_delay']['usd'] / 1e3, 1)
+    # the shortfall closes: paper + delays = gross; gross - costs = net
+    steps = {s['key']: s['usd'] for s in v33_study['dev']['shortfall']}
+    assert steps['paper'] + steps['entry_delay'] + steps['exit_delay'] == pytest.approx(steps['gross'], abs=0.02)
+    assert f['cash_tbill_pct'] == round(a['cash']['tbill_return_pct'], 2)
+    assert f['gross_usd_k'] == pytest.approx(a['gross_vs_net']['totals']['gross_usd'] / 1e3, abs=0.05)
+
+
+def test_evidence_facts_and_the_holdout_power(v33_study):
+    ev, f = _json(V33 / RESULTS_NAME)['evidence'], v33_study['dev']['facts']
+    assert f['hurdle_hlz'] == round(ev['hurdles']['hurdles']['hlz']['sr_ann'], 4)
+    assert f['st_rev_t_main'] == round(ev['factors']['main']['factors']['ST_Rev']['tstat'], 2)
+    assert f['tbill_rf_pct'] == round(ev['factors']['cash']['tbill_return_pct'], 2)
+    assert f['oos_ucb'] == round(ev['walk_forward_oos']['upper_bound_ann'], 4)
+    assert v33_study['dev']['power']['hurdles']['hlz'] == f['hurdle_hlz']
+    # what the holdout can detect, from the development returns' shape: more power at a
+    # larger true Sharpe, and a stricter level needs a larger Sharpe
+    assert f['ho_days'] == bsd.HOLDOUT_SESSIONS
+    assert f['ho_power_1'] < f['ho_power_2'] < f['ho_power_3']
+    assert f['ho_mde_05'] < f['ho_mde_025'] and f['ho_mde_05_normal'] < f['ho_mde_025_normal']
+    m = ev['main']
+    assert f['ho_mde_025'] == round(bsd.pw.minimum_detectable_sharpe(
+        0.0, bsd.HOLDOUT_SESSIONS, m['skew'], m['kurtosis'], m['rho'], alpha=0.025) * math.sqrt(252), 2)
+    assert all(v is None for k, v in bsd.holdout_power_facts({}).items() if k != 'ho_days')
+
+
+def test_path_facts_compare_the_two_series_on_their_common_days():
+    res = _json(V33 / RESULTS_NAME)
+    pf = bsd.path_facts(res)
+    main = {d['date']: d['daily_return_pct'] for d in res['daily_equity_curve']}
+    wf = {d['date']: d['daily_return_pct'] for d in res['walk_forward_daily']}
+    common = sorted(set(main) & set(wf))
+    assert pf['common_days'] == len(common)
+    a, b = np.array([main[d] for d in common]), np.array([wf[d] for d in common])
+    assert pf['common_corr'] == round(float(np.corrcoef(a, b)[0, 1]), 2)
+    assert pf['common_sharpe_oos'] == round(bsd._sharpe(b / 100), 2)
+    assert bsd.path_facts({})['common_days'] is None
+
+
+def test_v32_section_is_the_published_run(v33_study):
+    v32, head = v33_study['v32'], _json(V32 / 'headline_metrics.json')
+    res = _json(V32 / RESULTS_NAME)
+    assert v32['run']['commit'] == head['run_config']['git_commit']
+    assert (v32['main']['sharpe'], v32['main']['trades'], v32['oos']['sharpe']) == (
+        head['main']['sharpe'], head['main']['trades'], head['oos']['pooled_sharpe'])
+    assert v32['gate_blocked_days'] == res['overall_performance']['signal_rejections']['regime_hard_stop_day']
+    assert v32['flat_days'] == sum(1 for p in bsd.daily_series(res)['positions'] if p == 0)
+
+
+def test_trials_list_every_registered_run_in_order(v33_study):
+    lines = [json.loads(x) for x in (REPO / 'results' / bsd.REGISTRY).read_text().splitlines() if x.strip()]
+    rows = v33_study['trials']
+    assert len(rows) == sum(max(1, len(e['runs'])) for e in lines)
+    assert [r['name'] for r in rows] == [e['name'] for e in lines for _ in range(max(1, len(e['runs'])))]
+    head = _json(V33 / 'headline_metrics.json')
+    v33 = next(r for r in rows if r['name'] == 'v33_dev')
+    assert (v33['sharpe'], v33['trades'], v33['oos_sharpe']) == (head['main']['sharpe'], head['main']['trades'],
+                                                                  head['oos']['pooled_sharpe'])
+    # a trial registered without a run record keeps one row, with its run fields null
+    empty = bsd.trials([{'name': 'x', 'registered_utc': '2026-10-21T00:00:00+00:00', 'runs': []}])
+    assert len(empty) == 1 and empty[0]['sharpe'] is None and empty[0]['registered'] == '2026-10-21'
+    assert bsd.trials(None) is None
