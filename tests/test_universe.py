@@ -153,3 +153,33 @@ def test_committed_universe_keeps_members_whose_cusip_changed():
     uni = PITUniverse()
     assert {'LIN', 'COO', 'CCL', 'AMC', 'LCID'} <= set(uni.members_asof('2022-12-31'))
     assert 'GE' in uni.members_asof('2020-12-31')
+
+
+@committed
+def test_committed_map_respects_the_price_check():
+    # Every mapping the 2026-10-20 rebuild changed was checked against N-PORT's own value
+    # per share (reference/README.md). The rejected ones carry no ticker, and no snapshot
+    # joins a security to a ticker that another holding is the own US line of.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        'build_pit_universe', REFERENCE_DIR.parent / 'scripts' / 'build_pit_universe.py')
+    b = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(b)
+    with open(REFERENCE_DIR / 'universe' / 'cusip_ticker_map.json') as f:
+        entries = json.load(f)['entries']
+    for sid, (ticker, _) in b.REJECTED_MAPPINGS.items():
+        assert (entries[sid]['status'], entries[sid]['ticker']) == ('reused', None), sid
+        assert entries[sid]['note'].startswith(f'{ticker} is '), sid
+    with open(REFERENCE_DIR / 'universe' / 'index.json') as f:
+        index = json.load(f)
+    for s in index['snapshots']:
+        with open(REFERENCE_DIR / 'universe' / s['file'], newline='') as f:
+            rows = [r for r in csv.DictReader(f) if r['ticker'] in s.get('shared_tickers', ())]
+        for t in {r['ticker'] for r in rows}:
+            own = [r for r in rows if r['ticker'] == t
+                   and (entries.get(r['cusip'] or r['isin']) or {}).get('matched_by') in ('cusip', 'isin')
+                   and entries[r['cusip'] or r['isin']]['status'] == 'active']
+            assert not own or len(own) == sum(r['ticker'] == t for r in rows), (s['file'], t)
+    uni = PITUniverse()
+    assert 'SAFE' not in uni.members_asof('2020-12-31')       # old Safehold: SAFE was iStar's line
+    assert 'OABI' in uni.members_asof('2022-12-31')           # the common stock, not its earnout shares

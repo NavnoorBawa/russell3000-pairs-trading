@@ -576,6 +576,7 @@ BOBS,2085187,5712,43,Rtail,XLY,operating
 BOC,1494582,6510,47,RlEst,XLRE,operating
 BOH,46195,6022,45,Banks,XLF,operating
 BOKF,875357,6021,45,Banks,XLF,operating
+BOLT,1641281,2834,13,Drugs,XLV,operating
 BOOM,34067,3390,19,Steel,XLB,operating
 BOOT,1610250,5661,43,Rtail,XLY,operating
 BORR,1715497,1381,30,Oil,XLE,other
@@ -1022,6 +1023,7 @@ CTXS,,,,,,
 CUB,2015955,6770,48,Fin,XLF,operating
 CUBE,1298675,6798,48,Fin,XLRE,operating
 CUBI,1488813,6022,45,Banks,XLF,operating
+CUE,1645460,2834,13,Drugs,XLV,operating
 CULP,723603,2211,16,Txtls,XLY,operating
 CURB,2027317,6500,47,RlEst,XLRE,operating
 CURI,1776909,7812,7,Fun,XLC,operating
@@ -1041,6 +1043,7 @@ CVI,1376139,2911,30,Oil,XLE,operating
 CVLG,928658,4213,41,Trans,XLI,operating
 CVLT,1169561,7372,36,Softw,XLK,operating
 CVLY,,,,,,
+CVM,725363,2836,13,Drugs,XLV,operating
 CVNA,1690820,5500,43,Rtail,XLY,operating
 CVRX,1235912,3841,12,MedEq,XLV,operating
 CVS,64803,5912,43,Rtail,XLP,operating
@@ -3396,6 +3399,7 @@ SCI,89089,7200,33,PerSv,XLY,operating
 SCL,94049,2840,9,Hshld,XLP,operating
 SCLX,1820190,2836,13,Drugs,XLV,operating
 SCM,1551901,,,,,operating
+SCOR,1158172,7389,34,BusSv,XLF,operating
 SCPH,,,,,,
 SCS,,,,,,
 SCSC,918965,5045,42,Whlsl,XLI,operating
@@ -3438,7 +3442,6 @@ SGA,886136,4832,32,Telcm,XLC,operating
 SGC,95574,2300,10,Clths,XLY,operating
 SGEN,,,,,,
 SGFY,,,,,,
-SGH,,,,,,
 SGHC,1878057,7990,7,Fun,XLC,other
 SGHT,1531177,3841,12,MedEq,XLV,operating
 SGI,1206264,2510,9,Hshld,XLP,operating
@@ -3636,7 +3639,6 @@ STOK,1623526,2834,13,Drugs,XLV,operating
 STOR,,,,,,
 STR,,,,,,
 STRA,1013934,8200,33,PerSv,XLY,operating
-STRC,1050446,6199,45,Banks,XLF,operating
 STRL,874238,1600,18,Cnstr,XLI,operating
 STRO,1382101,2836,13,Drugs,XLV,operating
 STRS,885508,6552,47,RlEst,XLRE,operating
@@ -4043,7 +4045,6 @@ VRAYQ,,,,,,
 VRDN,1590750,2834,13,Drugs,XLV,operating
 VRE,,,,,,
 VREX,1681622,3679,37,Chips,XLK,operating
-VRM,1580864,5500,43,Rtail,XLY,operating
 VRNS,1361113,7372,36,Softw,XLK,operating
 VRNT,,,,,,
 VRRM,1682745,4700,41,Trans,XLY,operating

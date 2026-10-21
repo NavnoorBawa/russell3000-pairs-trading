@@ -11,11 +11,11 @@
   "paper/build/figures/randomnull.svg": "66c0cb9502dc88a4568a8e51f76472a0bc91363a0113fdced73de4f8ffe0cf59",
   "paper/build/figures/rolling.svg": "3f938beac3a22b9f53fd311ba8610b4c3d0bd74a9e2bc6be32896b231325b489",
   "paper/build/figures/schedules.svg": "2b9eebb8eb1e34fddf4c08e01c8c7dc5b6ab1d7d365ce767bef4804e304b8556",
-  "paper/build/figures/snapshots.svg": "4461d4d8a47b0adb1e88721c7cfc87e9d5e57efc7267d66b9142928f77615e97",
+  "paper/build/figures/snapshots.svg": "5a6d31ef9b3a67ff5f644d7674a1c4687d62e77d63df327d6f54a024035b27f3",
   "paper/build/figures/timeline.svg": "7718e6fba61c9b995e2cf38b9c8c4ed3512552001e17590746732f8c5ce99738",
   "paper/build/figures/walkforward.svg": "88cfaab92b8d484ea7a6a5f45d8cb789f81b079e200ea4431e332e25b19716df",
   "paper/build/figures/waterfall.svg": "a5663ecf8790de358cff9fc2ac5880b4c024ad49fbd065b401092615050b3243",
-  "paper/build/paper_data.json": "81d6367bc53be09d5efb100b73a093e273c6f30c6529692f6971d3d122abe8f5",
+  "paper/build/paper_data.json": "b6991cc7cf7ba9f9974233046cd282a49b7e8fddd7ea762445c150221b8e3894",
   "paper/fonts/IBMPlexMono-Regular.ttf": "884b41e7d9a8c0da2ab93b4dbb8b40a79d9089d4125c2bcb9e12dccdae68c5d4",
   "paper/fonts/IBMPlexSans-Italic.ttf": "dfb110b92a0c71bfcf84cb40e8e1cb0c37043556a5160bd2d3d910de4faabaf5",
   "paper/fonts/IBMPlexSans-Medium.ttf": "fe65f4a5bfdd7782de90619f60c9e43f846ecb1f9aecffdd8066a5b54d2aae40",
@@ -27,7 +27,7 @@
   "paper/main.typ": "e5c0051a27be8b0c04afe56359dcd4333faaeb089f06c1f6379c19f015b90570",
   "paper/references.bib": "07fadcefd047402260498acc81c6287909c26a54214647be0a2aa2151a298593"
  },
- "pdf_sha256": "84ef59d8e26c1a921929f2c464380e4930af8931bacf226b547e52a6ee45b737",
+ "pdf_sha256": "de52ff13b338622c4d5ca3ac8aba617c5c98f3f7694cafc46c9994d17850b7e8",
  "tools": {
   "matplotlib": "3.10.1",
   "typst": "0.15.0"

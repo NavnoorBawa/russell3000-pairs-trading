@@ -622,7 +622,7 @@
   "headline_sha256": "93471564009554007e8bff1f6a67a02f7f2db96b99d76ad8bd3e5a57b5183b0e",
   "paper_date": "2026-10-20",
   "study_sha256": "0e29723453ec72cbc84e0b52709ff1cc7fc87529c63a20a592382208e790f676",
-  "universe_index_sha256": "d5bfbe0fdc4e0b52c15ac0767886fa40983010834e7959d81cb06647e0552f06"
+  "universe_index_sha256": "08674077302c5727fca7855f7295ec1d2c3d77529633d81c7ad38e27389e61ba"
  },
  "pending": {
   "capacity": "Pending: evidence layer.",
@@ -1070,7 +1070,7 @@
    ],
    [
     "reference/universe/index.json",
-    "d5bfbe0fdc4e0b52c15ac0767886fa40983010834e7959d81cb06647e0552f06"
+    "08674077302c5727fca7855f7295ec1d2c3d77529633d81c7ad38e27389e61ba"
    ],
    [
     "index.html",
