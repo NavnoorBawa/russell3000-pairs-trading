@@ -3258,28 +3258,41 @@ The write-up now:
 
 ### The variant family and the robustness checks (2026-10-21)
 
-- **No variant beats cash or the distance method once the search is allowed for.** Of
-  the <!--m:study.dev.snooping.results.n-->38<!--/m--> declared variants,
+- **No variant beats cash, even before the search is allowed for, or the distance method on a
+  Sharpe scale.** Of the <!--m:study.dev.snooping.results.n-->38<!--/m--> declared variants,
   only <!--m:study.dev.snooping.results.positive-->7<!--/m--> have a positive Sharpe ratio
   (best <!--m:study.dev.snooping.results.sharpe_best-->+0.21<!--/m-->, the 300-name universe;
   median <!--m:study.dev.snooping.results.sharpe_median-->−0.40<!--/m-->). Hansen's SPA against
   cash: p = <!--m:study.dev.snooping.results.spa_zero.p-->0.964<!--/m-->; White's Reality
-  Check: <!--m:study.dev.snooping.results.spa_zero.rc_p-->0.977<!--/m-->; against the Gatev
-  series: <!--m:study.dev.snooping.results.spa_gatev.p-->0.219<!--/m-->. Romano–Wolf
+  Check: <!--m:study.dev.snooping.results.spa_zero.rc_p-->0.977<!--/m-->; the best variant's
+  t is <!--m:study.dev.snooping.results.spa_zero.best_t-->0.38<!--/m--> before any correction.
+  Against the Gatev series with every series at unit volatility (the like-for-like comparison):
+  p = <!--m:study.dev.snooping.results.spa_gatev_unit_vol.p-->0.489<!--/m-->; on daily returns,
+  whose capital bases differ: <!--m:study.dev.snooping.results.spa_gatev.p-->0.219<!--/m-->. Romano–Wolf
   rejects <!--m:study.dev.snooping.results.rw_rejected-->0<!--/m-->, and the 90% model confidence
   set keeps all <!--m:study.dev.snooping.results.mcs_included-->38<!--/m-->.
 - **Picking parameters on this family would overfit.** PBO
-  is <!--m:study.dev.snooping.results.pbo_pct-->79.4<!--/m-->%, and the best variant of one half of
-  the days loses money on the other half
-  in <!--m:study.dev.snooping.results.pbo_is_best_loss_pct-->99.2<!--/m-->% of the splits. The v33
+  is <!--m:study.dev.snooping.results.pbo_pct-->79.4<!--/m-->%, against 50% for a ranking without
+  information. The best variant of one half of the days loses money on the other half
+  in <!--m:study.dev.snooping.results.pbo_is_best_loss_pct-->99.2<!--/m-->% of the splits, but a
+  variant picked without looking loses
+  in <!--m:study.dev.snooping.results.pbo_base_loss_pct-->76.6<!--/m-->% of variant–splits; the
+  in-sample best's Sharpe ratio on the other half
+  averages <!--m:study.dev.snooping.results.pbo_is_best_oos_sharpe-->−0.87<!--/m-->, the median
+  variant's <!--m:study.dev.snooping.results.pbo_median_oos_sharpe-->−0.53<!--/m-->. The v33
   design ranks <!--m:study.dev.snooping.results.base_rank-->9<!--/m--> of 38; it is not re-chosen.
-- **The headline start date is the most favourable of
-  twelve.** Re-run from <!--m:study.dev.facts.start_n-->12<!--/m--> start
+- **The published start date is a favourable path, not the best one like for like.** Re-run
+  from <!--m:study.dev.facts.start_n-->12<!--/m--> start
   dates <!--m:study.dev.facts.start_step_days-->21<!--/m--> trading days apart, the main backtest's Sharpe ratio runs
   from <!--m:study.dev.facts.start_sharpe_min-->−1.16<!--/m-->
-  to <!--m:study.dev.facts.start_sharpe_max-->−0.06<!--/m-->, the published start; the median
-  is <!--m:study.dev.facts.start_sharpe_median-->−0.65<!--/m-->. The threat row on path dependence
-  now says the published path flatters the result.
+  to <!--m:study.dev.facts.start_sharpe_max-->−0.06<!--/m-->, the published start
+  (median <!--m:study.dev.facts.start_sharpe_median-->−0.65<!--/m-->), but those windows differ in
+  length.
+  On each later start's own days the published path has the higher Sharpe ratio
+  in <!--m:study.dev.facts.start_matched_wins-->10<!--/m--> of <!--m:study.dev.facts.start_matched_of-->11<!--/m-->
+  cases (median gap <!--m:study.dev.facts.start_matched_gap_median-->0.51<!--/m-->); on the days all
+  twelve share it ranks <!--m:study.dev.facts.start_common_rank-->3<!--/m-->rd. The threat row on path
+  dependence says the published path flatters the result.
 - **No regime separates the returns**, by VIX (high minus low,
   t = <!--m:study.dev.facts.vix_diff_t-->0.74<!--/m-->) or by sector dispersion
   (t = <!--m:study.dev.facts.disp_diff_t-->−0.31<!--/m-->).
@@ -3296,3 +3309,36 @@ The write-up now:
   explain pairs profits by short-term reversal and one-month industry momentum; the per-year
   percentages attributed to Clegg (2014) could not be checked against the paper and were
   removed.
+
+### Final pass: two reviews of the integrated note (2026-10-21)
+
+Two reviews of the integrated site, paper and README found two factual errors and two
+overstatements; every fix uses the committed data.
+
+- **The trial record was overstated.** "7 trials and 10 runs" counted table rows: the registry
+  holds <!--m:study.registry.recorded_runs-->8<!--/m--> run records
+  in <!--m:study.registry.trials-->7<!--/m--> trials, and the 10 rows add one for the second family's published run and one for the 38-variant
+  family. "Every run whose result was seen is in the registry" was false: the start-date, half and
+  cost-scenario re-runs are not registered, and the second family ran under two earlier universe
+  rules (the v32 universe file; then point-in-time members ranked on dollar volume without S1's
+  screens, on the development and rehearsal calendars), changed after a review measured the P&L
+  of the names S1's screens remove. Those runs are now disclosed on the page and in the paper; they
+  are not registered (an append to the registry is the owner's decision).
+- **S2's net per trade was mislabelled.** The mean
+  trade's <!--m:study.dev.facts.s2c_net_mean_bp-->−4.54<!--/m--> bp is net of the stock
+  legs' <!--m:study.residual.stock_cost_bp-->9.89<!--/m--> bp only; the ETF
+  hedge's <!--m:study.residual.etf_cost_bp-->1.41<!--/m--> bp is booked on the netted ETF book.
+- **The start-date comparison mixed windows.** Now led by the matched comparison above.
+- **Overfitting evidence.** PBO is given first, against 50%, and the 99.2% loss rate beside its
+  base rate; the deflated Sharpe ratio is also computed for the family's best variant
+  (<!--m:study.dev.snooping.results.dsr_best.dsr_pct-->13.5<!--/m-->%), for which it is defined.
+- **Citations.** The Gatev et al. (2006), Avellaneda–Lee (2010) and Krauss (2017) rows were
+  checked against the published abstracts (RePEc; Crossref) and reworded to them; the earlier
+  integration note's claim that every literature entry had been verified was not true when it was
+  made. The Engelberg et al. sample is not stated in the abstract, and Clegg's test is not known
+  to be this study's ("the same question", not "the same test").
+- **Wording.** The holdout is sealed on daily prices, not on all 2026 data: the French factor
+  files (to August 2026, the short-term reversal factor among them) and the vendor's latest-price
+  metadata reach into 2026, and that threat now reads "may flatter the holdout". The fill and
+  cost-parameter threats now read "probably flatters". The spec table lists every engine gate and
+  the kill-switch thresholds.

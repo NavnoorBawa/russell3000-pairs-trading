@@ -333,8 +333,16 @@ def test_snooping_and_robustness_numbers_are_the_site_data(inputs, built):
     assert paper['m']['study.dev.facts.start_sharpe_median'] == bp.fmt(f['start_sharpe_median'], '.2')
     assert [r[0] for r in paper['tables']['startdates']][0].endswith('(published)')
     assert len(paper['tables']['startdates']) == f['start_n'] and len(paper['tables']['halves']) == 2
-    assert paper['claims']['headline_start_most_favourable'] and paper['claims']['family_overfits']
-    assert len(paper['tables']['trials']) == inputs['study']['registry']['runs']
+    assert paper['claims']['headline_start_first_unmatched'] and paper['claims']['family_overfits']
+    # like for like: the published path beats most later starts on their own days, but is not
+    # the best start on the days all twelve share
+    assert paper['claims']['headline_path_beats_most_later_starts']
+    assert paper['claims']['headline_not_first_on_shared_days']
+    assert paper['m']['study.dev.facts.start_matched_wins'] == bp.fmt(f['start_matched_wins'], '.0')
+    # selection on the family does worse than a variant picked without looking, on the same splits
+    assert paper['claims']['family_selection_worse_than_base'] and paper['claims']['family_best_dsr_not_significant']
+    reg = inputs['study']['registry']
+    assert len(paper['tables']['trials']) == reg['rows'] and reg['recorded_runs'] < reg['rows']
 
 
 def test_committed_results_fill_every_exhibit(built):
@@ -430,9 +438,9 @@ def test_paper_compiles_to_the_committed_pdf(built):
     pdf = bp.compile_pdf(paper)
     assert pdf.startswith(b'%PDF')
     pages = len(re.findall(rb'/Type\s*/Page(?![s\w])', pdf))
-    # 26 exhibits, the start-date, snooping, persistence and regime tables and the appendix;
-    # a runaway float would exceed it
-    assert 14 <= pages <= 36, pages
+    # 26 exhibits, the start-date, snooping, persistence and regime tables, the disclosures of
+    # the trial record and the appendix (37 pages); a runaway float would exceed it
+    assert 14 <= pages <= 40, pages
     manifest = json.loads(bp.MANIFEST.read_text())
     if manifest['tools']['typst'] == bp._typst_version():
         assert pdf == bp.PDF.read_bytes()

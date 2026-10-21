@@ -510,7 +510,8 @@ def persistence_section(system, n_jobs: int, anatomy: Optional[Dict]) -> Dict:
             "change Close)."),
         'candidate_sets': {
             'first_formation': (
-                f"The pairs S1's first pair search tested: the point-in-time Russell 3000 members on {first} "
+                "The candidate pairs of S1's first pair search (the search tested those of them passing its "
+                f"common-days and formation-window correlation screens): the point-in-time Russell 3000 members on {first} "
                 "with price history (>= 100 bars to the cutoff) that pass S1's screen (>= 300 bars, mean "
                 "point-in-time price >= $5 and dollar volume >= $10M, annualised volatility 5-80%, < 10% "
                 f"missing closes), the {system.profile.max_universe} most liquid of them, and of those every "

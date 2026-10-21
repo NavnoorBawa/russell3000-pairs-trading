@@ -638,7 +638,10 @@ def test_trials_list_every_registered_run_in_order(v33_study):
     empty = bsd.trials([{'name': 'x', 'registered_utc': '2026-10-21T00:00:00+00:00', 'runs': []}])
     assert len(empty) == 1 and empty[0]['sharpe'] is None and empty[0]['registered'] == '2026-10-21'
     assert bsd.trials(None) is None
-    assert v33_study['registry'] == {'trials': len(lines), 'runs': len(rows)}
+    # trials (lines), the run records they hold, and the table's rows (a trial without a run
+    # record keeps one row): the rows are not runs
+    assert v33_study['registry'] == {'trials': len(lines), 'recorded_runs': sum(len(e['runs']) for e in lines),
+                                     'rows': len(rows)}
 
 
 # ── the declared variant family ────────────────────────────────────────────────
@@ -669,6 +672,27 @@ def test_snooping_results_are_the_family_files(v33_study):
     # the declared deflation: N = the effective rank rounded up, the variants' Sharpe dispersion
     assert sn['dsr']['n_trials'] == math.ceil(fam['effective_trials']['effective_rank'])
     assert 0 < sn['dsr']['dsr_pct'] < 100 * sn['dsr']['curve'][0]['dsr']
+    # the deflation the DSR is defined for: the family's best variant, same N and variance
+    assert sn['dsr_best']['n_trials'] == sn['dsr']['n_trials'] and sn['dsr_best']['sharpe'] == sn['sharpe_best']
+    assert sn['dsr']['dsr_pct'] < sn['dsr_best']['dsr_pct'] < sn['dsr_best']['psr_pct']
+    # PBO's loss rate beside the same splits' rate for every variant: selection makes it worse
+    assert 50 < sn['pbo_base_loss_pct'] < sn['pbo_is_best_loss_pct']
+    assert sn['pbo_is_best_oos_sharpe'] < sn['pbo_median_oos_sharpe'] < 0
+
+
+def test_cscv_baseline_rebuilds_the_pbo_splits():
+    """The baseline uses pbo_cscv's splits: it reproduces the in-sample best's numbers, and a
+    PBO computed on other splits stops the build."""
+    from pairs_trading.significance import pbo_cscv
+    rng = np.random.default_rng(3)
+    M = rng.normal(0.0, 0.01, size=(400, 12)) + np.linspace(-2e-4, 2e-4, 12)
+    pbo = pbo_cscv(M, n_splits=8)
+    base = bsd.cscv_baseline(M, pbo, 8)
+    assert 0.0 < base['loss_pct'] < 100.0
+    # a variant picked without looking: the median variant's out-of-sample Sharpe, split by split
+    assert abs(base['median_oos_sharpe']) < 5.0
+    with pytest.raises(ValueError, match='do not reproduce'):
+        bsd.cscv_baseline(M, pbo_cscv(M, n_splits=6), 8)
 
 
 def test_snooping_files_that_disagree_stop_the_build(v33_study):
@@ -700,6 +724,25 @@ def test_robustness_section_is_the_runs_robustness_json(v33_study):
     assert f['s2c_gross_month_t'] == round(rob['s2_trade_edge']['gross_bp']['entry_month']['t_clustered'], 4)
     # the independent-trades t is the export's, which the residual section also quotes
     assert round(f['s2c_gross_t'], 2) == v33_study['residual']['gross_t']
+    # like for like: each later start against the published path on that start's own days
+    curve = _json(V33 / RESULTS_NAME)['daily_equity_curve']
+    dates = [c['date'] for c in curve]
+    r_pub = np.array([c['daily_return_pct'] / 100.0 for c in curve])
+    m = r['start_dates']['matched']
+    gaps = []
+    for run, row in zip(rob['start_dates']['runs'], r['start_dates']['runs']):
+        sub = r_pub[[run['first_day'] <= d <= run['last_day'] for d in dates]]
+        assert sub.size == run['days']
+        pub = sub.mean() / sub.std(ddof=1) * math.sqrt(252)
+        assert row['published_sharpe'] == round(pub, 4)
+        if run['offset_trading_days'] > 0:
+            gaps.append(pub - run['sharpe'])
+    assert (m['of'], m['wins']) == (len(gaps), sum(g > 0 for g in gaps))
+    assert m['gap_median'] == round(float(np.median(gaps)), 4)
+    # the published start's own row: its window is the published run's, so the two agree
+    assert r['start_dates']['runs'][0]['published_sharpe'] == r['start_dates']['runs'][0]['sharpe']
+    common = [x['common_window']['sharpe'] for x in rob['start_dates']['runs']]
+    assert r['start_dates']['common_rank'] == f['start_common_rank'] == 1 + sum(c > common[0] for c in common)
 
 
 def _shape(x):

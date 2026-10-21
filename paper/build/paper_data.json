@@ -26,10 +26,13 @@
   "exploratory_run_on_record": true,
   "factors_explain_little": true,
   "family_beats_neither_cash_nor_gatev": true,
+  "family_best_dsr_not_significant": true,
+  "family_best_not_significant_alone": true,
   "family_dsr_not_significant": true,
   "family_few_positive": true,
   "family_mcs_keeps_all": true,
   "family_overfits": true,
+  "family_selection_worse_than_base": true,
   "few_flat_days": true,
   "fewer_than_half_months_positive": true,
   "ff_alpha_main_not_significant": true,
@@ -46,7 +49,9 @@
   "gross_sharpe_not_significant": true,
   "half_lives_lengthen": true,
   "half_lives_within_rule_at_formation": true,
-  "headline_start_most_favourable": true,
+  "headline_not_first_on_shared_days": true,
+  "headline_path_beats_most_later_starts": true,
+  "headline_start_first_unmatched": true,
   "holdout_sealed": true,
   "hurdles_above_bound": true,
   "impact_largest_cost": true,
@@ -75,6 +80,7 @@
   "persistence_traded_near_chance": true,
   "regimes_not_significant": true,
   "residual_ci_spans_zero": true,
+  "residual_cost_split": true,
   "residual_gross_below_cost": true,
   "residual_net_negative": true,
   "s2_clustered_not_significant": true,
@@ -158,7 +164,7 @@
   ],
   [
    8,
-   "None of the 38 declared variants beats cash or the distance method once the search is allowed for, and deflated for the search the design's Sharpe ratio is far from significant",
+   "None of the 38 declared variants beats cash or the distance method, even before the search is allowed for, and deflated for the search neither the best variant's Sharpe ratio nor the design's is close to significant",
    "ex-dsr"
   ],
   [
@@ -764,9 +770,16 @@
   "study.dev.facts.st_rev_t_main": "4.01",
   "study.dev.facts.st_rev_t_oos": "3.80",
   "study.dev.facts.start_common_days": "397",
+  "study.dev.facts.start_common_rank": "3",
   "study.dev.facts.start_common_sharpe_max": "+0.48",
+  "study.dev.facts.start_common_sharpe_median": "−0.47",
   "study.dev.facts.start_common_sharpe_min": "−0.74",
   "study.dev.facts.start_headline_rank": "1",
+  "study.dev.facts.start_matched_gap_median": "0.51",
+  "study.dev.facts.start_matched_of": "11",
+  "study.dev.facts.start_matched_published_max": "−0.01",
+  "study.dev.facts.start_matched_published_min": "−0.34",
+  "study.dev.facts.start_matched_wins": "10",
   "study.dev.facts.start_n": "12",
   "study.dev.facts.start_ret_max": "−0.39%",
   "study.dev.facts.start_ret_min": "−6.27%",
@@ -809,14 +822,19 @@
   "study.dev.snooping.results.dsr.n_trials": "14",
   "study.dev.snooping.results.dsr.sd_sr": "0.52",
   "study.dev.snooping.results.dsr.sr_star": "0.91",
+  "study.dev.snooping.results.dsr_best.dsr_pct": "13.5%",
+  "study.dev.snooping.results.dsr_best.psr_pct": "62.8%",
+  "study.dev.snooping.results.dsr_best.sharpe": "+0.21",
   "study.dev.snooping.results.effective_rank": "13.7",
   "study.dev.snooping.results.mcs_included": "38",
   "study.dev.snooping.results.mcs_min_p": "0.60",
   "study.dev.snooping.results.mcs_size_pct": "10%",
   "study.dev.snooping.results.n": "38",
+  "study.dev.snooping.results.pbo_base_loss_pct": "76.6%",
   "study.dev.snooping.results.pbo_blocks": "10",
   "study.dev.snooping.results.pbo_is_best_loss_pct": "99.2%",
   "study.dev.snooping.results.pbo_is_best_oos_sharpe": "−0.87",
+  "study.dev.snooping.results.pbo_median_oos_sharpe": "−0.53",
   "study.dev.snooping.results.pbo_pct": "79.4%",
   "study.dev.snooping.results.pbo_splits": "252",
   "study.dev.snooping.results.positive": "7",
@@ -830,8 +848,11 @@
   "study.dev.snooping.results.sharpe_worst": "−1.69",
   "study.dev.snooping.results.spa_gatev.best_label": "Entry 1.8, exit 0.25, stop 1.0",
   "study.dev.snooping.results.spa_gatev.best_t": "1.54",
+  "study.dev.snooping.results.spa_gatev.block": "4",
   "study.dev.snooping.results.spa_gatev.p": "0.219",
   "study.dev.snooping.results.spa_gatev.rc_p": "0.232",
+  "study.dev.snooping.results.spa_gatev_unit_vol.best_t": "1.35",
+  "study.dev.snooping.results.spa_gatev_unit_vol.block": "8",
   "study.dev.snooping.results.spa_gatev_unit_vol.p": "0.489",
   "study.dev.snooping.results.spa_gatev_unit_vol.rc_p": "0.499",
   "study.dev.snooping.results.spa_zero.best_label": "300 names, v32's size",
@@ -843,13 +864,15 @@
   "study.dev.snooping.results.trades_max": "333",
   "study.dev.snooping.results.trades_min": "144",
   "study.dev.snooping.toggles": "11",
-  "study.registry.runs": "10",
+  "study.registry.recorded_runs": "8",
+  "study.registry.rows": "10",
   "study.registry.trials": "7",
   "study.residual.avg_gross_x": "1.2×",
   "study.residual.avg_positions": "181",
   "study.residual.cost_bp": "11.30",
   "study.residual.cost_usd_m": "6.09",
   "study.residual.days": "628",
+  "study.residual.etf_cost_bp": "1.41",
   "study.residual.etf_cost_usd_m": "0.76",
   "study.residual.gross_bp": "+5.35",
   "study.residual.gross_hi": "+1.48",
@@ -870,6 +893,7 @@
   "study.residual.psr_pct": "32.8%",
   "study.residual.ret_pct": "−3.37%",
   "study.residual.sharpe": "−0.28",
+  "study.residual.stock_cost_bp": "9.89",
   "study.residual.symbols_ever": "579",
   "study.residual.trades": "10,916",
   "study.residual.turnover_x": "65.9×",
@@ -928,7 +952,7 @@
   "headline_sha256": "b09f239032db62196602447e8d1d780286b5c2674e8e85d02062beab946d0fb1",
   "paper_date": "2026-10-21",
   "run_dir": "results/v33_dev",
-  "study_sha256": "333b67ad0560af1bdfc02d95fb480569c46439947f1f12028d442a212acf50a0",
+  "study_sha256": "ffd4dea755617e06234d22bfb16b192204376962ab229b241e665b1eabc86cd6",
   "universe_index_sha256": "2afd0cb6a7a7b79e08e6d45a5fc78f7ac6d43903c3cafbde1a042bf048883c3c"
  },
  "pending": {
@@ -1132,15 +1156,17 @@
     "First half: entries 3 Jul 2023 to 30 Sep 2024",
     "106",
     "+0.11",
+    "+0.22",
     "+0.26",
-    "+0.22"
+    "—"
    ],
    [
     "Second half: entries 1 Oct 2024 to 31 Dec 2025",
     "142",
     "−0.85",
+    "−0.31",
     "−2.89",
-    "−0.31"
+    "—"
    ]
   ],
   "holdout_power": [
@@ -1225,7 +1251,7 @@
    ],
    [
     "Site data",
-    "assets/study.json, sha256 333b67ad0560af1bdfc02d95fb480569c46439947f1f12028d442a212acf50a0"
+    "assets/study.json, sha256 ffd4dea755617e06234d22bfb16b192204376962ab229b241e665b1eabc86cd6"
    ],
    [
     "Universe",
@@ -1704,16 +1730,16 @@
     "t = 0.38 (300 names, v32's size)"
    ],
    [
-    "Hansen SPA against the Gatev distance method, p (Reality Check)",
-    "0.219 (0.232)"
-   ],
-   [
-    "The same with every series at unit volatility, p (Reality Check)",
+    "Hansen SPA against the Gatev distance method, every series at unit volatility (a Sharpe scale), p (Reality Check)",
     "0.489 (0.499)"
    ],
    [
-    "Best variant against the Gatev method: studentized mean",
-    "t = 1.54 (Entry 1.8, exit 0.25, stop 1.0)"
+    "The same on daily returns, whose capital bases differ (not like for like), p (Reality Check)",
+    "0.219 (0.232)"
+   ],
+   [
+    "Best variant against the Gatev method (Entry 1.8, exit 0.25, stop 1.0): studentized mean, unit volatility; daily returns",
+    "t = 1.35; 1.54"
    ],
    [
     "Romano–Wolf stepdown against cash: variants rejected at 5% (smallest adjusted p)",
@@ -1728,16 +1754,24 @@
     "13.7"
    ],
    [
-    "Deflated Sharpe ratio of the v33 design, N = 14, the variants' Sharpe dispersion",
+    "Deflated Sharpe ratio of the family's best variant (+0.21), N = 14, the variants' Sharpe dispersion",
+    "13.5%"
+   ],
+   [
+    "The same for the v33 design (−0.06), which was not selected from the family",
     "6.3%"
    ],
    [
-    "Probability of backtest overfitting (252 splits)",
+    "Probability of backtest overfitting (252 splits; 50% for a ranking without information)",
     "79.4%"
    ],
    [
     "Best variant of one half of the days, on the other half: mean Sharpe; splits with a loss",
     "−0.87; 99.2%"
+   ],
+   [
+    "Every variant on the same splits: mean Sharpe of the median variant; variant–splits with a loss",
+    "−0.53; 76.6%"
    ],
    [
     "Variants with a positive Sharpe ratio (best, median, worst)",
@@ -1851,7 +1885,7 @@
    ],
    [
     "index.html",
-    "938e9c9bb088c9c1d32d1e06ce7bb4d9f60b0c3af98656d4b104a2ae54ed07fb"
+    "325f2bba8ed00e7f0ea85698b682580299fd9cb3f57d44d0cbcce86f8413d16b"
    ]
   ],
   "spec": [
@@ -1869,11 +1903,11 @@
    ],
    [
     "Rule",
-    "One β-locked z-score against its mean and standard deviation over the last 30–60 bars, frozen at the signal. Entry |z| ≥ 1.8; target once z reverts past −0.5 (long) or +0.5 (short); stop 1.5 further against; time stop max(10, min(⌊2.5 × half-life⌋, 25)) days. Gates: pair quality ≥ 0.55, 20-day correlation ≥ 0.20, β in [0.25, 4], a 30-day pause after three consecutive losing trades on a pair. No regime gate."
+    "One β-locked z-score against its mean and standard deviation over the last 30–60 bars, frozen at the signal. Entry |z| ≥ 1.8; target once z reverts past −0.5 (long) or +0.5 (short); stop 1.5 further against; time stop max(10, min(⌊2.5 × half-life⌋, 25)) days. Gates: pair quality ≥ 0.55, 20-day correlation ≥ 0.20, β in [0.25, 4], at least 50 bars of pair history, locked-spread standard deviation at most 0.30, the smaller leg's 20-day dollar ADV at least $1M, an ex-ante round-trip cost (with borrow over the maximum hold) below 1% of equity, a 30-day pause after three consecutive losing trades on a pair; no new signal on a day the book lost more than 3%. No regime gate."
    ],
    [
     "Book",
-    "$100M notional; 3–10% of equity per pair before risk scaling (2.2% to 10.0% as traded), scaled by the win rate of the last five closed trades and the volatility of recent daily returns; 30% gross cap on exposure at entry; at most 8 entries a day, ordered by signal strength × pair quality; no shared legs; daily mark-to-market; drawdown, daily-loss and exposure kill switch."
+    "$100M notional; 3–10% of equity per pair before risk scaling (2.2% to 10.0% as traded), scaled by the win rate of the last five closed trades and the volatility of recent daily returns; 30% gross cap on exposure at entry; at most 8 entries a day, ordered by signal strength × pair quality; no shared legs; daily mark-to-market; a kill switch that flattens the book at a 15% drawdown from peak, a 5% daily loss or gross exposure at entry above 30%."
    ],
    [
     "Costs",
@@ -1893,6 +1927,7 @@
     "3 Jul 2023 (published)",
     "213",
     "−0.06",
+    "—",
     "−0.39",
     "−0.08"
    ],
@@ -1900,6 +1935,7 @@
     "2 Aug 2023",
     "240",
     "−1.16",
+    "−0.04",
     "−6.27",
     "−0.30"
    ],
@@ -1907,6 +1943,7 @@
     "31 Aug 2023",
     "208",
     "−0.18",
+    "−0.27",
     "−0.97",
     "+0.28"
    ],
@@ -1914,6 +1951,7 @@
     "2 Oct 2023",
     "202",
     "−0.30",
+    "−0.13",
     "−1.67",
     "+0.48"
    ],
@@ -1921,6 +1959,7 @@
     "31 Oct 2023",
     "205",
     "−0.35",
+    "−0.17",
     "−1.66",
     "−0.44"
    ],
@@ -1928,6 +1967,7 @@
     "30 Nov 2023",
     "214",
     "−0.72",
+    "−0.32",
     "−3.46",
     "−0.65"
    ],
@@ -1935,6 +1975,7 @@
     "2 Jan 2024",
     "215",
     "−0.83",
+    "−0.32",
     "−3.64",
     "−0.46"
    ],
@@ -1942,6 +1983,7 @@
     "1 Feb 2024",
     "195",
     "−0.81",
+    "−0.28",
     "−3.83",
     "−0.50"
    ],
@@ -1949,6 +1991,7 @@
     "4 Mar 2024",
     "172",
     "−0.62",
+    "−0.34",
     "−2.85",
     "−0.53"
    ],
@@ -1956,6 +1999,7 @@
     "3 Apr 2024",
     "157",
     "−0.97",
+    "−0.22",
     "−3.58",
     "−0.47"
    ],
@@ -1963,6 +2007,7 @@
     "2 May 2024",
     "169",
     "−0.65",
+    "−0.01",
     "−2.68",
     "−0.74"
    ],
@@ -1970,6 +2015,7 @@
     "3 Jun 2024",
     "156",
     "−0.65",
+    "−0.08",
     "−2.55",
     "−0.65"
    ]

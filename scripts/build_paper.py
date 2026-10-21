@@ -80,7 +80,7 @@ WORDS = ('no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', '
 KNOWN_STUDY = {'schema', 'meta', 'dev', 'holdout', 'residual', 'validation',
                'v32',          # the published v32 run: the history and the frozen arm S3
                'trials',       # results/trial_registry.jsonl: every trial whose result was seen
-               'registry'}     # the registry's counts of trials and runs
+               'registry'}     # the registry's counts of trials, run records and table rows
 KNOWN_DEV = {'run', 'daily', 'gatev', 'random_band', 'random_sharpes', 'strategy_sharpe', 'gatev_sharpe',
              'random_percentile', 'walk_forward', 'monthly', 'annual', 'rolling_sharpe', 'forest', 'power',
              'dsr_curve', 'waterfall', 'trades', 'factors', 'funnel', 'universe_by_formation', 'cost_schedules',
@@ -591,6 +591,8 @@ _FACTS = {
     'start_n': '.0', 'start_step_days': '.0', 'start_headline_rank': '.0', 'start_common_days': '.0',
     'start_sharpe_min': '.2', 'start_sharpe_max': '.2', 'start_sharpe_median': '.2',
     'start_common_sharpe_min': '.2', 'start_common_sharpe_max': '+.2', 'start_ret_min': '.2%', 'start_ret_max': '.2%',
+    'start_common_sharpe_median': '.2', 'start_common_rank': '.0', 'start_matched_wins': '.0', 'start_matched_of': '.0',
+    'start_matched_gap_median': '.2', 'start_matched_published_min': '.2', 'start_matched_published_max': '.2',
     'half1_sharpe': '+.2', 'half2_sharpe': '.2', 'half1_inside_sharpe': '+.2', 'half2_inside_sharpe': '.2',
     'half1_run_off_days': '.0', 'half1_ret_pct': '+.2%', 'half2_ret_pct': '.2%',
     'vix_low_bp': '.2', 'vix_high_bp': '+.2', 'vix_diff_mean_bp': '+.2', 'vix_diff_t': '.2', 'vix_diff_p': '.2',
@@ -607,6 +609,7 @@ _RESIDUAL = {
     'sharpe': '.2', 'lo': '.2', 'hi': '+.2', 'p': '.3', 'hac_t': '.2', 'trades': ',.0', 'ret_pct': '.2%',
     'max_dd_pct': '.2%', 'psr_pct': '.1%', 'gross_sharpe': '+.2', 'gross_lo': '.2', 'gross_hi': '+.2',
     'gross_p': '.3', 'gross_bp': '+.2', 'gross_t': '.2', 'cost_bp': '.2', 'net_bp': '.2', 'net_t': '.2',
+    'stock_cost_bp': '.2', 'etf_cost_bp': '.2',
     'cost_usd_m': '.2', 'gross_usd_m': '.2', 'etf_cost_usd_m': '.2', 'turnover_x': '.1×', 'avg_positions': '.0',
     'max_positions': '.0', 'universe_size': '.0', 'hold_days': '.1', 'win_rate_pct': '.1%', 'days': '.0',
     'avg_gross_x': '.1×', 'symbols_ever': '.0',
@@ -627,10 +630,12 @@ _SNOOPING = {
     'spa_zero.p': '.3', 'spa_zero.p_lower': '.3', 'spa_zero.p_upper': '.3', 'spa_zero.rc_p': '.3',
     'spa_zero.best_t': '.2', 'spa_zero.best_label': 'str',
     'spa_gatev.p': '.3', 'spa_gatev.rc_p': '.3', 'spa_gatev.best_t': '.2', 'spa_gatev.best_label': 'str',
-    'spa_gatev_unit_vol.p': '.3', 'spa_gatev_unit_vol.rc_p': '.3',
+    'spa_gatev_unit_vol.p': '.3', 'spa_gatev_unit_vol.rc_p': '.3', 'spa_gatev_unit_vol.best_t': '.2',
+    'spa_gatev.block': '.0', 'spa_gatev_unit_vol.block': '.0',
     'rw_rejected': '.0', 'rw_min_p': '.2', 'mcs_included': '.0', 'mcs_min_p': '.2', 'mcs_size_pct': '.0%',
     'effective_rank': '.1', 'avg_corr': '.2', 'pbo_pct': '.1%', 'pbo_splits': '.0', 'pbo_blocks': '.0',
-    'pbo_is_best_oos_sharpe': '.2', 'pbo_is_best_loss_pct': '.1%',
+    'pbo_is_best_oos_sharpe': '.2', 'pbo_is_best_loss_pct': '.1%', 'pbo_base_loss_pct': '.1%',
+    'pbo_median_oos_sharpe': '.2', 'dsr_best.dsr_pct': '.1%', 'dsr_best.sharpe': '+.2', 'dsr_best.psr_pct': '.1%',
     'dsr.n_trials': '.0', 'dsr.dsr_pct': '.1%', 'dsr.sd_sr': '.2', 'dsr.sr_star': '.2',
     'reps': ',.0', 'block': '.0',
 }
@@ -720,7 +725,7 @@ METRICS = {
     'paper.holdout.sharpe': '.2', 'paper.holdout.lo': '.2', 'paper.holdout.hi': '+.2', 'paper.holdout.p': '.3',
     # the declared variant family's data-snooping tests (results/variant_family)
     **{f'study.dev.snooping.results.{k}': v for k, v in _SNOOPING.items()},
-    'study.registry.trials': '.0', 'study.registry.runs': '.0',
+    'study.registry.trials': '.0', 'study.registry.recorded_runs': '.0', 'study.registry.rows': '.0',
 }
 
 # A null is allowed only for results that do not exist yet; its reason prints in its place.
@@ -915,6 +920,10 @@ def claims(data):
         'residual_ci_spans_zero': bool(res) and res['lo'] < 0 < res['hi'] and res['gross_lo'] < 0 < res['gross_hi'],
         'residual_gross_below_cost': bool(res) and 0 < res['gross_bp'] < res['cost_bp'] and not _sig(res['gross_t']),
         'residual_net_negative': bool(res) and res['ret_pct'] < 0 and res['sharpe'] < 0,
+        # cost a trade = the stock legs' + the ETF hedge's; a trade's net bp is net of the stock legs' only
+        'residual_cost_split': bool(res) and res.get('stock_cost_bp') is not None
+                               and abs(res['stock_cost_bp'] + res['etf_cost_bp'] - res['cost_bp']) < 0.015
+                               and abs(res['gross_bp'] - res['stock_cost_bp'] - facts['s2c_net_mean_bp']) < 0.015,
         # v32 as history
         'v32_ci_spans_zero': bool(v32) and v32['main']['lo'] < 0 < v32['main']['hi']
                              and v32['oos']['lo'] < 0 < v32['oos']['hi'],
@@ -945,13 +954,34 @@ def claims(data):
         'family_mcs_keeps_all': bool(sn) and sn['mcs_included'] == sn['n'],
         'family_overfits': bool(sn) and sn['pbo_pct'] > 50 and sn['pbo_is_best_loss_pct'] > 50
                            and sn['pbo_is_best_oos_sharpe'] < 0,
+        # selection makes it worse than a variant picked without looking, on the same splits
+        'family_selection_worse_than_base': bool(sn) and sn.get('pbo_base_loss_pct') is not None
+                                            and sn['pbo_is_best_loss_pct'] > sn['pbo_base_loss_pct'] > 50
+                                            and sn['pbo_is_best_oos_sharpe'] < sn['pbo_median_oos_sharpe'] < 0,
+        # no variant is significant even before the search is allowed for (one-sided 5%)
+        # (the snooping table names one best variant for both comparisons with the Gatev series)
+        'family_best_not_significant_alone': bool(sn) and all(
+            sn[k]['best_t'] < 1.645 for k in ('spa_zero', 'spa_gatev', 'spa_gatev_unit_vol'))
+            and sn['spa_gatev']['best'] == sn['spa_gatev_unit_vol']['best'],
+        'family_best_dsr_not_significant': bool(sn) and (sn.get('dsr_best') or {}).get('dsr_pct') is not None
+                                           and sn['dsr_best']['dsr_pct'] < 50
+                                           and sn['dsr_best']['sharpe'] == sn['sharpe_best'],
         'family_few_positive': bool(sn) and sn['positive'] < 0.5 * sn['n'] and sn['sharpe_median'] < 0,
         'family_dsr_not_significant': bool(sn) and (sn.get('dsr') or {}).get('dsr_pct') is not None
                                       and sn['dsr']['dsr_pct'] < 50,
         'design_not_the_best_variant': bool(sn) and sn['base_rank'] is not None and sn['base_rank'] > 1,
         # the robustness checks
-        'headline_start_most_favourable': facts.get('start_headline_rank') == 1
+        # unmatched (each start over its own, shorter window) the published start ranks first ...
+        'headline_start_first_unmatched': facts.get('start_headline_rank') == 1
                                           and facts['start_sharpe_median'] < facts['start_sharpe_max'],
+        # ... and like for like the published path beats most later starts on their own windows,
+        # but is not the best on the days all twelve share
+        'headline_path_beats_most_later_starts': facts.get('start_matched_wins') is not None
+                                                 and 2 * facts['start_matched_wins'] > facts['start_matched_of']
+                                                 and facts['start_matched_gap_median'] > 0,
+        'headline_not_first_on_shared_days': facts.get('start_common_rank') is not None
+                                             and facts['start_common_rank'] > 1
+                                             and facts['start_common_sharpe_median'] < 0,
         'start_dates_all_negative': facts.get('start_sharpe_max') is not None and facts['start_sharpe_max'] < 0,
         'start_reproduces_published_run': bool(_get(dev, 'robustness', 'start_dates', 'reproduces')),
         'regimes_not_significant': facts.get('vix_diff_t') is not None and not _sig(facts['vix_diff_t'])
@@ -1120,32 +1150,39 @@ def tables(data, m):
          f"{sn('spa_zero.p')} ({sn('spa_zero.p_lower')}, {sn('spa_zero.p_upper')})"],
         ['White Reality Check against cash, p', sn('spa_zero.rc_p')],
         ['Best variant against cash: studentized mean', f"t = {sn('spa_zero.best_t')} ({sn('spa_zero.best_label')})"],
-        ['Hansen SPA against the Gatev distance method, p (Reality Check)',
+        ['Hansen SPA against the Gatev distance method, every series at unit volatility (a Sharpe scale), '
+         'p (Reality Check)', f"{sn('spa_gatev_unit_vol.p')} ({sn('spa_gatev_unit_vol.rc_p')})"],
+        ['The same on daily returns, whose capital bases differ (not like for like), p (Reality Check)',
          f"{sn('spa_gatev.p')} ({sn('spa_gatev.rc_p')})"],
-        ['The same with every series at unit volatility, p (Reality Check)',
-         f"{sn('spa_gatev_unit_vol.p')} ({sn('spa_gatev_unit_vol.rc_p')})"],
-        ['Best variant against the Gatev method: studentized mean',
-         f"t = {sn('spa_gatev.best_t')} ({sn('spa_gatev.best_label')})"],
+        [f"Best variant against the Gatev method ({sn('spa_gatev.best_label')}): studentized mean, unit "
+         'volatility; daily returns', f"t = {sn('spa_gatev_unit_vol.best_t')}; {sn('spa_gatev.best_t')}"],
         ['Romano–Wolf stepdown against cash: variants rejected at 5% (smallest adjusted p)',
          f"{sn('rw_rejected')} ({sn('rw_min_p')})"],
         ['Model confidence set, 90%: variants kept (smallest p)', f"{sn('mcs_included')} of {sn('n')} ({sn('mcs_min_p')})"],
         ['Effective number of independent trials (entropy effective rank)', sn('effective_rank')],
-        [f"Deflated Sharpe ratio of the {P['design']} design, N = {sn('dsr.n_trials')}, the variants' Sharpe dispersion",
+        [f"Deflated Sharpe ratio of the family's best variant ({sn('dsr_best.sharpe')}), N = "
+         f"{sn('dsr.n_trials')}, the variants' Sharpe dispersion", sn('dsr_best.dsr_pct')],
+        [f"The same for the {P['design']} design ({sn('base_sharpe')}), which was not selected from the family",
          sn('dsr.dsr_pct')],
-        [f"Probability of backtest overfitting ({sn('pbo_splits')} splits)", sn('pbo_pct')],
+        [f"Probability of backtest overfitting ({sn('pbo_splits')} splits; 50% for a ranking without information)",
+         sn('pbo_pct')],
         ['Best variant of one half of the days, on the other half: mean Sharpe; splits with a loss',
          f"{sn('pbo_is_best_oos_sharpe')}; {sn('pbo_is_best_loss_pct')}"],
+        ['Every variant on the same splits: mean Sharpe of the median variant; variant–splits with a loss',
+         f"{sn('pbo_median_oos_sharpe')}; {sn('pbo_base_loss_pct')}"],
         ['Variants with a positive Sharpe ratio (best, median, worst)',
          f"{sn('positive')} of {sn('n')} ({sn('sharpe_best')}, {sn('sharpe_median')}, {sn('sharpe_worst')})"],
         [f"The {P['design']} design: rank by Sharpe ratio (Sharpe)", f"{sn('base_rank')} ({sn('base_sharpe')})"],
     ]
     rob = dev.get('robustness') or {}
     startdates = [[short_date(r['start']) + (' (published)' if r['offset'] == 0 else ''), fmt(r['trades'], '.0'),
-                   fmt(r['sharpe'], '.2'), fmt(r['ret_pct'], '.2'), fmt(r['common_sharpe'], '+.2')]
+                   fmt(r['sharpe'], '.2'), '—' if r['offset'] == 0 else fmt(r['published_sharpe'], '+.2'),
+                   fmt(r['ret_pct'], '.2'), fmt(r['common_sharpe'], '+.2')]
                   for r in _get(rob, 'start_dates', 'runs', default=[]) if r.get('sharpe') is not None]
     halves = [[f"{'First' if h['half'] == 'first' else 'Second'} half: entries {short_date(h['entry'][0])} to "
-               f"{short_date(h['entry'][1])}", fmt(h['trades'], '.0'), fmt(h['sharpe'], '+.2'), fmt(h['ret_pct'], '+.2'),
-               fmt(h['inside_sharpe'], '+.2')] for h in rob.get('halves') or [] if h.get('sharpe') is not None]
+               f"{short_date(h['entry'][1])}", fmt(h['trades'], '.0'), fmt(h['sharpe'], '+.2'),
+               fmt(h['inside_sharpe'], '+.2'), fmt(h['ret_pct'], '+.2'), '—']
+              for h in rob.get('halves') or [] if h.get('sharpe') is not None]
     tercile = {'low': 'low', 'mid': 'middle', 'high': 'high'}
     regimes = []
     for key, title in (('vix', 'Previous-day VIX'), ('dispersion', 'Previous-day sector dispersion'),
@@ -1315,13 +1352,16 @@ def tables(data, m):
         ['Rule', 'One β-locked z-score against its mean and standard deviation over the last 30–60 bars, frozen at the '
                  'signal. Entry |z| ≥ 1.8; target once z reverts past −0.5 (long) or +0.5 (short); stop 1.5 further '
                  'against; time stop max(10, min(⌊2.5 × half-life⌋, 25)) days. Gates: pair quality ≥ 0.55, 20-day '
-                 'correlation ≥ 0.20, β in [0.25, 4], a 30-day pause after three consecutive losing trades on a pair. '
-                 'No regime gate.'],
+                 'correlation ≥ 0.20, β in [0.25, 4], at least 50 bars of pair history, locked-spread standard '
+                 "deviation at most 0.30, the smaller leg's 20-day dollar ADV at least $1M, an ex-ante round-trip cost "
+                 '(with borrow over the maximum hold) below 1% of equity, a 30-day pause after three consecutive losing '
+                 'trades on a pair; no new signal on a day the book lost more than 3%. No regime gate.'],
         ['Book', f"${m['study.dev.facts.capital_musd']}M notional; 3–10% of equity per pair before risk scaling "
                  f"({m['paper.position_min_pct']} to {m['paper.position_max_pct']} as traded), scaled by the win rate "
                  'of the last five closed trades and the volatility of recent daily returns; 30% gross cap on '
                  'exposure at entry; at most 8 entries a day, ordered by signal strength × pair quality; no shared '
-                 'legs; daily mark-to-market; drawdown, daily-loss and exposure kill switch.'],
+                 'legs; daily mark-to-market; a kill switch that flattens the book at a 15% drawdown from peak, a 5% '
+                 'daily loss or gross exposure at entry above 30%.'],
         ['Costs', f"Per execution: $0.002 a share (minimum $0.50), half the quoted spread by 20-day dollar ADV, "
                   f"square-root impact (Y = 0.3, cap 50 bp); one {fmt(100 * pv33.borrow_rate, '.2')}% a year borrow "
                   'fee on the short notional, charged over the days held.'],

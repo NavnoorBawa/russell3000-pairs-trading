@@ -38,7 +38,7 @@ SEC Rule 201 short-sale restriction.
 Cost of one execution in bp of traded value, for a liquid large cap ($1B daily volume,
 $100 price, 1.6% daily volatility), from `tests/test_cost_model_zoo.py`:
 
-| Participation (% of ADV) | This study | Almgren et al. 2005 (VWAP, temporary) | GJW 2025 auction, NYSE | GJW 2025 auction, Nasdaq | Square-root law, Y = 1 | Avellaneda-Lee 2010 |
+| Participation (% of ADV) | This study | Almgren et al. 2005 (VWAP, temporary) | GJW 2026 auction, NYSE | GJW 2026 auction, Nasdaq | Square-root law, Y = 1 | Avellaneda-Lee 2010 |
 |---:|---:|---:|---:|---:|---:|---:|
 | 0.10% | 2.5 | 0.4 | 1.4 | 3.2 | 5.1 | 5.0 |
 | 0.25% | 3.4 | 0.6 | 2.2 | 5.1 | 8.0 | 5.0 |
@@ -74,6 +74,6 @@ Not much, and that is measured rather than asserted:
 
 | Not available free | What the study does instead |
 |---|---|
-| Per-stock closing-auction imbalances and volumes (exchange feeds, TAQ) | the GJW (2025) published size/venue estimates |
+| Per-stock closing-auction imbalances and volumes (exchange feeds, TAQ) | the GJW (2026) published size/venue estimates |
 | Historical per-stock borrow fees (Markit, S3) | one buy-side fee plus 1% / 3% stress scenarios |
 | Measured effective spreads per stock and day (TAQ) | dollar-ADV spread buckets checked against published levels; daily-bar spread estimators (Corwin-Schultz, Abdi-Ranaldo, EDGE) were tested and rejected for liquid names: their noise floor (~30-40 bp) is twenty times the true spread |

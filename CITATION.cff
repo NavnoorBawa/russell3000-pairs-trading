@@ -10,8 +10,10 @@ abstract: >-
   (Avellaneda-Lee residual reversion) and a trial registry. The v33 design finds no detectable
   edge on 2023-2025, before or after costs: its in-sample edge vanishes after formation, its
   spreads then behave like random walks, and its pairs stay cointegrated only at about the base
-  rate; the second family agrees. A pre-registered falsification test on 2026 data is sealed
-  until its protocol is filed. Validated on synthetic markets with known answers.
+  rate; the second family agrees. A family of variants declared before any of them ran contains
+  none that beats cash, even before the search is allowed for, and choosing parameters on it would
+  overfit. A pre-registered falsification test on 2026 data is sealed until its protocol is
+  filed. Validated on synthetic markets with known answers.
 authors:
   - family-names: Bawa
     given-names: Navnoor

@@ -53,22 +53,29 @@ design declared before any ran (a <!--m:study.dev.snooping.grid_points-->27<!--/
 the entry, exit and stop thresholds and <!--m:study.dev.snooping.toggles-->11<!--/m--> design
 toggles), <!--m:study.dev.snooping.results.positive-->7<!--/m--> have a positive Sharpe ratio
 (best <!--m:study.dev.snooping.results.sharpe_best-->+0.21<!--/m-->,
-median <!--m:study.dev.snooping.results.sharpe_median-->−0.40<!--/m-->). None beats cash once the
-search is allowed for (Hansen's SPA p = <!--m:study.dev.snooping.results.spa_zero.p-->0.964<!--/m-->,
-White's Reality Check p = <!--m:study.dev.snooping.results.spa_zero.rc_p-->0.977<!--/m-->; the
-Romano–Wolf stepdown rejects <!--m:study.dev.snooping.results.rw_rejected-->0<!--/m-->) or the
-distance method (SPA p = <!--m:study.dev.snooping.results.spa_gatev.p-->0.219<!--/m-->), and the
+median <!--m:study.dev.snooping.results.sharpe_median-->−0.40<!--/m-->). None beats cash, even
+before the search is allowed for (best t = <!--m:study.dev.snooping.results.spa_zero.best_t-->0.38<!--/m-->;
+Hansen's SPA p = <!--m:study.dev.snooping.results.spa_zero.p-->0.964<!--/m-->, White's Reality Check
+p = <!--m:study.dev.snooping.results.spa_zero.rc_p-->0.977<!--/m-->; the Romano–Wolf stepdown
+rejects <!--m:study.dev.snooping.results.rw_rejected-->0<!--/m-->), nor the distance method on a
+Sharpe scale (SPA p = <!--m:study.dev.snooping.results.spa_gatev_unit_vol.p-->0.489<!--/m-->). The
 variant that is best on one half of the days ranks below the median on the other half
-in <!--m:study.dev.snooping.results.pbo_pct-->79.4<!--/m-->% of splits and loses money there
-in <!--m:study.dev.snooping.results.pbo_is_best_loss_pct-->99.2<!--/m-->%: choosing parameters on
-this family would overfit. Deflated with the family's effective number of trials
-(<!--m:study.dev.snooping.results.effective_rank-->13.7<!--/m-->) and its own Sharpe dispersion,
-the design's deflated Sharpe ratio is <!--m:study.dev.snooping.results.dsr.dsr_pct-->6.3<!--/m-->%.
-The headline is also the most favourable of <!--m:study.dev.facts.start_n-->12<!--/m--> start
-dates a month apart: their Sharpe ratios run
-from <!--m:study.dev.facts.start_sharpe_min-->−1.16<!--/m-->
-to <!--m:study.dev.facts.start_sharpe_max-->−0.06<!--/m--> (median
-of the twelve <!--m:study.dev.facts.start_sharpe_median-->−0.65<!--/m-->).
+in <!--m:study.dev.snooping.results.pbo_pct-->79.4<!--/m-->% of splits, where a ranking without
+information would do so in half, and its Sharpe ratio there
+averages <!--m:study.dev.snooping.results.pbo_is_best_oos_sharpe-->−0.87<!--/m-->
+against <!--m:study.dev.snooping.results.pbo_median_oos_sharpe-->−0.53<!--/m--> for the median
+variant: choosing parameters on this family would overfit. Deflated with the family's effective number of
+trials (<!--m:study.dev.snooping.results.effective_rank-->13.7<!--/m-->, rounded up
+to <!--m:study.dev.snooping.results.dsr.n_trials-->14<!--/m-->) and its own Sharpe dispersion, the
+best variant's deflated Sharpe ratio is <!--m:study.dev.snooping.results.dsr_best.dsr_pct-->13.5<!--/m-->%
+and the design's <!--m:study.dev.snooping.results.dsr.dsr_pct-->6.3<!--/m-->%. The headline is also a
+favourable path of the rule: started on each of <!--m:study.dev.facts.start_matched_of-->11<!--/m-->
+later dates a month apart, the same rule has the lower Sharpe ratio on its own days than the
+published run in <!--m:study.dev.facts.start_matched_wins-->10<!--/m--> (median
+gap <!--m:study.dev.facts.start_matched_gap_median-->0.51<!--/m-->), and on
+the <!--m:study.dev.facts.start_common_days-->397<!--/m--> days all twelve share the published run
+ranks <!--m:study.dev.facts.start_common_rank-->3<!--/m-->rd
+(median <!--m:study.dev.facts.start_common_sharpe_median-->−0.47<!--/m-->).
 The pre-registered falsification test on 2026 data,
 with <!--m:study.dev.facts.ho_power_1-->16<!--/m-->% power against a true Sharpe ratio of 1, is
 sealed until its protocol is filed.
@@ -156,9 +163,10 @@ once from that commit on the <!--m:study.dev.facts.ho_days-->200<!--/m--> tradin
 That period has already ended, and the project was developed during it (versions 8 to 33). The
 test is sealed, not prospective: the project's code and caches hold no daily 2026 prices of the
 traded securities, but the designers' general knowledge of 2026 markets cannot be sealed. The
-2026 information the project did receive (the latest quote in the price vendor's responses, the
-market values behind the v32 universe file, identity data, factor files) is listed under Known
-limitations and in the pre-registration.
+2026 information the project did receive (each security's latest price and 52-week high and low
+in the price vendor's responses, the market values behind the v32 universe file, identity data,
+and factor files that include the short-term reversal factor) is listed under Known limitations
+and in the pre-registration.
 
 | Arm | Strategy | Role |
 |---|---|---|
@@ -179,7 +187,7 @@ is a falsification check: it can reject a large edge, but it cannot confirm a sm
 |---|---|
 | [`pairs_trading/`](pairs_trading/) | The system: study profiles and calendars (`study_config.py`), the point-in-time universe (`universe.py`), data and price anchoring (`data_processor.py`), pair selection with an exact numpy Engle–Granger (`pair_selector.py`, `fast_coint.py`), the engine (`trading_system.py`), costs (`transaction_costs.py`), significance, power and data-snooping tests (`significance.py`, `power.py`, `snooping.py`), baselines (`benchmark.py`), the evidence layer (`anatomy.py`, `evidence.py`) and the second family (`residual_statarb.py`) |
 | [`scripts/`](scripts/) | Runbooks (`run_dev_studies.sh`, `run_holdout.sh`), the evidence scripts, the holdout evaluator, the trial registry, the site and paper builders and the publication checker |
-| [`results/`](results/) | Every published run, with its provenance: `v33_dev/` (this study, with `anatomy.json`, `cost_sensitivity.json` and `robustness.json`), `residual_dev/` (S2), `validation/`, `v32_dev/` (the published v32 run), `variant_family/` (the declared family of variants, its runs and the data-snooping tests) and `trial_registry.jsonl` (every trial whose result was seen) |
+| [`results/`](results/) | Every published run, with its provenance: `v33_dev/` (this study, with `anatomy.json`, `cost_sensitivity.json` and `robustness.json`), `residual_dev/` (S2), `validation/`, `v32_dev/` (the published v32 run), `variant_family/` (the declared family of variants, its runs and the data-snooping tests) and `trial_registry.jsonl` (the registered trials; the page's Section 7 lists the runs it does not hold) |
 | [`reference/`](reference/) | IWV N-PORT holdings snapshots, the CUSIP-to-ticker map and the industry map, with how each was built and checked |
 | [`docs/`](docs/) | `PROGRESS.md` (the full engineering log, deliberately unflattering), `EXECUTION_COSTS.md`, `FREE_RESOURCES.md` |
 | `index.html`, [`assets/`](assets/) | The research note; `assets/study.json` is built from `results/` by `scripts/build_site_data.py` |
@@ -275,28 +283,38 @@ and size.
   walk-forward. The gap probably flatters a convergence strategy.
 - **Design choices were made on the same data.** 33 versions on 2020–2025; the deflated Sharpe's
   32 trials are a lower bound; v33's changes were chosen after v32's results on this same period
-  were seen; and an exploratory v33 run was seen before the published one (it is in the trial
-  registry). The pre-registered holdout addresses it, and the declared variant family measures
-  it: no variant beats cash or the distance method once the search is allowed for, and parameter
-  choice on the family would overfit.
+  were seen; an exploratory v33 run was seen before the published one (it is in the trial
+  registry); and the second family ran under two earlier universe rules, the second changed
+  after a review measured the P&L of the names the change removes (not in the registry; the page
+  discloses them). The pre-registered holdout addresses it, and the declared variant family
+  measures it: no variant beats cash, even before the search is allowed for, or the distance
+  method on a Sharpe scale, and parameter choice on the family would overfit.
 - **The 2026 test is sealed, not prospective.** The test period ended before the pre-registration
   is filed, and the project was developed during it; the designers' general knowledge of 2026
   markets cannot be sealed.
 - **The path depends on the start date.** Sizing is a share of equity and the 30% cap binds, so
-  the same rule on the same days gives different trades from different start dates. Of 12 start
-  dates a month apart the published one is the most favourable (median Sharpe of the
-  twelve <!--m:study.dev.facts.start_sharpe_median-->−0.65<!--/m-->), which flatters the headline; the
-  distribution and the two halves as separate runs are reported.
+  the same rule on the same days gives different trades from different start dates. On each
+  later start's own days the published path has the higher Sharpe ratio
+  in <!--m:study.dev.facts.start_matched_wins-->10<!--/m--> of <!--m:study.dev.facts.start_matched_of-->11<!--/m-->
+  cases, which flatters the headline; on the days all twelve share it
+  ranks <!--m:study.dev.facts.start_common_rank-->3<!--/m-->rd. Unmatched, over windows of different
+  length, it is the highest of the twelve (median
+  Sharpe <!--m:study.dev.facts.start_sharpe_median-->−0.65<!--/m-->). Every comparison and the two
+  halves as separate runs are reported.
 - **Vendor prices carry corporate actions after the window.** Yahoo back-applies later splits
   and dividends to the whole history; price levels are anchored to N-PORT's price at each snapshot
   date, and returns are unaffected.
 - **Some inputs are dated 2026.** Identity data (identifier map, SIC codes, listing venue), the
-  French factor files, FRED rates and the v32 universe file were fetched in 2026, and the price
-  API's responses carry the latest quote in their metadata (not read). Two rules of the industry
-  map use 2026 information (a ticker missing from the SEC's 2026 company list has no industry; a
-  name first held in 2026 needs to be among the 3,000 largest of 18 October 2026); they are
-  disclosed in the pre-registration. None of these inputs is a 2026 daily price, factors are
-  truncated at each calendar's end, and no strategy reads them.
+  French factor files (daily factors to August 2026, among them the short-term reversal factor,
+  close to the signals of both tested arms), FRED rates and the v32 universe file were fetched in
+  2026; the price API's responses carry each security's latest price and 52-week high and low
+  (read by no study code; one data review stored such responses outside the repository, since
+  deleted); and adjusted price levels carry 2026 corporate actions. Two rules of the industry map
+  use 2026 information (a ticker missing from the SEC's 2026 company list has no industry; a name
+  first held in 2026 needs to be among the 3,000 largest of 18 October 2026); they are disclosed
+  in the pre-registration. None of these inputs is a 2026 daily price, factors are truncated at
+  each calendar's end, and no strategy reads them; the direction is that they may flatter the
+  holdout.
 - **The frozen v32 arm's universe looks ahead into 2026.** It is ranked on market values of
   18 October 2026, which is why S3 is descriptive only.
 - **Renamed securities can look delisted.** A ticker change with a new CUSIP is remapped through
@@ -304,17 +322,20 @@ and size.
 - **Borrow is one fee for every name.** Specials and recalls are not modelled; 1% and 3% stress
   runs bound the effect.
 - **Fills are close-to-close.** The closing auction is assumed, with no queue, auction-volume or
-  intraday model; participation is measured against full-day volume, so the largest books in the
-  capacity scenarios could not be filled at the close; impact is stressed at Y = 0.6 and 1.0.
+  intraday model; participation is measured against full-day volume, so participation in the
+  auction is a multiple of it and the largest books in the capacity scenarios could not be filled
+  at the close; impact is stressed at Y = 0.6 and 1.0. This probably flatters.
 - **Cost parameters are published averages, not measurements.** No free tick or quote data:
-  spreads and impact come from published estimates.
+  spreads and impact come from published estimates, with Y = 0.3 at the low end of them. This
+  probably flatters.
 - **Cost scenarios change the trades.** Each re-run is a new path, so the headline trades are
   also re-priced under every scenario.
 - **Hedge ratios below one leave market exposure.** The book carries a small market loading,
   reported with an eight-factor attribution.
 - **The main backtest and the walk-forward overlap.** With no model to refit they are one rule
   from two start dates; the holdout is the independent test.
-- **One period, one regime.** 30 months with T-bills near 5%, and one path. Within the period no
+- **One period, one regime.** 30 months with three-month T-bills
+  near <!--m:study.dev.facts.cash_tbill_yield_pct-->4.79<!--/m-->%, and one path. Within the period no
   split by the previous day's VIX or sector dispersion separates the returns (highest minus lowest
   VIX tercile, t = <!--m:study.dev.facts.vix_diff_t-->0.74<!--/m-->), but the terciles are the
   period's own; the 2026 test is another period.

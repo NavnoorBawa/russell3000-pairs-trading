@@ -1270,7 +1270,9 @@ def robustness_facts(rob):
     common days), the two halves as separate runs and inside the continuous run, the VIX and
     dispersion terciles (low and high tercile mean, high minus low), persistence on S1's own
     candidate pairs (first formation and the union of formations) and the second family's
-    per-trade t clustered by entry month, entry date and symbol."""
+    per-trade t clustered by entry month, entry date and symbol. The start dates are also
+    compared like for like: the published path against each later start on that start's own
+    days (start_matched_*), and its rank on the days all twelve share (start_common_rank)."""
     r = rob or {}
     sd, reg = r.get('start_dates') or {}, r.get('regimes') or {}
     halves = {h['half']: h for h in r.get('halves') or []}
@@ -1288,7 +1290,8 @@ def robustness_facts(rob):
         return _get(pers, which, 'pooled', field)
     out = {
         'start_n': sd.get('n'), 'start_step_days': sd.get('step_days'), 'start_headline_rank': sd.get('headline_rank'),
-        'start_common_days': _get(sd, 'common', 'days'),
+        'start_common_days': _get(sd, 'common', 'days'), 'start_common_rank': sd.get('common_rank'),
+        **{f'start_matched_{k}': _get(sd, 'matched', k) for k in MATCHED_KEYS},
         **{f'start_sharpe_{f}': spread('sharpe', f) for f in ('min', 'max', 'median', 'mean', 'sd', 'range')},
         **{f'start_common_sharpe_{f}': spread('sharpe_common', f) for f in ('min', 'max', 'median', 'sd')},
         **{f'start_ret_{f}': spread('ret', f) for f in ('min', 'max', 'median')},
@@ -1395,6 +1398,9 @@ def residual_summary(doc, dates=None):
             'gross_lo': _r(gross_ci.get('lo'), 2), 'gross_hi': _r(gross_ci.get('hi'), 2),
             'gross_bp': _r(gbp.get('mean'), 2), 'gross_t': _r(gbp.get('t'), 2),
             'net_bp': _r(nbp.get('mean'), 2), 'net_t': _r(nbp.get('t'), 2), 'cost_bp': _r(s.get('cost_bp_per_trade'), 2),
+            # cost_bp is the stock legs' cost plus the ETF hedge's; a trade's net bp is net of the stock legs'
+            # only (the ETF hedge is booked on the netted ETF book)
+            'stock_cost_bp': _r(s.get('stock_cost_bp_per_trade'), 2), 'etf_cost_bp': _r(s.get('etf_cost_bp_per_trade'), 2),
             'gross_usd_m': scaled(s.get('gross_pnl'), 1e-6, 2), 'cost_usd_m': scaled(s.get('total_costs'), 1e-6, 2),
             'etf_cost_usd_m': scaled(_get(costs, 'etf', 'total'), 1e-6, 2),
             'win_rate_pct': scaled(s.get('win_rate'), 100, 1),
@@ -1526,6 +1532,43 @@ def _family_matrix(rows):
             np.array([[float(r[k]) for k in names] for r in rows], dtype=float))
 
 
+def cscv_baseline(M, pbo, n_splits, periods=PERIODS):
+    """What PBO's 'probability of loss' compares with: the same CSCV splits for every variant.
+
+    pairs_trading.significance.pbo_cscv cuts the T x N matrix `M` into `n_splits` contiguous
+    blocks and takes every choice of half of them as the in-sample half; it reports how the
+    in-sample best does on the other half. The same splits are rebuilt here, and for every
+    split the out-of-sample Sharpe ratio of every variant: 'loss_pct' is the share of
+    (variant, split) cases below zero (what a variant picked at random loses), and
+    'median_oos_sharpe' the mean over splits of the median variant's Sharpe ratio. The
+    in-sample best's mean out-of-sample Sharpe and loss rate are recomputed here and must be
+    `pbo`'s (snooping.json's), or the splits differ and the build stops.
+    """
+    from itertools import combinations
+    T = M.shape[0]
+    bounds = np.linspace(0, T, n_splits + 1).astype(int)
+    blocks = [np.arange(bounds[i], bounds[i + 1]) for i in range(n_splits)]
+
+    def sharpes(rows):
+        sub = M[rows]
+        sd = sub.std(axis=0, ddof=1)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            return np.where(sd > 0, sub.mean(axis=0) / sd, 0.0) * math.sqrt(periods)
+    best_oos, loss_share, medians = [], [], []
+    for is_blocks in combinations(range(n_splits), n_splits // 2):
+        sr_is = sharpes(np.concatenate([blocks[b] for b in is_blocks]))
+        sr_oos = sharpes(np.concatenate([blocks[b] for b in range(n_splits) if b not in is_blocks]))
+        best_oos.append(float(sr_oos[int(np.argmax(sr_is))]))
+        loss_share.append(float((sr_oos < 0).mean()))
+        medians.append(float(np.median(sr_oos)))
+    best_oos = np.asarray(best_oos)
+    if not (math.isclose(float(best_oos.mean()), pbo['mean_oos_sharpe_of_is_best'], abs_tol=1e-9)
+            and math.isclose(float((best_oos < 0).mean()), pbo['prob_oos_loss_of_is_best'], abs_tol=1e-12)):
+        raise ValueError('results/variant_family: the CSCV splits rebuilt from daily_returns.csv do not reproduce '
+                         "snooping.json's PBO")
+    return {'loss_pct': 100.0 * float(np.mean(loss_share)), 'median_oos_sharpe': float(np.mean(medians))}
+
+
 def snooping(declaration, results, runs=None, family_rows=None, main_r=None):
     """The declared variant family (results/variant_family) and its data-snooping tests.
 
@@ -1543,7 +1586,11 @@ def snooping(declaration, results, runs=None, family_rows=None, main_r=None):
     declaration also names a deflated Sharpe ratio with N = the entropy effective rank of the
     variants' correlation matrix and the variants' own Sharpe dispersion; snooping.json holds
     the rank but not the ratio, so it is computed here with pairs_trading.significance, N
-    rounded up (dsr_curve's rule) and the trial Sharpe variance of the daily matrix.
+    rounded up (dsr_curve's rule) and the trial Sharpe variance of the daily matrix. The
+    deflated Sharpe ratio is defined for the strategy selected as the best of N trials, so it
+    is also computed for the family's best variant ('dsr_best'), with the same N and variance.
+    PBO's loss rate of the in-sample best is set against the same splits' rate for every
+    variant (cscv_baseline).
     """
     if declaration is None:
         return None
@@ -1587,6 +1634,7 @@ def snooping(declaration, results, runs=None, family_rows=None, main_r=None):
     # the declared deflation: N = the effective rank, rounded up; the variants' Sharpe variance
     # (fixed shape: null without the main backtest's returns on the family's days)
     dsr = {'n_trials': None, 'sd_sr': None, 'sr_star': None, 'dsr_pct': None, 'curve': []}
+    dsr_best = {'n_trials': None, 'sharpe': None, 'dsr_pct': None, 'psr_pct': None, 'label': None}
     if main_r is not None and eff.get('effective_rank') is not None:
         n_eff = int(math.ceil(eff['effective_rank'] - 1e-9))
         var = trial_sharpe_variance(M, PERIODS)
@@ -1595,6 +1643,13 @@ def snooping(declaration, results, runs=None, family_rows=None, main_r=None):
                'dsr_pct': _r(100 * d['dsr'], 2),
                'curve': [{'n': n, 'dsr': _r(x['dsr']), 'sr_star': _r(x['sr_star_ann'])}
                          for n, x in zip(DSR_TRIALS, _dsr_curve(main_r, DSR_TRIALS, var, PERIODS))]}
+        k_best = names.index(best['name'])
+        db = deflated_sharpe_ratio(M[:, k_best], n_eff, var, PERIODS)
+        dsr_best = {'n_trials': n_eff, 'sharpe': _r(db['observed_sr_ann']), 'dsr_pct': _r(100 * db['dsr'], 4),
+                    'psr_pct': _r(100 * deflated_sharpe_ratio(M[:, k_best], 1, var, PERIODS)['dsr'], 4),
+                    'label': _variant_label(best['name'])}
+    base_rate = (cscv_baseline(M, pbo, int(pbo['n_splits']))
+                 if pbo.get('n_splits') and pbo.get('mean_oos_sharpe_of_is_best') is not None else {})
     out['results'] = {
         'n': len(names), 'days': len(dates), 'first_day': dates[0], 'last_day': dates[-1],
         'base': base, 'base_label': _variant_label(base) if base else None,
@@ -1622,7 +1677,10 @@ def snooping(declaration, results, runs=None, family_rows=None, main_r=None):
         'pbo_is_best_oos_sharpe': _r(pbo.get('mean_oos_sharpe_of_is_best')),
         'pbo_is_best_loss_pct': _r(100 * pbo['prob_oos_loss_of_is_best'], 2)
         if pbo.get('prob_oos_loss_of_is_best') is not None else None,
-        'dsr': dsr,
+        # the same splits for every variant: what a variant picked without looking loses
+        'pbo_base_loss_pct': _r(base_rate.get('loss_pct'), 6),         # 76.649958: shown at 0 and 1 dp
+        'pbo_median_oos_sharpe': _r(base_rate.get('median_oos_sharpe')),
+        'dsr': dsr, 'dsr_best': dsr_best,
         'block': _get(fam, 'spa_vs_zero', 'block'), 'reps': _get(fam, 'spa_vs_zero', 'reps'),
     }
     return out
@@ -1640,6 +1698,40 @@ def _spread(x):
 # robustness.json gets this shape with every value null, so a page marker names a key that
 # every build has; a report of another shape stops the build.
 ROBUSTNESS_SHAPE = {'starts': 12, 'halves': 2, 'terciles': 3, 'years': 3, 'persistence_years': 5}
+# The published path against each later start on that start's own window (_matched_starts)
+MATCHED_KEYS = ('of', 'wins', 'gap_median', 'gap_min', 'gap_max', 'published_min', 'published_max')
+
+
+def _matched_starts(runs, published):
+    """Each start's Sharpe ratio against the published run's on the same days.
+
+    The 12 runs end on the same day but start a month apart, so their full-run Sharpe ratios
+    cover windows of different length (the later ones miss the first months of the published
+    window). `published` is the published main backtest's (dates, daily net returns); each
+    run's 'published_sharpe' is the published path's Sharpe ratio on that run's own days
+    (first_day to last_day, the same number of days or the build stops). 'matched' compares
+    the later starts with it: in how many the published path has the higher Sharpe ratio,
+    and the distribution of the gap (published minus the later start). Without the published
+    series every value is null.
+    """
+    out = [None] * len(runs)
+    matched = dict.fromkeys(MATCHED_KEYS)
+    if published is None:
+        return out, matched
+    dates, r = list(published[0]), np.asarray(published[1], dtype=float)
+    for i, run in enumerate(runs):
+        sub = r[[run['first_day'] <= d <= run['last_day'] for d in dates]]
+        if sub.size != run['days']:
+            raise ValueError(f"the published run has {sub.size} days in {run['first_day']} to {run['last_day']}, "
+                             f"the start-date run {run['days']}: robustness.json is not of this run")
+        out[i] = _sharpe(sub)
+    later = [(out[i], run['sharpe']) for i, run in enumerate(runs) if run['offset_trading_days'] > 0]
+    if later:
+        gaps = np.array([p - s for p, s in later])
+        matched = {'of': len(later), 'wins': int((gaps > 0).sum()), 'gap_median': _r(float(np.median(gaps))),
+                   'gap_min': _r(float(gaps.min())), 'gap_max': _r(float(gaps.max())),
+                   'published_min': _r(min(p for p, _ in later)), 'published_max': _r(max(p for p, _ in later))}
+    return out, matched
 
 
 def robustness_skeleton():
@@ -1648,7 +1740,7 @@ def robustness_skeleton():
         return dict.fromkeys(keys)
     spread = ('min', 'max', 'median', 'mean', 'sd', 'range', 'n')
     start = ('offset', 'start', 'days', 'trades', 'sharpe', 'ret_pct', 'max_dd_pct', 'nw_t', 'common_sharpe',
-             'common_ret_pct')
+             'common_ret_pct', 'published_sharpe')
     half = ('half', 'entry', 'last_day', 'days', 'entry_days', 'trades', 'sharpe', 'ret_pct', 'nw_t', 'run_off_days',
             'inside_days', 'inside_sharpe', 'inside_ret_pct')
     bucket = ('bucket', 'days', 'mean_bp', 'sharpe', 't', 'p', 'ret_pct')
@@ -1675,7 +1767,7 @@ def robustness_skeleton():
         'start_dates': {'n': None, 'step_days': None, 'window': [], 'common': row(('first', 'last', 'days')),
                         'runs': [row(start) for _ in range(ROBUSTNESS_SHAPE['starts'])],
                         'sharpe': row(spread), 'sharpe_common': row(spread), 'ret': row(spread), 'trades': row(spread),
-                        'headline_rank': None, 'reproduces': False},
+                        'headline_rank': None, 'common_rank': None, 'matched': row(MATCHED_KEYS), 'reproduces': False},
         'halves': [{**row(half), 'entry': []} for _ in range(ROBUSTNESS_SHAPE['halves'])],
         'regimes': {'days': None, 'vix': regime(ROBUSTNESS_SHAPE['terciles']),
                     'dispersion': regime(ROBUSTNESS_SHAPE['terciles']), 'year': regime(ROBUSTNESS_SHAPE['years'])},
@@ -1685,12 +1777,16 @@ def robustness_skeleton():
     }
 
 
-def robustness(report, results_sha256):
+def robustness(report, results_sha256, published=None):
     """The robustness checks of the run (scripts/robustness_checks.py, {dev}/robustness.json):
     the main backtest from 12 start dates and the two halves as separate runs; returns by
     previous-day VIX and sector-dispersion tercile and by year (Newey-West t); cointegration
     persistence on S1's own candidate pairs; and the second family's per-trade edge with
     standard errors clustered by entry month, date and symbol.
+
+    `published` is the run's own (dates, daily net returns): with it each start is also set
+    against the published path on the same days (_matched_starts), and the published path is
+    ranked on the days all twelve share ('common_rank').
 
     A report computed from another export than the run's (its recorded sha256 of the results
     file differs) is not of this run and stops the build.
@@ -1705,10 +1801,13 @@ def robustness(report, results_sha256):
     runs = sd.get('runs') or []
     sharpes = [r['sharpe'] for r in runs]
     head = next((r for r in runs if r['offset_trading_days'] == 0), None)
+    common = [_get(r, 'common_window', 'sharpe') for r in runs]
+    pub_sharpe, matched = _matched_starts(runs, published)
     starts = [{'offset': r['offset_trading_days'], 'start': r['start'], 'days': r['days'], 'trades': r['trades'],
                'sharpe': _r(r['sharpe']), 'ret_pct': _r(r['total_return_pct']), 'max_dd_pct': _r(r['max_drawdown_pct']),
                'nw_t': _r(r.get('nw_t'), 3), 'common_sharpe': _r(_get(r, 'common_window', 'sharpe')),
-               'common_ret_pct': _r(_get(r, 'common_window', 'total_return_pct'))} for r in runs]
+               'common_ret_pct': _r(_get(r, 'common_window', 'total_return_pct')),
+               'published_sharpe': _r(p)} for r, p in zip(runs, pub_sharpe)]
     halves = [{'half': h['half'], 'entry': h['entry_window'], 'last_day': h['last_day'], 'days': h['days'],
                'entry_days': h.get('entry_days'), 'trades': h['trades'], 'sharpe': _r(h['sharpe']),
                'ret_pct': _r(h['total_return_pct']), 'nw_t': _r(h.get('nw_t'), 3), 'run_off_days': h.get('run_off_days'),
@@ -1782,8 +1881,13 @@ def robustness(report, results_sha256):
                         'sharpe_common': _spread(_get(sd, 'spread', 'sharpe_common_window')),
                         'ret': _spread(_get(sd, 'spread', 'total_return_pct')),
                         'trades': _spread(_get(sd, 'spread', 'trades')),
-                        # 1 = the most favourable start; the published run is offset 0
+                        # 1 = the most favourable start over its own (unmatched) window; the published run
+                        # is offset 0
                         'headline_rank': 1 + sum(1 for s in sharpes if head and s > head['sharpe']) if head else None,
+                        # the same rank on the days all twelve share
+                        'common_rank': 1 + sum(1 for c in common if c > _get(head, 'common_window', 'sharpe'))
+                        if head and None not in common else None,
+                        'matched': matched,
                         'reproduces': bool(_get(sd, 'offset_0_reproduces_published_main_backtest', 'verified'))},
         'halves': halves,
         'regimes': {'days': reg.get('days'), 'vix': regime(reg.get('vix')),
@@ -1908,7 +2012,8 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
         # the family is compared with this run's main backtest only on the same days
         'snooping': snooping(declaration, snoop, family_runs, family_rows,
                              r_main if family_rows and [r['date'] for r in family_rows] == daily['dates'] else None),
-        'robustness': robustness(rob, _sha256(_results_file(dev))),
+        'robustness': robustness(rob, _sha256(_results_file(dev)),
+                                 (daily['dates'], [d['daily_return_pct'] / 100.0 for d in res['daily_equity_curve']])),
         **{key: anatomy[key] for key in ANATOMY_KEYS if anatomy.get(key) is not None},
     }
     rows = dev_out['universe_by_formation']
@@ -1937,8 +2042,10 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
         'validation': validation(known),
         'v32': v32,
         'trials': trials(registry),
-        # the registry's size: its trials (one line each) and their runs (the rows of 'trials')
-        'registry': {'trials': len(registry), 'runs': len(trials(registry))} if registry is not None else None,
+        # the registry's size: its trials (one line each), the run records they hold, and the rows
+        # of 'trials' (one per run record; a trial without one keeps a row)
+        'registry': {'trials': len(registry), 'recorded_runs': sum(len(e.get('runs') or []) for e in registry),
+                     'rows': len(trials(registry))} if registry is not None else None,
     }
     return study
 
