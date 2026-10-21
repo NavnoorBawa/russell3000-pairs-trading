@@ -24,6 +24,8 @@ Modules:
 - significance.py / benchmark.py: "is the edge real?" tests and baselines
 - power.py: power, minimum track record and the Sharpe ratios a sample rules out
 - snooping.py: SPA / Reality Check / Romano-Wolf / MCS over a declared variant family
+- residual_statarb.py: a second strategy family, Avellaneda-Lee (2010) sector-ETF
+  residual mean reversion (scripts/run_residual_statarb.py runs it on the study data)
 - json_export.py: JSON exports, run provenance and the headline-metrics snapshot
 - plotting.py: charts written to outputs/
 - main.py: command-line entry point

@@ -9,6 +9,10 @@ with s an Ornstein-Uhlenbeck spread of known half-life, so the true hedge ratio 
 existence of an edge are known in advance. With cointegrated=False the spread s is a
 driftless-increment random walk instead: the legs stay correlated but are NOT cointegrated.
 SNxx names are unrelated random walks.
+
+`make_residual_market` builds the known-answer market of the sector-ETF residual strategy
+(pairs_trading/residual_statarb.py): stocks = beta x sector ETF + a planted OU or
+random-walk residual.
 """
 import numpy as np
 import pandas as pd
@@ -61,6 +65,54 @@ def make_market(n_pairs=6, n_noise=4, seed=0, cointegrated=True, betas=None,
     sectors = {e: pd.Series(50 * np.exp(np.cumsum(mkt + rng.normal(0, 0.0005, T))), index=naive)
                for e in SECTOR_ETFS}
     return frames, {'VIX': vix, 'sectors': sectors}, true_beta
+
+
+def make_residual_market(n_sectors=3, stocks_per_sector=12, seed=0, residual='ou',
+                         half_life=(5.0, 10.0), residual_vol=0.015, etf_vol=0.010,
+                         start='2021-01-01', end='2023-12-31'):
+    """Known-answer market for the sector-ETF residual strategy (residual_statarb.py).
+
+    Each sector ETF's daily simple return is N(0, etf_vol), so its price is a martingale.
+    Stock i of a sector has the daily simple return  beta_i x (ETF return) + (X_t - X_{t-1}),
+    the A&L model (eq. 11) with zero drift. With residual='ou', X is an AR(1) with a
+    half-life drawn uniformly from `half_life` days and innovation sd `residual_vol`: the
+    residual mean-reverts, so a correct strategy has a large positive gross edge. With
+    residual='random_walk', X has i.i.d. N(0, residual_vol) increments: every stock and
+    ETF price is a martingale, so no rule that trades on past data can have a non-zero
+    expected P&L, and a significantly positive mean is look-ahead.
+
+    Returns (frames, sector_closes, sector_map, true_beta): frames shaped like the price
+    cache (tz-aware America/New_York OHLCV), tz-naive ETF closes, {symbol: ETF} and
+    {symbol: beta}. Sectors are the first n_sectors of SECTOR_ETFS; symbols are
+    R<sector><stock>, e.g. R0007.
+    """
+    rng = np.random.default_rng(seed)
+    idx = pd.bdate_range(start, end, tz='America/New_York')
+    T = len(idx)
+    frames, sector_closes, sector_map, true_beta = {}, {}, {}, {}
+    for g, etf in enumerate(SECTOR_ETFS[:n_sectors]):
+        r_etf = rng.normal(0.0, etf_vol, T)
+        r_etf[0] = 0.0
+        sector_closes[etf] = pd.Series(50.0 * np.cumprod(1.0 + r_etf), index=idx.tz_localize(None))
+        for n in range(stocks_per_sector):
+            beta = rng.uniform(0.6, 1.4)
+            eps = rng.normal(0.0, residual_vol, T)
+            if residual == 'ou':
+                phi = np.exp(-np.log(2) / rng.uniform(*half_life))
+                x = np.zeros(T)
+                for t in range(1, T):
+                    x[t] = phi * x[t - 1] + eps[t]
+            elif residual == 'random_walk':
+                eps[0] = 0.0
+                x = np.cumsum(eps)
+            else:
+                raise ValueError(f"residual must be 'ou' or 'random_walk', not {residual!r}")
+            r = beta * r_etf + np.diff(x, prepend=x[0])
+            sym = f'R{g}{n:03d}'
+            frames[sym] = _ohlcv(np.log(rng.uniform(20, 150) * np.cumprod(1.0 + r)), rng, idx)
+            sector_map[sym] = etf
+            true_beta[sym] = beta
+    return frames, sector_closes, sector_map, true_beta
 
 
 def perturb_after(frames, cutoff, seed=123, scale=0.03):
