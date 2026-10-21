@@ -17,12 +17,16 @@ registrant (industry changes are rare) and the directory lists today's venue.
 
 Raw downloads are cached under data/raw/ (sec/, french/, nasdaqtrader/); a cached file is
 reused unless --refresh, and --offline never touches the network. EDGAR requests carry
-SEC_USER_AGENT and stay under 10 per second.
+SEC_USER_AGENT and stay under 10 per second. The ticker list also depends on the v32
+universe file (--marketcap, data/marketcap.csv, not under data/raw/): the build stops when
+it is missing, unless --no-marketcap leaves its tickers out, and logs its SHA-256 and
+ticker count.
 
-usage: python scripts/build_reference_data.py [--offline] [--refresh]
+usage: python scripts/build_reference_data.py [--offline] [--refresh] [--marketcap PATH | --no-marketcap]
 """
 import argparse
 import csv
+import hashlib
 import io
 import json
 import pathlib
@@ -238,12 +242,14 @@ def submission_summary(blob):
 
 
 def study_tickers(universe_dir, marketcap_csv):
-    """Every ticker in a committed IWV snapshot or in the v32 universe file."""
+    """Every ticker in a committed IWV snapshot or in the v32 universe file (None: left out;
+    a path that does not exist raises FileNotFoundError, so a missing file never silently
+    shrinks the table)."""
     tickers = set()
     for path in sorted(pathlib.Path(universe_dir).glob('iwv_*.csv')):
         with open(path, newline='') as f:
             tickers.update(r['ticker'] for r in csv.DictReader(f) if r['ticker'])
-    if pathlib.Path(marketcap_csv).exists():
+    if marketcap_csv is not None:
         with open(marketcap_csv, newline='') as f:
             tickers.update(normalise_ticker(r.get('Symbol') or r.get('Ticker')) for r in csv.DictReader(f))
     tickers.discard('')
@@ -298,7 +304,9 @@ def main(argv=None):
     ap.add_argument('--refresh', action='store_true', help='download every source again')
     ap.add_argument('--raw-dir', default=str(ROOT / 'data' / 'raw'))
     ap.add_argument('--reference-dir', default=str(ROOT / 'reference'))
-    ap.add_argument('--marketcap', default=str(ROOT / 'data' / 'marketcap.csv'))
+    ap.add_argument('--marketcap', default=str(ROOT / 'data' / 'marketcap.csv'),
+                    help='the v32 universe file, whose tickers industry_ff49.csv also covers')
+    ap.add_argument('--no-marketcap', action='store_true', help='leave the v32 universe file out')
     args = ap.parse_args(argv)
     raw, ref = pathlib.Path(args.raw_dir), pathlib.Path(args.reference_dir)
 
@@ -308,7 +316,17 @@ def main(argv=None):
     if sorted(names) != list(range(1, 50)) or set(FF49_SECTOR_ETF) != {v[0] for v in names.values()}:
         raise SystemExit('Siccodes49.zip does not define the 49 industries FF49_SECTOR_ETF expects')
 
-    tickers = study_tickers(ref / 'universe', args.marketcap)
+    marketcap = None if args.no_marketcap else pathlib.Path(args.marketcap)
+    if marketcap is not None and not marketcap.is_file():
+        raise SystemExit(f'{marketcap} not found: industry_ff49.csv also covers the v32 universe file '
+                         '(pass --marketcap PATH, or --no-marketcap to leave its tickers out)')
+    tickers = study_tickers(ref / 'universe', marketcap)
+    if marketcap is None:
+        print('v32 universe file: left out (--no-marketcap)', flush=True)
+    else:
+        n_file = len(study_tickers(ref / 'no-such-dir', marketcap))
+        print(f'v32 universe file: {marketcap} (sha256 {hashlib.sha256(marketcap.read_bytes()).hexdigest()}, '
+              f'{n_file} tickers)', flush=True)
     ciks = ticker_ciks(_cached(raw / 'sec' / 'company_tickers.json', COMPANY_TICKERS_URL, args.offline,
                                args.refresh, fetch=sec_get))
     wanted = sorted({ciks[t] for t in tickers if t in ciks})
