@@ -1,0 +1,74 @@
+{
+ "files": {
+  "fund_type_comparison.json": {
+   "bytes": 100318,
+   "sha256": "df1344aa6b22f7f16dcd9e794c2672b289d8cb2b04ffc5baeb01b1c5d226f1db"
+  },
+  "headline_metrics.json": {
+   "bytes": 8275,
+   "sha256": "b09861c765bffd9edfabc1b935793c09b317464fe07ad80c07f30dd2f4041cf7"
+  },
+  "pairs_trading_results_2023_2025_unbiased.json": {
+   "bytes": 311071,
+   "sha256": "509e273ec4824a3de7c4f9dad9ebc67d0e3219b32c743a7321f2151dcec67195"
+  },
+  "pairs_trading_results_2023_2025_unbiased_compact.json": {
+   "bytes": 130561,
+   "sha256": "59d26d201f34d600fd19a3cf797192b1d4f1305660871ab8e9fc42d47d8e25e8"
+  },
+  "run.log": {
+   "bytes": 39712,
+   "sha256": "8b5ac94aa2dc52480465d924f20cc4866ec00d47945560c09745228f536cd50d"
+  }
+ },
+ "name": "rehearsal2025b/v33_pairs",
+ "price_cache": {
+  "mtime_utc": "2026-10-21T13:49:57+00:00",
+  "path": "data/rehearsal2025_prices.pkl",
+  "sha256": "981147dd281711e4b1d30d8b803a92d4f7ca0d7455407754051a4061688f3177",
+  "size_bytes": 809959091
+ },
+ "run_config": {
+  "effective": {
+   "calendar": "rehearsal2025",
+   "fill": "close",
+   "profile": "v33",
+   "ranker": "none",
+   "regime_gate": false,
+   "reselect": "full",
+   "use_transformer_ranker": false
+  },
+  "git_commit": "6aaf7efb1eb074cdb4e2137f961112ba62234c51",
+  "git_dirty": false,
+  "package_version": "33.0.0",
+  "run_timestamp_utc": "2026-10-21T13:53:56+00:00"
+ },
+ "study": {
+  "calendar": {
+   "backtest_start": "2025-01-02",
+   "data_end": "2025-10-17",
+   "data_start": "2022-01-01",
+   "macro_cache": "data/rehearsal2025_macro.pkl",
+   "model_train_end": "2024-12-31",
+   "name": "rehearsal2025",
+   "price_cache": "data/rehearsal2025_prices.pkl",
+   "selection_cutoff": "2024-12-31",
+   "walk_forward": false
+  },
+  "calendar_hash": "aad3ad2a0b80",
+  "profile": {
+   "borrow_rate": 0.0038,
+   "formation_calendar_days": 1095,
+   "max_universe": 500,
+   "name": "v33",
+   "pb_financing_spread": 0.0,
+   "ranker": "none",
+   "regime_gate": false,
+   "reselect": "full",
+   "reselect_every": 126,
+   "same_industry": true,
+   "universe": "pit_iwv"
+  },
+  "profile_hash": "d54d21314c22"
+ }
+}

@@ -1,0 +1,63 @@
+{
+ "files": {
+  "residual_statarb.json": {
+   "bytes": 4816412,
+   "sha256": "48becf7b5d5de55f40936dd64dba46bb0994374b5d3d97f85b97fd5a16e298e4"
+  },
+  "run.log": {
+   "bytes": 1751,
+   "sha256": "1ccd2d8e5a1e9b0f8af45e8476f7ab3973be21005ccbb50a87cb8ed9f1e74e5e"
+  }
+ },
+ "name": "rehearsal2025b/residual",
+ "price_cache": {
+  "mtime_utc": "2026-10-21T13:49:57+00:00",
+  "path": "data/rehearsal2025_prices.pkl",
+  "sha256": "981147dd281711e4b1d30d8b803a92d4f7ca0d7455407754051a4061688f3177",
+  "size_bytes": 809959091
+ },
+ "run_config": {
+  "effective": {
+   "calendar": "rehearsal2025",
+   "fill": "close"
+  },
+  "git_commit": "6aaf7efb1eb074cdb4e2137f961112ba62234c51",
+  "git_dirty": false,
+  "package_version": "33.0.0",
+  "run_timestamp_utc": "2026-10-21T14:03:00+00:00"
+ },
+ "study": {
+  "calendar": {
+   "backtest_start": "2025-01-02",
+   "data_end": "2025-10-17",
+   "data_start": "2022-01-01",
+   "macro_cache": "data/rehearsal2025_macro.pkl",
+   "model_train_end": "2024-12-31",
+   "name": "rehearsal2025",
+   "price_cache": "data/rehearsal2025_prices.pkl",
+   "selection_cutoff": "2024-12-31",
+   "walk_forward": false
+  },
+  "calendar_hash": "aad3ad2a0b80",
+  "params": {
+   "adv_days": 20,
+   "initial_capital": 100000000.0,
+   "kappa_min": 8.4,
+   "position_frac": 0.005,
+   "s_close_long": 0.5,
+   "s_close_short": 0.75,
+   "s_open": 1.25,
+   "universe_rebalance_days": 21,
+   "universe_size": 500,
+   "universe_window_days": 1095,
+   "window": 60
+  },
+  "params_hash": "2d50e388fb12",
+  "profile": null,
+  "shares_with_profile": {
+   "name": "v33",
+   "what": "point-in-time universe rule, t+1 close fills, cost model"
+  },
+  "strategy": "avellaneda_lee"
+ }
+}

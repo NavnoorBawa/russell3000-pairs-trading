@@ -1,0 +1,11 @@
+2026-10-21 14:01:06,170 INFO pairs_trading.data_processor: ENHANCED Russell 3000 Data Processor initialized
+2026-10-21 14:01:09,241 INFO pairs_trading.data_processor: Loaded 2453 of 2727 wanted symbols from data/rehearsal2025_prices.pkl (3000 cached)
+2026-10-21 14:02:15,251 INFO pairs_trading.data_processor: Recomputed indicators from cached OHLCV for 2453 symbols (0 left as-is) — removes the pre-v31 bfill look-ahead
+2026-10-21 14:02:24,220 INFO pairs_trading.data_processor: Loaded cached macro data: VIX (952 days) + 11 sector ETFs
+2026-10-21 14:02:24,272 INFO run_residual_statarb: Calendar rehearsal2025: signals 2025-01-02 -> 2025-10-17; 3 IWV snapshots (2024-12-31 -> 2025-06-30), 2727 distinct members, 2453 with prices (78s)
+2026-10-21 14:02:24,273 INFO run_residual_statarb: Sector map: ff49_sic (SEC SIC -> Fama-French 49 industry -> SPDR), reference/industry_ff49.csv (sha256 8d6896919684), 3218 symbols, 2442 of them with prices
+2026-10-21 14:02:24,274 INFO pairs_trading.transaction_costs: Transaction cost model: per-share commission, ADV-bucket spread, per-stock sqrt impact, GC borrow, PB carry
+2026-10-21 14:02:59,891 INFO pairs_trading.residual_statarb: Residual stat-arb: 2442 mapped symbols, 530 ever in the universe, 199 signal days
+2026-10-21 14:03:03,905 INFO run_residual_statarb: 2025-01-02 -> 2025-10-17 (199 days): 3514 trades, total return -0.92%, net Sharpe -0.17 (gross +0.25), max drawdown -5.75%
+2026-10-21 14:03:03,906 INFO run_residual_statarb: per trade: gross +6.0 bp (t = 0.51), cost 10.8 bp; avg gross exposure 1.18, avg open positions 179
+2026-10-21 14:03:03,906 INFO run_residual_statarb: commit 6aaf7efb1eb074cdb4e2137f961112ba62234c51; wrote outputs/rehearsal2025b_residual/residual_statarb.json (118s)

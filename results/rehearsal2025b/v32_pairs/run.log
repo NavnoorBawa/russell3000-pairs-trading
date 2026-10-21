@@ -1,0 +1,197 @@
+2026-10-21 13:54:10,732 - INFO - Random seed: 42
+2026-10-21 13:54:10,732 - INFO - Starting the Russell 3000 pairs-trading study
+2026-10-21 13:54:10,733 - INFO - ENHANCED Russell 3000 Data Processor initialized
+2026-10-21 13:54:10,733 - INFO - Pair selector initialised
+2026-10-21 13:54:10,733 - INFO - Signal-quality ranker initialised
+2026-10-21 13:54:10,733 - INFO - ADAPTIVE Prime Fund Position Sizer - Risk Scaled
+2026-10-21 13:54:10,733 - INFO - ADAPTIVE Risk Manager - Volatility & Profit Protection
+2026-10-21 13:54:10,733 - INFO - Transaction cost model: per-share commission, ADV-bucket spread, per-stock sqrt impact, GC borrow, PB carry
+2026-10-21 13:54:10,734 - INFO - Russell 3000 pairs-trading system initialised: profile v32, calendar rehearsal2025
+2026-10-21 13:54:10,760 - INFO - Starting Russell 3000 pairs-trading study
+2026-10-21 13:54:10,774 - INFO - Loaded data/marketcap.csv with 3000 rows
+2026-10-21 13:54:10,794 - INFO - Universe: 2999 symbols (1 rows removed as missing/invalid/duplicate); sample ['A', 'AA', 'AAL', 'AAOI', 'AAON', 'AAP', 'AAPL', 'AAT', 'ABAT', 'ABBV']
+2026-10-21 13:54:10,794 - INFO - Loading saved data from data/rehearsal2025_prices.pkl
+2026-10-21 13:54:14,538 - INFO - Loaded 3000 symbols from saved data
+2026-10-21 13:54:14,666 - INFO - Restricted the cache to the universe file: 2775 of 3000 cached symbols are in the universe
+2026-10-21 13:54:14,667 - INFO - 224 universe symbols have no cached prices (failed or never fetched) and are excluded
+2026-10-21 13:55:33,405 - INFO - Recomputed indicators from cached OHLCV for 2775 symbols (0 left as-is) — removes the pre-v31 bfill look-ahead
+2026-10-21 13:55:33,539 - INFO - Loaded cached macro data: VIX (952 days) + 11 sector ETFs
+2026-10-21 13:55:36,278 - INFO - RUN CONFIG: version 33.0.0 | commit 6aaf7efb1eb0 | 2026-10-21T13:55:33+00:00 UTC
+2026-10-21 13:55:36,278 - INFO -   switches: {'PAIRS_PROFILE': 'v32', 'PAIRS_CALENDAR': 'rehearsal2025', 'PAIRS_SEED': '42', 'PAIRS_OUTPUT_DIR': 'outputs/rehearsal2025b_v32', 'PYTHONHASHSEED': '0', 'PAIRS_EXPECTED_COMMIT': '6aaf7efb1eb074cdb4e2137f961112ba62234c51'} | effective: {'profile': 'v32', 'calendar': 'rehearsal2025', 'fill': 'close', 'ranker': 'transformer', 'use_transformer_ranker': True, 'reselect': 'pool', 'regime_gate': True}
+2026-10-21 13:55:36,278 - INFO -   data: None -> None, backtest None -> None, 2775 symbols, None pairs
+2026-10-21 13:55:36,278 - INFO -   price cache: data/rehearsal2025_prices.pkl, 810.0 MB, mtime 2026-10-21T13:49:57+00:00, sha256 981147dd281711e4
+2026-10-21 13:55:36,278 - INFO -   versions: {'python': '3.12.3', 'numpy': '1.26.4', 'pandas': '2.2.3', 'torch': '2.13.0+cpu', 'scipy': '1.15.2', 'statsmodels': '0.14.4'}
+2026-10-21 13:55:39,304 - INFO - Pair selection on 2749 symbols with data up to 2024-12-31
+2026-10-21 13:55:39,304 - INFO - Pair selection: screening 2749 symbols
+2026-10-21 13:55:40,132 - INFO - Pair selection: 1461 symbols pass the screens; testing the 300 most liquid
+2026-10-21 13:55:40,171 - INFO - PCA: dropped 1 symbol(s) with <90% return coverage; 297 symbols on 742 common dates
+2026-10-21 13:55:40,282 - INFO - PCA: stripped 5 factors from 297 symbols (factors explain 48.8% of cross-sectional variance)
+2026-10-21 13:55:40,287 - INFO - Pair selection: testing all 44,850 candidate pairs (4 workers)
+
+2026-10-21 13:56:51,390 - INFO - FDR diagnostic (Benjamini-Hochberg on cointegration p-values):
+2026-10-21 13:56:51,390 - INFO -   tested 29,608 pairs | raw p<0.05: 4,084 (<= 1,480 expected false positives if all were null)
+2026-10-21 13:56:51,390 - INFO -   survive BH-FDR q<0.05: 0 | q<0.10: 0 | final selected (after half-life/quality/PCA): 1,777
+2026-10-21 13:56:51,390 - INFO - Pair selection: 1777 pairs satisfy all conditions
+2026-10-21 13:56:51,390 - INFO - Top 5 pairs by quality score:
+2026-10-21 13:56:51,390 - INFO -    1. ABT -CSX : Score=1.000, Corr=0.434, Coint_p=0.0050, Half_Life=16.0d
+2026-10-21 13:56:51,390 - INFO -    2. ABT -CTSH: Score=1.000, Corr=0.434, Coint_p=0.0052, Half_Life=15.7d
+2026-10-21 13:56:51,390 - INFO -    3. ABT -NSC : Score=1.000, Corr=0.471, Coint_p=0.0003, Half_Life=11.1d
+2026-10-21 13:56:51,390 - INFO -    4. ADSK-LOW : Score=1.000, Corr=0.511, Coint_p=0.0064, Half_Life=14.3d
+2026-10-21 13:56:51,390 - INFO -    5. APA -AXP : Score=1.000, Corr=0.353, Coint_p=0.0009, Half_Life=12.8d
+2026-10-21 13:57:01,949 - INFO - Time split: 1777 pairs with >= 100 training days
+2026-10-21 13:57:01,950 - INFO - Training the ranking model on outcomes complete by 2024-12-31
+2026-10-21 13:59:00,745 - INFO - Feature scaler fitted on 13169/15000 rows after outlier removal
+2026-10-21 13:59:01,335 - INFO - Initialized Transformer Encoder: d_model=256, nhead=8, num_layers=6, input_dim=30
+2026-10-21 13:59:01,337 - INFO - Transformer signal-quality scorer initialised
+2026-10-21 13:59:14,074 - INFO - Ranker epoch 1/3: BCE loss 0.6419 (15000 samples, base rate 55.3%, pos_weight 0.81)
+2026-10-21 13:59:26,753 - INFO - Ranker epoch 2/3: BCE loss 0.6228 (15000 samples, base rate 55.3%, pos_weight 0.81)
+2026-10-21 13:59:39,604 - INFO - Ranker epoch 3/3: BCE loss 0.6222 (15000 samples, base rate 55.3%, pos_weight 0.81)
+2026-10-21 13:59:40,236 - INFO - Building the pair schedule (every 90 trading days, 730-calendar-day formation window)...
+2026-10-21 13:59:40,236 - INFO -   Candidate pool: 1777 pairs selected on data to 2024-12-31 (re-tested only; no new pairs can enter)
+2026-10-21 13:59:49,487 - INFO -   2025-01-02: kept 75/1777 (126-day check dropped 146)
+2026-10-21 13:59:58,635 - INFO -   2025-05-14: kept 52/1777 (126-day check dropped 109)
+2026-10-21 14:00:08,660 - INFO -   2025-09-23: kept 39/1777 (126-day check dropped 100)
+2026-10-21 14:00:08,661 - INFO - Quarterly schedule built: 3 re-selections
+2026-10-21 14:00:10,843 - INFO - Main backtest 2025-01-02 -> 2025-10-17
+2026-10-21 14:00:10,846 - INFO - ADAPTIVE Prime Fund Position Sizer - Risk Scaled
+2026-10-21 14:00:14,856 - INFO - Backtest: 199 tradeable days (2025-01-02 -> 2025-10-17), fill=Close
+2026-10-21 14:00:14,869 - INFO - Regime gate: 952 VIX days, 863 dispersion days
+2026-10-21 14:00:14,965 - INFO - TRADE 1: AMD-CSX SHORT spread  z=+2.16 beta=1.18 quality=0.94 exit=stop
+2026-10-21 14:00:14,965 - INFO - TRADE 2: KMI-PAYX SHORT spread  z=+2.14 beta=0.59 quality=0.85 exit=stop
+2026-10-21 14:00:14,966 - INFO - TRADE 3: PANW-ROP SHORT spread  z=+2.02 beta=0.82 quality=0.87 exit=target
+2026-10-21 14:00:14,966 - INFO - TRADE 4: ISRG-JPM LONG spread  z=-2.01 beta=0.75 quality=0.80 exit=stop
+2026-10-21 14:00:14,991 - INFO - TRADE 5: CMCSA-ZTS SHORT spread  z=+1.80 beta=0.33 quality=0.63 exit=stop
+2026-10-21 14:00:15,235 - INFO - Regime gate: 9 full-scale days, 0 reduced-scale days, 188 no-entry (hard-stop) days
+2026-10-21 14:00:15,235 - INFO - Signal rejections: {'beta_out_of_band': 7, 'evaluated': 74, 'gross_exposure_cap': 2, 'pair_quality': 8, 'regime_hard_stop_day': 188, 'rolling_corr': 208}
+2026-10-21 14:00:53,634 - INFO - Ranker out-of-sample (4000 signals from 2025-01-02): AUC 0.521187679972827, Brier 0.2516 vs base-rate 0.2578
+2026-10-21 14:00:53,634 - INFO - Walk-forward validation: not run on the rehearsal2025 calendar
+2026-10-21 14:00:53,680 - INFO - 
+==============================================================================
+2026-10-21 14:00:53,681 - INFO -                  STATISTICAL SIGNIFICANCE — is the edge real?                 
+2026-10-21 14:00:53,681 - INFO - ==============================================================================
+2026-10-21 14:00:53,681 - INFO - 
+MAIN BACKTEST (optimistic bound):
+2026-10-21 14:00:53,681 - INFO -   Ann. Sharpe          : -1.072  (199 days) | Lo (2002) autocorr-adjusted -1.323 (4 lags)
+2026-10-21 14:00:53,681 - INFO -   P(true Sharpe > 0)   :  14.3%   [skew -3.99, kurt 58.57; null-variance form 17.1%]
+2026-10-21 14:00:53,681 - INFO -   HAC t-stat (mean≠0)  : -1.07  (p=0.284, 4 lags)  not significant @5%
+2026-10-21 14:00:53,681 - INFO -   Bootstrap 95% Sharpe : [-2.77, +0.86]  (includes 0 → within noise)  (block 3, politis-white)
+2026-10-21 14:00:53,681 - INFO -   Deflated Sharpe (DSR):   0.0%   [vs E[max] SR* 2.36 over 32 trials]
+2026-10-21 14:00:53,681 - INFO - ==============================================================================
+2026-10-21 14:00:53,683 - INFO - Transaction cost model: per-share commission, ADV-bucket spread, per-stock sqrt impact, GC borrow, PB carry
+2026-10-21 14:00:53,683 - INFO - ======================================================================
+2026-10-21 14:00:53,683 - INFO - BASELINE BENCHMARKS — distance method (Gatev 2006) + random-pair control
+2026-10-21 14:00:53,683 - INFO - ======================================================================
+2026-10-21 14:00:55,134 - INFO -   Rolling scheme: 2 x 126-day trading blocks, each formed on the prior 252 days | fills: t+1 close | costs: pipeline cost model @ $2,000,000/leg
+2026-10-21 14:00:55,690 - INFO -   Distance method (Gatev)      return   +4.559% | Sharpe +1.35 | 20 pairs x 2 blocks | 51 trades, avg round-trip cost 32.0 bp
+2026-10-21 14:00:55,690 - INFO -   Random-pair control          200 draws | Sharpe median +0.42 [p5 -1.04, p95 +1.52] | distance method at the 90th percentile
+2026-10-21 14:00:55,690 - INFO -   Effective universe per block: [300, 300]
+2026-10-21 14:00:55,690 - INFO - ======================================================================
+2026-10-21 14:00:55,690 - INFO - 
+======================================================================
+2026-10-21 14:00:55,691 - INFO -         STRATEGY vs BASELINES (same universe, same OOS period)        
+2026-10-21 14:00:55,691 - INFO - ======================================================================
+2026-10-21 14:00:55,691 - INFO -   Cointegration + Kalman (this project)    ret  -0.440% | Sharpe -1.07
+2026-10-21 14:00:55,691 - INFO -   Distance method (Gatev 2006), t+1        ret  +4.559% | Sharpe +1.35
+2026-10-21 14:00:55,691 - INFO -   Random-pair control, median of 200       ret  +1.751% | Sharpe +0.42  [p5 -1.04, p95 +1.52]
+2026-10-21 14:00:55,691 - INFO -   Strategy Sharpe percentile among random-pair draws: 5.0
+2026-10-21 14:00:55,691 - INFO -   [main_backtest] vs distance on 199 common days: Sharpe diff -2.42 (95% CI [-5.77, +0.92], p=0.139, Ledoit-Wolf, block 3) | random-draw percentile 5.0
+2026-10-21 14:00:55,691 - INFO -   (sensitivity) distance method with SAME-BAR fills: ret +4.470% | Sharpe +1.35 — bid-ask bounce, not comparable
+2026-10-21 14:00:55,691 - INFO - ======================================================================
+2026-10-21 14:00:55,703 - INFO - Market attribution (main_backtest): beta +0.003 (t +1.28), alpha -0.60%/yr (t -1.12), R2 0.007
+2026-10-21 14:00:56,357 - INFO - Starting the cost-schedule replay...
+2026-10-21 14:00:56,359 - INFO - 
+====================================================================================================
+                            COST-SCHEDULE REPLAY — ARCHETYPE PARAMETERS                             
+====================================================================================================
+Profile                     Commission    Bid-Ask     MI Cap     Borrow (GC)    Financing  Base Pos%   Max Pos%
+----------------------------------------------------------------------------------------------------
+Systematic Stat-Arb             1.00bp     2.00bp     12.0bp          0.60%/yr       0.50%/yr     12.0%     30.0%
+Multi-Manager Pod               1.50bp     4.00bp     20.0bp          1.00%/yr       1.00%/yr      8.0%     20.0%
+Discretionary Long/Short        5.00bp    10.00bp     50.0bp          2.00%/yr       1.50%/yr      4.0%     10.0%
+Patient Institutional           1.00bp     1.50bp      4.0bp          0.10%/yr       0.00%/yr      2.0%      5.0%
+Retail / Small Prop             0.70bp    15.00bp     80.0bp          6.00%/yr       3.00%/yr      2.0%      5.0%
+====================================================================================================
+2026-10-21 14:00:56,361 - INFO -   Systematic Stat-Arb: return -1.12% | Sharpe -1.26 | max DD -1.52% | peak gross 0.62x | costs 0.25% of capital
+2026-10-21 14:00:56,363 - INFO -   Multi-Manager Pod: return -0.82% | Sharpe -1.39 | max DD -1.06% | peak gross 0.41x | costs 0.24% of capital
+2026-10-21 14:00:56,364 - INFO -   Discretionary Long/Short: return -0.53% | Sharpe -1.80 | max DD -0.62% | peak gross 0.21x | costs 0.24% of capital
+2026-10-21 14:00:56,367 - INFO -   Patient Institutional: return -0.05% | Sharpe -0.32 | max DD -0.16% | peak gross 0.10x | costs 0.01% of capital
+2026-10-21 14:00:56,369 - INFO -   Retail / Small Prop: return -0.20% | Sharpe -1.68 | max DD -0.23% | peak gross 0.08x | costs 0.12% of capital
+2026-10-21 14:00:56,369 - INFO - 
+==========================================================================================
+2026-10-21 14:00:56,369 - INFO -                               FUND TYPE COMPARISON — SUMMARY                              
+2026-10-21 14:00:56,369 - INFO - ==========================================================================================
+2026-10-21 14:00:56,369 - INFO - Cost schedule                     Return%   Sharpe   MaxDD%   WinRate%      Cost%  Peak gross
+2026-10-21 14:00:56,369 - INFO - ------------------------------------------------------------------------------------------
+2026-10-21 14:00:56,369 - INFO - Systematic Stat-Arb                -1.12%    -1.26    -1.52%     41.67%      0.25%       0.62x
+2026-10-21 14:00:56,369 - INFO - Multi-Manager Pod                  -0.82%    -1.39    -1.06%     41.67%      0.24%       0.41x
+2026-10-21 14:00:56,369 - INFO - Discretionary Long/Short           -0.53%    -1.80    -0.62%     41.67%      0.24%       0.21x
+2026-10-21 14:00:56,369 - INFO - Patient Institutional              -0.05%    -0.32    -0.17%     54.55%      0.01%       0.10x
+2026-10-21 14:00:56,369 - INFO - Retail / Small Prop                -0.20%    -1.69    -0.23%     33.33%      0.12%       0.08x
+2026-10-21 14:00:56,369 - INFO - ==========================================================================================
+2026-10-21 14:00:56,465 - INFO - RUN CONFIG: version 33.0.0 | commit 6aaf7efb1eb0 | 2026-10-21T14:00:56+00:00 UTC
+2026-10-21 14:00:56,465 - INFO -   switches: {'PAIRS_PROFILE': 'v32', 'PAIRS_CALENDAR': 'rehearsal2025', 'PAIRS_SEED': '42', 'PAIRS_OUTPUT_DIR': 'outputs/rehearsal2025b_v32', 'PYTHONHASHSEED': '0', 'PAIRS_EXPECTED_COMMIT': '6aaf7efb1eb074cdb4e2137f961112ba62234c51'} | effective: {'profile': 'v32', 'calendar': 'rehearsal2025', 'fill': 'close', 'ranker': 'transformer', 'use_transformer_ranker': True, 'reselect': 'pool', 'regime_gate': True}
+2026-10-21 14:00:56,465 - INFO -   data: 2022-01-03 -> 2025-10-17, backtest 2025-01-02 -> 2025-10-17, 2775 symbols, 1777 pairs
+2026-10-21 14:00:56,465 - INFO -   price cache: data/rehearsal2025_prices.pkl, 810.0 MB, mtime 2026-10-21T13:49:57+00:00, sha256 981147dd281711e4
+2026-10-21 14:00:56,465 - INFO -   versions: {'python': '3.12.3', 'numpy': '1.26.4', 'pandas': '2.2.3', 'torch': '2.13.0+cpu', 'scipy': '1.15.2', 'statsmodels': '0.14.4'}
+2026-10-21 14:00:56,466 - INFO - ================================================================================
+2026-10-21 14:00:56,466 - INFO - EXPORTING BACKTEST RESULTS (2025-01-02 -> 2025-10-17) TO JSON
+2026-10-21 14:00:56,466 - INFO - ================================================================================
+2026-10-21 14:00:56,511 - INFO - Exported results: ./outputs/rehearsal2025b_v32/pairs_trading_results_2023_2025_unbiased.json (156.1 KB) — 12 trades, 11 pairs, 199 daily points
+2026-10-21 14:00:56,541 - INFO - Exported compact results: ./outputs/rehearsal2025b_v32/pairs_trading_results_2023_2025_unbiased_compact.json (123.3 KB)
+2026-10-21 14:00:56,542 - INFO - ================================================================================
+2026-10-21 14:00:56,542 - INFO - ================================================================================
+2026-10-21 14:00:56,542 - INFO - EXPORTING FUND TYPE COMPARISON TO JSON
+2026-10-21 14:00:56,542 - INFO - ================================================================================
+2026-10-21 14:00:56,564 - INFO - Fund comparison exported: ./outputs/rehearsal2025b_v32/fund_type_comparison.json (97.3 KB) — profiles: quant_hf, multi_strat, fundamental_ls, institutional, retail
+2026-10-21 14:00:56,564 - INFO - ================================================================================
+2026-10-21 14:00:56,569 - INFO - Headline metrics: ./outputs/rehearsal2025b_v32/headline_metrics.json — main -0.44% / Sharpe -1.07 / 12 trades; no walk-forward on this calendar
+2026-10-21 14:00:57,281 - INFO - Backtest chart saved to ./outputs/rehearsal2025b_v32/backtest_results.png
+2026-10-21 14:00:57,533 - INFO - Ranker training chart saved to ./outputs/rehearsal2025b_v32/ranker_training.png
+2026-10-21 14:00:58,718 - INFO - Fund comparison chart saved to ./outputs/rehearsal2025b_v32/fund_comparison.png
+
+==========================================================================================
+MAIN BACKTEST  2025-01-02 -> 2025-10-17   (one calendar)
+==========================================================================================
+  Total return           -0.44%      Annualised -0.56%
+  Sharpe (daily, ann.)   -1.07       Annualised volatility 0.52%
+  Max drawdown           -0.64%
+  Trades                 12          Win rate 50.0%   Profit factor 0.44
+  Exit reasons           end_of_data 5, stop 5, target 2
+  Risk halt              none
+==========================================================================================
+WALK-FORWARD  not run / no eligible windows
+==========================================================================================
+==========================================================================================
+SIGNIFICANCE  is the edge distinguishable from zero?
+==========================================================================================
+  OOS daily              not available
+  Main backtest daily    Sharpe -1.07 | HAC t -1.07 p=0.284 | PSR 14.3% | DSR 0.0% | bootstrap 95% CI [-2.77, +0.86]
+==========================================================================================
+BENCHMARKS  same universe, same period as the main backtest
+==========================================================================================
+  This strategy           return -0.44%   Sharpe -1.07
+  Gatev (2006) distance   return +4.56%   Sharpe +1.35
+  Sharpe diff vs Gatev    -2.42 (p=0.139, 95% CI [-5.77, +0.92], 199 common days)
+  Random-pair control     median Sharpe +0.42 [5%-95%: -1.04, +1.52] over 200 draws; strategy Sharpe at percentile 5 of the draws
+==========================================================================================
+MULTIPLE TESTING  29,608 pairs tested | 4,084 at raw p<0.05 | 0 survive BH-FDR q<0.05 | 0 at q<0.10 | 1,777 selected
+==========================================================================================
+COST-SCHEDULE REPLAY  same trades, archetypal sizing / costs / kill-switch
+==========================================================================================
+  Profile                          Return  Sharpe    MaxDD  WinRate   Costs Peak gross  Kill-switch
+  ------------------------------------------------------------------------------------------
+  Systematic Stat-Arb              -1.12%   -1.26   -1.52%    41.7%   0.25%      0.62x  -
+  Multi-Manager Pod                -0.82%   -1.39   -1.06%    41.7%   0.24%      0.41x  -
+  Discretionary Long/Short         -0.53%   -1.80   -0.62%    41.7%   0.24%      0.21x  -
+  Patient Institutional            -0.05%   -0.32   -0.17%    54.5%   0.01%      0.10x  -
+  Retail / Small Prop              -0.20%   -1.69   -0.23%    33.3%   0.12%      0.08x  -
+==========================================================================================
+OUTPUTS
+  outputs/rehearsal2025b_v32/pairs_trading_results_2023_2025_unbiased.json
+  outputs/rehearsal2025b_v32/pairs_trading_results_2023_2025_unbiased_compact.json
+  outputs/rehearsal2025b_v32/fund_type_comparison.json
+  outputs/rehearsal2025b_v32/headline_metrics.json
+  outputs/rehearsal2025b_v32/backtest_results.png
+  outputs/rehearsal2025b_v32/ranker_training.png
+  outputs/rehearsal2025b_v32/fund_comparison.png
+==========================================================================================

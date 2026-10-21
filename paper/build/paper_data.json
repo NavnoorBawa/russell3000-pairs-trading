@@ -441,8 +441,8 @@
   "paper.sched_worst_ret": "−7.12%",
   "paper.schedules_lose_word": "five",
   "paper.schedules_n_word": "five",
-  "paper.trials_n": "11",
-  "paper.trials_word": "11",
+  "paper.trials_n": "14",
+  "paper.trials_word": "14",
   "paper.trl_power_ratio": "2.3",
   "paper.universe_top": "500",
   "paper.v32_borrow_bp": "25",
@@ -864,9 +864,9 @@
   "study.dev.snooping.results.trades_max": "333",
   "study.dev.snooping.results.trades_min": "144",
   "study.dev.snooping.toggles": "11",
-  "study.registry.recorded_runs": "8",
-  "study.registry.rows": "11",
-  "study.registry.trials": "8",
+  "study.registry.recorded_runs": "11",
+  "study.registry.rows": "14",
+  "study.registry.trials": "9",
   "study.residual.avg_gross_x": "1.2×",
   "study.residual.avg_positions": "181",
   "study.residual.cost_bp": "11.30",
@@ -952,7 +952,7 @@
   "headline_sha256": "b09f239032db62196602447e8d1d780286b5c2674e8e85d02062beab946d0fb1",
   "paper_date": "2026-10-21",
   "run_dir": "results/v33_dev",
-  "study_sha256": "db651f994e9565880b87a21d0581ed433b8d1393307d9bfae9b5141532127de7",
+  "study_sha256": "efd7198840b09cf00f66371a1a95c902620a2babd832c90be62bd9c99352f1ca",
   "universe_index_sha256": "2afd0cb6a7a7b79e08e6d45a5fc78f7ac6d43903c3cafbde1a042bf048883c3c"
  },
  "pending": {
@@ -1251,7 +1251,7 @@
    ],
    [
     "Site data",
-    "assets/study.json, sha256 db651f994e9565880b87a21d0581ed433b8d1393307d9bfae9b5141532127de7"
+    "assets/study.json, sha256 efd7198840b09cf00f66371a1a95c902620a2babd832c90be62bd9c99352f1ca"
    ],
    [
     "Universe",
@@ -1817,7 +1817,7 @@
    ],
    [
     "results/trial_registry.jsonl",
-    "55264f8fc1ac7210d2d29e1d27fe967ce68a6c6c378dea0958c119637c8be699"
+    "828d9565b069fc1c842675fe2256554da96cbcd29f73cb35a9924084df03da98"
    ],
    [
     "results/v32_dev/headline_metrics.json",
@@ -1885,7 +1885,7 @@
    ],
    [
     "index.html",
-    "66c2e5962b92ee1661e9ace83944fafe9fd44d76df0d22ae42e29e124741ea08"
+    "b94b78b76826f83416751079e0c605e52e42b6e52f751221d277acbfa4f8f4fd"
    ]
   ],
   "spec": [
@@ -2118,6 +2118,33 @@
     "—",
     "—",
     "—",
+    "—"
+   ],
+   [
+    "rehearsal2025b",
+    "v33 · 2025",
+    "6aaf7ef",
+    "−1.05",
+    "−2.10",
+    "102",
+    "—"
+   ],
+   [
+    "rehearsal2025b",
+    "v32 · 2025",
+    "6aaf7ef",
+    "−1.07",
+    "−0.44",
+    "12",
+    "—"
+   ],
+   [
+    "rehearsal2025b",
+    "Avellaneda–Lee · 2025",
+    "6aaf7ef",
+    "−0.17",
+    "−0.92",
+    "3,514",
     "—"
    ]
   ],

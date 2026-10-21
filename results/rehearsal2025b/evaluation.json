@@ -1,0 +1,934 @@
+{
+ "alpha": 0.05,
+ "family": [
+  "v33_pairs",
+  "avellaneda_lee"
+ ],
+ "test": "one-sided Newey-West t (mean daily net return > 0), Holm across the confirmatory strategies",
+ "strategies": {
+  "v33_pairs": {
+   "days": 199,
+   "total_return_pct": -2.1037638088377664,
+   "sharpe": -1.0503269933449457,
+   "trades": 102,
+   "t": -0.9594905713610835,
+   "lags": 4,
+   "p_one_sided": 0.8313441663524841,
+   "sharpe_lo2002": -1.0896811446534154,
+   "psr": 0.17859679210974222,
+   "bootstrap_ci_95": [
+    -3.2879711525049613,
+    1.0612930836039132
+   ],
+   "sharpe_se": 1.0725886489969656,
+   "upper_bound_95": 0.7139243361846928,
+   "min_detectable_sharpe": 2.9753301562532317,
+   "min_detectable_sharpe_alpha": 0.025,
+   "min_detectable_sharpe_single_test": 2.637907973316266,
+   "gross_total_return_pct": -1.601461644608082,
+   "gross_sharpe": -0.7930747700855664,
+   "exposure": {
+    "avg_gross_pct_of_equity": 26.88,
+    "max_gross_pct_of_equity": 30.06,
+    "days_with_open_positions": 197
+   },
+   "vs_gatev": {
+    "diff": -0.06645845021989649,
+    "ci_lo": -2.7842411968281113,
+    "ci_hi": 2.651324296388318,
+    "pvalue": 0.9570085982803439,
+    "n_common_days": 199,
+    "distance_sharpe": -0.984,
+    "source": "own run",
+    "universe_size": 500
+   },
+   "random_pair": {
+    "percentile": 5.5,
+    "median_sharpe": 0.3089,
+    "n_draws": 200,
+    "source": "own run"
+   },
+   "universe_by_formation": [
+    {
+     "formation_date": "2024-12-31",
+     "snapshot": "2024-12-31",
+     "members": 2665,
+     "with_prices": 2407,
+     "missing": 258,
+     "missing_value_weight": 0.013076647708134999,
+     "unmapped_value_weight": 0.00031173710214394865,
+     "snapshot_filed": "2025-02-26",
+     "missing_heaviest": [
+      [
+       "DFS",
+       0.000767073278
+      ],
+      [
+       "EA",
+       0.000686780945
+      ],
+      [
+       "HES",
+       0.000652736808
+      ],
+      [
+       "AVB",
+       0.00055196216
+      ],
+      [
+       "ANSS",
+       0.000516492765
+      ],
+      [
+       "WBD",
+       0.000451842634
+      ],
+      [
+       "K",
+       0.000370860928
+      ],
+      [
+       "CTRA",
+       0.000338173637
+      ],
+      [
+       "HOLX",
+       0.000286527646
+      ],
+      [
+       "JNPR",
+       0.000216779437
+      ]
+     ],
+     "unmapped_heaviest": [
+      [
+       "Paramount Global",
+       0.000105330606
+      ],
+      [
+       "Avidity Biosciences Inc",
+       5.49733825e-05
+      ],
+      [
+       "Barnes Group Inc",
+       3.86420517e-05
+      ],
+      [
+       "Premier Inc",
+       3.57603244e-05
+      ],
+      [
+       "Golden Ocean Group Ltd",
+       1.78130179e-05
+      ],
+      [
+       "Wolfspeed Inc",
+       1.43251495e-05
+      ],
+      [
+       "Brookline Bancorp Inc",
+       1.35734719e-05
+      ],
+      [
+       "Aris Water Solutions Inc",
+       1.02486033e-05
+      ],
+      [
+       "MAC Copper Ltd",
+       1.00000214e-05
+      ],
+      [
+       "Bally's Corp",
+       9.57644931e-06
+      ]
+     ]
+    },
+    {
+     "formation_date": "2025-01-02",
+     "snapshot": "2024-12-31",
+     "members": 2665,
+     "with_prices": 2407,
+     "missing": 258,
+     "missing_value_weight": 0.013076647708134999,
+     "unmapped_value_weight": 0.00031173710214394865,
+     "snapshot_filed": "2025-02-26",
+     "missing_heaviest": [
+      [
+       "DFS",
+       0.000767073278
+      ],
+      [
+       "EA",
+       0.000686780945
+      ],
+      [
+       "HES",
+       0.000652736808
+      ],
+      [
+       "AVB",
+       0.00055196216
+      ],
+      [
+       "ANSS",
+       0.000516492765
+      ],
+      [
+       "WBD",
+       0.000451842634
+      ],
+      [
+       "K",
+       0.000370860928
+      ],
+      [
+       "CTRA",
+       0.000338173637
+      ],
+      [
+       "HOLX",
+       0.000286527646
+      ],
+      [
+       "JNPR",
+       0.000216779437
+      ]
+     ],
+     "unmapped_heaviest": [
+      [
+       "Paramount Global",
+       0.000105330606
+      ],
+      [
+       "Avidity Biosciences Inc",
+       5.49733825e-05
+      ],
+      [
+       "Barnes Group Inc",
+       3.86420517e-05
+      ],
+      [
+       "Premier Inc",
+       3.57603244e-05
+      ],
+      [
+       "Golden Ocean Group Ltd",
+       1.78130179e-05
+      ],
+      [
+       "Wolfspeed Inc",
+       1.43251495e-05
+      ],
+      [
+       "Brookline Bancorp Inc",
+       1.35734719e-05
+      ],
+      [
+       "Aris Water Solutions Inc",
+       1.02486033e-05
+      ],
+      [
+       "MAC Copper Ltd",
+       1.00000214e-05
+      ],
+      [
+       "Bally's Corp",
+       9.57644931e-06
+      ]
+     ]
+    },
+    {
+     "formation_date": "2025-07-08",
+     "snapshot": "2025-06-30",
+     "members": 2658,
+     "with_prices": 2438,
+     "missing": 220,
+     "missing_value_weight": 0.0102609107362297,
+     "unmapped_value_weight": 0.00025736675133699585,
+     "snapshot_filed": "2025-08-26",
+     "missing_heaviest": [
+      [
+       "EA",
+       0.000696755088
+      ],
+      [
+       "HES",
+       0.000646366587
+      ],
+      [
+       "ANSS",
+       0.000510942025
+      ],
+      [
+       "AVB",
+       0.000485436092
+      ],
+      [
+       "WBD",
+       0.000427606635
+      ],
+      [
+       "K",
+       0.000369604082
+      ],
+      [
+       "CTRA",
+       0.000311168133
+      ],
+      [
+       "HOLX",
+       0.000246277329
+      ],
+      [
+       "JNPR",
+       0.000219719379
+      ],
+      [
+       "LBRDK",
+       0.00017820614
+      ]
+     ],
+     "unmapped_heaviest": [
+      [
+       "Paramount Global",
+       0.000123505967
+      ],
+      [
+       "Avidity Biosciences Inc",
+       5.10166724e-05
+      ],
+      [
+       "Premier Inc",
+       3.51772654e-05
+      ],
+      [
+       "Golden Ocean Group Ltd",
+       1.38388095e-05
+      ],
+      [
+       "Brookline Bancorp Inc",
+       1.1839925e-05
+      ],
+      [
+       "MAC Copper Ltd",
+       1.08162094e-05
+      ],
+      [
+       "Aris Water Solutions Inc",
+       9.62907838e-06
+      ],
+      [
+       "Wolfspeed Inc",
+       8.15460222e-07
+      ],
+      [
+       "INHIBRX INC",
+       5.58652813e-07
+      ],
+      [
+       "CHINOOK THERAPEUTICS INC CVR",
+       1.68690362e-07
+      ]
+     ]
+    }
+   ],
+   "commit": "6aaf7efb1eb074cdb4e2137f961112ba62234c51",
+   "period": [
+    "2025-01-02",
+    "2025-10-17"
+   ],
+   "role": "confirmatory",
+   "p_holm": 1.0,
+   "edge_out_of_sample": false
+  },
+  "v32_pairs": {
+   "days": 199,
+   "total_return_pct": -0.4403488763635055,
+   "sharpe": -1.0720543058272793,
+   "trades": 12,
+   "t": -1.0714363433472396,
+   "lags": 4,
+   "p_one_sided": 0.8580133605913485,
+   "sharpe_lo2002": -1.3231787091245961,
+   "psr": 0.14343931467207444,
+   "bootstrap_ci_95": [
+    -2.766917850390738,
+    0.8634866873095347
+   ],
+   "sharpe_se": 0.9221891247178098,
+   "upper_bound_95": 0.44481182070001346,
+   "min_detectable_sharpe": 3.506239385677228,
+   "min_detectable_sharpe_alpha": 0.025,
+   "min_detectable_sharpe_single_test": 3.0989288482708868,
+   "gross_total_return_pct": -0.3779152623892612,
+   "gross_sharpe": -0.9102817461670377,
+   "exposure": {
+    "avg_gross_pct_of_equity": 1.59,
+    "max_gross_pct_of_equity": 28.93,
+    "days_with_open_positions": 27
+   },
+   "vs_gatev": {
+    "diff": -2.424539504005252,
+    "ci_lo": -5.7688027747885195,
+    "ci_hi": 0.9197237667780152,
+    "pvalue": 0.13917216556688664,
+    "n_common_days": 199,
+    "distance_sharpe": 1.346,
+    "source": "own run",
+    "universe_size": 300
+   },
+   "random_pair": {
+    "percentile": 5.0,
+    "median_sharpe": 0.4229,
+    "n_draws": 200,
+    "source": "own run"
+   },
+   "universe_by_formation": [],
+   "commit": "6aaf7efb1eb074cdb4e2137f961112ba62234c51",
+   "period": [
+    "2025-01-02",
+    "2025-10-17"
+   ],
+   "role": "descriptive",
+   "p_holm": null,
+   "edge_out_of_sample": null
+  },
+  "avellaneda_lee": {
+   "days": 199,
+   "total_return_pct": -0.9162215259599593,
+   "sharpe": -0.1744250062797017,
+   "trades": 3514,
+   "t": -0.19547315121894104,
+   "lags": 4,
+   "p_one_sided": 0.5774887227658732,
+   "sharpe_lo2002": -0.370098264987395,
+   "psr": 0.4385606932080422,
+   "bootstrap_ci_95": [
+    -2.416909826982732,
+    2.0824663680766142
+   ],
+   "sharpe_se": 1.1137123002287466,
+   "upper_bound_95": 1.6574687101320191,
+   "min_detectable_sharpe": 3.145795604168324,
+   "min_detectable_sharpe_alpha": 0.025,
+   "min_detectable_sharpe_single_test": 2.7896668040240655,
+   "gross_total_return_pct": 0.9889684671640975,
+   "gross_sharpe": 0.2458624050291046,
+   "exposure": {
+    "avg_gross_pct_of_equity": 118.2661265010016,
+    "max_gross_pct_of_equity": 200.08137480970097,
+    "days_with_open_positions": 197
+   },
+   "universe_by_formation": [
+    {
+     "formation_date": "2025-01-02",
+     "snapshot": "2024-12-31",
+     "members": 2665,
+     "with_prices": 2407,
+     "missing": 258,
+     "missing_value_weight": 0.013076647708134999,
+     "unmapped_value_weight": 0.00031173710214394865,
+     "snapshot_filed": "2025-02-26",
+     "missing_heaviest": [
+      [
+       "DFS",
+       0.000767073278
+      ],
+      [
+       "EA",
+       0.000686780945
+      ],
+      [
+       "HES",
+       0.000652736808
+      ],
+      [
+       "AVB",
+       0.00055196216
+      ],
+      [
+       "ANSS",
+       0.000516492765
+      ],
+      [
+       "WBD",
+       0.000451842634
+      ],
+      [
+       "K",
+       0.000370860928
+      ],
+      [
+       "CTRA",
+       0.000338173637
+      ],
+      [
+       "HOLX",
+       0.000286527646
+      ],
+      [
+       "JNPR",
+       0.000216779437
+      ]
+     ],
+     "unmapped_heaviest": [
+      [
+       "Paramount Global",
+       0.000105330606
+      ],
+      [
+       "Avidity Biosciences Inc",
+       5.49733825e-05
+      ],
+      [
+       "Barnes Group Inc",
+       3.86420517e-05
+      ],
+      [
+       "Premier Inc",
+       3.57603244e-05
+      ],
+      [
+       "Golden Ocean Group Ltd",
+       1.78130179e-05
+      ],
+      [
+       "Wolfspeed Inc",
+       1.43251495e-05
+      ],
+      [
+       "Brookline Bancorp Inc",
+       1.35734719e-05
+      ],
+      [
+       "Aris Water Solutions Inc",
+       1.02486033e-05
+      ],
+      [
+       "MAC Copper Ltd",
+       1.00000214e-05
+      ],
+      [
+       "Bally's Corp",
+       9.57644931e-06
+      ]
+     ],
+     "no_sector_etf": 11,
+     "no_sector_etf_value_weight": 0.0004531905475000001,
+     "no_sector_etf_heaviest": [
+      [
+       "AMCR",
+       0.000240993413
+      ],
+      [
+       "OZK",
+       8.65683085e-05
+      ],
+      [
+       "TOWN",
+       3.81708501e-05
+      ],
+      [
+       "LBRDA",
+       2.0233423e-05
+      ],
+      [
+       "DAKT",
+       1.52157363e-05
+      ],
+      [
+       "PFBC",
+       1.29170033e-05
+      ],
+      [
+       "ODC",
+       1.12300085e-05
+      ],
+      [
+       "FRBA",
+       8.69899598e-06
+      ],
+      [
+       "HIFS",
+       8.0109837e-06
+      ],
+      [
+       "NBN",
+       7.59902088e-06
+      ]
+     ]
+    },
+    {
+     "formation_date": "2025-04-04",
+     "snapshot": "2025-03-31",
+     "members": 2655,
+     "with_prices": 2412,
+     "missing": 243,
+     "missing_value_weight": 0.012654307441878,
+     "unmapped_value_weight": 0.0002824683931383394,
+     "snapshot_filed": "2025-05-27",
+     "missing_heaviest": [
+      [
+       "HES",
+       0.000825056619
+      ],
+      [
+       "DFS",
+       0.000795589414
+      ],
+      [
+       "EA",
+       0.000703869528
+      ],
+      [
+       "AVB",
+       0.000566809793
+      ],
+      [
+       "ANSS",
+       0.000509915891
+      ],
+      [
+       "WBD",
+       0.000482812682
+      ],
+      [
+       "K",
+       0.000397760509
+      ],
+      [
+       "CTRA",
+       0.000392272053
+      ],
+      [
+       "HOLX",
+       0.000258459735
+      ],
+      [
+       "ITCI",
+       0.00025603912
+      ]
+     ],
+     "unmapped_heaviest": [
+      [
+       "Paramount Global",
+       0.000126770314
+      ],
+      [
+       "Avidity Biosciences Inc",
+       5.87150051e-05
+      ],
+      [
+       "Premier Inc",
+       3.42374282e-05
+      ],
+      [
+       "Golden Ocean Group Ltd",
+       1.67017177e-05
+      ],
+      [
+       "Aris Water Solutions Inc",
+       1.44399807e-05
+      ],
+      [
+       "Brookline Bancorp Inc",
+       1.35899271e-05
+      ],
+      [
+       "MAC Copper Ltd",
+       9.45038628e-06
+      ],
+      [
+       "Wolfspeed Inc",
+       6.92737082e-06
+      ],
+      [
+       "CHINOOK THERAPEUTICS INC CVR",
+       9.84505947e-07
+      ],
+      [
+       "INHIBRX INC",
+       6.03047783e-07
+      ]
+     ],
+     "no_sector_etf": 11,
+     "no_sector_etf_value_weight": 0.00048044123648000004,
+     "no_sector_etf_heaviest": [
+      [
+       "AMCR",
+       0.000261492304
+      ],
+      [
+       "OZK",
+       8.89471296e-05
+      ],
+      [
+       "TOWN",
+       4.03125823e-05
+      ],
+      [
+       "LBRDA",
+       2.42717696e-05
+      ],
+      [
+       "PFBC",
+       1.35596388e-05
+      ],
+      [
+       "ODC",
+       1.24109241e-05
+      ],
+      [
+       "DAKT",
+       1.15716301e-05
+      ],
+      [
+       "FRBA",
+       9.64688956e-06
+      ],
+      [
+       "NBN",
+       8.0477416e-06
+      ],
+      [
+       "HIFS",
+       7.67881514e-06
+      ]
+     ]
+    },
+    {
+     "formation_date": "2025-07-08",
+     "snapshot": "2025-06-30",
+     "members": 2658,
+     "with_prices": 2438,
+     "missing": 220,
+     "missing_value_weight": 0.0102609107362297,
+     "unmapped_value_weight": 0.00025736675133699585,
+     "snapshot_filed": "2025-08-26",
+     "missing_heaviest": [
+      [
+       "EA",
+       0.000696755088
+      ],
+      [
+       "HES",
+       0.000646366587
+      ],
+      [
+       "ANSS",
+       0.000510942025
+      ],
+      [
+       "AVB",
+       0.000485436092
+      ],
+      [
+       "WBD",
+       0.000427606635
+      ],
+      [
+       "K",
+       0.000369604082
+      ],
+      [
+       "CTRA",
+       0.000311168133
+      ],
+      [
+       "HOLX",
+       0.000246277329
+      ],
+      [
+       "JNPR",
+       0.000219719379
+      ],
+      [
+       "LBRDK",
+       0.00017820614
+      ]
+     ],
+     "unmapped_heaviest": [
+      [
+       "Paramount Global",
+       0.000123505967
+      ],
+      [
+       "Avidity Biosciences Inc",
+       5.10166724e-05
+      ],
+      [
+       "Premier Inc",
+       3.51772654e-05
+      ],
+      [
+       "Golden Ocean Group Ltd",
+       1.38388095e-05
+      ],
+      [
+       "Brookline Bancorp Inc",
+       1.1839925e-05
+      ],
+      [
+       "MAC Copper Ltd",
+       1.08162094e-05
+      ],
+      [
+       "Aris Water Solutions Inc",
+       9.62907838e-06
+      ],
+      [
+       "Wolfspeed Inc",
+       8.15460222e-07
+      ],
+      [
+       "INHIBRX INC",
+       5.58652813e-07
+      ],
+      [
+       "CHINOOK THERAPEUTICS INC CVR",
+       1.68690362e-07
+      ]
+     ],
+     "no_sector_etf": 11,
+     "no_sector_etf_value_weight": 0.0005651619141799999,
+     "no_sector_etf_heaviest": [
+      [
+       "AMCR",
+       0.000351728615
+      ],
+      [
+       "OZK",
+       8.70266574e-05
+      ],
+      [
+       "TOWN",
+       3.6397297e-05
+      ],
+      [
+       "LBRDA",
+       2.52097563e-05
+      ],
+      [
+       "ODC",
+       1.44084012e-05
+      ],
+      [
+       "DAKT",
+       1.29754939e-05
+      ],
+      [
+       "PFBC",
+       1.22215258e-05
+      ],
+      [
+       "FRBA",
+       9.1041682e-06
+      ],
+      [
+       "HIFS",
+       7.19001705e-06
+      ],
+      [
+       "NBN",
+       7.08218414e-06
+      ]
+     ]
+    }
+   ],
+   "commit": "6aaf7efb1eb074cdb4e2137f961112ba62234c51",
+   "vs_gatev": {
+    "n_common_days": 199,
+    "source": "rehearsal2025b_v33 run",
+    "universe_size": 500,
+    "diff": 0.8116560958659125,
+    "ci_lo": -2.6604397340801467,
+    "ci_hi": 4.283751925811972,
+    "pvalue": 0.6214757048590281,
+    "distance_sharpe": -0.9840391967828404
+   },
+   "random_pair": {
+    "percentile": 24.0,
+    "median_sharpe": 0.3089,
+    "n_draws": 200,
+    "source": "rehearsal2025b_v33 run"
+   },
+   "period": [
+    "2025-01-02",
+    "2025-10-17"
+   ],
+   "role": "confirmatory",
+   "p_holm": 1.0,
+   "edge_out_of_sample": false
+  }
+ },
+ "inputs": {
+  "calendar": "rehearsal2025",
+  "calendar_hash": "aad3ad2a0b80",
+  "expect_commit": "6aaf7efb1eb074cdb4e2137f961112ba62234c51",
+  "period_matches_calendar": true,
+  "runs": {
+   "v33_pairs": {
+    "provenance": {
+     "git_commit": "6aaf7efb1eb074cdb4e2137f961112ba62234c51",
+     "git_dirty": false,
+     "run_timestamp_utc": "2026-10-21T13:53:56+00:00",
+     "profile": "v33",
+     "profile_hash": "d54d21314c22",
+     "calendar": "rehearsal2025",
+     "calendar_hash": "aad3ad2a0b80",
+     "complete": true,
+     "non_default_switches": [],
+     "price_cache_sha256": "981147dd281711e4b1d30d8b803a92d4f7ca0d7455407754051a4061688f3177",
+     "macro_cache_sha256": "b7f545c5ec552b55cddb827f345b199fa039464b15e6cf3ab6eefe3cf17b0b9c",
+     "universe_file_sha256": "2afd0cb6a7a7b79e08e6d45a5fc78f7ac6d43903c3cafbde1a042bf048883c3c"
+    },
+    "sha256": {
+     "pairs_trading_results_2023_2025_unbiased.json": "509e273ec4824a3de7c4f9dad9ebc67d0e3219b32c743a7321f2151dcec67195",
+     "headline_metrics.json": "b09861c765bffd9edfabc1b935793c09b317464fe07ad80c07f30dd2f4041cf7"
+    }
+   },
+   "v32_pairs": {
+    "provenance": {
+     "git_commit": "6aaf7efb1eb074cdb4e2137f961112ba62234c51",
+     "git_dirty": false,
+     "run_timestamp_utc": "2026-10-21T14:00:56+00:00",
+     "profile": "v32",
+     "profile_hash": "b5665398f3ad",
+     "calendar": "rehearsal2025",
+     "calendar_hash": "aad3ad2a0b80",
+     "complete": true,
+     "non_default_switches": [],
+     "price_cache_sha256": "981147dd281711e4b1d30d8b803a92d4f7ca0d7455407754051a4061688f3177",
+     "macro_cache_sha256": "b7f545c5ec552b55cddb827f345b199fa039464b15e6cf3ab6eefe3cf17b0b9c",
+     "universe_file_sha256": "34661d82644fd36d80b91f4a129cc8435afcbf69faf6a61b89977a461197ca3e"
+    },
+    "sha256": {
+     "pairs_trading_results_2023_2025_unbiased.json": "013c8dd100beb290f023b6c214dee147e4adfb4128fa343f44f7e1aead68f253",
+     "headline_metrics.json": "a600719ce8b2b8b5e07bc24390c08a1dcd58d4445a154a0a9eafdaed5ea5ba28"
+    }
+   },
+   "avellaneda_lee": {
+    "provenance": {
+     "git_commit": "6aaf7efb1eb074cdb4e2137f961112ba62234c51",
+     "git_dirty": false,
+     "run_timestamp_utc": "2026-10-21T14:03:00+00:00",
+     "strategy": "avellaneda_lee",
+     "params_hash": "2d50e388fb12",
+     "calendar": "rehearsal2025",
+     "calendar_hash": "aad3ad2a0b80",
+     "complete": true,
+     "non_default_switches": [],
+     "price_cache_sha256": "981147dd281711e4b1d30d8b803a92d4f7ca0d7455407754051a4061688f3177",
+     "macro_cache_sha256": "b7f545c5ec552b55cddb827f345b199fa039464b15e6cf3ab6eefe3cf17b0b9c",
+     "universe_file_sha256": "2afd0cb6a7a7b79e08e6d45a5fc78f7ac6d43903c3cafbde1a042bf048883c3c",
+     "reference_root": "reference",
+     "sector_map_registered": true,
+     "sector_map_sha256": "8d68969196846eed911991c0536d6b478ac50ac0a2ced3cb4b7ae88f9f16771c"
+    },
+    "sha256": {
+     "residual_statarb.json": "48becf7b5d5de55f40936dd64dba46bb0994374b5d3d97f85b97fd5a16e298e4"
+    }
+   }
+  }
+ }
+}
