@@ -239,11 +239,11 @@ class EnhancedRussell3000DataProcessor:
         split the cached Close is the traded price / 10 and Volume is traded shares x 10.
         Multiplying Close (dividing Volume) by this factor recovers the point-in-time
         values a trader actually saw. Splits after the fetched date range are not in the
-        data and cannot be undone here (documented limitation). Dividends are NOT undone:
-        with auto_adjust=True the cached closes are also dividend-adjusted, so a
-        "point-in-time" price is still lowered by the cumulative yield of later dividends
-        (a few percent a year for high-yield names) — a small, disclosed residual in the
-        $5 price and dollar-volume screens.
+        data and cannot be undone here, and dividends are NOT undone: with auto_adjust=True
+        the cached closes are also dividend-adjusted, so a "point-in-time" price is still
+        lowered by the cumulative yield of later dividends. For the members of the
+        point-in-time universe, anchor_point_in_time removes both from Close_PIT at each
+        IWV snapshot date; a symbol outside it keeps them.
         """
         if 'Stock Splits' not in data.columns or len(data) == 0:
             return pd.Series(1.0, index=data.index)
@@ -251,6 +251,73 @@ class EnhancedRussell3000DataProcessor:
         ratio = ratio.where(ratio > 0, 1.0)
         after = ratio.iloc[::-1].cumprod().iloc[::-1].shift(-1).fillna(1.0)
         return after
+
+    @staticmethod
+    def anchor_point_in_time(data: pd.DataFrame, traded: pd.Series) -> pd.DataFrame:
+        """Close_PIT and Volume_PIT rescaled to the traded price on the dates of `traded`.
+
+        future_split_factor undoes only the splits inside the fetched range. The vendor's
+        history is also scaled by every later share-basis change (a 2026 reverse split lifts
+        a 2020 penny stock above the $5 screen; a 2026 forward split pushes a $20 stock below
+        it) and lowered by every later dividend. `traded` is the price the security traded at
+        on a set of dates (N-PORT's value per share on IWV's snapshot dates,
+        universe.PITUniverse.traded_prices). Each bar's Close_PIT is multiplied by the ratio
+        traded / Close_PIT of the latest such date on or before it (before the first: the
+        first ratio), so Close_PIT equals the traded price on every snapshot date and moves
+        with the vendor's series in between; Volume_PIT is divided by the same ratio, so
+        dollar volume is unchanged. Close, and with it every return, is not touched. A date
+        without a bar in the 4 days up to it is skipped; no usable date: `data` unchanged.
+        """
+        if traded is None or len(traded) == 0 or len(data) == 0 or 'Close_PIT' not in data.columns:
+            return data
+        index = data.index.tz_localize(None) if getattr(data.index, 'tz', None) is not None else data.index
+        days = pd.DatetimeIndex(index).normalize()
+        pit = data['Close_PIT'].to_numpy(dtype=float)
+        valid = np.isfinite(pit) & (pit > 0)
+        bars, ratios = [], []
+        for when, price in traded.sort_index().items():
+            when = pd.Timestamp(when)
+            k = int(days.searchsorted(when, side='right')) - 1
+            while k >= 0 and not valid[k]:
+                k -= 1
+            if k < 0 or (when - days[k]).days > 4 or not (np.isfinite(price) and price > 0):
+                continue
+            if bars and bars[-1] == k:
+                bars.pop()
+                ratios.pop()
+            bars.append(k)
+            ratios.append(float(price) / pit[k])
+        if not ratios:
+            return data
+        pos = np.searchsorted(np.asarray(bars), np.arange(len(data)), side='right') - 1
+        ratio = np.asarray(ratios)[np.clip(pos, 0, None)]
+        out = data.copy()
+        out['Close_PIT'] = pit * ratio
+        if 'Volume_PIT' in out.columns:
+            out['Volume_PIT'] = data['Volume_PIT'].to_numpy(dtype=float) / ratio
+        return out
+
+    @classmethod
+    def anchor_all(cls, data: Dict[str, pd.DataFrame], traded: pd.DataFrame) -> Dict:
+        """anchor_point_in_time for every symbol of `data` (replaced in place) that `traded`
+        prices: a frame with columns period_date, ticker, price (PITUniverse.traded_prices).
+        Returns {'anchored': symbols rescaled, 'median_ratio_beyond_10pct': those whose
+        median rescaling is beyond 10%, 'largest': the ten largest [symbol, median ratio]}."""
+        by_ticker = {t: g.set_index('period_date')['price'] for t, g in traded.groupby('ticker')}
+        anchored, off = 0, []
+        for sym, df in list(data.items()):
+            if sym not in by_ticker or 'Close_PIT' not in df.columns:
+                continue
+            out = cls.anchor_point_in_time(df, by_ticker[sym])
+            if out is df:
+                continue
+            ratio = float(np.nanmedian(out['Close_PIT'].to_numpy(dtype=float) / df['Close_PIT'].to_numpy(dtype=float)))
+            if not 1 / 1.1 <= ratio <= 1.1:
+                off.append((sym, ratio))
+            data[sym] = out
+            anchored += 1
+        return {'anchored': anchored, 'median_ratio_beyond_10pct': len(off),
+                'largest': [[s, round(r, 4)] for s, r in sorted(off, key=lambda kv: (-abs(np.log(kv[1])), kv[0]))[:10]]}
 
     def _validate_data(self, data: pd.DataFrame) -> bool:
         """Validate data quality with more lenient criteria"""

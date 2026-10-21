@@ -234,9 +234,14 @@ These hold for v32 and should be read with any result it produces.
   symbols on purpose), so such a run records `universe_coverage: null` plus the fraction of
   the universe the cache holds; a cache holding less than half the universe is refused
   unless `PAIRS_ALLOW_PARTIAL_FETCH=1` (which makes the run a variant). The v32 study run used a freshly fetched v32 cache, so none of this applies to its results.
-- **"Point-in-time" prices undo splits, not dividends.** The cached closes are dividend-
-  adjusted, so early prices are understated by the yield of later dividends (a few percent
-  a year for high-yield names) in the $5 price and dollar-volume screens.
+- **"Point-in-time" prices undo the splits inside the data window, not dividends or later
+  splits.** The cached closes are dividend-adjusted and back-adjusted for every split up to
+  the fetch date, while split events come only for the requested window, so early price
+  levels carry later dividends (more than 10% off on some snapshot date for about two in
+  five mapped names) and later share-basis changes (51 members at a constant factor from
+  1/80 to 25). Returns are unaffected. The v32 run's $5 price screen and per-share cost
+  terms use these levels; from v33 on, the point-in-time members' levels are anchored to
+  N-PORT's value per share at every snapshot date (`reference/README.md`).
 
 Literature context: Do & Faff (2010, *Financial Analysts Journal*; 2012, *Journal of
 Financial Research*) find that simple distance-method pairs trading became largely

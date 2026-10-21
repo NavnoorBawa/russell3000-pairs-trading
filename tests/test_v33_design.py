@@ -104,3 +104,43 @@ def test_v33_full_pipeline_pieces_run_and_trade(monkeypatch):
     assert len(res['daily_gross_returns']) == len(res['daily_cost_returns']) == n
     for net, gross, cost in zip(res['daily_returns'], res['daily_gross_returns'], res['daily_cost_returns']):
         assert net == pytest.approx(gross - cost, abs=1e-12)
+
+
+class _TradedPrices:
+    """Stand-in for universe.PITUniverse.traded_prices: N-PORT prices on snapshot dates."""
+
+    def __init__(self, rows):
+        self.rows = rows
+
+    def traded_prices(self):
+        return pd.DataFrame(self.rows, columns=['period_date', 'ticker', 'price'])
+
+
+def test_point_in_time_prices_are_anchored_to_the_snapshots(monkeypatch):
+    """A member whose vendor history shows 100 times its traded price (a 1-for-100 reverse
+    split after the cache's last date) is screened on its traded price: below $5, out."""
+    import numpy as np
+    monkeypatch.setenv('PAIRS_PROFILE', 'v33')
+    frames, macro, _ = make_market(n_pairs=2, n_noise=2, seed=5)
+    system = build_system(frames, macro)
+    sym = 'SA00'
+    df = system.processed_data[sym]
+    assert df['Close_PIT'].mean() > 5.0 and df['Close_PIT'].mean() / 100.0 < 5.0
+    days = df.index.tz_localize(None).normalize()
+    k = [100, 300]
+    traded = df['Close_PIT'].to_numpy()[k] / 100.0
+    system.pit_universe = _TradedPrices([(days[i], sym, p) for i, p in zip(k, traded)]
+                                        + [(days[100], 'NOT_LOADED', 10.0)])
+    before = dict(system.processed_data)
+    system.pair_selector.find_quality_pairs(before)
+    assert sym in system.pair_selector.last_quality_symbols
+    system._anchor_point_in_time_prices()
+    out = system.processed_data[sym]
+    np.testing.assert_allclose(out['Close_PIT'].to_numpy(), df['Close_PIT'].to_numpy() / 100.0)
+    np.testing.assert_allclose(out['Volume_PIT'].to_numpy(), df['Volume_PIT'].to_numpy() * 100.0)
+    assert out['Close'].equals(df['Close'])                                     # returns untouched
+    assert all(system.processed_data[s] is before[s] for s in before if s != sym)
+    assert system.price_anchor_summary == {'anchored': 1, 'median_ratio_beyond_10pct': 1,
+                                           'largest': [[sym, 0.01]]}
+    system.pair_selector.find_quality_pairs(system.processed_data)
+    assert sym not in system.pair_selector.last_quality_symbols

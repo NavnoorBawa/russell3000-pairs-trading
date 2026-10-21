@@ -107,6 +107,11 @@ def test_equity_only_repeated_lines_summed_isin_fallback():
     assert [s['reported_ticker'] for s in sec] == ['AAA', 'BBB/A', '', '']   # from either line; no numerics
     assert (sec[2]['id'], sec[2]['id_type'], sec[2]['cusip']) == ('CH0114405324', 'ID_ISIN', '')
     assert sec[3]['id'] is None                                              # unmappable, still weighted
+    assert [s['shares'] for s in sec] == [100.0, 15.0, 2.0, 7.0]
+    lines = b.parse_nport(_xml())['holdings']
+    lines[2] = dict(lines[2], units='PA')                                    # not a share count: no price
+    assert b.equity_securities(lines)[1]['shares'] is None
+    assert b.snapshot_rows(b.equity_securities(lines), {})[2]['price'] is None
 
 
 def test_security_id():
@@ -462,6 +467,59 @@ def test_rejected_mappings_name_a_ticker_and_a_reason():
         assert ticker == b.normalise_ticker(ticker) and len(why) > 20
 
 
+def test_accepted_mappings_name_a_ticker_and_the_evidence():
+    for sid, (ticker, why) in b.ACCEPTED_MAPPINGS.items():
+        holding = {'cusip': sid, 'isin': ''} if len(sid) == 9 else {'cusip': '000000000', 'isin': sid}
+        assert b.security_id(holding)[0] == sid
+        assert ticker == b.normalise_ticker(ticker) and "N-PORT's price" in why and 'held date' in why
+        assert b.REJECTED_MAPPINGS.get(sid, ('',))[0] != ticker          # never the ticker it is denied
+
+
+def test_vet_mappings_gives_an_accepted_ticker(monkeypatch):
+    # Howard Hughes' CUSIP until its 2023 reorganisation: OpenFIGI's line is the dead HHC,
+    # its history is served under the holding company's HHH
+    monkeypatch.setattr(b, 'ACCEPTED_MAPPINGS', {'44267D107': ('HHH', "the holding company's line: N-PORT's price "
+                                                                        'equals its close on all 16 held dates')})
+    old = _resolve(_figi(('HHC', 'UN'), name='HOWARD HUGHES CORP'))
+    old = dict(old, status='delisted')
+    entries = {'44267D107': old}
+    assert b.vet_mappings([], entries, {'HHH': [_us('HHH', 'HOWARD HUGHES HOLDINGS INC')]}) == ['44267D107']
+    e = entries['44267D107']
+    assert (e['status'], e['ticker'], e['matched_by'], e['figi_ticker']) == ('active', 'HHH', 'price check', 'HHC')
+    assert e['note'].startswith("HHH: the holding company's line") and e['mapped_on'] == old['mapped_on']
+    assert b.vet_mappings([], entries, {'HHH': [_us('HHH')]}) == [] and entries['44267D107'] is e   # idempotent
+    assert b.vet_mappings([], entries, {}) == ['44267D107'] and entries['44267D107']['status'] == 'delisted'
+    # held alongside the security whose own line it is: taken away like any indirect match
+    entries = {'44267D107': old, '44267T102': _resolve(_figi(('HHH', 'US')))}
+    snaps = [[_sec('44267D107', 'Howard Hughes Corp'), _sec('44267T102', 'Howard Hughes Holdings')]]
+    assert b.vet_mappings(snaps, entries, {'HHH': [_us('HHH')]}) == ['44267D107', '44267D107']
+    assert (entries['44267D107']['status'], entries['44267D107']['ticker']) == ('reused', None)
+    # issuer_successions leaves an accepted identifier alone
+    snaps = [[_sec('44267D107', 'Howard Hughes Corp')], [_sec('44267D206', 'Howard Hughes Corp')]]
+    gone = {'status': 'unmapped', 'ticker': None}
+    assert b.issuer_successions(snaps, {'44267D107': gone, '44267D206': _active('HHX')}) == {}
+
+
+def test_accepted_lines_looks_up_only_the_held_accepted_tickers(tmp_path, monkeypatch):
+    asked = []
+
+    def fake_get(url, headers=None, data=None, **kw):
+        jobs = json.loads(data)
+        asked.extend(j['idValue'] for j in jobs)
+        return json.dumps([{'data': [_us(j['idValue'])]} if j['idValue'] != 'TSEOQ' else {'warning': 'none'}
+                           for j in jobs]).encode()
+
+    monkeypatch.setattr(b, 'http_get', fake_get)
+    monkeypatch.setattr(b, 'RateLimiter', lambda interval: None)
+    monkeypatch.setattr(b, 'ACCEPTED_MAPPINGS', {'1': ('HHH', 'x'), '2': ('TSEOQ', 'y'), '3': ('BRK-B', 'z')})
+    cache = tmp_path / 'responses.json'
+    assert b.accepted_lines({'9'}, cache) == {} and asked == [] and not cache.exists()
+    lines = b.accepted_lines({'1', '2', '3'}, cache)
+    assert asked == ['BRK/B', 'HHH', 'TSEOQ']                                 # Bloomberg style
+    assert [len(lines[t]) for t in ('BRK-B', 'HHH', 'TSEOQ')] == [1, 1, 0]
+    assert b.accepted_lines({'1', '2', '3'}, cache) == lines and len(asked) == 3     # cached
+
+
 def test_map_new_identifiers_vets_and_keeps_mapping_dates(tmp_path, monkeypatch):
     old = dict(_resolve({'warning': 'No identifier found.'}), mapped_on='2026-01-02')
     asked = []
@@ -500,7 +558,6 @@ def test_map_new_identifiers_vets_and_keeps_mapping_dates(tmp_path, monkeypatch)
     assert b._map_new_identifiers(parsed_all, dict(got), path, args) == got and not path.exists()
 
 
-
 # --- the whole build, offline ----------------------------------------------------------------
 
 def test_offline_build_snapshots_index_and_sealed(tmp_path):
@@ -520,11 +577,12 @@ def test_offline_build_snapshots_index_and_sealed(tmp_path):
     assert first['sha256'] == hashlib.sha256((raw / '0000000000-20-000001.xml').read_bytes()).hexdigest()
     assert second['accession'] == '0000000000-20-000003' and second['supersedes'] == ['0000000000-20-000002']
     rows = (out / 'iwv_2020-03-31.csv').read_text().splitlines()
-    assert rows[0] == 'ticker,cusip,isin,name,weight'
+    assert rows[0] == 'ticker,cusip,isin,name,weight,price'
     assert [r.split(',')[0] for r in rows[1:]] == ['AAA', 'GRMN', 'BBB-A', '']     # by descending weight
-    assert rows[1].endswith(',0.555555556') and rows[2].startswith('GRMN,,CH0114405324,')
+    assert rows[1].endswith(',0.555555556,5') and rows[2].startswith('GRMN,,CH0114405324,')
+    assert [r.split(',')[-1] for r in rows[2:]] == ['100', '10', f'{50 / 7:.9g}']   # value per share
     amended = (out / 'iwv_2020-06-30.csv').read_text().splitlines()
-    assert amended[1].startswith('AAA,') and amended[1].endswith(f',{800 / 1200:.9g}')
+    assert amended[1].startswith('AAA,') and amended[1].endswith(f',{800 / 1200:.9g},8')
 
 
 def test_offline_build_is_deterministic_and_never_reads_sealed(tmp_path, monkeypatch):

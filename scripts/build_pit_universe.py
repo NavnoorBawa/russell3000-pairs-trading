@@ -15,7 +15,8 @@ For every filing the script
      (contingent value rights and escrow claims stay in the weights without a ticker);
   3. maps each CUSIP (or, where N-PORT gives none, the ISIN) to a US ticker with OpenFIGI,
      cached in reference/universe/cusip_ticker_map.json;
-  4. writes reference/universe/iwv_<period>.csv (ticker, cusip, isin, name, weight) and
+  4. writes reference/universe/iwv_<period>.csv (ticker, cusip, isin, name, weight, and
+     price: valUSD / shares held, the security's price on the period date) and
      reference/universe/index.json (dates, accession, source URL, XML SHA-256, counts).
 
 Sealed holdout. A snapshot dated 2026 or later carries every holding's market value, that
@@ -57,12 +58,14 @@ split):
     next snapshot, by exactly one new CUSIP with the same six-character issuer number and
     the same issuer name inherits that CUSIP's ticker (issuer_successions; General
     Electric's CUSIP before its 2021 reverse split). The links are listed in index.json.
-On every online build, vet_mappings then takes a ticker away (status 'reused') where its
-price history is another security's: the mappings that a price check against N-PORT's own
-value per share rejected (REJECTED_MAPPINGS: the issuer that holds the ticker now also took
-the name, or the ticker's line is the equity of a later reorganisation), and a ticker that
-a holding reaches only indirectly while another holding of the same snapshot is mapped to
-it by its own CUSIP or ISIN.
+On every online build, vet_mappings then applies a price check against N-PORT's own value
+per share: it takes a ticker away (status 'reused') where its price history is another
+security's (REJECTED_MAPPINGS: the issuer that holds the ticker now also took the name, or
+the ticker's line is the equity of a later reorganisation), gives the ticker under which a
+security's history sits when identity data cannot link it (ACCEPTED_MAPPINGS: renames,
+re-domiciliations and reorganisations that changed the CUSIP or ISIN), and takes away a
+ticker that a holding reaches only indirectly while another holding of the same snapshot is
+mapped to it by its own CUSIP or ISIN.
 Tickers are normalised to Yahoo style (BRK/B -> BRK-B). The mapping is as of the mapping
 date: a CUSIP maps to the security's latest ticker, the key under which Yahoo serves its
 whole history.
@@ -174,6 +177,190 @@ REJECTED_MAPPINGS = {
                              "prices from 2022-09-23): on 2022-09-30, N-PORT's price is 24.5 times its close"),
 }
 
+# Mappings the price check accepted that identity data cannot make: N-PORT's value per share
+# for the identifier against the ticker's split-unadjusted close on every held date (within
+# 2%, or a constant ratio on three or more dates; reference/README.md). The security's
+# history sits under the ticker of a later CUSIP or ISIN of the same security (a rename, a
+# re-domiciliation, a holding-company reorganisation, a merger it survived under the other
+# party's name, a tracking stock split off), which OpenFIGI no longer links to this
+# identifier, or which a name test cannot confirm. Identifier -> (ticker, evidence: the line
+# whose history it is, and the price agreement). vet_mappings gives these entries the ticker
+# (matched_by 'price check'); issuer_successions leaves them alone. A mapping that agrees
+# on prices but joins a cancelled equity to its reorganised successor is not accepted
+# (Oasis Petroleum's 674215108: CHRD's close goes from 0.12 to 31.00 on 2020-11-20).
+ACCEPTED_MAPPINGS = {
+    '002535300': ('PRG', "PROG Holdings Inc's line (CUSIP 74319R101, held from 2020-12-31): N-PORT's price equals its "
+                         'close on all 5 held dates'),
+    '00508X203': ('EPAC', "Enerpac Tool Group Corp's line (CUSIP 292765104, held from 2020-03-31): N-PORT's price "
+                          'equals its close on all 2 held dates'),
+    '00773J103': ('SYRE', "Spyre Therapeutics Inc's line (CUSIP 00773J202, held from 2024-09-30): N-PORT's price "
+                          'equals its close on all 9 held dates'),
+    '008064107': ('JBIO', "Jade Biosciences Inc's line (CUSIP 008064206, held from 2025-06-30): N-PORT's price equals "
+                          'its close on all 9 held dates'),
+    '00835Q103': ('AEVA', "Aeva Technologies Inc's line (CUSIP 00835Q202, held from 2025-06-30): N-PORT's price equals "
+                          'its close on all 5 held dates'),
+    '02215L100': ('KNTK', "Kinetik Holdings Inc's line (CUSIP 02215L209, held from 2022-06-30): N-PORT's price equals "
+                          'its close on all 3 held dates'),
+    '022663108': ('AMAL', "Amalgamated Financial Corp's line (CUSIP 022671101, held from 2021-03-31): N-PORT's price "
+                          'equals its close on all 6 held dates'),
+    '037411105': ('APA', "APA Corp's line (CUSIP 03743Q108, held from 2021-03-31): N-PORT's price equals its close on "
+                         'all 6 held dates'),
+    '03768E105': ('APO', "Apollo Global Management Inc's line (CUSIP 03769M106, held from 2022-03-31): N-PORT's price "
+                         'equals its close on all 7 held dates'),
+    '03836W103': ('WTRG', "Essential Utilities Inc's line (CUSIP 29670G102, held from 2020-03-31): N-PORT's price "
+                          'equals its close on all 2 held dates'),
+    '03965L100': ('HWM', "Howmet Aerospace Inc's line (CUSIP 443201108, held from 2020-06-30): N-PORT's price is 1.3 "
+                         'times its close on all 3 held dates (a constant factor)'),
+    '054561105': ('EQH', "Equitable Holdings Inc's line (CUSIP 29452E101, held from 2020-03-31): N-PORT's price equals "
+                         'its close on all 2 held dates'),
+    '054937107': ('TFC', "Truist Financial Corp's line (CUSIP 89832Q109, held from 2019-12-31): N-PORT's price equals "
+                         'its close on its one held date'),
+    '05541T101': ('BGC', "BGC Group Inc's line (CUSIP 088929104, held from 2023-09-30): N-PORT's price equals its "
+                         'close on all 16 held dates'),
+    '079823100': ('BRBR', "BellRing Brands Inc's line (CUSIP 07831C103, held from 2022-03-31): N-PORT's price equals "
+                          'its close on all 9 held dates'),
+    '108035106': ('DCOM', "Dime Community Bancshares Inc's line (CUSIP 25432X102, held from 2021-03-31): N-PORT's "
+                          'price equals its close on all 6 held dates'),
+    '141665109': ('PRDO', "Perdoceo Education Corp's line (CUSIP 71363P106, held from 2020-03-31): N-PORT's price "
+                          'equals its close on all 2 held dates'),
+    '146102108': ('CARE', "Carter Bankshares Inc's line (CUSIP 146103106, held from 2020-12-31): N-PORT's price equals "
+                          'its close on all 5 held dates'),
+    '15136A102': ('PR', "Permian Resources Corp's line (CUSIP 71424F105, held from 2022-09-30): N-PORT's price equals "
+                        'its close on all 8 held dates'),
+    '156700106': ('LUMN', "Lumen Technologies Inc's line (CUSIP 550241103, held from 2021-03-31): N-PORT's price "
+                          'equals its close on all 6 held dates'),
+    '194014106': ('ENOV', "Enovis Corp's line (CUSIP 194014502, held from 2022-06-30): N-PORT's price equals its close "
+                          'on all 11 held dates'),
+    '19625T101': ('BRSP', "BrightSpire Capital Inc's line (CUSIP 10949T109, held from 2021-06-30): N-PORT's price "
+                          'equals its close on all 7 held dates'),
+    '20854L108': ('CNR', "Core Natural Resources Inc's line (CUSIP 218937100, held from 2025-03-31): N-PORT's price "
+                         'equals its close on all 22 held dates'),
+    '210226106': ('CTO', "CTO Realty Growth Inc's line (CUSIP 22948P103, held from 2020-06-30): N-PORT's price equals "
+                         'its close on all 3 held dates'),
+    '224399105': ('CXT', "Crane NXT Co's line (CUSIP 224441105, held from 2022-06-30): N-PORT's price equals its close "
+                         'on all 11 held dates'),
+    '22948P103': ('CTO', "CTO Realty Growth Inc's line (CUSIP 22948Q101, held from 2021-03-31): N-PORT's price equals "
+                         'its close on all 3 held dates'),
+    '262037104': ('INVX', "Innovex International Inc's line (CUSIP 457651107, held from 2024-09-30): N-PORT's price "
+                          'equals its close on all 20 held dates'),
+    '26885G109': ('VTOL', "Bristow Group Inc's line (CUSIP 11040G103, held from 2020-06-30): N-PORT's price equals its "
+                          'close on all 3 held dates'),
+    '28470R102': ('CZR', "Caesars Entertainment Inc's line (CUSIP 12769G100, held from 2020-09-30): N-PORT's price "
+                         'equals its close on all 4 held dates'),
+    '313747206': ('FRT', "Federal Realty Investment Trus's line (CUSIP 313745101, held from 2022-03-31): N-PORT's "
+                         'price equals its close on all 10 held dates'),
+    '33767D105': ('FCFS', "FirstCash Holdings Inc's line (CUSIP 33768G107, held from 2021-12-31): N-PORT's price "
+                          'equals its close on all 9 held dates'),
+    '339041105': ('CPAY', "Corpay Inc's line (CUSIP 219948106, held from 2024-03-31): N-PORT's price equals its close "
+                          'on all 18 held dates'),
+    '36555P107': ('IR', "Ingersoll Rand Inc's line (CUSIP 45687V106, held from 2020-03-31): N-PORT's price equals its "
+                        'close on all 2 held dates'),
+    '40414L109': ('DOC', "Healthpeak Properties Inc's line (CUSIP 42250P103, held from 2019-12-31): N-PORT's price "
+                         'equals its close on its one held date'),
+    '436106108': ('DINO', "HF Sinclair Corp's line (CUSIP 403949100, held from 2022-03-31): N-PORT's price equals its "
+                          'close on all 10 held dates'),
+    '44267D107': ('HHH', "Howard Hughes Holdings Inc's line (CUSIP 44267T102, held from 2023-09-30): N-PORT's price "
+                         'equals its close on all 16 held dates'),
+    '44919P508': ('PPLI', "IAC/InterActiveCorp's line (CUSIP 44891N109, held from 2020-09-30): N-PORT's price equals "
+                          'its close on all 4 held dates'),
+    '45031U101': ('SAFE', "Safehold Inc's line (CUSIP 78646V107, held from 2023-03-31): N-PORT's price equals its "
+                          'close on all 14 held dates'),
+    '46116V105': ('SNEX', "StoneX Group Inc's line (CUSIP 861896108, held from 2020-09-30): N-PORT's price is 2.25 "
+                          'times its close on all 4 held dates (a constant factor)'),
+    '46122T102': ('PGEN', "Precigen Inc's line (CUSIP 74017N105, held from 2020-03-31): N-PORT's price equals its "
+                          'close on all 2 held dates'),
+    '461730509': ('CSR', "Centerspace's line (CUSIP 15202L107, held from 2020-12-31): N-PORT's price equals its close "
+                         'on all 5 held dates'),
+    '469814107': ('J', "Jacobs Solutions Inc's line (CUSIP 46982L108, held from 2022-09-30): N-PORT's price equals its "
+                       'close on all 12 held dates'),
+    '501797104': ('BBWI', "Bath & Body Works Inc's line (CUSIP 070830104, held from 2021-09-30): N-PORT's price equals "
+                          'its close on all 8 held dates'),
+    '50540R409': ('LH', "Labcorp Holdings Inc's line (CUSIP 504922105, held from 2024-06-30): N-PORT's price equals "
+                        'its close on all 19 held dates'),
+    '531229706': ('BATRA', "Atlanta Braves Holdings Inc's line (CUSIP 047726104, held from 2023-09-30): N-PORT's price "
+                           'equals its close on all 11 held dates'),
+    '531229722': ('LLYVK', "Liberty Live Holdings Inc's line (CUSIP 530909308, held from 2025-12-31): N-PORT's price "
+                           'equals its close on all 9 held dates'),
+    '531229748': ('LLYVA', "Liberty Live Holdings Inc's line (CUSIP 530909100, held from 2025-12-31): N-PORT's price "
+                           'equals its close on all 9 held dates'),
+    '531229854': ('FWONK', "Liberty Media Corp-Liberty For's line (CUSIP 531229755, held from 2023-09-30): N-PORT's "
+                           'price is within 1.7% of its close on all 16 held dates'),
+    '531229870': ('FWONA', "Liberty Media Corp-Liberty For's line (CUSIP 531229771, held from 2023-09-30): N-PORT's "
+                           'price is 1.03 times its close on all 16 held dates (a constant factor)'),
+    '531229888': ('BATRK', "Atlanta Braves Holdings Inc's line (CUSIP 047726302, held from 2023-09-30): N-PORT's price "
+                           'equals its close on all 16 held dates'),
+    '543881106': ('TSAT', "Telesat Corp's line (CUSIP 879512309, held from 2021-12-31): N-PORT's price equals its "
+                          'close on all 9 held dates'),
+    '63016Q102': ('IBRX', "ImmunityBio Inc's line (CUSIP 45256X103, held from 2021-03-31): N-PORT's price equals its "
+                          'close on all 3 held dates'),
+    '64704V106': ('TDAY', "USA TODAY Co Inc's line (CUSIP 36472T109, held from 2019-12-31): N-PORT's price equals its "
+                          'close on its one held date'),
+    '675746309': ('ONIT', "Onity Group Inc's line (CUSIP 675746606, held from 2023-09-30): N-PORT's price equals its "
+                          'close on all 3 held dates'),
+    '690768403': ('OI', "O-I Glass Inc's line (CUSIP 67098H104, held from 2019-12-31): N-PORT's price equals its close "
+                        'on its one held date'),
+    '69290X101': ('PDLB', "this security's own line (PONCE FINANCIAL GROUP INC on OpenFIGI): N-PORT's price equals its "
+                          'close on all 7 held dates'),
+    '73179P106': ('AVNT', "Avient Corp's line (CUSIP 05368V106, held from 2020-09-30): N-PORT's price equals its close "
+                          'on all 4 held dates'),
+    '73943T103': ('ECVT', "Ecovyst Inc's line (CUSIP 27923Q109, held from 2021-09-30): N-PORT's price equals its close "
+                          'on all 8 held dates'),
+    '74006W108': ('PRAX', "Praxis Precision Medicines Inc's line (CUSIP 74006W207, held from 2024-09-30): N-PORT's "
+                          'price equals its close on all 7 held dates'),
+    '74167P108': ('PRMB', "Primo Brands Corp's line (CUSIP 741623102, held from 2024-12-31): N-PORT's price equals its "
+                          'close on all 18 held dates'),
+    '75134P303': ('METC', "Ramaco Resources Inc's line (CUSIP 75134P600, held from 2023-12-31): N-PORT's price is "
+                          'within 0.1% of its close on all 4 held dates'),
+    '75585H206': ('REAX', "this security's own line (REAL REMAX GROUP INC on OpenFIGI): N-PORT's price is 0.1 times "
+                          'its close on all 6 held dates (a constant factor)'),
+    '761299106': ('TVTX', "Travere Therapeutics Inc's line (CUSIP 89422G107, held from 2020-12-31): N-PORT's price "
+                          'equals its close on all 5 held dates'),
+    '76169B102': ('ZWS', "Zurn Elkay Water Solutions Cor's line (CUSIP 98983L108, held from 2021-12-31): N-PORT's "
+                         'price is 2.08 times its close on all 9 held dates (a constant factor)'),
+    '78112V102': ('MGNI', "Magnite Inc's line (CUSIP 55955D100, held from 2020-09-30): N-PORT's price equals its close "
+                          'on all 4 held dates'),
+    '784635104': ('SPXC', "SPX Technologies Inc's line (CUSIP 78473E103, held from 2022-09-30): N-PORT's price equals "
+                          'its close on all 12 held dates'),
+    '81663L101': ('WGS', "GeneDx Holdings Corp's line (CUSIP 81663L200, held from 2024-09-30): N-PORT's price equals "
+                         'its close on its one held date'),
+    '81721M109': ('DHC', "Diversified Healthcare Trust's line (CUSIP 25525P107, held from 2020-03-31): N-PORT's price "
+                         'is within 0.1% of its close on all 2 held dates'),
+    '843395104': ('FRST', "Primis Financial Corp's line (CUSIP 74167B109, held from 2021-03-31): N-PORT's price equals "
+                          'its close on all 6 held dates'),
+    '871503108': ('GEN', "Gen Digital Inc's line (CUSIP 668771108, held from 2019-12-31): N-PORT's price equals its "
+                         'close on its one held date'),
+    '871851101': ('GIC', "Global Industrial Co's line (CUSIP 37892E102, held from 2021-06-30): N-PORT's price equals "
+                         'its close on all 7 held dates'),
+    '88331L108': ('SKIN', "this security's own line (SKINHEALTH SYSTEMS INC on OpenFIGI): N-PORT's price equals its "
+                          'close on all 19 held dates'),
+    '902104108': ('COHR', "Coherent Corp's line (CUSIP 19247G107, held from 2022-09-30): N-PORT's price equals its "
+                          'close on all 12 held dates'),
+    '913017109': ('RTX', "RTX Corp's line (CUSIP 75513E101, held from 2020-06-30): N-PORT's price equals its close on "
+                         'all 3 held dates'),
+    '971375126': ('WSC', "WillScot Holdings Corp's line (CUSIP 971378104, held from 2020-09-30): N-PORT's price equals "
+                         'its close on all 4 held dates'),
+    '98156Q108': ('TKO', "TKO Group Holdings Inc's line (CUSIP 87256C101, held from 2023-09-30): N-PORT's price equals "
+                         'its close on all 16 held dates'),
+    '98310W108': ('TNL', "Travel + Leisure Co's line (CUSIP 894164102, held from 2021-03-31): N-PORT's price equals "
+                         'its close on all 6 held dates'),
+    '98390M103': ('ADEA', "Adeia Inc's line (CUSIP 00676P107, held from 2022-12-30): N-PORT's price is 2.3 times its "
+                          'close on all 10 held dates (a constant factor)'),
+    '98421B100': ('ADEA', "Xperi Holding Corp's line (CUSIP 98390M103, held from 2020-06-30): N-PORT's price is 2.3 "
+                          'times its close on all 3 held dates (a constant factor)'),
+    'BMG8827U1009': ('SPNT', "SiriusPoint Ltd's line (ISIN BMG8192H1060, held from 2021-03-31): N-PORT's price equals "
+                             'its close on all 6 held dates'),
+    'GB00B5BT0K07': ('AON', "Aon PLC's line (ISIN IE00BLP1HW54, held from 2020-06-30): N-PORT's price equals its close "
+                            'on all 3 held dates'),
+    'IE00B6330302': ('TT', "Trane Technologies PLC's line (ISIN IE00BK9ZQ967, held from 2020-03-31): N-PORT's price "
+                           'equals its close on all 2 held dates'),
+    'LU1057788488': ('TSEOQ', "Trinseo PLC's line (ISIN IE0000QBK8U7, held from 2021-12-31): N-PORT's price equals its "
+                              'close on all 9 held dates'),
+    'NL0011031208': ('VTRS', "Viatris Inc's line (CUSIP 92556V106, held from 2020-12-31): N-PORT's price equals its "
+                             'close on all 5 held dates'),
+    'NL0015002CX3': ('QGEN', "the line of this issuer's ISIN NL0012169213 (held 2019-09-30 to 2023-12-31): N-PORT's "
+                             'price equals its close on all 4 held dates'),
+}
+
 ATOM_NS = '{http://www.w3.org/2005/Atom}'
 
 
@@ -249,7 +436,7 @@ def parse_nport(blob):
         holdings.append({'name': fields.get('name', ''), 'title': fields.get('title', ''),
                          'cusip': fields.get('cusip', ''), 'isin': id_values.get('isin', ''),
                          'ticker': id_values.get('ticker', ''),
-                         'balance': float(fields.get('balance') or 0.0),
+                         'balance': float(fields.get('balance') or 0.0), 'units': fields.get('units', ''),
                          'val_usd': float(fields.get('valUSD') or 0.0),
                          'asset_cat': fields.get('assetCat', ''), 'inv_country': fields.get('invCountry', '')})
     return {'period_date': info.get('repPdDate'), 'series_id': info.get('seriesId'), 'holdings': holdings}
@@ -282,18 +469,24 @@ def reported_ticker(holding):
 
 
 def equity_securities(holdings):
-    """Equity-common holdings, one entry per security (repeated lines summed), in file order."""
+    """Equity-common holdings, one entry per security (repeated lines summed), in file order.
+
+    `shares` is the number of shares held (None unless every line is in shares, units NS),
+    so val_usd / shares is the security's price on the period date.
+    """
     out = OrderedDict()
     equity = [h for h in holdings if h['asset_cat'] == 'EC']
     for n, h in enumerate(equity):
         sid, id_type = security_id(h)
         key = sid or f'#{n}'
+        shares = h['balance'] if h.get('units') == 'NS' else None
         if key in out:
             out[key]['val_usd'] += h['val_usd']
+            out[key]['shares'] = None if out[key]['shares'] is None or shares is None else out[key]['shares'] + shares
             out[key]['reported_ticker'] = out[key]['reported_ticker'] or reported_ticker(h)
             continue
         out[key] = {'id': sid, 'id_type': id_type, 'cusip': sid if id_type == 'ID_CUSIP' else '',
-                    'isin': h['isin'].upper(), 'name': h['name'], 'val_usd': h['val_usd'],
+                    'isin': h['isin'].upper(), 'name': h['name'], 'val_usd': h['val_usd'], 'shares': shares,
                     'reported_ticker': reported_ticker(h)}
     return list(out.values())
 
@@ -472,17 +665,20 @@ def _resolve_figi(result, id_type, us_lines, mapped_on):
             'name': data[0].get('name') if data else None, 'exchCode': None, 'note': note, 'mapped_on': mapped_on}
 
 
-def vet_mappings(snapshots, entries):
-    """Take a ticker away (status 'reused', with a note) where its price history is another
-    security's; returns the identifiers changed. `snapshots` is each snapshot's
-    equity_securities.
+def vet_mappings(snapshots, entries, accepted_lines=None):
+    """Apply the price check's verdicts to `entries`; returns the identifiers changed.
+    `snapshots` is each snapshot's equity_securities.
 
-    - REJECTED_MAPPINGS, the price check's rejections (an entry rejected earlier takes the
-      reason as it reads now);
+    - REJECTED_MAPPINGS take the ticker away (status 'reused', with the reason as it reads
+      now, also for an entry rejected earlier);
+    - ACCEPTED_MAPPINGS give the ticker (matched_by 'price check', the evidence as note):
+      status 'active' when `accepted_lines[ticker]` (its exchCode-US records) is not
+      empty, else 'delisted';
     - a ticker an identifier reaches only indirectly (N-PORT's reported ticker, a name or
-      share-class match) while a security held in the same snapshot is mapped to it by its
-      own CUSIP or ISIN as an active US line: the ticker is that security's (BlackRock books
-      OmniAb's earnout shares, 68218J202 and 68218J301, under OABI, the common stock's).
+      share-class match, the price check) while a security held in the same snapshot is
+      mapped to it by its own CUSIP or ISIN as an active US line is taken away: the ticker
+      is that security's (BlackRock books OmniAb's earnout shares, 68218J202 and 68218J301,
+      under OABI, the common stock's).
     """
     changed = []
     for sid, (ticker, why) in sorted(REJECTED_MAPPINGS.items()):
@@ -490,6 +686,12 @@ def vet_mappings(snapshots, entries):
         if e and (e.get('ticker') == ticker
                   or (e['status'] == 'reused' and e.get('note', '').startswith(f'{ticker} is ') and e['note'] != note)):
             entries[sid] = dict(e, status='reused', ticker=None, note=note)
+            changed.append(sid)
+    for sid, (ticker, why) in sorted(ACCEPTED_MAPPINGS.items()):
+        e = entries.get(sid)
+        status = 'active' if (accepted_lines or {}).get(ticker) else 'delisted'
+        if e and dict(e, status=status, ticker=ticker, matched_by='price check', note=f'{ticker}: {why}') != e:
+            entries[sid] = dict(e, status=status, ticker=ticker, matched_by='price check', note=f'{ticker}: {why}')
             changed.append(sid)
     for securities in snapshots:
         owner = {}
@@ -505,6 +707,20 @@ def vet_mappings(snapshots, entries):
                                         note=f"{e['ticker']} is the own US line of {other}, held alongside")
                 changed.append(s['id'])
     return changed
+
+
+def accepted_lines(held_ids, response_cache, api_key=None):
+    """{ticker: exchCode-US records} for the ACCEPTED_MAPPINGS of the identifiers in
+    `held_ids`, looked up on OpenFIGI through the response cache."""
+    tickers = sorted({t for sid, (t, _) in ACCEPTED_MAPPINGS.items() if sid in held_ids})
+    if not tickers:
+        return {}
+    response_cache = pathlib.Path(response_cache)
+    responses = json.loads(response_cache.read_text()) if response_cache.exists() else {}
+    looked_up = _post_jobs([{'idType': 'TICKER', 'idValue': t.replace('-', '/'), 'exchCode': 'US'} for t in tickers],
+                           responses, response_cache, api_key)
+    return {t: [d for d in (r.get('data') or []) if d.get('exchCode') == 'US' and d.get('ticker')]
+            for t, r in zip(tickers, looked_up)}
 
 
 def _job_key(job):
@@ -577,7 +793,7 @@ def write_map(entries, path):
                  "N-PORT reported, resolved the same way; ticker normalised to Yahoo style ('/' and '.' -> '-'); "
                  'status active | delisted (last ticker kept) | reused (ticker now another security: null) | unmapped; '
                  'a mapping the price check rejected, or a ticker another holding of the snapshot has as its own '
-                 'US line: reused (note)'),
+                 "US line: reused (note); a mapping the price check accepted: matched_by 'price check' (note)"),
         ('n_entries', len(entries)),
         ('n_mapped', sum(1 for e in entries.values() if e.get('ticker'))),
         ('by_status', dict(sorted(Counter(str(e.get('status')) for e in entries.values()).items()))),
@@ -614,8 +830,9 @@ def issuer_successions(snapshots, entries):
     made only when exactly one such CUSIP has a ticker and no other security held alongside
     the old CUSIP carries that ticker (two share classes of one issuer never qualify: they
     are held together), and never for a CUSIP in REJECTED_MAPPINGS (a reorganisation can
-    cancel an equity and issue the new one under the same issuer number). Chains resolve to
-    the latest CUSIP's ticker.
+    cancel an equity and issue the new one under the same issuer number) or in
+    ACCEPTED_MAPPINGS (the price check settled it). Chains resolve to the latest CUSIP's
+    ticker.
     """
     held, first_name, last_name = {}, {}, {}
     for k, securities in enumerate(snapshots):
@@ -633,7 +850,8 @@ def issuer_successions(snapshots, entries):
         return out[sid]['ticker'] if sid in out else (entries.get(sid) or {}).get('ticker')
 
     for old in sorted(held, key=lambda sid: (-held[sid][-1], sid)):       # successors first
-        if (entries.get(old) or {}).get('status') == 'active' or not last_name[old] or old in REJECTED_MAPPINGS:
+        if ((entries.get(old) or {}).get('status') == 'active' or not last_name[old] or old in REJECTED_MAPPINGS
+                or old in ACCEPTED_MAPPINGS):
             continue
         nxt = [new for new in starting.get(held[old][-1] + 1, ())
                if new[:6] == old[:6] and first_name[new] == last_name[old] and ticker(new)]
@@ -647,7 +865,8 @@ def issuer_successions(snapshots, entries):
 
 
 def snapshot_rows(securities, entries, successions=None):
-    """CSV rows (ticker, cusip, isin, name, weight) by descending weight; weight = value share."""
+    """CSV rows (ticker, cusip, isin, name, weight, price) by descending weight; weight =
+    value share, price = value per share on the period date (None without a share count)."""
     total = sum(s['val_usd'] for s in securities)
     if total <= 0:
         raise ValueError('snapshot has no equity value')
@@ -658,8 +877,9 @@ def snapshot_rows(securities, entries, successions=None):
             ticker = successions[s['id']]['ticker']
         else:
             ticker = ((entries.get(s['id']) if s['id'] else None) or {}).get('ticker') or ''
-        rows.append({'ticker': ticker, 'cusip': s['cusip'], 'isin': s['isin'],
-                     'name': s['name'], 'weight': s['val_usd'] / total})
+        shares = s.get('shares')
+        rows.append({'ticker': ticker, 'cusip': s['cusip'], 'isin': s['isin'], 'name': s['name'],
+                     'weight': s['val_usd'] / total, 'price': s['val_usd'] / shares if shares else None})
     rows.sort(key=lambda r: (-r['weight'], r['cusip'], r['isin'], r['name']))
     return rows
 
@@ -667,9 +887,11 @@ def snapshot_rows(securities, entries, successions=None):
 def write_snapshot(rows, path):
     with open(path, 'w', newline='') as f:
         w = csv.writer(f, lineterminator='\n')
-        w.writerow(['ticker', 'cusip', 'isin', 'name', 'weight'])
+        w.writerow(['ticker', 'cusip', 'isin', 'name', 'weight', 'price'])
         for r in rows:
-            w.writerow([r['ticker'], r['cusip'], r['isin'], r['name'], f"{r['weight']:.9g}"])
+            price = r.get('price')
+            w.writerow([r['ticker'], r['cusip'], r['isin'], r['name'], f"{r['weight']:.9g}",
+                        f'{price:.9g}' if price is not None and price > 0 else ''])
 
 
 def snapshot_entry(filing, parsed, securities, rows, sha256, source_url, filename):
@@ -751,7 +973,9 @@ def _map_new_identifiers(parsed_all, entries, map_path, args, remap=False, prune
         print(f'OpenFIGI: mapping {len(wanted)} identifiers', flush=True)
         query_openfigi(list(wanted.items()), entries, map_path, args.openfigi_cache,
                        os.environ.get('OPENFIGI_API_KEY'), refresh=remap, reported=reported_tickers(held))
-    for sid in vet_mappings(held, entries):
+    held_ids = {s['id'] for securities in held for s in securities if s['id']}
+    lines = accepted_lines(held_ids, args.openfigi_cache, os.environ.get('OPENFIGI_API_KEY'))
+    for sid in vet_mappings(held, entries, lines):
         print(f"  {sid}: {entries[sid]['note']}", flush=True)
     if not remap:
         for sid, e in entries.items():
@@ -759,7 +983,6 @@ def _map_new_identifiers(parsed_all, entries, map_path, args, remap=False, prune
             if old is not None and old is not e and dict(old, mapped_on=None) == dict(e, mapped_on=None):
                 entries[sid] = old
     if prune:                                               # identifiers no snapshot holds any more
-        held_ids = {s['id'] for securities in held for s in securities if s['id']}
         entries = {k: e for k, e in entries.items() if k in held_ids}
     if wanted or entries != before:
         write_map(entries, map_path)

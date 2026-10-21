@@ -100,6 +100,21 @@ def test_normalise_ticker():
     assert normalise_ticker(None) == ''
 
 
+def test_traded_prices_one_per_ticker_and_snapshot(tmp_path):
+    (tmp_path / 'universe').mkdir()
+    snaps = {'2020-03-31': 'ticker,cusip,isin,name,weight,price\n'
+                           'AAA,000000AA1,,Alpha,0.5,10.5\nBRK-B,084670702,,B,0.2,200\nBRK-B,084670108,,B,0.1,300000\n'
+                           'CCC,000000CC9,,Gamma,0.15,\n,,,ESCROW,0.05,1\n',
+             '2020-06-30': 'ticker,cusip,isin,name,weight\nAAA,000000AA1,,Alpha,1\n',     # written without prices
+             '2020-09-30': 'ticker,cusip,isin,name,weight,price\nAAA,000000AA1,,Alpha,1,12\n'}
+    for period, text in snaps.items():
+        (tmp_path / 'universe' / f'iwv_{period}.csv').write_text(text)
+    (tmp_path / 'universe' / 'index.json').write_text(json.dumps({'snapshots': [
+        {'period_date': p, 'file': f'iwv_{p}.csv'} for p in snaps]}))
+    traded = PITUniverse(tmp_path).traded_prices()
+    assert traded.values.tolist() == [[pd.Timestamp('2020-03-31'), 'AAA', 10.5], [pd.Timestamp('2020-09-30'), 'AAA', 12.0]]
+
+
 # --- the committed reference data ------------------------------------------------------
 
 committed = pytest.mark.skipif(not (REFERENCE_DIR / 'universe' / 'index.json').exists(),
@@ -168,8 +183,14 @@ def test_committed_map_respects_the_price_check():
     with open(REFERENCE_DIR / 'universe' / 'cusip_ticker_map.json') as f:
         entries = json.load(f)['entries']
     for sid, (ticker, _) in b.REJECTED_MAPPINGS.items():
+        if sid in b.ACCEPTED_MAPPINGS:                      # denied one ticker, given another
+            assert entries[sid]['ticker'] == b.ACCEPTED_MAPPINGS[sid][0] != ticker, sid
+            continue
         assert (entries[sid]['status'], entries[sid]['ticker']) == ('reused', None), sid
         assert entries[sid]['note'].startswith(f'{ticker} is '), sid
+    for sid, (ticker, _) in b.ACCEPTED_MAPPINGS.items():    # none taken away by the shared-ticker rule
+        assert (entries[sid]['ticker'], entries[sid]['matched_by']) == (ticker, 'price check'), sid
+        assert entries[sid]['note'].startswith(f'{ticker}: '), sid
     with open(REFERENCE_DIR / 'universe' / 'index.json') as f:
         index = json.load(f)
     for s in index['snapshots']:
@@ -181,5 +202,24 @@ def test_committed_map_respects_the_price_check():
                    and entries[r['cusip'] or r['isin']]['status'] == 'active']
             assert not own or len(own) == sum(r['ticker'] == t for r in rows), (s['file'], t)
     uni = PITUniverse()
-    assert 'SAFE' not in uni.members_asof('2020-12-31')       # old Safehold: SAFE was iStar's line
+    held = uni.holdings_asof('2020-12-31').set_index('cusip')['ticker']
+    assert (held['78645L100'], held['45031U101']) == ('', 'SAFE')    # SAFE's history before 2023 is iStar's
     assert 'OABI' in uni.members_asof('2022-12-31')           # the common stock, not its earnout shares
+    # the price check's accepted mappings: securities whose history sits under a later line
+    assert {'RTX', 'AON', 'TFC', 'TT'} <= set(uni.members_asof('2019-09-30'))
+    assert {'LH', 'CPAY', 'HHH'} <= set(uni.members_asof('2022-12-31'))
+
+
+@committed
+def test_committed_snapshots_carry_the_traded_price():
+    """N-PORT's value per share on the period date, which anchors Close_PIT
+    (data_processor.anchor_point_in_time)."""
+    uni = PITUniverse()
+    for s in uni.snapshots():
+        frame = uni.holdings_asof(s['period_date'])
+        price = pd.to_numeric(frame['price'], errors='coerce')
+        mapped = frame['ticker'] != ''
+        assert (price[mapped].notna() * frame.loc[mapped, 'weight']).sum() > 0.999 * frame.loc[mapped, 'weight'].sum()
+    traded = uni.traded_prices()
+    apple = traded[traded['ticker'] == 'AAPL'].set_index('period_date')['price']
+    assert len(apple) == len(uni.snapshots()) and 200 < apple[pd.Timestamp('2025-12-31')] < 300

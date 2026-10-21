@@ -119,9 +119,9 @@
    "file": "iwv_2019-09-30.csv",
    "n_holdings": 2899,
    "n_equity": 2895,
-   "n_mapped": 2627,
-   "n_tickers": 2626,
-   "mapped_value_share": 0.977727,
+   "n_mapped": 2662,
+   "n_tickers": 2661,
+   "mapped_value_share": 0.989572,
    "equity_value_usd": 9599678384.44,
    "shared_tickers": [
     "RDUS"
@@ -137,9 +137,9 @@
    "file": "iwv_2019-12-31.csv",
    "n_holdings": 2896,
    "n_equity": 2892,
-   "n_mapped": 2633,
-   "n_tickers": 2632,
-   "mapped_value_share": 0.980666,
+   "n_mapped": 2666,
+   "n_tickers": 2665,
+   "mapped_value_share": 0.990493,
    "equity_value_usd": 10145277035.77,
    "shared_tickers": [
     "RDUS"
@@ -155,9 +155,9 @@
    "file": "iwv_2020-03-31.csv",
    "n_holdings": 2885,
    "n_equity": 2880,
-   "n_mapped": 2633,
-   "n_tickers": 2632,
-   "mapped_value_share": 0.98458,
+   "n_mapped": 2662,
+   "n_tickers": 2661,
+   "mapped_value_share": 0.991427,
    "equity_value_usd": 8201134434.74,
    "shared_tickers": [
     "RDUS"
@@ -173,9 +173,9 @@
    "file": "iwv_2020-06-30.csv",
    "n_holdings": 2812,
    "n_equity": 2806,
-   "n_mapped": 2599,
-   "n_tickers": 2598,
-   "mapped_value_share": 0.991152,
+   "n_mapped": 2626,
+   "n_tickers": 2625,
+   "mapped_value_share": 0.993818,
    "equity_value_usd": 9316976291.54,
    "shared_tickers": [
     "RDUS"
@@ -191,9 +191,9 @@
    "file": "iwv_2020-09-30.csv",
    "n_holdings": 2850,
    "n_equity": 2842,
-   "n_mapped": 2636,
-   "n_tickers": 2635,
-   "mapped_value_share": 0.991603,
+   "n_mapped": 2660,
+   "n_tickers": 2659,
+   "mapped_value_share": 0.994124,
    "equity_value_usd": 9465973055.48,
    "shared_tickers": [
     "RDUS"
@@ -209,9 +209,9 @@
    "file": "iwv_2020-12-31.csv",
    "n_holdings": 2867,
    "n_equity": 2859,
-   "n_mapped": 2652,
-   "n_tickers": 2651,
-   "mapped_value_share": 0.991552,
+   "n_mapped": 2676,
+   "n_tickers": 2675,
+   "mapped_value_share": 0.994255,
    "equity_value_usd": 10583972709.15,
    "shared_tickers": [
     "RDUS"
@@ -227,9 +227,9 @@
    "file": "iwv_2021-03-31.csv",
    "n_holdings": 2889,
    "n_equity": 2881,
-   "n_mapped": 2678,
-   "n_tickers": 2677,
-   "mapped_value_share": 0.991377,
+   "n_mapped": 2698,
+   "n_tickers": 2697,
+   "mapped_value_share": 0.9942,
    "equity_value_usd": 10936900078.46,
    "shared_tickers": [
     "RDUS"
@@ -245,9 +245,9 @@
    "file": "iwv_2021-06-30.csv",
    "n_holdings": 2694,
    "n_equity": 2684,
-   "n_mapped": 2527,
-   "n_tickers": 2526,
-   "mapped_value_share": 0.991615,
+   "n_mapped": 2547,
+   "n_tickers": 2546,
+   "mapped_value_share": 0.994519,
    "equity_value_usd": 11879301378.13,
    "shared_tickers": [
     "RDUS"
@@ -263,9 +263,9 @@
    "file": "iwv_2021-09-30.csv",
    "n_holdings": 2712,
    "n_equity": 2703,
-   "n_mapped": 2552,
-   "n_tickers": 2551,
-   "mapped_value_share": 0.992398,
+   "n_mapped": 2571,
+   "n_tickers": 2570,
+   "mapped_value_share": 0.994994,
    "equity_value_usd": 11675272215.16,
    "shared_tickers": [
     "RDUS"
@@ -281,9 +281,9 @@
    "file": "iwv_2021-12-31.csv",
    "n_holdings": 2752,
    "n_equity": 2744,
-   "n_mapped": 2599,
-   "n_tickers": 2598,
-   "mapped_value_share": 0.993345,
+   "n_mapped": 2616,
+   "n_tickers": 2615,
+   "mapped_value_share": 0.995822,
    "equity_value_usd": 13003128211.54,
    "shared_tickers": [
     "RDUS"
@@ -299,9 +299,9 @@
    "file": "iwv_2022-03-31.csv",
    "n_holdings": 2767,
    "n_equity": 2757,
-   "n_mapped": 2621,
-   "n_tickers": 2620,
-   "mapped_value_share": 0.994085,
+   "n_mapped": 2634,
+   "n_tickers": 2633,
+   "mapped_value_share": 0.995939,
    "equity_value_usd": 11990431102.05,
    "shared_tickers": [
     "RDUS"
@@ -317,9 +317,9 @@
    "file": "iwv_2022-06-30.csv",
    "n_holdings": 2698,
    "n_equity": 2689,
-   "n_mapped": 2610,
-   "n_tickers": 2609,
-   "mapped_value_share": 0.995152,
+   "n_mapped": 2622,
+   "n_tickers": 2621,
+   "mapped_value_share": 0.996846,
    "equity_value_usd": 9926717203.42,
    "shared_tickers": [
     "RDUS"
@@ -335,9 +335,9 @@
    "file": "iwv_2022-09-30.csv",
    "n_holdings": 2588,
    "n_equity": 2581,
-   "n_mapped": 2546,
-   "n_tickers": 2546,
-   "mapped_value_share": 0.996966,
+   "n_mapped": 2552,
+   "n_tickers": 2552,
+   "mapped_value_share": 0.997947,
    "equity_value_usd": 9424124096.08
   },
   {
@@ -350,9 +350,9 @@
    "file": "iwv_2022-12-30.csv",
    "n_holdings": 2610,
    "n_equity": 2603,
-   "n_mapped": 2569,
-   "n_tickers": 2568,
-   "mapped_value_share": 0.997602,
+   "n_mapped": 2575,
+   "n_tickers": 2574,
+   "mapped_value_share": 0.998582,
    "equity_value_usd": 10804449940.0,
    "shared_tickers": [
     "STR"
@@ -368,9 +368,9 @@
    "file": "iwv_2023-03-31.csv",
    "n_holdings": 2631,
    "n_equity": 2624,
-   "n_mapped": 2592,
-   "n_tickers": 2592,
-   "mapped_value_share": 0.997623,
+   "n_mapped": 2598,
+   "n_tickers": 2598,
+   "mapped_value_share": 0.998602,
    "equity_value_usd": 10701958845.92
   },
   {
@@ -383,9 +383,9 @@
    "file": "iwv_2023-06-30.csv",
    "n_holdings": 2691,
    "n_equity": 2684,
-   "n_mapped": 2651,
-   "n_tickers": 2651,
-   "mapped_value_share": 0.997881,
+   "n_mapped": 2657,
+   "n_tickers": 2657,
+   "mapped_value_share": 0.998804,
    "equity_value_usd": 11520928818.18
   },
   {
@@ -398,9 +398,9 @@
    "file": "iwv_2023-09-30.csv",
    "n_holdings": 2703,
    "n_equity": 2696,
-   "n_mapped": 2666,
-   "n_tickers": 2666,
-   "mapped_value_share": 0.998811,
+   "n_mapped": 2670,
+   "n_tickers": 2670,
+   "mapped_value_share": 0.9993,
    "equity_value_usd": 10993845187.6
   },
   {
@@ -413,9 +413,9 @@
    "file": "iwv_2023-12-31.csv",
    "n_holdings": 2708,
    "n_equity": 2700,
-   "n_mapped": 2671,
-   "n_tickers": 2671,
-   "mapped_value_share": 0.998859,
+   "n_mapped": 2675,
+   "n_tickers": 2675,
+   "mapped_value_share": 0.999333,
    "equity_value_usd": 12472010404.79
   },
   {
@@ -428,9 +428,9 @@
    "file": "iwv_2024-03-31.csv",
    "n_holdings": 2697,
    "n_equity": 2690,
-   "n_mapped": 2664,
-   "n_tickers": 2664,
-   "mapped_value_share": 0.999069,
+   "n_mapped": 2668,
+   "n_tickers": 2668,
+   "mapped_value_share": 0.999496,
    "equity_value_usd": 13623964931.75
   },
   {
@@ -443,9 +443,9 @@
    "file": "iwv_2024-06-30.csv",
    "n_holdings": 2684,
    "n_equity": 2676,
-   "n_mapped": 2651,
-   "n_tickers": 2651,
-   "mapped_value_share": 0.999509,
+   "n_mapped": 2654,
+   "n_tickers": 2654,
+   "mapped_value_share": 0.99956,
    "equity_value_usd": 14226574228.37
   },
   {
@@ -458,9 +458,9 @@
    "file": "iwv_2024-09-30.csv",
    "n_holdings": 2686,
    "n_equity": 2679,
-   "n_mapped": 2656,
-   "n_tickers": 2656,
-   "mapped_value_share": 0.999501,
+   "n_mapped": 2660,
+   "n_tickers": 2660,
+   "mapped_value_share": 0.999572,
    "equity_value_usd": 14923834808.63
   },
   {
@@ -473,9 +473,9 @@
    "file": "iwv_2024-12-31.csv",
    "n_holdings": 2689,
    "n_equity": 2683,
-   "n_mapped": 2661,
-   "n_tickers": 2661,
-   "mapped_value_share": 0.999601,
+   "n_mapped": 2665,
+   "n_tickers": 2665,
+   "mapped_value_share": 0.999688,
    "equity_value_usd": 15608180558.2
   },
   {
@@ -488,9 +488,9 @@
    "file": "iwv_2025-03-31.csv",
    "n_holdings": 2676,
    "n_equity": 2670,
-   "n_mapped": 2651,
-   "n_tickers": 2651,
-   "mapped_value_share": 0.999627,
+   "n_mapped": 2655,
+   "n_tickers": 2655,
+   "mapped_value_share": 0.999718,
    "equity_value_usd": 14400268519.92
   },
   {
@@ -503,9 +503,9 @@
    "file": "iwv_2025-06-30.csv",
    "n_holdings": 2679,
    "n_equity": 2672,
-   "n_mapped": 2654,
-   "n_tickers": 2654,
-   "mapped_value_share": 0.999645,
+   "n_mapped": 2658,
+   "n_tickers": 2658,
+   "mapped_value_share": 0.999743,
    "equity_value_usd": 15819753865.33
   },
   {
@@ -518,9 +518,9 @@
    "file": "iwv_2025-09-30.csv",
    "n_holdings": 2589,
    "n_equity": 2583,
-   "n_mapped": 2569,
-   "n_tickers": 2569,
-   "mapped_value_share": 0.99976,
+   "n_mapped": 2573,
+   "n_tickers": 2573,
+   "mapped_value_share": 0.999866,
    "equity_value_usd": 17090462546.42
   },
   {
@@ -533,9 +533,9 @@
    "file": "iwv_2025-12-31.csv",
    "n_holdings": 2602,
    "n_equity": 2596,
-   "n_mapped": 2587,
-   "n_tickers": 2587,
-   "mapped_value_share": 0.999864,
+   "n_mapped": 2589,
+   "n_tickers": 2589,
+   "mapped_value_share": 0.999871,
    "equity_value_usd": 18263711018.89
   }
  ]

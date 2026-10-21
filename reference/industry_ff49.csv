@@ -107,7 +107,6 @@ AGCO,880266,3523,21,Mach,XLI,operating
 AGEN,1098972,2836,13,Drugs,XLV,operating
 AGIO,1439222,2834,13,Drugs,XLV,operating
 AGL,1831097,8090,11,Hlth,XLV,operating
-AGLE,,,,,,
 AGM,845877,6111,45,Banks,XLF,operating
 AGNC,1423689,6798,48,Fin,XLRE,operating
 AGNT,1495932,6531,47,RlEst,XLRE,operating
@@ -364,7 +363,6 @@ ATRO,8063,3728,24,Aero,XLI,operating
 ATRS,,,,,,
 ATSG,,,,,,
 ATTO,2058707,2836,13,Drugs,XLV,operating
-ATU,,,,,,
 ATVI,,,,,,
 ATXS,,,,,,
 ATYR,1339970,2836,13,Drugs,XLV,operating
@@ -398,7 +396,6 @@ AVO,1802974,700,1,Agric,XLP,operating
 AVPT,1777921,7372,36,Softw,XLK,operating
 AVR,2011514,3842,12,MedEq,XLV,operating
 AVT,8858,5065,42,Whlsl,XLI,operating
-AVTE,,,,,,
 AVTR,1722482,3826,38,LabEq,XLV,operating
 AVTX,1534120,2834,13,Drugs,XLV,operating
 AVXL,1314052,2836,13,Drugs,XLV,operating
@@ -497,7 +494,6 @@ BFS,907254,6798,48,Fin,XLRE,operating
 BFST,1624322,6022,45,Banks,XLF,operating
 BG,1996862,2070,2,Food,XLP,operating
 BGC,1094831,6200,48,Fin,XLF,operating
-BGCP,,,,,,
 BGFV,,,,,,
 BGG,,,,,,
 BGR,1306550,,,,,other
@@ -736,7 +732,6 @@ CCS,1576940,1531,18,Cnstr,XLY,operating
 CCSI,1866633,7372,36,Softw,XLK,operating
 CCZ,1166691,4841,32,Telcm,XLC,operating
 CDE,215466,1040,27,Gold,XLB,operating
-CDEV,,,,,,
 CDK,,,,,,
 CDLX,1666071,7370,36,Softw,XLC,operating
 CDMO,,,,,,
@@ -753,7 +748,6 @@ CDZI,727273,4941,31,Util,XLU,operating
 CE,1306830,2820,14,Chems,XLB,operating
 CECO,3197,3564,21,Mach,XLI,operating
 CEG,1868275,4911,31,Util,XLU,operating
-CEIX,,,,,,
 CELC,1603454,8071,11,Hlth,XLV,operating
 CELG,,,,,,
 CELH,1341766,2086,3,Soda,XLP,operating
@@ -837,7 +831,6 @@ CLGX,,,,,,
 CLH,822818,4955,49,Other,XLI,operating
 CLMB,945983,5045,42,Whlsl,XLI,operating
 CLMT,2013745,2911,30,Oil,XLE,operating
-CLNC,,,,,,
 CLNE,1368265,4932,31,Util,XLU,operating
 CLOV,1801170,6324,46,Insur,XLV,operating
 CLPR,1649096,6798,48,Fin,XLRE,operating
@@ -1003,7 +996,6 @@ CTEV,1793229,7389,34,BusSv,XLF,operating
 CTGO,1502377,1040,27,Gold,XLB,operating
 CTIC,,,,,,
 CTKB,1831915,3826,38,LabEq,XLV,operating
-CTL,,,,,,
 CTLP,,,,,,
 CTLT,,,,,,
 CTMX,1501989,2834,13,Drugs,XLV,operating
@@ -1181,7 +1173,6 @@ DRE,,,,,,
 DRH,1298946,6798,48,Fin,XLRE,operating
 DRI,940944,5812,44,Meals,XLY,operating
 DRNA,,,,,,
-DRQ,,,,,,
 DRRX,,,,,,
 DRS,1833756,3812,37,Chips,XLK,operating
 DRUG,1827401,2834,13,Drugs,XLV,other
@@ -1320,9 +1311,7 @@ EQIX,1101239,6798,48,Fin,XLRE,operating
 EQPT,1693736,7359,34,BusSv,XLI,operating
 EQRX,,,,,,
 EQT,33213,1311,30,Oil,XLE,operating
-ERA,,,,,,
 ERAS,1761918,2834,13,Drugs,XLV,operating
-ERI,,,,,,
 ERIE,922621,6411,46,Insur,XLF,operating
 ERII,1421517,3559,21,Mach,XLI,operating
 EROS,,,,,,
@@ -1487,7 +1476,6 @@ FLO,1128928,2000,2,Food,XLP,operating
 FLOC,2035149,3533,21,Mach,XLI,operating
 FLR,1124198,1600,18,Cnstr,XLI,operating
 FLS,30625,3561,21,Mach,XLI,operating
-FLT,,,,,,
 FLUT,1635327,7370,36,Softw,XLC,operating
 FLWS,1084869,5990,43,Rtail,XLY,operating
 FLXS,37472,2510,9,Hshld,XLP,operating
@@ -1627,7 +1615,6 @@ GCTS,1851961,3674,37,Chips,XLK,operating
 GD,40533,3730,25,Ships,XLI,operating
 GDDY,1609711,7373,36,Softw,XLK,operating
 GDEN,,,,,,
-GDI,,,,,,
 GDOT,1386278,6199,45,Banks,XLF,operating
 GDRX,1809519,7374,34,BusSv,XLI,operating
 GDV,1260729,,,,,other
@@ -1801,14 +1788,12 @@ HEI-A,46619,3724,24,Aero,XLI,operating
 HELE,916789,3634,9,Hshld,XLP,operating
 HES,,,,,,
 HESM,1789832,1311,30,Oil,XLE,operating
-HFC,,,,,,
 HFFG,1680873,5140,42,Whlsl,XLP,operating
 HFWA,1046025,6036,45,Banks,XLF,operating
 HG,1593275,6331,46,Insur,XLF,operating
 HGEN,,,,,,
 HGTY,1840776,6411,46,Insur,XLF,operating
 HGV,1674168,7000,44,Meals,XLY,operating
-HHC,,,,,,
 HHH,1981792,6798,48,Fin,XLRE,operating
 HI,,,,,,
 HIBB,,,,,,
@@ -1916,7 +1901,6 @@ HZO,1057060,5531,43,Rtail,XLY,operating
 I,,,,,,
 IA,836690,7371,36,Softw,XLK,operating
 IAA,,,,,,
-IACI,,,,,,
 IAM,1997038,2836,13,Drugs,XLV,other
 IART,917520,3841,12,MedEq,XLV,operating
 IAS,,,,,,
@@ -2028,7 +2012,6 @@ IR,1699150,3560,21,Mach,XLI,operating
 IRBT,,,,,,
 IRD,1228627,2834,13,Drugs,XLV,operating
 IRDM,1418819,4899,32,Telcm,XLC,operating
-IRET,,,,,,
 IRLA,1662774,2836,13,Drugs,XLV,operating
 IRM,1020569,6798,48,Fin,XLRE,operating
 IRMD,1325618,3841,12,MedEq,XLV,operating
@@ -2593,7 +2576,6 @@ MYE,69488,3089,15,Rubbr,XLB,operating
 MYFW,1327607,6022,45,Banks,XLF,operating
 MYGN,899923,2835,13,Drugs,XLV,operating
 MYI,883412,,,,,other
-MYL,,,,,,
 MYOK,,,,,,
 MYPS,1823878,7372,36,Softw,XLK,operating
 MYRG,700923,1623,18,Cnstr,XLI,operating
@@ -2646,7 +2628,6 @@ NESR,1698514,1389,30,Oil,XLE,operating
 NET,1477333,7372,36,Softw,XLK,operating
 NETI,,,,,,
 NEU,1282637,2860,14,Chems,XLB,operating
-NEWM,,,,,,
 NEWR,,,,,,
 NEWT,1587987,6021,45,Banks,XLF,operating
 NEX,,,,,,
@@ -2670,7 +2651,6 @@ NIE,1383441,,,,,other
 NINEQ,,,,,,
 NIQ,2054696,7370,36,Softw,XLC,operating
 NJR,356309,4924,31,Util,XLU,operating
-NK,,,,,,
 NKE,320187,3021,10,Clths,XLY,operating
 NKLA,,,,,,
 NKSH,796534,6021,45,Banks,XLF,operating
@@ -2788,7 +2768,6 @@ OBX,2130606,2834,13,Drugs,XLV,operating
 OC,1370946,3290,17,BldMt,XLI,operating
 OCFC,1004702,6021,45,Banks,XLF,operating
 OCGN,1372299,2836,13,Drugs,XLV,operating
-OCN,,,,,,
 OCSL,1414932,,,,,operating
 OCTV,2083632,7372,36,Softw,XLK,operating
 OCUL,1393434,2834,13,Drugs,XLV,operating
@@ -3056,7 +3035,6 @@ PNT,,,,,,
 PNTG,1766400,8000,11,Hlth,XLV,operating
 PNW,764622,4911,31,Util,XLU,operating
 PODD,1145197,3841,12,MedEq,XLV,operating
-POL,,,,,,
 POOL,945841,5090,42,Whlsl,XLI,operating
 POR,784977,4911,31,Util,XLU,operating
 POSH,,,,,,
@@ -3073,7 +3051,6 @@ PPL,922224,4911,31,Util,XLU,operating
 PPLI,1800227,7370,36,Softw,XLC,operating
 PPT,827773,,,,,other
 PPTA,1526243,1040,27,Gold,XLB,operating
-PQG,,,,,,
 PR,1658566,1311,30,Oil,XLE,operating
 PRA,,,,,,
 PRAA,1185348,6153,45,Banks,XLF,operating
@@ -3096,7 +3073,6 @@ PRLD,1678660,2834,13,Drugs,XLV,operating
 PRM,1880319,2800,14,Chems,XLB,operating
 PRMB,2042694,2080,4,Beer,XLP,operating
 PRME,1894562,2836,13,Drugs,XLV,operating
-PRMW,,,,,,
 PRNB,,,,,,
 PRO,,,,,,
 PROK,1850270,2836,13,Drugs,XLV,operating
@@ -3161,7 +3137,6 @@ QCRH,906465,6022,45,Banks,XLF,operating
 QDEL,1906324,2835,13,Drugs,XLV,operating
 QEP,,,,,,
 QGEN,1015820,2836,13,Drugs,XLV,other
-QIA,,,,,,
 QLYS,1107843,7372,36,Softw,XLK,operating
 QMCO,709283,3572,35,Hardw,XLK,operating
 QNBC,750558,6022,45,Banks,XLF,operating
@@ -3222,6 +3197,7 @@ RDUS,,,,,,
 RDVT,1720116,7372,36,Softw,XLK,operating
 RDW,1819810,3760,26,Guns,XLI,operating
 REAL,1573221,5900,43,Rtail,XLY,operating
+REAX,2136387,6531,47,RlEst,XLRE,other
 REFI,1867949,6798,48,Fin,XLRE,operating
 REG,910606,6798,48,Fin,XLRE,operating
 REGI,,,,,,
@@ -3329,7 +3305,6 @@ RTEC,,,,,,
 RTIX,,,,,,
 RTL,,,,,,
 RTN,,,,,,
-RTRX,,,,,,
 RTX,101829,3724,24,Aero,XLI,operating
 RUM,1830081,7370,36,Softw,XLC,operating
 RUN,1469367,1700,18,Cnstr,XLI,operating
@@ -3482,6 +3457,7 @@ SIX,,,,,,
 SJI,,,,,,
 SJM,91419,2033,2,Food,XLP,operating
 SJT,319655,6792,48,Fin,XLF,operating
+SKIN,1818093,3841,12,MedEq,XLV,operating
 SKLZ,,,,,,
 SKT,899715,6798,48,Fin,XLRE,operating
 SKWD,1519449,6331,46,Insur,XLF,operating
@@ -3517,7 +3493,6 @@ SMBC,916907,6036,45,Banks,XLF,operating
 SMBK,1038773,6021,45,Banks,XLF,operating
 SMC,2024218,4922,31,Util,XLU,operating
 SMCI,1375365,3571,35,Hardw,XLK,operating
-SMFR,,,,,,
 SMG,825542,2870,14,Chems,XLB,operating
 SMHI,1690334,4412,41,Trans,XLI,operating
 SMMF,,,,,,
@@ -3541,7 +3516,6 @@ SNDR,1692063,4213,41,Trans,XLI,operating
 SNDX,1395937,2834,13,Drugs,XLV,operating
 SNEX,913760,6200,48,Fin,XLF,operating
 SNFCA,318673,6199,45,Banks,XLF,operating
-SNH,,,,,,
 SNOW,1640147,7372,36,Softw,XLK,operating
 SNPS,883241,7372,36,Softw,XLK,operating
 SNR,,,,,,
@@ -3553,7 +3527,6 @@ SOFI,1818874,6199,45,Banks,XLF,operating
 SOLS,2064953,2800,14,Chems,XLB,operating
 SOLV,1964738,3841,12,MedEq,XLV,operating
 SON,91767,2650,40,Boxes,XLB,operating
-SONA,,,,,,
 SOND,,,,,,
 SONO,1314727,3651,6,Toys,XLY,operating
 SOR,91847,,,,,other
@@ -3615,7 +3588,6 @@ SSYS,1517396,3577,35,Hardw,XLK,other
 ST,1477294,3823,38,LabEq,XLK,operating
 STAA,718937,3851,12,MedEq,XLV,operating
 STAG,1479094,6798,48,Fin,XLRE,operating
-STAR,,,,,,
 STAY,,,,,,
 STBA,719220,6022,45,Banks,XLF,operating
 STC,94344,6361,46,Insur,XLF,operating
@@ -3683,11 +3655,9 @@ SYBT,835324,6022,45,Banks,XLF,operating
 SYF,1601712,6199,45,Banks,XLF,operating
 SYK,310764,3841,12,MedEq,XLV,operating
 SYM,1837240,3569,21,Mach,XLI,operating
-SYMC,,,,,,
 SYNA,817720,3674,37,Chips,XLK,operating
 SYRE,1636282,2834,13,Drugs,XLV,operating
 SYRS,,,,,,
-SYX,,,,,,
 SYY,96021,5140,42,Whlsl,XLP,operating
 T,732717,4813,32,Telcm,XLC,operating
 TA,,,,,,
@@ -3810,7 +3780,6 @@ TPIC,,,,,,
 TPIVD,,,,,,
 TPL,1811074,6792,48,Fin,XLF,operating
 TPR,1116132,3100,10,Clths,XLY,operating
-TPRE,,,,,,
 TPVG,1580345,,,,,operating
 TR,98677,2060,2,Food,XLP,operating
 TRAX,2091349,2834,13,Drugs,XLV,operating
@@ -3847,13 +3816,11 @@ TRXC,,,,,,
 TSAT,1845840,4899,32,Telcm,XLC,other
 TSBK,1046050,6036,45,Banks,XLF,operating
 TSCO,916365,5200,43,Rtail,XLY,operating
-TSE,,,,,,
 TSEOQ,1519061,2821,14,Chems,XLB,operating
 TSHA,1806310,2836,13,Drugs,XLV,operating
 TSLA,1318605,3711,23,Autos,XLY,operating
 TSN,100493,2015,2,Food,XLP,operating
 TSPH,1823593,7373,36,Softw,XLK,operating
-TSRA,,,,,,
 TSSI,1320760,8742,34,BusSv,XLI,operating
 TSVT,,,,,,
 TT,1466258,3822,38,LabEq,XLK,operating
@@ -4193,11 +4160,9 @@ WULF,1083301,6199,45,Banks,XLF,operating
 WVE,1631574,2834,13,Drugs,XLV,operating
 WW,105319,7200,33,PerSv,XLY,operating
 WWD,108312,3620,22,ElcEq,XLI,operating
-WWE,,,,,,
 WWW,110471,3140,10,Clths,XLY,operating
 WY,106535,6798,48,Fin,XLRE,operating
 WYFI,2042022,6199,45,Banks,XLF,operating
-WYN,,,,,,
 WYNN,1174922,7011,44,Meals,XLY,operating
 X,,,,,,
 XBIT,1626878,2834,13,Drugs,XLV,operating
@@ -4217,7 +4182,6 @@ XMAX,1473334,2510,9,Hshld,XLP,operating
 XMTR,1657573,7389,34,BusSv,XLF,operating
 XNCR,1326732,2834,13,Drugs,XLV,operating
 XOM,2115436,2911,30,Oil,XLE,operating
-XON,,,,,,
 XP,1787425,6211,48,Fin,XLF,other
 XPEL,1767258,3470,20,FabPr,XLI,operating
 XPER,1788999,7372,36,Softw,XLK,operating

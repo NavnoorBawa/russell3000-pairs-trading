@@ -6,7 +6,8 @@ listing-venue maps, read from the committed reference files:
 
 - reference/universe/index.json + iwv_<period>.csv: the iShares Russell 3000 ETF (IWV)
   holdings in each quarterly SEC N-PORT filing, CUSIP -> ticker via OpenFIGI and N-PORT's
-  own reported tickers (scripts/build_pit_universe.py);
+  own reported tickers, with each holding's weight and price on the period date
+  (scripts/build_pit_universe.py);
 - reference/industry_ff49.csv: SIC from EDGAR -> Fama-French 49 industry -> Select
   Sector SPDR (scripts/build_reference_data.py);
 - reference/listing_venue.csv: primary listing venue from Nasdaq Trader's symbol
@@ -128,6 +129,23 @@ class PITUniverse:
     def members_asof(self, date: DateLike) -> List[str]:
         """Sorted tickers of the index members on `date` (latest snapshot with period date <= date)."""
         return list(self.weights_asof(date).index)
+
+    def traded_prices(self) -> pd.DataFrame:
+        """N-PORT's value per share of each mapped member on each snapshot's period date, the
+        price it traded at that day (the snapshot's 'price' column): columns period_date,
+        ticker, price. A ticker two holdings of one snapshot share, and a holding without a
+        share count, have no row for that snapshot; a snapshot written without prices adds none."""
+        rows = []
+        for entry in self._snapshots():
+            frame = _read_snapshot(str(self.universe_dir / entry['file']))
+            if 'price' not in frame.columns:
+                continue
+            frame = frame[frame['ticker'] != '']
+            price = pd.to_numeric(frame['price'], errors='coerce')
+            keep = frame['ticker'].map(frame['ticker'].value_counts()).eq(1) & price.gt(0)
+            when = pd.Timestamp(entry['period_date'])
+            rows.extend((when, t, float(v)) for t, v in zip(frame.loc[keep, 'ticker'], price[keep]))
+        return pd.DataFrame(rows, columns=['period_date', 'ticker', 'price'])
 
     def coverage(self, symbols_with_prices: Iterable[str], date: DateLike) -> Dict:
         """How much of the membership on `date` a price universe covers.
