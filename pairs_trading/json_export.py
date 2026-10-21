@@ -64,6 +64,10 @@ PROVENANCE_ENV_VARS = (
     'PAIRS_UNSEAL', 'PAIRS_EXPECTED_COMMIT',
 )
 
+# The export's model name and description when its run_config records no study profile (the
+# v32 run, the tests); a run that records one is described from it (strategy_metadata).
+MODEL_NAME = 'Cointegration / Kalman-filter pairs strategy (transformer used only as an entry ranker)'
+
 STRATEGY_DESCRIPTION = (
     'Cointegration / Kalman-filter pairs trading: Engle-Granger pair selection with '
     're-selection every 90 trading days, a two-state Kalman hedge ratio locked at entry, z-score '
@@ -73,6 +77,46 @@ STRATEGY_DESCRIPTION = (
     'PAIRS_USE_TRANSFORMER=0 run is the ablation). This is '
     'not a transformer trading model and not reinforcement learning.'
 )
+
+_NOT_ML = 'This is not a transformer trading model and not reinforcement learning.'
+
+
+def strategy_metadata(run_config: Optional[Dict]) -> tuple:
+    """(model_name, strategy_description) of the export, from the study profile and the
+    effective switches its run_config records; the v32 text when it records no profile.
+
+    v33: every export carried the v32 description (re-selection every 90 trading days, a
+    transformer ranker) whatever the profile, so the v33 development export described a
+    design it did not run.
+    """
+    rc = run_config or {}
+    profile = (rc.get('study') or {}).get('profile') or {}
+    if not profile:
+        return MODEL_NAME, STRATEGY_DESCRIPTION
+    effective = rc.get('effective') or {}
+    ranker = effective.get('ranker', profile.get('ranker'))
+    reselect = effective.get('reselect', profile.get('reselect'))
+    every = profile.get('reselect_every')
+    universe = {'pit_iwv': 'point-in-time Russell 3000 members (IWV N-PORT holdings)',
+                'marketcap': 'the largest US common stocks by market capitalisation'}.get(profile.get('universe'),
+                                                                                           str(profile.get('universe')))
+    pairs = 'same-industry pairs' if profile.get('same_industry') else 'pairs'
+    selection = (f'a full re-selection every {every} trading days' if reselect == 'full'
+                 else f'the initial pool re-tested every {every} trading days')
+    learned = ranker not in (None, 'none')
+    ranking = (f'A learned scorer ({ranker}) only RANKS candidate entries; its out-of-sample AUC is reported '
+               'in the ranker section.' if learned else
+               'Same-day candidate entries are ranked by signal strength times pair quality; no learned '
+               'model is used.')
+    description = (f'Cointegration / Kalman-filter pairs trading (study profile {profile.get("name")}): '
+                   f'Engle-Granger selection of {pairs} among the {profile.get("max_universe")} most liquid of '
+                   f'{universe}, with {selection}, a two-state Kalman hedge ratio locked at entry, z-score '
+                   'mean-reversion entries and exits, t+1 fills and daily mark-to-market accounting. '
+                   f'{ranking} {_NOT_ML}')
+    name = (f'Cointegration / Kalman-filter pairs strategy (profile {profile.get("name")}'
+            + (f', {ranker} used only as an entry ranker' if learned else ', no learned ranker') + ')')
+    return name, description
+
 
 # Units of the exported fields, embedded in the file so a reader does not have to guess.
 FIELD_NOTES = {
@@ -613,6 +657,7 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
     results = _as_dict(backtest_results)
     info = _as_dict(system_info)
     run_config = _run_config_for(results, info)
+    model_name, description = strategy_metadata(run_config)
     trades = results.get('trades') or []
     daily_returns = results.get('daily_returns') or []
     daily_dates = results.get('daily_dates') or []
@@ -651,8 +696,8 @@ def export_testing_results_to_json(backtest_results: Dict, system_info: Dict,
             'backtest_period': {'start': period_start, 'end': period_end},
             # kept for older consumers; now derived from the data rather than hard-coded
             'testing_period': f'{period_start} to {period_end}' if period_start else None,
-            'model_name': 'Cointegration / Kalman-filter pairs strategy (transformer used only as an entry ranker)',
-            'strategy_description': STRATEGY_DESCRIPTION,
+            'model_name': model_name,
+            'strategy_description': description,
             'initial_capital': _r(initial_capital, 2),
             'total_symbols': _int(info.get('total_symbols_processed')),
             'pairs_selected': _int(info.get('pairs_selected')),

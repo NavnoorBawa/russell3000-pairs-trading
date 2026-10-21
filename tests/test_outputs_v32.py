@@ -275,6 +275,22 @@ def test_export_metadata_is_honest(tmp_path, fixed_config):
     assert 'oos_daily_returns' not in data['walk_forward_validation']
 
 
+def test_export_metadata_describes_the_recorded_profile():
+    """An export describes the design its run_config records (v33: no learned ranker, a full
+    re-selection every 126 days), not v32's text; without a profile it keeps v32's."""
+    from pairs_trading.study_config import PROFILES
+    import dataclasses
+    rc = {'study': {'profile': dataclasses.asdict(PROFILES['v33'])}, 'effective': {'ranker': 'none', 'reselect': 'full'}}
+    name, desc = je.strategy_metadata(rc)
+    assert 'profile v33' in name and 'no learned ranker' in name and 'transformer' not in name
+    assert 'full re-selection every 126 trading days' in desc and 'same-industry pairs' in desc
+    assert 'no learned model' in desc and 'not a transformer trading model' in desc and '90 trading days' not in desc
+    rc32 = {'study': {'profile': dataclasses.asdict(PROFILES['v32'])}, 'effective': {'ranker': 'transformer', 'reselect': 'pool'}}
+    name, desc = je.strategy_metadata(rc32)
+    assert 'transformer used only as an entry ranker' in name and 'pool re-tested every 90 trading days' in desc
+    assert je.strategy_metadata({}) == (je.MODEL_NAME, je.STRATEGY_DESCRIPTION)
+
+
 def test_export_trade_records_are_complete_and_honestly_labelled(tmp_path, fixed_config):
     res = _results()
     res['run_config'] = fixed_config

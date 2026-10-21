@@ -96,8 +96,9 @@ PROFILES = {
         # Point-in-time membership: no look-ahead inclusion of names that only later grew
         # into the index, no closed-end funds or BDCs, no domicile filter error.
         universe='pit_iwv',
-        # The ~500 largest/most liquid names, the universe of Avellaneda & Lee (2010) and
-        # Li & Papanicolaou (2024); same-industry pairs keep the test count below v32's.
+        # The 500 most liquid names: a size at which both strategy families (these pairs and
+        # the residual arm S2) trade the same liquid names; same-industry pairs keep the test
+        # count below v32's.
         max_universe=500,
         # Do & Faff (2010): pairs from the same refined industry are the economically
         # motivated ones; the restriction cuts the multiple-testing family ~10x.

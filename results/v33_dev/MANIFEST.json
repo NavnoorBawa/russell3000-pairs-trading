@@ -24,6 +24,10 @@
    "bytes": 362639,
    "sha256": "455c250627f99e7e23877b89c77c0b76aa4039a256581078e0189df446b595f0"
   },
+  "price_fetch_manifest.json": {
+   "bytes": 93967,
+   "sha256": "b00c6c31d28daee14f46797c3bc3e9f2239c1120e9fdf31bdece2fa94c3d4fd8"
+  },
   "run.log": {
    "bytes": 95108,
    "sha256": "95b5b7a7bbcb8576b464781b008072e2680a258399cabe3c6b14f454c9b16d00"
