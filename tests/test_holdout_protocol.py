@@ -404,6 +404,7 @@ def test_the_runbook_records_a_crash_resumes_and_runs_once(frozen_repo):
     ('crash_fix_records', 'may not change'),
     ('crash_fix_pins', 'may not change'),
     ('crash_fix_reference', 'may not change'),
+    ('crash_fix_gitignore', 'may not change'),
     ('input', 'differs from reference/holdout_inputs.sha256'),
 ])
 def test_the_runbook_refuses_before_any_data_step(frozen_repo, change, needle):
@@ -415,7 +416,8 @@ def test_the_runbook_refuses_before_any_data_step(frozen_repo, change, needle):
         # a crash fix may change the engine, never these (NEVER_FIXED)
         target = {'code': 'scripts/publish_run.py', 'crash_fix_decision': 'scripts/evaluate_holdout.py',
                   'crash_fix_runbook': 'scripts/run_holdout.sh', 'crash_fix_records': 'scripts/register_trial.py',
-                  'crash_fix_pins': 'requirements.txt', 'crash_fix_reference': 'reference/README'}[change]
+                  'crash_fix_pins': 'requirements.txt', 'crash_fix_reference': 'reference/README',
+                  'crash_fix_gitignore': '.gitignore'}[change]
         with open(repo / target, 'a') as f:
             f.write('# changed\n')
         _git(repo, 'commit', '-qam', 'change')

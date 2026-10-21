@@ -30,12 +30,12 @@ for v in $(compgen -e); do case $v in PAIRS_*) unset "$v";; esac; done
 export PYTHONHASHSEED=0
 PY=${PYTHON:?set PYTHON to the interpreter of the environment pinned in requirements.txt}
 
-FROZEN="pairs_trading scripts reference docs/PREREGISTRATION.md requirements.txt pyproject.toml"
+FROZEN="pairs_trading scripts reference docs/PREREGISTRATION.md requirements.txt pyproject.toml .gitignore"
 # A crash fix may change the engine, never the design and decision rule, the runbook and its
 # records, the pinned environment or the reference data (membership, maps, pinned inputs).
 NEVER_FIXED="docs/PREREGISTRATION.md pairs_trading/study_config.py pairs_trading/significance.py scripts/evaluate_holdout.py
 scripts/run_holdout.sh scripts/trial_attempts.py scripts/register_trial.py scripts/check_pins.py
-requirements.txt pyproject.toml reference"
+requirements.txt pyproject.toml reference .gitignore"
 HEAD_COMMIT=$(git rev-parse HEAD)
 PREREG_COMMIT=""
 NOTE=""
