@@ -1,0 +1,5729 @@
+{
+  "schema": 1,
+  "run": {
+    "commit": "744270556ba6d688e95bee8d7d88608c7c656c55",
+    "timestamp_utc": "2026-10-21T06:19:29+00:00",
+    "profile": "v33",
+    "calendar": "dev",
+    "period": [
+      "2023-07-03",
+      "2025-12-31"
+    ],
+    "trades": 213,
+    "capital": 100000000.0
+  },
+  "reconstruction": {
+    "trades": {
+      "trades": 213,
+      "max_abs_error_usd": 0.017028415662935004,
+      "sum_error_usd": -0.010656325380296039,
+      "tolerance_usd": 0.05,
+      "trades_outside_tolerance": 0,
+      "verified": true
+    },
+    "daily": {
+      "source": "export",
+      "max_abs_diff_reconstructed_vs_exported_gross_pct": 4.99517020205887e-07,
+      "verified": true
+    },
+    "impact": {
+      "max_abs_error_usd": 0.00499262399307554,
+      "trades_outside_tolerance": 0,
+      "verified": true
+    },
+    "fill": "Close"
+  },
+  "gross_vs_net": {
+    "trades": 213,
+    "per_trade": {
+      "gross_bp": {
+        "n": 213,
+        "mean": -7.868950085033682,
+        "median": -1.9385112327310403,
+        "sd": 452.84181664378275,
+        "t": -0.25360631768458863
+      },
+      "cost_bp": {
+        "n": 213,
+        "mean": 16.131756196472903,
+        "median": 14.555023956268446,
+        "sd": 8.594750698601079,
+        "t": 27.39290980583757
+      },
+      "net_bp": {
+        "n": 213,
+        "mean": -24.000706281506584,
+        "median": -14.80153315239772,
+        "sd": 452.5662899370747,
+        "t": -0.773983356895122
+      },
+      "gross_win_rate": 0.49295774647887325,
+      "net_win_rate": 0.4788732394366197,
+      "notional_weighted_gross_bp": 13.49230196283077,
+      "notional_weighted_cost_bp": 16.9297620126671
+    },
+    "totals": {
+      "gross_usd": 1520094.2,
+      "cost_usd": 1907371.56,
+      "net_usd": -387277.36,
+      "gross_to_cost_ratio": 0.7969575681415738,
+      "breakeven_cost_multiple": 0.7969575681415738
+    },
+    "cost_mix": [
+      {
+        "component": "bid_ask",
+        "usd": 432376.14,
+        "share": 0.22668689680997445,
+        "bp_of_notional": 3.837755214382893,
+        "mean_bp_per_trade": 3.7856172245502915
+      },
+      {
+        "component": "market_impact",
+        "usd": 1286055.17,
+        "share": 0.6742551881186694,
+        "bp_of_notional": 11.41497987065516,
+        "mean_bp_per_trade": 10.64615802876668
+      },
+      {
+        "component": "commission",
+        "usd": 58243.880000000005,
+        "share": 0.030536200298593108,
+        "bp_of_notional": 0.5169706038263154,
+        "mean_bp_per_trade": 0.5152774859086641
+      },
+      {
+        "component": "borrow",
+        "usd": 130696.37000000001,
+        "share": 0.068521714772763,
+        "bp_of_notional": 1.1600563238027333,
+        "mean_bp_per_trade": 1.1847034572472677
+      },
+      {
+        "component": "financing",
+        "usd": 0.0,
+        "share": 0.0,
+        "bp_of_notional": 0.0,
+        "mean_bp_per_trade": 0.0
+      }
+    ],
+    "daily_source": "export",
+    "cost_curve": [
+      {
+        "k": 0.0,
+        "sharpe": 0.2940971935277607,
+        "total_return_pct": 1.529718979586936,
+        "hac_t": 0.4604726955451827,
+        "hac_p": 0.6451769657148769,
+        "trade_net_usd": 1520094.2
+      },
+      {
+        "k": 0.5,
+        "sharpe": 0.11625447432521166,
+        "total_return_pct": 0.5666771863758191,
+        "hac_t": 0.18222245634893075,
+        "hac_p": 0.8554081504043272,
+        "trade_net_usd": 566408.4199999999
+      },
+      {
+        "k": 1.0,
+        "sharpe": -0.061762347930563406,
+        "total_return_pct": -0.3872765057887584,
+        "hac_t": -0.0969026001869619,
+        "hac_p": 0.92280374387681,
+        "trade_net_usd": -387277.3600000001
+      },
+      {
+        "k": 1.5,
+        "sharpe": -0.23980287730381408,
+        "total_return_pct": -1.3322274220590624,
+        "hac_t": -0.37655158300848196,
+        "hac_p": 0.7065068746645689,
+        "trade_net_usd": -1340963.14
+      },
+      {
+        "k": 2.0,
+        "sharpe": -0.4177165535532579,
+        "total_return_pct": -2.2682600905915673,
+        "hac_t": -0.6563694652925119,
+        "hac_p": 0.5115864320937915,
+        "trade_net_usd": -2294648.92
+      }
+    ],
+    "sharpe_breakeven_multiple": 0.826555706635779,
+    "borrow_stress": {
+      "modelled_rate_median": 0.0038000029239088355,
+      "scenarios": [
+        {
+          "rate": 0.01,
+          "borrow_usd": 343937.6692216438,
+          "net_usd": -600518.6592216438,
+          "net_bp_per_trade": -25.93364201684444,
+          "sharpe": -0.10161096826693557,
+          "total_return_pct": -0.5994832674596884
+        },
+        {
+          "rate": 0.03,
+          "borrow_usd": 1031813.0076649315,
+          "net_usd": -1288393.9976649315,
+          "net_bp_per_trade": -32.16892040201471,
+          "sharpe": -0.23016401571623865,
+          "total_return_pct": -1.2809715133636046
+        }
+      ]
+    },
+    "impact_sensitivity": {
+      "model_coefficient": 0.3,
+      "cap_bps": 50.0,
+      "method": "repriced per execution",
+      "scenarios": [
+        {
+          "coefficient": 0.3,
+          "impact_usd": 1286055.17,
+          "net_usd": -387277.36,
+          "net_bp_per_trade": -24.000706281506567,
+          "capped_executions": 1,
+          "sharpe": -0.061762347930563406,
+          "total_return_pct": -0.3872765057887584
+        },
+        {
+          "coefficient": 0.6,
+          "impact_usd": 2518453.132528803,
+          "net_usd": -1619675.3225288028,
+          "net_bp_per_trade": -34.33132624182269,
+          "capped_executions": 5,
+          "sharpe": -0.2917768122619608,
+          "total_return_pct": -1.6067393371988592
+        },
+        {
+          "coefficient": 1.0,
+          "impact_usd": 4053835.6420937674,
+          "net_usd": -3155057.8320937674,
+          "net_bp_per_trade": -47.28317177940371,
+          "capped_executions": 19,
+          "sharpe": -0.5776288471378471,
+          "total_return_pct": -3.1061159562388974
+        }
+      ]
+    },
+    "walk_forward_cost_curve": [
+      {
+        "k": 0.0,
+        "sharpe": -0.6903457162592186,
+        "total_return_pct": -4.206228261306788,
+        "hac_t": -1.2497721028014566,
+        "hac_p": 0.21138280962170652
+      },
+      {
+        "k": 0.5,
+        "sharpe": -0.8659992976843763,
+        "total_return_pct": -5.230761292541086,
+        "hac_t": -1.56205112973439,
+        "hac_p": 0.1182759443011494
+      },
+      {
+        "k": 1.0,
+        "sharpe": -1.0414648425250195,
+        "total_return_pct": -6.2443846951869,
+        "hac_t": -1.8712898818694035,
+        "hac_p": 0.06130491222319989
+      },
+      {
+        "k": 1.5,
+        "sharpe": -1.2166028354622205,
+        "total_return_pct": -7.247214130990576,
+        "hac_t": -2.177079016692834,
+        "hac_p": 0.029474672365315868
+      },
+      {
+        "k": 2.0,
+        "sharpe": -1.3912746645150094,
+        "total_return_pct": -8.239364040839359,
+        "hac_t": -2.479034404935616,
+        "hac_p": 0.013173859815223343
+      }
+    ]
+  },
+  "shortfall": [
+    {
+      "key": "paper",
+      "step": "Paper P&L at signal closes (unattainable)",
+      "usd": 1693323.84,
+      "start": 0.0,
+      "end": 1693323.84
+    },
+    {
+      "key": "entry_delay",
+      "step": "Entry delay (signal close to fill)",
+      "usd": 61254.78,
+      "start": 1693323.84,
+      "end": 1754578.62
+    },
+    {
+      "key": "exit_delay",
+      "step": "Exit delay (exit signal to fill)",
+      "usd": -234484.42,
+      "start": 1754578.62,
+      "end": 1520094.2
+    },
+    {
+      "key": "gross",
+      "step": "Gross P&L",
+      "usd": 1520094.2,
+      "start": 0.0,
+      "end": 1520094.2
+    },
+    {
+      "key": "bid_ask",
+      "step": "Half-spread",
+      "usd": -432376.14,
+      "start": 1520094.2,
+      "end": 1087718.06
+    },
+    {
+      "key": "market_impact",
+      "step": "Market impact",
+      "usd": -1286055.17,
+      "start": 1087718.06,
+      "end": -198337.11
+    },
+    {
+      "key": "commission",
+      "step": "Commission",
+      "usd": -58243.88,
+      "start": -198337.11,
+      "end": -256580.99
+    },
+    {
+      "key": "borrow",
+      "step": "Borrow",
+      "usd": -130696.37,
+      "start": -256580.99,
+      "end": -387277.36
+    },
+    {
+      "key": "financing",
+      "step": "Financing",
+      "usd": 0.0,
+      "start": -387277.36,
+      "end": -387277.36
+    },
+    {
+      "key": "net",
+      "step": "Net P&L",
+      "usd": -387277.36,
+      "start": 0.0,
+      "end": -387277.36
+    }
+  ],
+  "shortfall_detail": {
+    "trades": 213,
+    "totals": {
+      "paper": {
+        "usd": 1693323.8419417012,
+        "pct_of_capital": 1.6933238419417012,
+        "bp_of_notional": 15.029882093055914,
+        "mean_bp_per_trade": 2.0302053264813686,
+        "mean_pct_of_equity_per_trade": 0.008130045878407136
+      },
+      "entry_delay": {
+        "usd": -61254.778062929254,
+        "pct_of_capital": -0.06125477806292925,
+        "bp_of_notional": -0.5436952277636633,
+        "mean_bp_per_trade": 0.12317647268335517,
+        "mean_pct_of_equity_per_trade": -0.0003238109070802874
+      },
+      "exit_delay": {
+        "usd": 234484.4200046303,
+        "pct_of_capital": 0.2344844200046303,
+        "bp_of_notional": 2.081275357988806,
+        "mean_bp_per_trade": 9.775978938831699,
+        "mean_pct_of_equity_per_trade": 0.0010398548939064647
+      },
+      "gross": {
+        "usd": 1520094.2,
+        "pct_of_capital": 1.5200942,
+        "bp_of_notional": 13.49230196283077,
+        "mean_bp_per_trade": -7.868950085033685,
+        "mean_pct_of_equity_per_trade": 0.007414001891580956
+      },
+      "bid_ask": {
+        "usd": 432376.14,
+        "pct_of_capital": 0.43237613999999996,
+        "bp_of_notional": 3.837755214382893,
+        "mean_bp_per_trade": 3.7856172245502915,
+        "mean_pct_of_equity_per_trade": 0.0020291569060825153
+      },
+      "market_impact": {
+        "usd": 1286055.17,
+        "pct_of_capital": 1.2860551699999998,
+        "bp_of_notional": 11.41497987065516,
+        "mean_bp_per_trade": 10.64615802876668,
+        "mean_pct_of_equity_per_trade": 0.006032691937729599
+      },
+      "commission": {
+        "usd": 58243.880000000005,
+        "pct_of_capital": 0.058243880000000005,
+        "bp_of_notional": 0.5169706038263154,
+        "mean_bp_per_trade": 0.5152774859086641,
+        "mean_pct_of_equity_per_trade": 0.00027347947565707436
+      },
+      "borrow": {
+        "usd": 130696.37000000001,
+        "pct_of_capital": 0.13069637,
+        "bp_of_notional": 1.1600563238027333,
+        "mean_bp_per_trade": 1.1847034572472677,
+        "mean_pct_of_equity_per_trade": 0.000613795554067643
+      },
+      "financing": {
+        "usd": 0.0,
+        "pct_of_capital": 0.0,
+        "bp_of_notional": 0.0,
+        "mean_bp_per_trade": 0.0,
+        "mean_pct_of_equity_per_trade": 0.0
+      },
+      "net": {
+        "usd": -387277.36,
+        "pct_of_capital": -0.38727735999999996,
+        "bp_of_notional": -3.4374600498363317,
+        "mean_bp_per_trade": -24.000706281506567,
+        "mean_pct_of_equity_per_trade": -0.0015351219819558727
+      }
+    },
+    "paper_from_prices_usd": 1693323.8312853752,
+    "paper_from_prices_max_abs_diff_usd": 0.017028415662935004,
+    "delay_bp_by_exit_reason": {
+      "end_of_data": {
+        "trades": 3,
+        "entry_delay_bp": -10.742275228516087,
+        "exit_delay_bp": 0.0
+      },
+      "stop": {
+        "trades": 77,
+        "entry_delay_bp": -16.11829717529601,
+        "exit_delay_bp": 13.663612069942227
+      },
+      "target": {
+        "trades": 72,
+        "entry_delay_bp": 15.81063207663655,
+        "exit_delay_bp": -2.711081911103891
+      },
+      "time": {
+        "trades": 61,
+        "entry_delay_bp": 2.642734218804325,
+        "exit_delay_bp": 20.08825052762428
+      }
+    },
+    "per_trade": [
+      {
+        "trade_id": 1,
+        "paper_bp": 175.13847745816204,
+        "entry_delay_bp": -19.439556784845873,
+        "exit_delay_bp": -5.383093025922589,
+        "gross_bp": 199.96112726893048,
+        "bid_ask_bp": 3.212471198299899,
+        "market_impact_bp": 9.437387256220859,
+        "commission_bp": 0.7865154851237851,
+        "borrow_bp": 2.1164974130642245,
+        "financing_bp": 0.0,
+        "net_bp": 184.40825591622172
+      },
+      {
+        "trade_id": 2,
+        "paper_bp": 304.87909859282547,
+        "entry_delay_bp": 31.43884652695808,
+        "exit_delay_bp": -35.42453833325093,
+        "gross_bp": 308.8647903991183,
+        "bid_ask_bp": 5.697168117493609,
+        "market_impact_bp": 7.660512295061708,
+        "commission_bp": 0.15686046282524188,
+        "borrow_bp": 1.0435113097055393,
+        "financing_bp": 0.0,
+        "net_bp": 294.3067382140322
+      },
+      {
+        "trade_id": 3,
+        "paper_bp": -306.0905887401319,
+        "entry_delay_bp": 30.238785173695906,
+        "exit_delay_bp": -25.33193876566924,
+        "gross_bp": -310.9974351481586,
+        "bid_ask_bp": 3.9633951739730473,
+        "market_impact_bp": 7.603633250759758,
+        "commission_bp": 0.4688735603954964,
+        "borrow_bp": 0.4726838290809714,
+        "financing_bp": 0.0,
+        "net_bp": -323.50602096236787
+      },
+      {
+        "trade_id": 4,
+        "paper_bp": 226.284284671897,
+        "entry_delay_bp": 14.918264205084572,
+        "exit_delay_bp": 40.336908351700835,
+        "gross_bp": 171.02911211511162,
+        "bid_ask_bp": 4.120402110959555,
+        "market_impact_bp": 9.036894272993594,
+        "commission_bp": 0.6493799996150582,
+        "borrow_bp": 0.7180000511207731,
+        "financing_bp": 0.0,
+        "net_bp": 156.50443568042263
+      },
+      {
+        "trade_id": 5,
+        "paper_bp": 102.9906986369374,
+        "entry_delay_bp": 1.3982909109311863,
+        "exit_delay_bp": -15.960712861010116,
+        "gross_bp": 117.55312058701631,
+        "bid_ask_bp": 4.094720021541308,
+        "market_impact_bp": 9.014707227939875,
+        "commission_bp": 0.32621417816785453,
+        "borrow_bp": 0.6075231900686565,
+        "financing_bp": 0.0,
+        "net_bp": 103.50995596929863
+      },
+      {
+        "trade_id": 6,
+        "paper_bp": -305.48203685209734,
+        "entry_delay_bp": 33.52324237469928,
+        "exit_delay_bp": -49.01809449560823,
+        "gross_bp": -289.9871847311884,
+        "bid_ask_bp": 2.873053219251428,
+        "market_impact_bp": 7.091663761462828,
+        "commission_bp": 0.36676120785836375,
+        "borrow_bp": 0.5243423138663348,
+        "financing_bp": 0.0,
+        "net_bp": -300.8430052336273
+      },
+      {
+        "trade_id": 7,
+        "paper_bp": 405.9571000306851,
+        "entry_delay_bp": -50.19348913903569,
+        "exit_delay_bp": 88.02942816027539,
+        "gross_bp": 368.12116100944536,
+        "bid_ask_bp": 8.52196263211549,
+        "market_impact_bp": 15.654556274040125,
+        "commission_bp": 0.38254517990038217,
+        "borrow_bp": 1.2502395785228657,
+        "financing_bp": 0.0,
+        "net_bp": 342.31185734486655
+      },
+      {
+        "trade_id": 8,
+        "paper_bp": 198.06438890361656,
+        "entry_delay_bp": 21.2735204273449,
+        "exit_delay_bp": 80.43142213493537,
+        "gross_bp": 96.35944634133628,
+        "bid_ask_bp": 1.4180994157885352,
+        "market_impact_bp": 2.4205026973411448,
+        "commission_bp": 0.1920898244491888,
+        "borrow_bp": 1.3614145041355918,
+        "financing_bp": 0.0,
+        "net_bp": 90.9673398996218
+      },
+      {
+        "trade_id": 9,
+        "paper_bp": -696.3112532813877,
+        "entry_delay_bp": 14.20236466415959,
+        "exit_delay_bp": -217.79997114806426,
+        "gross_bp": -492.7136467974829,
+        "bid_ask_bp": 2.78852112507185,
+        "market_impact_bp": 6.29022994286781,
+        "commission_bp": 0.1944786180075782,
+        "borrow_bp": 0.20531612790677353,
+        "financing_bp": 0.0,
+        "net_bp": -502.1921926113369
+      },
+      {
+        "trade_id": 10,
+        "paper_bp": 515.9915384856765,
+        "entry_delay_bp": 11.512343974565686,
+        "exit_delay_bp": -12.318625881058459,
+        "gross_bp": 516.7978203921691,
+        "bid_ask_bp": 3.106547393661675,
+        "market_impact_bp": 18.900069017220712,
+        "commission_bp": 0.15161875276283326,
+        "borrow_bp": 0.7294481023432248,
+        "financing_bp": 0.0,
+        "net_bp": 493.91013712618076
+      },
+      {
+        "trade_id": 11,
+        "paper_bp": -79.25785546073183,
+        "entry_delay_bp": -21.555767657622464,
+        "exit_delay_bp": -37.102265809413765,
+        "gross_bp": -20.59982199369559,
+        "bid_ask_bp": 3.952499501120782,
+        "market_impact_bp": 10.426965760290411,
+        "commission_bp": 0.5566409845001216,
+        "borrow_bp": 0.7206524532528965,
+        "financing_bp": 0.0,
+        "net_bp": -36.2565806928598
+      },
+      {
+        "trade_id": 12,
+        "paper_bp": 290.58110261241586,
+        "entry_delay_bp": 208.12722124812572,
+        "exit_delay_bp": 29.25895487250418,
+        "gross_bp": 53.194926491786,
+        "bid_ask_bp": 6.423500926169558,
+        "market_impact_bp": 14.951713090350026,
+        "commission_bp": 0.44228944191972447,
+        "borrow_bp": 0.9284864551399266,
+        "financing_bp": 0.0,
+        "net_bp": 30.448936578206762
+      },
+      {
+        "trade_id": 13,
+        "paper_bp": -200.88253472265504,
+        "entry_delay_bp": -65.99394115812315,
+        "exit_delay_bp": -45.618870803331085,
+        "gross_bp": -89.2697227612008,
+        "bid_ask_bp": 2.06847303441332,
+        "market_impact_bp": 10.508938715002206,
+        "commission_bp": 0.08875602856566792,
+        "borrow_bp": 1.0798932592053336,
+        "financing_bp": 0.0,
+        "net_bp": -103.01578379838733
+      },
+      {
+        "trade_id": 14,
+        "paper_bp": -289.83281723711724,
+        "entry_delay_bp": -65.15555706229765,
+        "exit_delay_bp": 5.714368124636844,
+        "gross_bp": -230.39162829945644,
+        "bid_ask_bp": 7.384551128575312,
+        "market_impact_bp": 46.116488336101014,
+        "commission_bp": 1.4402498303885551,
+        "borrow_bp": 1.3272339077037747,
+        "financing_bp": 0.0,
+        "net_bp": -286.6601515022251
+      },
+      {
+        "trade_id": 15,
+        "paper_bp": 504.87760430693055,
+        "entry_delay_bp": 133.69461979365903,
+        "exit_delay_bp": 59.168808131423845,
+        "gross_bp": 312.0141763818477,
+        "bid_ask_bp": 1.5363637445205784,
+        "market_impact_bp": 5.117789220934146,
+        "commission_bp": 0.20868283783199845,
+        "borrow_bp": 0.2763173043711863,
+        "financing_bp": 0.0,
+        "net_bp": 304.87502327418974
+      },
+      {
+        "trade_id": 16,
+        "paper_bp": 76.76108669902105,
+        "entry_delay_bp": -30.088145650261577,
+        "exit_delay_bp": 31.174139314161053,
+        "gross_bp": 75.67509303512156,
+        "bid_ask_bp": 5.458555665407218,
+        "market_impact_bp": 9.896156406472663,
+        "commission_bp": 1.2123592152713714,
+        "borrow_bp": 1.8147757004653535,
+        "financing_bp": 0.0,
+        "net_bp": 57.293246047504965
+      },
+      {
+        "trade_id": 17,
+        "paper_bp": -324.984210679982,
+        "entry_delay_bp": -179.06993828931502,
+        "exit_delay_bp": -24.66181251419587,
+        "gross_bp": -121.25245987647112,
+        "bid_ask_bp": 8.404064887678025,
+        "market_impact_bp": 16.612420173659434,
+        "commission_bp": 0.37661474075819323,
+        "borrow_bp": 0.1600470297620061,
+        "financing_bp": 0.0,
+        "net_bp": -146.80560670832875
+      },
+      {
+        "trade_id": 18,
+        "paper_bp": -159.6006048752029,
+        "entry_delay_bp": -65.34201872587519,
+        "exit_delay_bp": -22.255451943624777,
+        "gross_bp": -72.00313420570295,
+        "bid_ask_bp": 7.528114482650731,
+        "market_impact_bp": 10.258688915523372,
+        "commission_bp": 1.185457115675523,
+        "borrow_bp": 0.13171928330800062,
+        "financing_bp": 0.0,
+        "net_bp": -91.10711400286057
+      },
+      {
+        "trade_id": 19,
+        "paper_bp": -75.30523821998995,
+        "entry_delay_bp": -13.74826270227984,
+        "exit_delay_bp": -7.2106459494137525,
+        "gross_bp": -54.34632956829635,
+        "bid_ask_bp": 4.035447139893488,
+        "market_impact_bp": 11.69755415581302,
+        "commission_bp": 0.3472864557501158,
+        "borrow_bp": 0.26020505242318664,
+        "financing_bp": 0.0,
+        "net_bp": -70.68682237217617
+      },
+      {
+        "trade_id": 20,
+        "paper_bp": -205.17182720842524,
+        "entry_delay_bp": 18.70830773845904,
+        "exit_delay_bp": 34.643713587191584,
+        "gross_bp": -258.52384853407585,
+        "bid_ask_bp": 7.10887577970023,
+        "market_impact_bp": 9.607658823789848,
+        "commission_bp": 1.181398201179648,
+        "borrow_bp": 0.8540866158153334,
+        "financing_bp": 0.0,
+        "net_bp": -277.2758679545609
+      },
+      {
+        "trade_id": 21,
+        "paper_bp": -100.52234959397967,
+        "entry_delay_bp": 14.423912031813964,
+        "exit_delay_bp": -36.96570562243171,
+        "gross_bp": -77.98055600336191,
+        "bid_ask_bp": 3.837866711028724,
+        "market_impact_bp": 10.719828044515683,
+        "commission_bp": 0.34624852269981565,
+        "borrow_bp": 0.7122444236879727,
+        "financing_bp": 0.0,
+        "net_bp": -93.59674370529412
+      },
+      {
+        "trade_id": 22,
+        "paper_bp": 537.1045099869997,
+        "entry_delay_bp": -59.92743821956623,
+        "exit_delay_bp": 38.37258819344,
+        "gross_bp": 558.6593600131258,
+        "bid_ask_bp": 5.970275647584898,
+        "market_impact_bp": 25.68512826448198,
+        "commission_bp": 1.3338151744660436,
+        "borrow_bp": 0.6958319506326957,
+        "financing_bp": 0.0,
+        "net_bp": 524.9743089759602
+      },
+      {
+        "trade_id": 23,
+        "paper_bp": -85.76627466969231,
+        "entry_delay_bp": -26.452430973307244,
+        "exit_delay_bp": 28.45681115910273,
+        "gross_bp": -87.77065485548779,
+        "bid_ask_bp": 3.8869323375922993,
+        "market_impact_bp": 7.959610956691919,
+        "commission_bp": 0.555735010545089,
+        "borrow_bp": 0.09528838926197467,
+        "financing_bp": 0.0,
+        "net_bp": -100.26822154957907
+      },
+      {
+        "trade_id": 24,
+        "paper_bp": -2.7431075596386525,
+        "entry_delay_bp": -49.06782840488592,
+        "exit_delay_bp": -0.41729664558120266,
+        "gross_bp": 46.742017490828474,
+        "bid_ask_bp": 5.746383145959484,
+        "market_impact_bp": 10.173974117618659,
+        "commission_bp": 0.7754009543339793,
+        "borrow_bp": 1.5293304540884443,
+        "financing_bp": 0.0,
+        "net_bp": 28.51692881882791
+      },
+      {
+        "trade_id": 25,
+        "paper_bp": -83.57560035690722,
+        "entry_delay_bp": 18.58860803241637,
+        "exit_delay_bp": -41.53031776557206,
+        "gross_bp": -60.63389062375152,
+        "bid_ask_bp": 2.2129545352658586,
+        "market_impact_bp": 3.558647320840306,
+        "commission_bp": 0.08516077063250779,
+        "borrow_bp": 1.8028047254696538,
+        "financing_bp": 0.0,
+        "net_bp": -68.29345797595984
+      },
+      {
+        "trade_id": 26,
+        "paper_bp": 208.74948751367063,
+        "entry_delay_bp": 13.991972865421625,
+        "exit_delay_bp": -46.70230516443911,
+        "gross_bp": 241.45981981268812,
+        "bid_ask_bp": 4.12472336819416,
+        "market_impact_bp": 8.880127097323381,
+        "commission_bp": 1.232212943610108,
+        "borrow_bp": 0.9962160179125984,
+        "financing_bp": 0.0,
+        "net_bp": 226.2265403856479
+      },
+      {
+        "trade_id": 27,
+        "paper_bp": -461.4520601368777,
+        "entry_delay_bp": 139.80544619338394,
+        "exit_delay_bp": -115.25570186652702,
+        "gross_bp": -486.00180446373463,
+        "bid_ask_bp": 4.201254905870395,
+        "market_impact_bp": 18.47759820310008,
+        "commission_bp": 0.23042446911810752,
+        "borrow_bp": 0.2833754385216184,
+        "financing_bp": 0.0,
+        "net_bp": -509.1944574803449
+      },
+      {
+        "trade_id": 28,
+        "paper_bp": 235.81135188804157,
+        "entry_delay_bp": 58.80658477607326,
+        "exit_delay_bp": 133.1292406772005,
+        "gross_bp": 43.8755264347678,
+        "bid_ask_bp": 4.108312187543307,
+        "market_impact_bp": 11.252874386521801,
+        "commission_bp": 0.49936978864247494,
+        "borrow_bp": 1.0145032861734966,
+        "financing_bp": 0.0,
+        "net_bp": 27.00046678588672
+      },
+      {
+        "trade_id": 29,
+        "paper_bp": 267.526419811254,
+        "entry_delay_bp": -70.41094827252111,
+        "exit_delay_bp": -95.7639153454396,
+        "gross_bp": 433.70128342921475,
+        "bid_ask_bp": 5.326963447697455,
+        "market_impact_bp": 9.34187542931325,
+        "commission_bp": 0.40459370665689914,
+        "borrow_bp": 1.2253142225487446,
+        "financing_bp": 0.0,
+        "net_bp": 417.40253662299835
+      },
+      {
+        "trade_id": 30,
+        "paper_bp": 225.88926994251693,
+        "entry_delay_bp": 42.46043706815778,
+        "exit_delay_bp": -8.007869258629997,
+        "gross_bp": 191.43670213298915,
+        "bid_ask_bp": 4.020822535703908,
+        "market_impact_bp": 9.164320412005658,
+        "commission_bp": 0.3790830979488072,
+        "borrow_bp": 0.8389496187544917,
+        "financing_bp": 0.0,
+        "net_bp": 177.0335264685763
+      },
+      {
+        "trade_id": 31,
+        "paper_bp": -196.22717218694112,
+        "entry_delay_bp": -69.6760344169374,
+        "exit_delay_bp": 1.4602725285068925,
+        "gross_bp": -128.01141029851064,
+        "bid_ask_bp": 3.218057746327741,
+        "market_impact_bp": 5.7164499133908,
+        "commission_bp": 0.23012067036555672,
+        "borrow_bp": 0.47035983777374357,
+        "financing_bp": 0.0,
+        "net_bp": -137.64639846636845
+      },
+      {
+        "trade_id": 32,
+        "paper_bp": 632.2496561352499,
+        "entry_delay_bp": 78.27909861971884,
+        "exit_delay_bp": -118.10939399554755,
+        "gross_bp": 672.0799515110785,
+        "bid_ask_bp": 6.090860045081301,
+        "market_impact_bp": 33.05833046756049,
+        "commission_bp": 0.5613697729066046,
+        "borrow_bp": 0.6794931543314481,
+        "financing_bp": 0.0,
+        "net_bp": 631.6898980711986
+      },
+      {
+        "trade_id": 33,
+        "paper_bp": 386.6449795562713,
+        "entry_delay_bp": -97.5400837762418,
+        "exit_delay_bp": 100.48732511374382,
+        "gross_bp": 383.6977382187693,
+        "bid_ask_bp": 3.8274388232422947,
+        "market_impact_bp": 20.277009258982854,
+        "commission_bp": 1.1258022173773177,
+        "borrow_bp": 0.7035480097172303,
+        "financing_bp": 0.0,
+        "net_bp": 357.7639399094496
+      },
+      {
+        "trade_id": 34,
+        "paper_bp": -241.63809695445178,
+        "entry_delay_bp": 70.48934188308884,
+        "exit_delay_bp": 27.95408472764159,
+        "gross_bp": -340.08152356518224,
+        "bid_ask_bp": 4.2771009159631985,
+        "market_impact_bp": 17.352915646692523,
+        "commission_bp": 0.16457863256438002,
+        "borrow_bp": 1.797777206977372,
+        "financing_bp": 0.0,
+        "net_bp": -363.67389596737974
+      },
+      {
+        "trade_id": 35,
+        "paper_bp": 727.9029221645576,
+        "entry_delay_bp": -106.20003222908333,
+        "exit_delay_bp": -241.05422605196117,
+        "gross_bp": 1075.157180445602,
+        "bid_ask_bp": 3.9996429753698957,
+        "market_impact_bp": 13.69585965393869,
+        "commission_bp": 0.22742983909044986,
+        "borrow_bp": 1.074443573813311,
+        "financing_bp": 0.0,
+        "net_bp": 1056.1598044033897
+      },
+      {
+        "trade_id": 36,
+        "paper_bp": 601.9098452025555,
+        "entry_delay_bp": -259.0214514402614,
+        "exit_delay_bp": -483.49662196638775,
+        "gross_bp": 1344.4279186092044,
+        "bid_ask_bp": 8.271888071123355,
+        "market_impact_bp": 51.3555609220635,
+        "commission_bp": 1.4171736637439976,
+        "borrow_bp": 1.8920200564099516,
+        "financing_bp": 0.0,
+        "net_bp": 1281.4912758958637
+      },
+      {
+        "trade_id": 37,
+        "paper_bp": -1543.3947147660267,
+        "entry_delay_bp": -85.43928150807878,
+        "exit_delay_bp": 196.79029303903087,
+        "gross_bp": -1654.745726296979,
+        "bid_ask_bp": 9.924066433593255,
+        "market_impact_bp": 45.41027071342342,
+        "commission_bp": 2.8983782979484625,
+        "borrow_bp": 2.5558753083347563,
+        "financing_bp": 0.0,
+        "net_bp": -1715.5343170502788
+      },
+      {
+        "trade_id": 38,
+        "paper_bp": -263.36644057915646,
+        "entry_delay_bp": -56.67841938559242,
+        "exit_delay_bp": -9.175104740768006,
+        "gross_bp": -197.51291645279605,
+        "bid_ask_bp": 4.046076489924971,
+        "market_impact_bp": 7.047465391161884,
+        "commission_bp": 0.47492837025574136,
+        "borrow_bp": 1.1329681114018852,
+        "financing_bp": 0.0,
+        "net_bp": -210.2143548155405
+      },
+      {
+        "trade_id": 39,
+        "paper_bp": -18.034676118476725,
+        "entry_delay_bp": 175.9276330618183,
+        "exit_delay_bp": 63.16845040286199,
+        "gross_bp": -257.13075958315704,
+        "bid_ask_bp": 3.4194801278338747,
+        "market_impact_bp": 7.554793405489013,
+        "commission_bp": 0.4408020357415318,
+        "borrow_bp": 3.2250257299649605,
+        "financing_bp": 0.0,
+        "net_bp": -271.7708608821864
+      },
+      {
+        "trade_id": 40,
+        "paper_bp": -161.41328570680497,
+        "entry_delay_bp": -27.849721231655106,
+        "exit_delay_bp": -33.43167965770881,
+        "gross_bp": -100.13188481744103,
+        "bid_ask_bp": 4.004816646652659,
+        "market_impact_bp": 6.107316195574005,
+        "commission_bp": 0.6707863549144096,
+        "borrow_bp": 0.4401159736986777,
+        "financing_bp": 0.0,
+        "net_bp": -111.3549199882808
+      },
+      {
+        "trade_id": 41,
+        "paper_bp": 242.83941041284714,
+        "entry_delay_bp": -121.42663474616799,
+        "exit_delay_bp": 109.04851719691953,
+        "gross_bp": 255.21752796209557,
+        "bid_ask_bp": 5.57159513368517,
+        "market_impact_bp": 12.591314619796103,
+        "commission_bp": 1.4797804889056598,
+        "borrow_bp": 1.8403151051057791,
+        "financing_bp": 0.0,
+        "net_bp": 233.7345226146029
+      },
+      {
+        "trade_id": 42,
+        "paper_bp": 156.59092740243636,
+        "entry_delay_bp": 77.26335774477477,
+        "exit_delay_bp": 60.217560596043725,
+        "gross_bp": 19.110009061617873,
+        "bid_ask_bp": 6.8810968914933515,
+        "market_impact_bp": 6.7157307892131906,
+        "commission_bp": 0.1564458161177367,
+        "borrow_bp": 2.608872529736048,
+        "financing_bp": 0.0,
+        "net_bp": 2.7478630350575455
+      },
+      {
+        "trade_id": 43,
+        "paper_bp": -485.5212842305085,
+        "entry_delay_bp": -111.82831358728971,
+        "exit_delay_bp": -153.6242263135205,
+        "gross_bp": -220.06874432969832,
+        "bid_ask_bp": 5.976385929758263,
+        "market_impact_bp": 9.764091856208125,
+        "commission_bp": 0.517459793815545,
+        "borrow_bp": 0.31146003742913114,
+        "financing_bp": 0.0,
+        "net_bp": -236.6381419469094
+      },
+      {
+        "trade_id": 44,
+        "paper_bp": -309.32334974504874,
+        "entry_delay_bp": 15.825762080307506,
+        "exit_delay_bp": 105.0197528617088,
+        "gross_bp": -430.168864687065,
+        "bid_ask_bp": 4.119528597141711,
+        "market_impact_bp": 6.4193137682990615,
+        "commission_bp": 0.17675738927367102,
+        "borrow_bp": 2.3393131949189727,
+        "financing_bp": 0.0,
+        "net_bp": -443.2237776366984
+      },
+      {
+        "trade_id": 45,
+        "paper_bp": -117.48140235222318,
+        "entry_delay_bp": 97.9353831271176,
+        "exit_delay_bp": 248.29234833235097,
+        "gross_bp": -463.7091338116918,
+        "bid_ask_bp": 1.4618176441327835,
+        "market_impact_bp": 3.632408921969946,
+        "commission_bp": 0.07922628323697645,
+        "borrow_bp": 2.1995577881732,
+        "financing_bp": 0.0,
+        "net_bp": -471.0821444492047
+      },
+      {
+        "trade_id": 46,
+        "paper_bp": -32.05800563296781,
+        "entry_delay_bp": 94.36424071352282,
+        "exit_delay_bp": -3.3975901574882252,
+        "gross_bp": -123.0246561890024,
+        "bid_ask_bp": 3.9824506432409064,
+        "market_impact_bp": 14.169301446538185,
+        "commission_bp": 0.4859228575566561,
+        "borrow_bp": 1.878931556927317,
+        "financing_bp": 0.0,
+        "net_bp": -143.54126269326548
+      },
+      {
+        "trade_id": 47,
+        "paper_bp": -3.1532158606842002,
+        "entry_delay_bp": -12.29455146267289,
+        "exit_delay_bp": 36.451600413928354,
+        "gross_bp": -27.310264811939657,
+        "bid_ask_bp": 3.9483420892903576,
+        "market_impact_bp": 9.62990243003115,
+        "commission_bp": 1.1042715971641512,
+        "borrow_bp": 1.7907933799668252,
+        "financing_bp": 0.0,
+        "net_bp": -43.78357430839215
+      },
+      {
+        "trade_id": 48,
+        "paper_bp": 513.332538428918,
+        "entry_delay_bp": -22.289701908056614,
+        "exit_delay_bp": -35.84628378555065,
+        "gross_bp": 571.4685241225253,
+        "bid_ask_bp": 1.4606290165603375,
+        "market_impact_bp": 2.5572573599298893,
+        "commission_bp": 0.19216308067447713,
+        "borrow_bp": 0.9823733138535775,
+        "financing_bp": 0.0,
+        "net_bp": 566.276101351507
+      },
+      {
+        "trade_id": 49,
+        "paper_bp": 612.1574923915759,
+        "entry_delay_bp": 13.876278711960868,
+        "exit_delay_bp": 96.49205416941,
+        "gross_bp": 501.7891595102051,
+        "bid_ask_bp": 2.4902512649159463,
+        "market_impact_bp": 9.467034278125972,
+        "commission_bp": 0.12268566951156412,
+        "borrow_bp": 2.052914189139362,
+        "financing_bp": 0.0,
+        "net_bp": 487.65627410851226
+      },
+      {
+        "trade_id": 50,
+        "paper_bp": 515.4226094541062,
+        "entry_delay_bp": 5.025278797295721,
+        "exit_delay_bp": 16.36069090303864,
+        "gross_bp": 494.0366397537719,
+        "bid_ask_bp": 1.466668296578037,
+        "market_impact_bp": 3.230352129400835,
+        "commission_bp": 0.19287564480286867,
+        "borrow_bp": 0.42262404536250886,
+        "financing_bp": 0.0,
+        "net_bp": 488.7241196376276
+      },
+      {
+        "trade_id": 51,
+        "paper_bp": 38.155534995118835,
+        "entry_delay_bp": 57.79840890870478,
+        "exit_delay_bp": -7.474652735304714,
+        "gross_bp": -12.168221178281227,
+        "bid_ask_bp": 4.240941215404213,
+        "market_impact_bp": 14.27241544741804,
+        "commission_bp": 0.2758657757409067,
+        "borrow_bp": 1.9598399028403128,
+        "financing_bp": 0.0,
+        "net_bp": -32.9172835196847
+      },
+      {
+        "trade_id": 52,
+        "paper_bp": -54.813326003486026,
+        "entry_delay_bp": -28.443346140309036,
+        "exit_delay_bp": 7.460039613636576,
+        "gross_bp": -33.83001947681357,
+        "bid_ask_bp": 4.117940945835934,
+        "market_impact_bp": 4.912929502879473,
+        "commission_bp": 0.40443631228268206,
+        "borrow_bp": 2.8960269810669796,
+        "financing_bp": 0.0,
+        "net_bp": -46.16135321887863
+      },
+      {
+        "trade_id": 53,
+        "paper_bp": 205.25900204867227,
+        "entry_delay_bp": 99.96324850690407,
+        "exit_delay_bp": 58.396086393721255,
+        "gross_bp": 46.89966714804695,
+        "bid_ask_bp": 2.7110589490289745,
+        "market_impact_bp": 5.289904285712612,
+        "commission_bp": 0.7575871367200883,
+        "borrow_bp": 0.27394576798452397,
+        "financing_bp": 0.0,
+        "net_bp": 37.86717100860075
+      },
+      {
+        "trade_id": 54,
+        "paper_bp": 386.77043605990076,
+        "entry_delay_bp": 242.40960539627253,
+        "exit_delay_bp": 43.14757460442447,
+        "gross_bp": 101.21325605920386,
+        "bid_ask_bp": 8.48681144173136,
+        "market_impact_bp": 24.241840956414503,
+        "commission_bp": 0.4487245687923066,
+        "borrow_bp": 0.2425259562914494,
+        "financing_bp": 0.0,
+        "net_bp": 67.79335313597423
+      },
+      {
+        "trade_id": 55,
+        "paper_bp": -87.57081062323124,
+        "entry_delay_bp": 31.655400231164606,
+        "exit_delay_bp": 420.98791890843074,
+        "gross_bp": -540.2141297628266,
+        "bid_ask_bp": 3.9310981615841394,
+        "market_impact_bp": 8.63864854033965,
+        "commission_bp": 1.143876022972932,
+        "borrow_bp": 0.8414012313717258,
+        "financing_bp": 0.0,
+        "net_bp": -554.769153719095
+      },
+      {
+        "trade_id": 56,
+        "paper_bp": -199.71612664275153,
+        "entry_delay_bp": -17.04020520155632,
+        "exit_delay_bp": 105.30083248456356,
+        "gross_bp": -287.97675392575877,
+        "bid_ask_bp": 2.5495552345387065,
+        "market_impact_bp": 12.421447041787893,
+        "commission_bp": 0.45586244122520236,
+        "borrow_bp": 0.6430829686344853,
+        "financing_bp": 0.0,
+        "net_bp": -304.046701611945
+      },
+      {
+        "trade_id": 57,
+        "paper_bp": -275.9178220812479,
+        "entry_delay_bp": -60.940720075328855,
+        "exit_delay_bp": 19.04281320547656,
+        "gross_bp": -234.01991521139556,
+        "bid_ask_bp": 4.115553678040025,
+        "market_impact_bp": 17.37177151242443,
+        "commission_bp": 0.4307002151582555,
+        "borrow_bp": 0.233702997871739,
+        "financing_bp": 0.0,
+        "net_bp": -256.17164361489
+      },
+      {
+        "trade_id": 58,
+        "paper_bp": 481.1167526773817,
+        "entry_delay_bp": 302.2330756512688,
+        "exit_delay_bp": 35.75900113519445,
+        "gross_bp": 143.1246758909184,
+        "bid_ask_bp": 3.9105916982798097,
+        "market_impact_bp": 18.320809000285248,
+        "commission_bp": 0.4050091183394284,
+        "borrow_bp": 0.8200118613494987,
+        "financing_bp": 0.0,
+        "net_bp": 119.66825421266442
+      },
+      {
+        "trade_id": 59,
+        "paper_bp": -130.2099206354239,
+        "entry_delay_bp": -37.16006442006433,
+        "exit_delay_bp": -9.36785100015597,
+        "gross_bp": -83.68200521520363,
+        "bid_ask_bp": 3.771599498987945,
+        "market_impact_bp": 13.816392365840331,
+        "commission_bp": 0.4648344944652937,
+        "borrow_bp": 2.1798065528270527,
+        "financing_bp": 0.0,
+        "net_bp": -103.91463812732425
+      },
+      {
+        "trade_id": 60,
+        "paper_bp": -32.21361402015266,
+        "entry_delay_bp": 31.03967999951911,
+        "exit_delay_bp": -100.19670893582561,
+        "gross_bp": 36.943414916153834,
+        "bid_ask_bp": 3.987203433436135,
+        "market_impact_bp": 6.32589534596707,
+        "commission_bp": 1.5570281892505722,
+        "borrow_bp": 2.6813015184553257,
+        "financing_bp": 0.0,
+        "net_bp": 22.39198642904474
+      },
+      {
+        "trade_id": 61,
+        "paper_bp": 381.5285344788138,
+        "entry_delay_bp": 3.4071606007176483,
+        "exit_delay_bp": -49.43795164453735,
+        "gross_bp": 427.5593255226335,
+        "bid_ask_bp": 4.03378466028605,
+        "market_impact_bp": 10.669274716022052,
+        "commission_bp": 1.227587020039306,
+        "borrow_bp": 2.569720107625226,
+        "financing_bp": 0.0,
+        "net_bp": 409.05895901866086
+      },
+      {
+        "trade_id": 62,
+        "paper_bp": 63.90030767676759,
+        "entry_delay_bp": 35.98082141285944,
+        "exit_delay_bp": 58.90186915774254,
+        "gross_bp": -30.982382893834387,
+        "bid_ask_bp": 2.6868023854267014,
+        "market_impact_bp": 5.486578033566442,
+        "commission_bp": 0.7154884237623023,
+        "borrow_bp": 2.0475735860217807,
+        "financing_bp": 0.0,
+        "net_bp": -41.91882532261162
+      },
+      {
+        "trade_id": 63,
+        "paper_bp": -791.8592539132379,
+        "entry_delay_bp": 84.11158594541259,
+        "exit_delay_bp": -175.46187710646416,
+        "gross_bp": -700.5089627521864,
+        "bid_ask_bp": 2.4197818291427895,
+        "market_impact_bp": 10.246002351329098,
+        "commission_bp": 0.2502749851158631,
+        "borrow_bp": 0.832367221532359,
+        "financing_bp": 0.0,
+        "net_bp": -714.2573891393066
+      },
+      {
+        "trade_id": 64,
+        "paper_bp": 37.983777040228965,
+        "entry_delay_bp": -18.839716933643054,
+        "exit_delay_bp": 37.597121266144136,
+        "gross_bp": 19.226372707727883,
+        "bid_ask_bp": 2.9255924710906362,
+        "market_impact_bp": 2.2374773702666957,
+        "commission_bp": 0.3631529990658167,
+        "borrow_bp": 2.2285095817877782,
+        "financing_bp": 0.0,
+        "net_bp": 11.471640285516957
+      },
+      {
+        "trade_id": 65,
+        "paper_bp": -623.5849203182427,
+        "entry_delay_bp": -25.11866388729934,
+        "exit_delay_bp": 251.53488395826608,
+        "gross_bp": -850.0011403892095,
+        "bid_ask_bp": 3.6912880726638875,
+        "market_impact_bp": 9.20814189225747,
+        "commission_bp": 0.13791545166711872,
+        "borrow_bp": 1.5387592359509124,
+        "financing_bp": 0.0,
+        "net_bp": -864.5772450417488
+      },
+      {
+        "trade_id": 66,
+        "paper_bp": -316.00002154628044,
+        "entry_delay_bp": -89.2289537625414,
+        "exit_delay_bp": 30.174689190560514,
+        "gross_bp": -256.9457569742995,
+        "bid_ask_bp": 3.922878535402103,
+        "market_impact_bp": 10.933391257097577,
+        "commission_bp": 0.4364074373011222,
+        "borrow_bp": 0.5008421163174482,
+        "financing_bp": 0.0,
+        "net_bp": -272.7392763204178
+      },
+      {
+        "trade_id": 67,
+        "paper_bp": -219.79194347294884,
+        "entry_delay_bp": -4.8975136402400254,
+        "exit_delay_bp": 31.999086857472264,
+        "gross_bp": -246.89351669018106,
+        "bid_ask_bp": 3.936906340105434,
+        "market_impact_bp": 7.173848093708304,
+        "commission_bp": 0.7293489214798844,
+        "borrow_bp": 0.47360230483680477,
+        "financing_bp": 0.0,
+        "net_bp": -259.2072223503115
+      },
+      {
+        "trade_id": 68,
+        "paper_bp": -283.8764897825958,
+        "entry_delay_bp": 21.102871225886954,
+        "exit_delay_bp": -30.44040363272071,
+        "gross_bp": -274.5389573757621,
+        "bid_ask_bp": 5.297494072374819,
+        "market_impact_bp": 17.421267241470147,
+        "commission_bp": 0.5063799871423652,
+        "borrow_bp": 0.4549207396884424,
+        "financing_bp": 0.0,
+        "net_bp": -298.2190194164379
+      },
+      {
+        "trade_id": 69,
+        "paper_bp": 216.90519645930942,
+        "entry_delay_bp": -3.376994131540131,
+        "exit_delay_bp": 50.01471924321374,
+        "gross_bp": 170.26747134763582,
+        "bid_ask_bp": 3.977862354334028,
+        "market_impact_bp": 12.708765887432044,
+        "commission_bp": 0.12680026505524816,
+        "borrow_bp": 0.6637062297252335,
+        "financing_bp": 0.0,
+        "net_bp": 152.79033661108926
+      },
+      {
+        "trade_id": 70,
+        "paper_bp": -203.48721187931326,
+        "entry_delay_bp": -16.8162835303428,
+        "exit_delay_bp": -50.33774712639636,
+        "gross_bp": -136.3331812225741,
+        "bid_ask_bp": 4.046809681918689,
+        "market_impact_bp": 4.113948719500107,
+        "commission_bp": 0.38072600868948725,
+        "borrow_bp": 0.4638653591872042,
+        "financing_bp": 0.0,
+        "net_bp": -145.3385309918696
+      },
+      {
+        "trade_id": 71,
+        "paper_bp": -324.12179366751263,
+        "entry_delay_bp": 23.364515086724904,
+        "exit_delay_bp": -1.1280320520927738,
+        "gross_bp": -346.35827670214474,
+        "bid_ask_bp": 8.436864957814814,
+        "market_impact_bp": 11.102651309299203,
+        "commission_bp": 1.4075976789411484,
+        "borrow_bp": 1.3131987877917337,
+        "financing_bp": 0.0,
+        "net_bp": -368.6185894359916
+      },
+      {
+        "trade_id": 72,
+        "paper_bp": 347.3389362600334,
+        "entry_delay_bp": -86.82735714696013,
+        "exit_delay_bp": 35.08112022129213,
+        "gross_bp": 399.0851731857015,
+        "bid_ask_bp": 4.005087905798346,
+        "market_impact_bp": 12.64073877702956,
+        "commission_bp": 0.17414846253797672,
+        "borrow_bp": 0.5642889394007286,
+        "financing_bp": 0.0,
+        "net_bp": 381.70090910093484
+      },
+      {
+        "trade_id": 73,
+        "paper_bp": -293.0600690180026,
+        "entry_delay_bp": 211.04872423357568,
+        "exit_delay_bp": -73.73208628713698,
+        "gross_bp": -430.3767069644413,
+        "bid_ask_bp": 1.485506038650499,
+        "market_impact_bp": 4.6130351670738765,
+        "commission_bp": 0.17187702222960569,
+        "borrow_bp": 2.480652908154734,
+        "financing_bp": 0.0,
+        "net_bp": -439.12777810055
+      },
+      {
+        "trade_id": 74,
+        "paper_bp": -742.444556236385,
+        "entry_delay_bp": -25.39404922167924,
+        "exit_delay_bp": 27.37254931977906,
+        "gross_bp": -744.4230563344847,
+        "bid_ask_bp": 4.034832056188389,
+        "market_impact_bp": 9.802349997433716,
+        "commission_bp": 0.4408779431870195,
+        "borrow_bp": 0.08039572174392572,
+        "financing_bp": 0.0,
+        "net_bp": -758.7815120530378
+      },
+      {
+        "trade_id": 75,
+        "paper_bp": 24.76126280740422,
+        "entry_delay_bp": 94.06223090848216,
+        "exit_delay_bp": -1.645177695956302,
+        "gross_bp": -67.65579040512164,
+        "bid_ask_bp": 3.8981173471733235,
+        "market_impact_bp": 10.138839260866721,
+        "commission_bp": 0.13175501500097112,
+        "borrow_bp": 2.7913032566599307,
+        "financing_bp": 0.0,
+        "net_bp": -84.61580528482257
+      },
+      {
+        "trade_id": 76,
+        "paper_bp": 0.23250813980239812,
+        "entry_delay_bp": -11.895691012721972,
+        "exit_delay_bp": 8.11501203103303,
+        "gross_bp": 4.013187121491339,
+        "bid_ask_bp": 4.058744275945563,
+        "market_impact_bp": 5.008847125223123,
+        "commission_bp": 0.365901635560792,
+        "borrow_bp": 2.8460339048054792,
+        "financing_bp": 0.0,
+        "net_bp": -8.266339820043617
+      },
+      {
+        "trade_id": 77,
+        "paper_bp": 303.07195550545845,
+        "entry_delay_bp": -158.21081314974805,
+        "exit_delay_bp": 172.64359198745458,
+        "gross_bp": 288.6391766677519,
+        "bid_ask_bp": 7.309514483411299,
+        "market_impact_bp": 15.583880145558284,
+        "commission_bp": 0.6451134281908768,
+        "borrow_bp": 0.5052789152721062,
+        "financing_bp": 0.0,
+        "net_bp": 264.59538969531934
+      },
+      {
+        "trade_id": 78,
+        "paper_bp": 994.9682444522775,
+        "entry_delay_bp": -34.09484536215647,
+        "exit_delay_bp": -270.2281566186041,
+        "gross_bp": 1299.2912464330382,
+        "bid_ask_bp": 4.275348396857749,
+        "market_impact_bp": 21.311836076460533,
+        "commission_bp": 0.450645845016514,
+        "borrow_bp": 0.5736106501650486,
+        "financing_bp": 0.0,
+        "net_bp": 1272.6798054645383
+      },
+      {
+        "trade_id": 79,
+        "paper_bp": 547.207107637218,
+        "entry_delay_bp": 151.23816395325758,
+        "exit_delay_bp": 55.991830325954574,
+        "gross_bp": 339.97711335800574,
+        "bid_ask_bp": 2.6967835482305853,
+        "market_impact_bp": 8.727765218303592,
+        "commission_bp": 1.238510529601303,
+        "borrow_bp": 1.2997305951765261,
+        "financing_bp": 0.0,
+        "net_bp": 326.0143234666938
+      },
+      {
+        "trade_id": 80,
+        "paper_bp": -30.943353123219804,
+        "entry_delay_bp": -24.68089036212854,
+        "exit_delay_bp": -72.40335832518409,
+        "gross_bp": 66.14089556409283,
+        "bid_ask_bp": 7.929196055218038,
+        "market_impact_bp": 10.587682626362783,
+        "commission_bp": 1.568195923167927,
+        "borrow_bp": 1.5344314000970776,
+        "financing_bp": 0.0,
+        "net_bp": 44.521389559247
+      },
+      {
+        "trade_id": 81,
+        "paper_bp": -52.42402811959419,
+        "entry_delay_bp": -57.78626287095222,
+        "exit_delay_bp": -112.08226740044555,
+        "gross_bp": 117.44450215180358,
+        "bid_ask_bp": 2.7640830933205693,
+        "market_impact_bp": 5.396949582828545,
+        "commission_bp": 0.6451688174950664,
+        "borrow_bp": 2.0624353342532595,
+        "financing_bp": 0.0,
+        "net_bp": 106.57586532390613
+      },
+      {
+        "trade_id": 82,
+        "paper_bp": -637.2291727624289,
+        "entry_delay_bp": 37.70748677469693,
+        "exit_delay_bp": 296.07968879717475,
+        "gross_bp": -971.0163483343007,
+        "bid_ask_bp": 3.9539623298545985,
+        "market_impact_bp": 23.392649070894837,
+        "commission_bp": 0.37478315922792405,
+        "borrow_bp": 0.9371725856405626,
+        "financing_bp": 0.0,
+        "net_bp": -999.6749154799187
+      },
+      {
+        "trade_id": 83,
+        "paper_bp": 72.56683338223804,
+        "entry_delay_bp": 22.63051467099244,
+        "exit_delay_bp": -1.590360687615797,
+        "gross_bp": 51.5266793988614,
+        "bid_ask_bp": 4.0844415317028275,
+        "market_impact_bp": 7.336508722821666,
+        "commission_bp": 1.765084303336782,
+        "borrow_bp": 2.5082930842160662,
+        "financing_bp": 0.0,
+        "net_bp": 35.83235175678406
+      },
+      {
+        "trade_id": 84,
+        "paper_bp": 465.4497228859217,
+        "entry_delay_bp": -100.98419938787134,
+        "exit_delay_bp": 143.48348704323934,
+        "gross_bp": 422.9504352305537,
+        "bid_ask_bp": 4.018979998226598,
+        "market_impact_bp": 11.141783076216157,
+        "commission_bp": 0.7191161717883231,
+        "borrow_bp": 0.7253539780627222,
+        "financing_bp": 0.0,
+        "net_bp": 406.3452020062598
+      },
+      {
+        "trade_id": 85,
+        "paper_bp": 128.89566542745004,
+        "entry_delay_bp": 38.4969045701407,
+        "exit_delay_bp": -19.0928164775667,
+        "gross_bp": 109.49157733487603,
+        "bid_ask_bp": 4.066807665064467,
+        "market_impact_bp": 7.1146155307455405,
+        "commission_bp": 0.3079054730197829,
+        "borrow_bp": 0.31827039261261547,
+        "financing_bp": 0.0,
+        "net_bp": 97.68397827343364
+      },
+      {
+        "trade_id": 86,
+        "paper_bp": 1018.1893289297943,
+        "entry_delay_bp": 2.6675665502214794,
+        "exit_delay_bp": -242.21117161304164,
+        "gross_bp": 1257.7329339926143,
+        "bid_ask_bp": 3.994001023788465,
+        "market_impact_bp": 15.856793094947243,
+        "commission_bp": 0.3787678788678954,
+        "borrow_bp": 3.2203101765953743,
+        "financing_bp": 0.0,
+        "net_bp": 1234.2830618184155
+      },
+      {
+        "trade_id": 87,
+        "paper_bp": -40.70939439369071,
+        "entry_delay_bp": 105.3295512021685,
+        "exit_delay_bp": 50.25940537281125,
+        "gross_bp": -196.29835096867046,
+        "bid_ask_bp": 1.4977031176955042,
+        "market_impact_bp": 1.7468886440112419,
+        "commission_bp": 0.17011326875255486,
+        "borrow_bp": 2.892514196020951,
+        "financing_bp": 0.0,
+        "net_bp": -202.60557019515073
+      },
+      {
+        "trade_id": 88,
+        "paper_bp": 61.61842927701632,
+        "entry_delay_bp": 14.983713559060387,
+        "exit_delay_bp": -72.16750716091836,
+        "gross_bp": 118.80222287887426,
+        "bid_ask_bp": 4.180714771398378,
+        "market_impact_bp": 9.09863315720838,
+        "commission_bp": 0.5293211164427607,
+        "borrow_bp": 1.8274511675430964,
+        "financing_bp": 0.0,
+        "net_bp": 103.16610266628166
+      },
+      {
+        "trade_id": 89,
+        "paper_bp": 546.5395182104655,
+        "entry_delay_bp": -68.30136660657958,
+        "exit_delay_bp": 111.21131565895223,
+        "gross_bp": 503.629569158093,
+        "bid_ask_bp": 1.4926038425375034,
+        "market_impact_bp": 5.943934172030869,
+        "commission_bp": 0.06200156139132792,
+        "borrow_bp": 1.3925180138864857,
+        "financing_bp": 0.0,
+        "net_bp": 494.73851156824685
+      },
+      {
+        "trade_id": 90,
+        "paper_bp": -120.51593767708138,
+        "entry_delay_bp": -16.03270146990954,
+        "exit_delay_bp": 3.44544859250097,
+        "gross_bp": -107.9286847996728,
+        "bid_ask_bp": 2.929788612496704,
+        "market_impact_bp": 4.528506066796017,
+        "commission_bp": 0.21392047901414363,
+        "borrow_bp": 0.4054006015007699,
+        "financing_bp": 0.0,
+        "net_bp": -116.00630055948044
+      },
+      {
+        "trade_id": 91,
+        "paper_bp": 203.86458278412846,
+        "entry_delay_bp": 9.677923151221606,
+        "exit_delay_bp": 83.00280056804566,
+        "gross_bp": 111.18385906486117,
+        "bid_ask_bp": 3.892911537469112,
+        "market_impact_bp": 7.693855325208695,
+        "commission_bp": 0.7993725181198731,
+        "borrow_bp": 0.3682608666657433,
+        "financing_bp": 0.0,
+        "net_bp": 98.42945881739776
+      },
+      {
+        "trade_id": 92,
+        "paper_bp": 228.82464890237264,
+        "entry_delay_bp": -84.608284068396,
+        "exit_delay_bp": -2.4580162053551713,
+        "gross_bp": 315.89094917612385,
+        "bid_ask_bp": 4.048945569275192,
+        "market_impact_bp": 10.276703793144844,
+        "commission_bp": 1.3788487531876608,
+        "borrow_bp": 2.2717331772092795,
+        "financing_bp": 0.0,
+        "net_bp": 297.9147178833069
+      },
+      {
+        "trade_id": 93,
+        "paper_bp": 469.81015898701366,
+        "entry_delay_bp": 54.68662547434909,
+        "exit_delay_bp": 37.79097937826073,
+        "gross_bp": 377.3325541344038,
+        "bid_ask_bp": 2.422412881990855,
+        "market_impact_bp": 7.661121714890831,
+        "commission_bp": 0.22886737131991033,
+        "borrow_bp": 1.1136639099278112,
+        "financing_bp": 0.0,
+        "net_bp": 365.9064882562744
+      },
+      {
+        "trade_id": 94,
+        "paper_bp": 472.37483529405733,
+        "entry_delay_bp": 6.942862347996525,
+        "exit_delay_bp": -75.4430215055502,
+        "gross_bp": 540.8749944516111,
+        "bid_ask_bp": 7.638106070704208,
+        "market_impact_bp": 22.251178783134872,
+        "commission_bp": 0.698350520562187,
+        "borrow_bp": 0.4211910850414459,
+        "financing_bp": 0.0,
+        "net_bp": 509.8661679921683
+      },
+      {
+        "trade_id": 95,
+        "paper_bp": 57.2738976697692,
+        "entry_delay_bp": -114.61688494624174,
+        "exit_delay_bp": 32.41704004778135,
+        "gross_bp": 139.4737425682296,
+        "bid_ask_bp": 3.186130399257484,
+        "market_impact_bp": 12.75033160329911,
+        "commission_bp": 0.18450782339894028,
+        "borrow_bp": 1.6195151729204478,
+        "financing_bp": 0.0,
+        "net_bp": 121.7332575693536
+      },
+      {
+        "trade_id": 96,
+        "paper_bp": -95.42226782826091,
+        "entry_delay_bp": -23.127689914321596,
+        "exit_delay_bp": 10.770228280667101,
+        "gross_bp": -83.06480619460642,
+        "bid_ask_bp": 5.594850699044535,
+        "market_impact_bp": 11.739482275142153,
+        "commission_bp": 0.4887466656039146,
+        "borrow_bp": 1.657588830212864,
+        "financing_bp": 0.0,
+        "net_bp": -102.54547466460988
+      },
+      {
+        "trade_id": 97,
+        "paper_bp": 266.88792359652444,
+        "entry_delay_bp": -43.03207399663188,
+        "exit_delay_bp": -34.458486713246025,
+        "gross_bp": 344.3784843064023,
+        "bid_ask_bp": 4.118251720681375,
+        "market_impact_bp": 9.761013781616017,
+        "commission_bp": 1.0854315104805203,
+        "borrow_bp": 1.655886583038492,
+        "financing_bp": 0.0,
+        "net_bp": 327.75790071058594
+      },
+      {
+        "trade_id": 98,
+        "paper_bp": -92.38506711297714,
+        "entry_delay_bp": 67.83501356031277,
+        "exit_delay_bp": 82.02521448388615,
+        "gross_bp": -242.24529515717606,
+        "bid_ask_bp": 4.20823114365611,
+        "market_impact_bp": 8.647097118376255,
+        "commission_bp": 0.185388323061046,
+        "borrow_bp": 2.922163658539963,
+        "financing_bp": 0.0,
+        "net_bp": -258.20817540080947
+      },
+      {
+        "trade_id": 99,
+        "paper_bp": -601.2613283800428,
+        "entry_delay_bp": -79.81588275370638,
+        "exit_delay_bp": -222.98910893821514,
+        "gross_bp": -298.4563366881212,
+        "bid_ask_bp": 5.6287403130230045,
+        "market_impact_bp": 11.177387993416971,
+        "commission_bp": 0.10927742536158036,
+        "borrow_bp": 0.2561704468903379,
+        "financing_bp": 0.0,
+        "net_bp": -315.6279128668131
+      },
+      {
+        "trade_id": 100,
+        "paper_bp": -198.82191749402259,
+        "entry_delay_bp": -76.92740660707754,
+        "exit_delay_bp": 86.4079011523966,
+        "gross_bp": -208.30241203934168,
+        "bid_ask_bp": 7.091837753406794,
+        "market_impact_bp": 29.94305586918959,
+        "commission_bp": 0.7273248703498273,
+        "borrow_bp": 1.2730038023308545,
+        "financing_bp": 0.0,
+        "net_bp": -247.33763433461874
+      },
+      {
+        "trade_id": 101,
+        "paper_bp": -672.7627221814969,
+        "entry_delay_bp": 150.51678419466072,
+        "exit_delay_bp": 555.65163201087,
+        "gross_bp": -1378.9311383870277,
+        "bid_ask_bp": 4.168570126142894,
+        "market_impact_bp": 17.776470746042346,
+        "commission_bp": 0.4187052628478144,
+        "borrow_bp": 0.36762820390808243,
+        "financing_bp": 0.0,
+        "net_bp": -1401.6625127259688
+      },
+      {
+        "trade_id": 102,
+        "paper_bp": 13.788587930702974,
+        "entry_delay_bp": -5.6038757073231915,
+        "exit_delay_bp": 13.48376735361749,
+        "gross_bp": 5.908696284408674,
+        "bid_ask_bp": 1.57461009752292,
+        "market_impact_bp": 2.987697458162644,
+        "commission_bp": 0.2634066005628588,
+        "borrow_bp": 0.746593142617125,
+        "financing_bp": 0.0,
+        "net_bp": 0.3363889855431264
+      },
+      {
+        "trade_id": 103,
+        "paper_bp": -315.9068695670183,
+        "entry_delay_bp": -76.17383110388383,
+        "exit_delay_bp": 198.28435094189666,
+        "gross_bp": -438.0173894050311,
+        "bid_ask_bp": 3.2789896303174553,
+        "market_impact_bp": 14.203973132934127,
+        "commission_bp": 0.6278216235337861,
+        "borrow_bp": 0.48620489258909527,
+        "financing_bp": 0.0,
+        "net_bp": -456.61437868440555
+      },
+      {
+        "trade_id": 104,
+        "paper_bp": 431.99607289082473,
+        "entry_delay_bp": -137.03982970691902,
+        "exit_delay_bp": 58.52884736182883,
+        "gross_bp": 510.5070552359149,
+        "bid_ask_bp": 1.4907337221476584,
+        "market_impact_bp": 5.440712345702776,
+        "commission_bp": 0.25369139182346206,
+        "borrow_bp": 1.0171170983735653,
+        "financing_bp": 0.0,
+        "net_bp": 502.30480067786743
+      },
+      {
+        "trade_id": 105,
+        "paper_bp": 158.59851840266555,
+        "entry_delay_bp": 92.25889751957915,
+        "exit_delay_bp": 7.134456375791008,
+        "gross_bp": 59.20516450729538,
+        "bid_ask_bp": 4.223005278357289,
+        "market_impact_bp": 9.631823805384572,
+        "commission_bp": 0.25177467520016084,
+        "borrow_bp": 2.202197310841656,
+        "financing_bp": 0.0,
+        "net_bp": 42.8963634375117
+      },
+      {
+        "trade_id": 106,
+        "paper_bp": -675.5524468547193,
+        "entry_delay_bp": -114.07063763259032,
+        "exit_delay_bp": -324.35564470455313,
+        "gross_bp": -237.12616451757586,
+        "bid_ask_bp": 3.6975384261106443,
+        "market_impact_bp": 12.434912409183958,
+        "commission_bp": 0.5985860798609519,
+        "borrow_bp": 2.412597979555951,
+        "financing_bp": 0.0,
+        "net_bp": -256.2697994122874
+      },
+      {
+        "trade_id": 107,
+        "paper_bp": 595.1901391624685,
+        "entry_delay_bp": -128.94659122020386,
+        "exit_delay_bp": 9.192153614050634,
+        "gross_bp": 714.9445767686218,
+        "bid_ask_bp": 3.883402814888369,
+        "market_impact_bp": 12.728971008919999,
+        "commission_bp": 0.348613078930342,
+        "borrow_bp": 2.0523603691977264,
+        "financing_bp": 0.0,
+        "net_bp": 695.9312294966853
+      },
+      {
+        "trade_id": 108,
+        "paper_bp": -268.35396527601483,
+        "entry_delay_bp": -76.0071378946254,
+        "exit_delay_bp": 35.2619437359359,
+        "gross_bp": -227.60877111732532,
+        "bid_ask_bp": 4.20481531779803,
+        "market_impact_bp": 9.526486758167568,
+        "commission_bp": 1.276800583387646,
+        "borrow_bp": 0.7986169632993833,
+        "financing_bp": 0.0,
+        "net_bp": -243.41549073997794
+      },
+      {
+        "trade_id": 109,
+        "paper_bp": -208.5570519679961,
+        "entry_delay_bp": -61.87729486300606,
+        "exit_delay_bp": -7.42504936145055,
+        "gross_bp": -139.25470774353948,
+        "bid_ask_bp": 4.306967125447444,
+        "market_impact_bp": 12.249958090710749,
+        "commission_bp": 1.1590411809346615,
+        "borrow_bp": 2.5062783990403705,
+        "financing_bp": 0.0,
+        "net_bp": -159.47695253967268
+      },
+      {
+        "trade_id": 110,
+        "paper_bp": -448.3539789987779,
+        "entry_delay_bp": 36.52185742529931,
+        "exit_delay_bp": 99.10109173615221,
+        "gross_bp": -583.9769281602294,
+        "bid_ask_bp": 2.3246533051024882,
+        "market_impact_bp": 6.607662582721699,
+        "commission_bp": 0.15254363624352052,
+        "borrow_bp": 1.49897235281417,
+        "financing_bp": 0.0,
+        "net_bp": -594.5607600371112
+      },
+      {
+        "trade_id": 111,
+        "paper_bp": -387.5301579820499,
+        "entry_delay_bp": -561.5744963505128,
+        "exit_delay_bp": -64.36476036878823,
+        "gross_bp": 238.4090987372512,
+        "bid_ask_bp": 4.172612870376701,
+        "market_impact_bp": 11.77699126945909,
+        "commission_bp": 0.32884828013206574,
+        "borrow_bp": 0.198272167575903,
+        "financing_bp": 0.0,
+        "net_bp": 221.93237414970744
+      },
+      {
+        "trade_id": 112,
+        "paper_bp": 14.737720431513432,
+        "entry_delay_bp": 9.683438030978975,
+        "exit_delay_bp": -0.1508753846719611,
+        "gross_bp": 5.205157785206419,
+        "bid_ask_bp": 4.057953658224306,
+        "market_impact_bp": 7.516713992773763,
+        "commission_bp": 0.49053600922599305,
+        "borrow_bp": 1.6171746537509033,
+        "financing_bp": 0.0,
+        "net_bp": -8.477220528768546
+      },
+      {
+        "trade_id": 113,
+        "paper_bp": 388.6280199072551,
+        "entry_delay_bp": 358.5590282223171,
+        "exit_delay_bp": 154.17483228434472,
+        "gross_bp": -124.10584059940678,
+        "bid_ask_bp": 1.6401434560934705,
+        "market_impact_bp": 6.36672320944682,
+        "commission_bp": 0.23661241390585858,
+        "borrow_bp": 0.16718915054360947,
+        "financing_bp": 0.0,
+        "net_bp": -132.51650882939654
+      },
+      {
+        "trade_id": 114,
+        "paper_bp": -357.3971458263549,
+        "entry_delay_bp": -72.37112737198072,
+        "exit_delay_bp": -20.362332929016617,
+        "gross_bp": -264.6636855253576,
+        "bid_ask_bp": 3.1480169771741773,
+        "market_impact_bp": 13.091826295591567,
+        "commission_bp": 0.5599736682272994,
+        "borrow_bp": 0.732597129861279,
+        "financing_bp": 0.0,
+        "net_bp": -282.1960995962119
+      },
+      {
+        "trade_id": 115,
+        "paper_bp": -91.61213236483862,
+        "entry_delay_bp": 145.9220347091267,
+        "exit_delay_bp": -10.701731123537598,
+        "gross_bp": -226.8324359504277,
+        "bid_ask_bp": 6.831058067800603,
+        "market_impact_bp": 30.536002308042086,
+        "commission_bp": 0.6572241491864215,
+        "borrow_bp": 2.5756207904473976,
+        "financing_bp": 0.0,
+        "net_bp": -267.4323412659042
+      },
+      {
+        "trade_id": 116,
+        "paper_bp": 424.6393081771472,
+        "entry_delay_bp": 43.957975314606806,
+        "exit_delay_bp": 255.9438049304934,
+        "gross_bp": 124.73752793204694,
+        "bid_ask_bp": 1.5757136384695416,
+        "market_impact_bp": 3.0202471760024565,
+        "commission_bp": 0.05844431924778363,
+        "borrow_bp": 0.5830277441210541,
+        "financing_bp": 0.0,
+        "net_bp": 119.50009505420611
+      },
+      {
+        "trade_id": 117,
+        "paper_bp": -87.0505490738661,
+        "entry_delay_bp": 95.7793916215048,
+        "exit_delay_bp": -20.344585015773045,
+        "gross_bp": -162.4853556795978,
+        "bid_ask_bp": 2.199921202718545,
+        "market_impact_bp": 5.2973930569272145,
+        "commission_bp": 0.14007957695699022,
+        "borrow_bp": 2.8154315357120536,
+        "financing_bp": 0.0,
+        "net_bp": -172.93818105191264
+      },
+      {
+        "trade_id": 118,
+        "paper_bp": 443.07684766967134,
+        "entry_delay_bp": -27.26656212607955,
+        "exit_delay_bp": -13.178814976534216,
+        "gross_bp": 483.52222477228514,
+        "bid_ask_bp": 2.607768985745799,
+        "market_impact_bp": 4.841107532901901,
+        "commission_bp": 0.05075437193657458,
+        "borrow_bp": 0.9452124681506083,
+        "financing_bp": 0.0,
+        "net_bp": 475.0773814135502
+      },
+      {
+        "trade_id": 119,
+        "paper_bp": -108.18446717464464,
+        "entry_delay_bp": 94.39273561486833,
+        "exit_delay_bp": 40.338715208124995,
+        "gross_bp": -242.91591799763793,
+        "bid_ask_bp": 3.0971827966709644,
+        "market_impact_bp": 4.79873762654278,
+        "commission_bp": 0.245636536868528,
+        "borrow_bp": 1.3877157565312657,
+        "financing_bp": 0.0,
+        "net_bp": -252.4451907142515
+      },
+      {
+        "trade_id": 120,
+        "paper_bp": 721.244568962816,
+        "entry_delay_bp": 144.33392140579858,
+        "exit_delay_bp": 76.06830378766679,
+        "gross_bp": 500.8423437693506,
+        "bid_ask_bp": 2.4796860849914815,
+        "market_impact_bp": 11.811693929316576,
+        "commission_bp": 0.12841658300857997,
+        "borrow_bp": 1.1758630113334778,
+        "financing_bp": 0.0,
+        "net_bp": 485.24668416070045
+      },
+      {
+        "trade_id": 121,
+        "paper_bp": 692.3196384499232,
+        "entry_delay_bp": 128.62652098169167,
+        "exit_delay_bp": 48.52453472283221,
+        "gross_bp": 515.1685827453992,
+        "bid_ask_bp": 2.501741197981821,
+        "market_impact_bp": 8.697921552328465,
+        "commission_bp": 0.22877285638414724,
+        "borrow_bp": 1.629935130072669,
+        "financing_bp": 0.0,
+        "net_bp": 502.1102120086322
+      },
+      {
+        "trade_id": 122,
+        "paper_bp": 417.9003281295925,
+        "entry_delay_bp": -71.09520755551549,
+        "exit_delay_bp": 34.05965599954531,
+        "gross_bp": 454.93587968556267,
+        "bid_ask_bp": 3.056117817345412,
+        "market_impact_bp": 8.837616668276924,
+        "commission_bp": 0.15949290691003884,
+        "borrow_bp": 1.8759785103542113,
+        "financing_bp": 0.0,
+        "net_bp": 441.006673782676
+      },
+      {
+        "trade_id": 123,
+        "paper_bp": -171.07422167854043,
+        "entry_delay_bp": 34.04999892418064,
+        "exit_delay_bp": 94.4230818776587,
+        "gross_bp": -299.54730248037976,
+        "bid_ask_bp": 6.041519497832354,
+        "market_impact_bp": 8.292481358519812,
+        "commission_bp": 1.006199917699011,
+        "borrow_bp": 0.23361529911295306,
+        "financing_bp": 0.0,
+        "net_bp": -315.12111855354397
+      },
+      {
+        "trade_id": 124,
+        "paper_bp": 104.09340441191314,
+        "entry_delay_bp": -401.4887073844702,
+        "exit_delay_bp": 196.64862566976734,
+        "gross_bp": 308.933486126616,
+        "bid_ask_bp": 6.053828662564931,
+        "market_impact_bp": 22.470985471440088,
+        "commission_bp": 1.2879859728430583,
+        "borrow_bp": 1.0223951462532652,
+        "financing_bp": 0.0,
+        "net_bp": 278.09829087351466
+      },
+      {
+        "trade_id": 125,
+        "paper_bp": 8.221887560838265,
+        "entry_delay_bp": 8.997137236051724,
+        "exit_delay_bp": -0.44426879038447925,
+        "gross_bp": -0.33098088482897964,
+        "bid_ask_bp": 1.550813334278393,
+        "market_impact_bp": 2.9280136034614688,
+        "commission_bp": 0.21141204150766996,
+        "borrow_bp": 1.6914562262086201,
+        "financing_bp": 0.0,
+        "net_bp": -6.712676090285132
+      },
+      {
+        "trade_id": 126,
+        "paper_bp": 393.56241940378067,
+        "entry_delay_bp": -78.5278821078387,
+        "exit_delay_bp": -61.540247066402344,
+        "gross_bp": 533.6305485780216,
+        "bid_ask_bp": 4.148282593645063,
+        "market_impact_bp": 9.484665038631372,
+        "commission_bp": 1.0261486600720728,
+        "borrow_bp": 1.8024001539681638,
+        "financing_bp": 0.0,
+        "net_bp": 517.169052131705
+      },
+      {
+        "trade_id": 127,
+        "paper_bp": -225.98489933866023,
+        "entry_delay_bp": -81.74996746831586,
+        "exit_delay_bp": -40.40234843791758,
+        "gross_bp": -103.83258343242679,
+        "bid_ask_bp": 2.8768703266392746,
+        "market_impact_bp": 4.744288975662564,
+        "commission_bp": 0.09061184636570627,
+        "borrow_bp": 2.0075489767003045,
+        "financing_bp": 0.0,
+        "net_bp": -113.55190355779465
+      },
+      {
+        "trade_id": 128,
+        "paper_bp": -267.4044162546697,
+        "entry_delay_bp": 156.4605893576379,
+        "exit_delay_bp": -58.198522818817125,
+        "gross_bp": -365.6664827934905,
+        "bid_ask_bp": 6.95591392055837,
+        "market_impact_bp": 21.324837038865244,
+        "commission_bp": 0.32803240130145955,
+        "borrow_bp": 0.9671912965163639,
+        "financing_bp": 0.0,
+        "net_bp": -395.2424574507319
+      },
+      {
+        "trade_id": 129,
+        "paper_bp": 585.686275197753,
+        "entry_delay_bp": 105.56911384148192,
+        "exit_delay_bp": -23.62669932642388,
+        "gross_bp": 503.74386068269496,
+        "bid_ask_bp": 3.524125778698221,
+        "market_impact_bp": 12.584577784051252,
+        "commission_bp": 0.5402773723920653,
+        "borrow_bp": 0.5164782646676477,
+        "financing_bp": 0.0,
+        "net_bp": 486.5784014828857
+      },
+      {
+        "trade_id": 130,
+        "paper_bp": -447.503450102553,
+        "entry_delay_bp": 97.80718931981208,
+        "exit_delay_bp": -114.98621628064538,
+        "gross_bp": -430.3244231417197,
+        "bid_ask_bp": 4.061004420086214,
+        "market_impact_bp": 15.009997058586647,
+        "commission_bp": 0.39522921252146903,
+        "borrow_bp": 0.3236474511205218,
+        "financing_bp": 0.0,
+        "net_bp": -450.1143012840346
+      },
+      {
+        "trade_id": 131,
+        "paper_bp": 244.8941550017461,
+        "entry_delay_bp": 6.1483044330563805,
+        "exit_delay_bp": -61.89140339993733,
+        "gross_bp": 300.6372539686271,
+        "bid_ask_bp": 3.967662332414598,
+        "market_impact_bp": 6.929809075573035,
+        "commission_bp": 0.2399910562358408,
+        "borrow_bp": 0.2194275391537541,
+        "financing_bp": 0.0,
+        "net_bp": 289.2803639652498
+      },
+      {
+        "trade_id": 132,
+        "paper_bp": 101.4912978420065,
+        "entry_delay_bp": 147.71746476231314,
+        "exit_delay_bp": -59.54479952645509,
+        "gross_bp": 13.318632606148435,
+        "bid_ask_bp": 3.866938654838175,
+        "market_impact_bp": 8.750809307934794,
+        "commission_bp": 0.4093859582478264,
+        "borrow_bp": 2.0499614848810483,
+        "financing_bp": 0.0,
+        "net_bp": -1.75846279975341
+      },
+      {
+        "trade_id": 133,
+        "paper_bp": -970.0933747989948,
+        "entry_delay_bp": 212.18880398342034,
+        "exit_delay_bp": -188.10375685584097,
+        "gross_bp": -994.1784219265741,
+        "bid_ask_bp": 3.463043656574245,
+        "market_impact_bp": 19.93097787386195,
+        "commission_bp": 0.2549858387078305,
+        "borrow_bp": 0.929837079661803,
+        "financing_bp": 0.0,
+        "net_bp": -1018.7572663753798
+      },
+      {
+        "trade_id": 134,
+        "paper_bp": -581.1458059702112,
+        "entry_delay_bp": 146.0475556145816,
+        "exit_delay_bp": 18.207931427051907,
+        "gross_bp": -745.4012930118448,
+        "bid_ask_bp": 3.890725747119085,
+        "market_impact_bp": 20.09002474059501,
+        "commission_bp": 0.3716702805555058,
+        "borrow_bp": 0.3683170512477541,
+        "financing_bp": 0.0,
+        "net_bp": -770.122030831362
+      },
+      {
+        "trade_id": 135,
+        "paper_bp": 234.38037474719349,
+        "entry_delay_bp": -19.105775904977335,
+        "exit_delay_bp": -202.44782328818377,
+        "gross_bp": 455.93397394035463,
+        "bid_ask_bp": 4.014142076732609,
+        "market_impact_bp": 9.019529538611346,
+        "commission_bp": 0.24449118089938923,
+        "borrow_bp": 0.14106216185375264,
+        "financing_bp": 0.0,
+        "net_bp": 442.5147489822576
+      },
+      {
+        "trade_id": 136,
+        "paper_bp": -252.43757235274947,
+        "entry_delay_bp": -43.73638239712015,
+        "exit_delay_bp": 7.993028503124001,
+        "gross_bp": -216.69421845875337,
+        "bid_ask_bp": 3.9062245356621212,
+        "market_impact_bp": 14.133945029130423,
+        "commission_bp": 0.6474158278899032,
+        "borrow_bp": 0.5276468900378385,
+        "financing_bp": 0.0,
+        "net_bp": -235.90945074147365
+      },
+      {
+        "trade_id": 137,
+        "paper_bp": 1026.117095429451,
+        "entry_delay_bp": -66.89982406602029,
+        "exit_delay_bp": 181.26101911870023,
+        "gross_bp": 911.7559003767711,
+        "bid_ask_bp": 3.6872820860506788,
+        "market_impact_bp": 21.205375526131984,
+        "commission_bp": 0.38924843341378373,
+        "borrow_bp": 1.4091710437654932,
+        "financing_bp": 0.0,
+        "net_bp": 885.0648232874092
+      },
+      {
+        "trade_id": 138,
+        "paper_bp": -188.85333308485735,
+        "entry_delay_bp": -46.37826420820121,
+        "exit_delay_bp": 154.0429950627531,
+        "gross_bp": -296.5180639394093,
+        "bid_ask_bp": 2.6282350601072504,
+        "market_impact_bp": 4.974912644451399,
+        "commission_bp": 0.2815574757631028,
+        "borrow_bp": 0.42430615057544036,
+        "financing_bp": 0.0,
+        "net_bp": -304.8270752703065
+      },
+      {
+        "trade_id": 139,
+        "paper_bp": -79.54719493843476,
+        "entry_delay_bp": 24.392516799075665,
+        "exit_delay_bp": -34.47109379802889,
+        "gross_bp": -69.46861793948153,
+        "bid_ask_bp": 3.9590226875503456,
+        "market_impact_bp": 7.8554408961991555,
+        "commission_bp": 0.5484712264065869,
+        "borrow_bp": 0.4109499115847785,
+        "financing_bp": 0.0,
+        "net_bp": -82.24250266122242
+      },
+      {
+        "trade_id": 140,
+        "paper_bp": -367.0697591241093,
+        "entry_delay_bp": -118.06139738663565,
+        "exit_delay_bp": -73.92104495919176,
+        "gross_bp": -175.0873167782819,
+        "bid_ask_bp": 2.9629517089350146,
+        "market_impact_bp": 12.443054367374103,
+        "commission_bp": 0.5185713576412992,
+        "borrow_bp": 0.572064529448931,
+        "financing_bp": 0.0,
+        "net_bp": -191.58395874168124
+      },
+      {
+        "trade_id": 141,
+        "paper_bp": -311.0514906735019,
+        "entry_delay_bp": 22.23247360028234,
+        "exit_delay_bp": 143.32905051647344,
+        "gross_bp": -476.6130147902577,
+        "bid_ask_bp": 2.506384013666146,
+        "market_impact_bp": 5.211038926723588,
+        "commission_bp": 0.27557548778445756,
+        "borrow_bp": 0.5915110294501754,
+        "financing_bp": 0.0,
+        "net_bp": -485.19752424788203
+      },
+      {
+        "trade_id": 142,
+        "paper_bp": 121.32463624327916,
+        "entry_delay_bp": 24.753097709551923,
+        "exit_delay_bp": 1.4010375839278346,
+        "gross_bp": 95.17050094979939,
+        "bid_ask_bp": 3.9088602994987385,
+        "market_impact_bp": 5.821008037143043,
+        "commission_bp": 0.5663192489821237,
+        "borrow_bp": 0.4101200018172386,
+        "financing_bp": 0.0,
+        "net_bp": 84.46419336235826
+      },
+      {
+        "trade_id": 143,
+        "paper_bp": -884.9180751089431,
+        "entry_delay_bp": 84.35309428897848,
+        "exit_delay_bp": -72.86837221758012,
+        "gross_bp": -896.4027971803414,
+        "bid_ask_bp": 3.083188524916276,
+        "market_impact_bp": 9.504973031338473,
+        "commission_bp": 0.2946736672126079,
+        "borrow_bp": 1.27890260504036,
+        "financing_bp": 0.0,
+        "net_bp": -910.5645350088491
+      },
+      {
+        "trade_id": 144,
+        "paper_bp": -94.69542090774902,
+        "entry_delay_bp": -41.55904463679382,
+        "exit_delay_bp": 54.92407667185279,
+        "gross_bp": -108.060452942808,
+        "bid_ask_bp": 2.506364733082485,
+        "market_impact_bp": 6.763012664925281,
+        "commission_bp": 0.07966099205307628,
+        "borrow_bp": 1.4792226520515164,
+        "financing_bp": 0.0,
+        "net_bp": -118.88871398492037
+      },
+      {
+        "trade_id": 145,
+        "paper_bp": -579.6719313931976,
+        "entry_delay_bp": -98.98074184052,
+        "exit_delay_bp": -118.96828783284684,
+        "gross_bp": -361.72290171983076,
+        "bid_ask_bp": 3.8704068134672385,
+        "market_impact_bp": 9.178355180105605,
+        "commission_bp": 0.6039542423037202,
+        "borrow_bp": 0.20274124245816585,
+        "financing_bp": 0.0,
+        "net_bp": -375.57835919816546
+      },
+      {
+        "trade_id": 146,
+        "paper_bp": -505.4154554910268,
+        "entry_delay_bp": -287.6142146893675,
+        "exit_delay_bp": 103.24599987489461,
+        "gross_bp": -321.0472406765538,
+        "bid_ask_bp": 1.3877524499209628,
+        "market_impact_bp": 8.249572552817211,
+        "commission_bp": 0.3827839686002054,
+        "borrow_bp": 1.3506301120265132,
+        "financing_bp": 0.0,
+        "net_bp": -332.41797975991875
+      },
+      {
+        "trade_id": 147,
+        "paper_bp": -89.09836522995674,
+        "entry_delay_bp": 13.43678629111033,
+        "exit_delay_bp": 31.514104976116467,
+        "gross_bp": -134.04925649718353,
+        "bid_ask_bp": 1.4136735071882633,
+        "market_impact_bp": 3.1464276742841863,
+        "commission_bp": 0.09413855613153903,
+        "borrow_bp": 1.265727885589532,
+        "financing_bp": 0.0,
+        "net_bp": -139.96922412037705
+      },
+      {
+        "trade_id": 148,
+        "paper_bp": 377.0119851026087,
+        "entry_delay_bp": 187.65425930451926,
+        "exit_delay_bp": -5.768784589957592,
+        "gross_bp": 195.12651038804702,
+        "bid_ask_bp": 4.052900517239933,
+        "market_impact_bp": 7.459412982980137,
+        "commission_bp": 0.30136384381882503,
+        "borrow_bp": 0.1764418828240731,
+        "financing_bp": 0.0,
+        "net_bp": 183.13639116118404
+      },
+      {
+        "trade_id": 149,
+        "paper_bp": -501.7723570558146,
+        "entry_delay_bp": 40.70252605505488,
+        "exit_delay_bp": -246.53714017657586,
+        "gross_bp": -295.9377429342935,
+        "bid_ask_bp": 3.846876507901312,
+        "market_impact_bp": 14.831512231062883,
+        "commission_bp": 0.4614952074439525,
+        "borrow_bp": 1.12164634638347,
+        "financing_bp": 0.0,
+        "net_bp": -316.19927322708514
+      },
+      {
+        "trade_id": 150,
+        "paper_bp": 293.8326410332117,
+        "entry_delay_bp": -62.80565843825447,
+        "exit_delay_bp": -121.26901152880716,
+        "gross_bp": 477.9073110002733,
+        "bid_ask_bp": 3.845463489153613,
+        "market_impact_bp": 9.476284728740115,
+        "commission_bp": 0.14240688337628443,
+        "borrow_bp": 1.4262624304757214,
+        "financing_bp": 0.0,
+        "net_bp": 463.0168934685276
+      },
+      {
+        "trade_id": 151,
+        "paper_bp": 289.8418443724036,
+        "entry_delay_bp": 38.522362644948934,
+        "exit_delay_bp": 34.96338053412797,
+        "gross_bp": 216.3561011933267,
+        "bid_ask_bp": 1.42095011767942,
+        "market_impact_bp": 11.01056086258031,
+        "commission_bp": 0.2749743403307719,
+        "borrow_bp": 0.14482470031660646,
+        "financing_bp": 0.0,
+        "net_bp": 203.5047911724196
+      },
+      {
+        "trade_id": 152,
+        "paper_bp": -500.51014854348284,
+        "entry_delay_bp": 9.720711073282061,
+        "exit_delay_bp": -124.60411248173502,
+        "gross_bp": -385.6267471350299,
+        "bid_ask_bp": 2.6840394108987105,
+        "market_impact_bp": 16.883567118470094,
+        "commission_bp": 0.30694278958539056,
+        "borrow_bp": 0.6936165429957968,
+        "financing_bp": 0.0,
+        "net_bp": -406.1949129969799
+      },
+      {
+        "trade_id": 153,
+        "paper_bp": 1326.5462025937982,
+        "entry_delay_bp": -245.42388510666672,
+        "exit_delay_bp": -184.74302196568968,
+        "gross_bp": 1756.7131096661549,
+        "bid_ask_bp": 3.711604513308326,
+        "market_impact_bp": 28.052630607243866,
+        "commission_bp": 1.047573377929265,
+        "borrow_bp": 0.6463810489572945,
+        "financing_bp": 0.0,
+        "net_bp": 1723.2549201187162
+      },
+      {
+        "trade_id": 154,
+        "paper_bp": 28.073310385478823,
+        "entry_delay_bp": 19.377581236865876,
+        "exit_delay_bp": -1.9770051099508954,
+        "gross_bp": 10.672734258563846,
+        "bid_ask_bp": 1.556607520331525,
+        "market_impact_bp": 4.574327715463862,
+        "commission_bp": 0.27029896955303623,
+        "borrow_bp": 1.0232286305951062,
+        "financing_bp": 0.0,
+        "net_bp": 3.2482714226203164
+      },
+      {
+        "trade_id": 155,
+        "paper_bp": -838.8120304950723,
+        "entry_delay_bp": -177.3710634225055,
+        "exit_delay_bp": -36.49557751346253,
+        "gross_bp": -624.9453895591043,
+        "bid_ask_bp": 3.032982388998527,
+        "market_impact_bp": 19.83541112450608,
+        "commission_bp": 0.9871446793019614,
+        "borrow_bp": 0.9591275756719058,
+        "financing_bp": 0.0,
+        "net_bp": -649.7600553275827
+      },
+      {
+        "trade_id": 156,
+        "paper_bp": -19.211035230613636,
+        "entry_delay_bp": 38.19282486304742,
+        "exit_delay_bp": 14.121849952717831,
+        "gross_bp": -71.52571004637888,
+        "bid_ask_bp": 1.6104825686215927,
+        "market_impact_bp": 2.238896873107295,
+        "commission_bp": 0.0916437527374982,
+        "borrow_bp": 2.054310425967239,
+        "financing_bp": 0.0,
+        "net_bp": -77.5210436668125
+      },
+      {
+        "trade_id": 157,
+        "paper_bp": 604.1226660356343,
+        "entry_delay_bp": 11.99583191695508,
+        "exit_delay_bp": 11.898130176974124,
+        "gross_bp": 580.228703941705,
+        "bid_ask_bp": 2.8203776932073485,
+        "market_impact_bp": 10.228706776374242,
+        "commission_bp": 0.2972465567195092,
+        "borrow_bp": 0.9444172718659055,
+        "financing_bp": 0.0,
+        "net_bp": 565.937955643538
+      },
+      {
+        "trade_id": 158,
+        "paper_bp": -700.506228149818,
+        "entry_delay_bp": -112.73727163901471,
+        "exit_delay_bp": 612.6565296203538,
+        "gross_bp": -1200.4254861311572,
+        "bid_ask_bp": 2.6703848779959762,
+        "market_impact_bp": 17.465721171654426,
+        "commission_bp": 0.6793185937588018,
+        "borrow_bp": 0.7654383472850387,
+        "financing_bp": 0.0,
+        "net_bp": -1222.0063491218516
+      },
+      {
+        "trade_id": 159,
+        "paper_bp": 526.2716895989491,
+        "entry_delay_bp": 58.65708315776605,
+        "exit_delay_bp": -66.63349064443814,
+        "gross_bp": 534.2480970856213,
+        "bid_ask_bp": 7.155655940648492,
+        "market_impact_bp": 31.467192843433384,
+        "commission_bp": 2.4920262914887474,
+        "borrow_bp": 0.44972360225566793,
+        "financing_bp": 0.0,
+        "net_bp": 492.68349840779507
+      },
+      {
+        "trade_id": 160,
+        "paper_bp": -173.93677103297696,
+        "entry_delay_bp": -66.64692325986978,
+        "exit_delay_bp": 0.7053696505773085,
+        "gross_bp": -107.99521742368451,
+        "bid_ask_bp": 4.066998505855296,
+        "market_impact_bp": 8.574845194565416,
+        "commission_bp": 0.1452768781526192,
+        "borrow_bp": 2.4729552836260877,
+        "financing_bp": 0.0,
+        "net_bp": -123.25529328588391
+      },
+      {
+        "trade_id": 161,
+        "paper_bp": -920.5638533322289,
+        "entry_delay_bp": -81.1217126765545,
+        "exit_delay_bp": 92.42893201424666,
+        "gross_bp": -931.8710726699209,
+        "bid_ask_bp": 2.3760130664466854,
+        "market_impact_bp": 10.824701571318263,
+        "commission_bp": 0.2174129603284549,
+        "borrow_bp": 2.431349440070336,
+        "financing_bp": 0.0,
+        "net_bp": -947.7205497080846
+      },
+      {
+        "trade_id": 162,
+        "paper_bp": -13.73869089743109,
+        "entry_delay_bp": 8.332171991933667,
+        "exit_delay_bp": -0.8227295565076727,
+        "gross_bp": -21.248133332857087,
+        "bid_ask_bp": 1.5456403618348784,
+        "market_impact_bp": 2.731987736823597,
+        "commission_bp": 0.24685200307688274,
+        "borrow_bp": 1.110419484873551,
+        "financing_bp": 0.0,
+        "net_bp": -26.883032919465997
+      },
+      {
+        "trade_id": 163,
+        "paper_bp": 488.2110260117856,
+        "entry_delay_bp": -7.1120438711620215,
+        "exit_delay_bp": -11.356806410524266,
+        "gross_bp": 506.6798762934719,
+        "bid_ask_bp": 3.9812910524100373,
+        "market_impact_bp": 6.3758986227420715,
+        "commission_bp": 1.1816576800994345,
+        "borrow_bp": 0.8701982458136608,
+        "financing_bp": 0.0,
+        "net_bp": 494.27083069240666
+      },
+      {
+        "trade_id": 164,
+        "paper_bp": -282.8397688997121,
+        "entry_delay_bp": 94.84140608062354,
+        "exit_delay_bp": 159.72160152573917,
+        "gross_bp": -537.4027765060749,
+        "bid_ask_bp": 4.138352397031835,
+        "market_impact_bp": 7.96090262069849,
+        "commission_bp": 0.1671124940159042,
+        "borrow_bp": 1.6301944295249828,
+        "financing_bp": 0.0,
+        "net_bp": -551.299338447346
+      },
+      {
+        "trade_id": 165,
+        "paper_bp": -170.09495002949365,
+        "entry_delay_bp": 9.516256813655577,
+        "exit_delay_bp": 4.2024783882028816,
+        "gross_bp": -183.8136852313521,
+        "bid_ask_bp": 2.4844702664270644,
+        "market_impact_bp": 4.482556839831728,
+        "commission_bp": 0.07675376334828828,
+        "borrow_bp": 2.3980862141624257,
+        "financing_bp": 0.0,
+        "net_bp": -193.2555523151216
+      },
+      {
+        "trade_id": 166,
+        "paper_bp": 418.69242702299726,
+        "entry_delay_bp": -36.5784355129859,
+        "exit_delay_bp": 137.85314595579564,
+        "gross_bp": 317.4177165801875,
+        "bid_ask_bp": 4.343076545264943,
+        "market_impact_bp": 8.522419323607675,
+        "commission_bp": 0.33305270722237645,
+        "borrow_bp": 1.5818125537687253,
+        "financing_bp": 0.0,
+        "net_bp": 302.63735545032375
+      },
+      {
+        "trade_id": 167,
+        "paper_bp": -466.57210541740926,
+        "entry_delay_bp": 254.8341656024178,
+        "exit_delay_bp": 77.58213410689028,
+        "gross_bp": -798.9884051267173,
+        "bid_ask_bp": 3.1760301959175377,
+        "market_impact_bp": 10.548897338077644,
+        "commission_bp": 1.05054342021369,
+        "borrow_bp": 2.5747821356222444,
+        "financing_bp": 0.0,
+        "net_bp": -816.3386582165484
+      },
+      {
+        "trade_id": 168,
+        "paper_bp": -241.48672266413095,
+        "entry_delay_bp": -92.35528541934369,
+        "exit_delay_bp": 22.114769175334256,
+        "gross_bp": -171.24620642012152,
+        "bid_ask_bp": 3.005855868696884,
+        "market_impact_bp": 6.088033159872323,
+        "commission_bp": 0.8398597923016509,
+        "borrow_bp": 0.8675299914164625,
+        "financing_bp": 0.0,
+        "net_bp": -182.0474852324088
+      },
+      {
+        "trade_id": 169,
+        "paper_bp": 151.86398766761272,
+        "entry_delay_bp": -4.637022807519943,
+        "exit_delay_bp": 2.4066707206844953,
+        "gross_bp": 154.09433975444816,
+        "bid_ask_bp": 4.206477989087362,
+        "market_impact_bp": 12.855461784244646,
+        "commission_bp": 0.6489243384909941,
+        "borrow_bp": 1.5627392159541658,
+        "financing_bp": 0.0,
+        "net_bp": 134.820736426671
+      },
+      {
+        "trade_id": 170,
+        "paper_bp": -244.98896769048477,
+        "entry_delay_bp": -6.307768599921768,
+        "exit_delay_bp": 99.59798714754535,
+        "gross_bp": -338.27918623810837,
+        "bid_ask_bp": 4.001274509423046,
+        "market_impact_bp": 6.39978566591944,
+        "commission_bp": 0.2645225799036393,
+        "borrow_bp": 1.31918358558297,
+        "financing_bp": 0.0,
+        "net_bp": -350.26395257893745
+      },
+      {
+        "trade_id": 171,
+        "paper_bp": -876.2986839489802,
+        "entry_delay_bp": 96.16204302319399,
+        "exit_delay_bp": 104.17121958902425,
+        "gross_bp": -1076.6319465611982,
+        "bid_ask_bp": 3.020843827006945,
+        "market_impact_bp": 16.515291162082995,
+        "commission_bp": 0.646383841025975,
+        "borrow_bp": 0.7639060845776371,
+        "financing_bp": 0.0,
+        "net_bp": -1097.5783714758918
+      },
+      {
+        "trade_id": 172,
+        "paper_bp": -894.5679426594901,
+        "entry_delay_bp": -55.83335730073723,
+        "exit_delay_bp": 347.5931926464898,
+        "gross_bp": -1186.3277780052426,
+        "bid_ask_bp": 2.2320183025500815,
+        "market_impact_bp": 5.804325434152976,
+        "commission_bp": 0.3066330547199446,
+        "borrow_bp": 2.2479820982926735,
+        "financing_bp": 0.0,
+        "net_bp": -1196.9187368949583
+      },
+      {
+        "trade_id": 173,
+        "paper_bp": 95.61098773798979,
+        "entry_delay_bp": 49.15470829035209,
+        "exit_delay_bp": -40.404847581918126,
+        "gross_bp": 86.86112702955582,
+        "bid_ask_bp": 2.7027202049297716,
+        "market_impact_bp": 3.604277830110595,
+        "commission_bp": 0.08092379194919476,
+        "borrow_bp": 0.5015802595142139,
+        "financing_bp": 0.0,
+        "net_bp": 79.97162494305205
+      },
+      {
+        "trade_id": 174,
+        "paper_bp": -296.7782223462407,
+        "entry_delay_bp": 58.473542427302135,
+        "exit_delay_bp": 96.94846947340135,
+        "gross_bp": -452.20023424694415,
+        "bid_ask_bp": 2.772078520253107,
+        "market_impact_bp": 6.313108864503911,
+        "commission_bp": 0.2965063622475647,
+        "borrow_bp": 1.642338086737561,
+        "financing_bp": 0.0,
+        "net_bp": -463.2242660806863
+      },
+      {
+        "trade_id": 175,
+        "paper_bp": -131.69248222317952,
+        "entry_delay_bp": 36.69904734760056,
+        "exit_delay_bp": 58.51603732544234,
+        "gross_bp": -226.90756689622242,
+        "bid_ask_bp": 2.9812833394459615,
+        "market_impact_bp": 6.591210094069041,
+        "commission_bp": 0.5983160493846943,
+        "borrow_bp": 1.951373508557112,
+        "financing_bp": 0.0,
+        "net_bp": -239.02974988767923
+      },
+      {
+        "trade_id": 176,
+        "paper_bp": -661.5469502029027,
+        "entry_delay_bp": 139.07293997541473,
+        "exit_delay_bp": -289.78116864075065,
+        "gross_bp": -510.83872153756676,
+        "bid_ask_bp": 4.350911443010583,
+        "market_impact_bp": 22.786926893038412,
+        "commission_bp": 0.5940400123289294,
+        "borrow_bp": 0.8900613966344908,
+        "financing_bp": 0.0,
+        "net_bp": -539.4606612825792
+      },
+      {
+        "trade_id": 177,
+        "paper_bp": 569.8870535499317,
+        "entry_delay_bp": 57.472533594085604,
+        "exit_delay_bp": 17.272931180991293,
+        "gross_bp": 495.1415887748548,
+        "bid_ask_bp": 3.061805826379454,
+        "market_impact_bp": 8.138429402492722,
+        "commission_bp": 0.08552182967522459,
+        "borrow_bp": 1.8465223052619884,
+        "financing_bp": 0.0,
+        "net_bp": 482.0093094110454
+      },
+      {
+        "trade_id": 178,
+        "paper_bp": 362.6999081952153,
+        "entry_delay_bp": 97.28327691924731,
+        "exit_delay_bp": 79.19440700092115,
+        "gross_bp": 186.22222427504684,
+        "bid_ask_bp": 4.156365201724374,
+        "market_impact_bp": 7.2796321069185135,
+        "commission_bp": 0.2758439745026074,
+        "borrow_bp": 0.6050934646457281,
+        "financing_bp": 0.0,
+        "net_bp": 173.90528952725563
+      },
+      {
+        "trade_id": 179,
+        "paper_bp": -138.0793952671816,
+        "entry_delay_bp": -24.727091024980222,
+        "exit_delay_bp": 22.228229065106635,
+        "gross_bp": -135.58053330730803,
+        "bid_ask_bp": 3.9031386326083104,
+        "market_impact_bp": 7.1016863516000654,
+        "commission_bp": 1.5597820926356198,
+        "borrow_bp": 0.2062704570786015,
+        "financing_bp": 0.0,
+        "net_bp": -148.3514108412306
+      },
+      {
+        "trade_id": 180,
+        "paper_bp": 267.5956339381296,
+        "entry_delay_bp": -8.782111845025767,
+        "exit_delay_bp": 3.8086949346075563,
+        "gross_bp": 272.5690508485478,
+        "bid_ask_bp": 4.006453763178316,
+        "market_impact_bp": 8.989936934389881,
+        "commission_bp": 0.14649231869941606,
+        "borrow_bp": 0.37119053145280617,
+        "financing_bp": 0.0,
+        "net_bp": 259.05497730082743
+      },
+      {
+        "trade_id": 181,
+        "paper_bp": 284.9555931618733,
+        "entry_delay_bp": 23.02429503526316,
+        "exit_delay_bp": 156.7471046030598,
+        "gross_bp": 105.1841935235504,
+        "bid_ask_bp": 3.397508615117145,
+        "market_impact_bp": 11.2856236031479,
+        "commission_bp": 0.4050823259721846,
+        "borrow_bp": 0.22580768110420446,
+        "financing_bp": 0.0,
+        "net_bp": 89.87017129820896
+      },
+      {
+        "trade_id": 182,
+        "paper_bp": 236.3060757619069,
+        "entry_delay_bp": -72.54818955875277,
+        "exit_delay_bp": 171.2162436882272,
+        "gross_bp": 137.63802163243244,
+        "bid_ask_bp": 4.20530709357446,
+        "market_impact_bp": 7.508239604879435,
+        "commission_bp": 0.14532764697360798,
+        "borrow_bp": 2.2147910340047674,
+        "financing_bp": 0.0,
+        "net_bp": 123.56435625300017
+      },
+      {
+        "trade_id": 183,
+        "paper_bp": 109.92410152598353,
+        "entry_delay_bp": 1.4774278861598773,
+        "exit_delay_bp": 40.120048100624544,
+        "gross_bp": 68.32662553919911,
+        "bid_ask_bp": 4.037072407540564,
+        "market_impact_bp": 5.2091167888211425,
+        "commission_bp": 0.7245496920905176,
+        "borrow_bp": 0.5049400700030239,
+        "financing_bp": 0.0,
+        "net_bp": 57.850946580743866
+      },
+      {
+        "trade_id": 184,
+        "paper_bp": 5.959301460161603,
+        "entry_delay_bp": -63.30405474585125,
+        "exit_delay_bp": -23.66285042744517,
+        "gross_bp": 92.92620663345804,
+        "bid_ask_bp": 2.857994178084092,
+        "market_impact_bp": 7.441286288488232,
+        "commission_bp": 1.272055814070852,
+        "borrow_bp": 1.9137434837000167,
+        "financing_bp": 0.0,
+        "net_bp": 79.44112686911484
+      },
+      {
+        "trade_id": 185,
+        "paper_bp": -168.45554687500606,
+        "entry_delay_bp": 17.904022009747248,
+        "exit_delay_bp": -67.62708118359858,
+        "gross_bp": -118.73248770115477,
+        "bid_ask_bp": 1.542204820424279,
+        "market_impact_bp": 4.386880225205605,
+        "commission_bp": 0.11056821605896877,
+        "borrow_bp": 1.2714030514346828,
+        "financing_bp": 0.0,
+        "net_bp": -126.0435440142783
+      },
+      {
+        "trade_id": 186,
+        "paper_bp": 365.3052040753268,
+        "entry_delay_bp": 25.03332555557989,
+        "exit_delay_bp": -42.873237702781466,
+        "gross_bp": 383.14511622252843,
+        "bid_ask_bp": 3.103722604202603,
+        "market_impact_bp": 9.28389153141144,
+        "commission_bp": 0.3119468382884812,
+        "borrow_bp": 2.706846972146954,
+        "financing_bp": 0.0,
+        "net_bp": 367.738708276479
+      },
+      {
+        "trade_id": 187,
+        "paper_bp": 202.54103694824065,
+        "entry_delay_bp": 103.56123263799506,
+        "exit_delay_bp": -59.69622622419785,
+        "gross_bp": 158.6760305344434,
+        "bid_ask_bp": 1.4853417106778455,
+        "market_impact_bp": 3.537640272928896,
+        "commission_bp": 0.325127554097052,
+        "borrow_bp": 0.1473904385286893,
+        "financing_bp": 0.0,
+        "net_bp": 153.18053055821093
+      },
+      {
+        "trade_id": 188,
+        "paper_bp": -15.456235714579089,
+        "entry_delay_bp": -40.04451929874056,
+        "exit_delay_bp": 26.52679481689251,
+        "gross_bp": -1.9385112327310403,
+        "bid_ask_bp": 3.297106706910091,
+        "market_impact_bp": 8.10903344931471,
+        "commission_bp": 0.4220328567126446,
+        "borrow_bp": 1.0348489067292372,
+        "financing_bp": 0.0,
+        "net_bp": -14.80153315239772
+      },
+      {
+        "trade_id": 189,
+        "paper_bp": -44.14551990475646,
+        "entry_delay_bp": -49.79770530674113,
+        "exit_delay_bp": -31.529921513841394,
+        "gross_bp": 37.18210691582606,
+        "bid_ask_bp": 2.7828559985471912,
+        "market_impact_bp": 7.68216353307996,
+        "commission_bp": 0.2191874275021599,
+        "borrow_bp": 2.1907822129430765,
+        "financing_bp": 0.0,
+        "net_bp": 24.30711774375367
+      },
+      {
+        "trade_id": 190,
+        "paper_bp": -517.7551422200092,
+        "entry_delay_bp": -25.86578707678602,
+        "exit_delay_bp": -100.33950279902056,
+        "gross_bp": -391.54985234420263,
+        "bid_ask_bp": 4.0770525296080695,
+        "market_impact_bp": 5.192253780827418,
+        "commission_bp": 0.17437735055447104,
+        "borrow_bp": 1.3348075800738253,
+        "financing_bp": 0.0,
+        "net_bp": -402.3283435852664
+      },
+      {
+        "trade_id": 191,
+        "paper_bp": -125.06830858239722,
+        "entry_delay_bp": -65.43179310064728,
+        "exit_delay_bp": -0.467910995035031,
+        "gross_bp": -59.168604486714926,
+        "bid_ask_bp": 3.942661095133706,
+        "market_impact_bp": 6.192658645935247,
+        "commission_bp": 0.6888365350599575,
+        "borrow_bp": 0.8118533838669226,
+        "financing_bp": 0.0,
+        "net_bp": -70.80461414671076
+      },
+      {
+        "trade_id": 192,
+        "paper_bp": -376.1035733164062,
+        "entry_delay_bp": -91.25472124042798,
+        "exit_delay_bp": 53.740317042015185,
+        "gross_bp": -338.5891691179935,
+        "bid_ask_bp": 1.8422303644737787,
+        "market_impact_bp": 6.231606924545993,
+        "commission_bp": 0.16898976613511218,
+        "borrow_bp": 0.8389009906491662,
+        "financing_bp": 0.0,
+        "net_bp": -347.67089716379746
+      },
+      {
+        "trade_id": 193,
+        "paper_bp": -322.0804824693855,
+        "entry_delay_bp": -31.34727894016592,
+        "exit_delay_bp": 16.376386898814463,
+        "gross_bp": -307.10959042803404,
+        "bid_ask_bp": 2.7344780907823867,
+        "market_impact_bp": 3.888473328749093,
+        "commission_bp": 0.23239872659416677,
+        "borrow_bp": 0.6720630787798385,
+        "financing_bp": 0.0,
+        "net_bp": -314.63700365293954
+      },
+      {
+        "trade_id": 194,
+        "paper_bp": 94.71093691776862,
+        "entry_delay_bp": 33.713782337353145,
+        "exit_delay_bp": 0.5699038255849401,
+        "gross_bp": 60.427250754830524,
+        "bid_ask_bp": 3.9986769615683055,
+        "market_impact_bp": 6.704641134950684,
+        "commission_bp": 0.5331498543477805,
+        "borrow_bp": 0.4097463434998586,
+        "financing_bp": 0.0,
+        "net_bp": 48.7810364604639
+      },
+      {
+        "trade_id": 195,
+        "paper_bp": 299.5782534078766,
+        "entry_delay_bp": -14.536861480878438,
+        "exit_delay_bp": -30.163432719975127,
+        "gross_bp": 344.2785476087302,
+        "bid_ask_bp": 1.443917006770262,
+        "market_impact_bp": 3.5321608944969403,
+        "commission_bp": 0.1035723251720148,
+        "borrow_bp": 1.249188567285342,
+        "financing_bp": 0.0,
+        "net_bp": 337.9497088150056
+      },
+      {
+        "trade_id": 196,
+        "paper_bp": -278.2375514565437,
+        "entry_delay_bp": 20.077692942451943,
+        "exit_delay_bp": 48.78923837149929,
+        "gross_bp": -347.10448277049494,
+        "bid_ask_bp": 3.9638830312130797,
+        "market_impact_bp": 9.391364575742173,
+        "commission_bp": 0.2990273924750909,
+        "borrow_bp": 0.2822697650969284,
+        "financing_bp": 0.0,
+        "net_bp": -361.0410275350222
+      },
+      {
+        "trade_id": 197,
+        "paper_bp": 154.41894466480122,
+        "entry_delay_bp": 12.757512544847566,
+        "exit_delay_bp": 1.5413117818562394,
+        "gross_bp": 140.12012033809742,
+        "bid_ask_bp": 4.108817634279079,
+        "market_impact_bp": 5.787621637474047,
+        "commission_bp": 0.5396557173908668,
+        "borrow_bp": 0.809629857631517,
+        "financing_bp": 0.0,
+        "net_bp": 128.8743954913219
+      },
+      {
+        "trade_id": 198,
+        "paper_bp": 303.12970469690174,
+        "entry_delay_bp": -39.58058951540799,
+        "exit_delay_bp": -409.2797518814247,
+        "gross_bp": 751.9900460937346,
+        "bid_ask_bp": 3.4248573904510224,
+        "market_impact_bp": 9.238766185605373,
+        "commission_bp": 0.20313785074004131,
+        "borrow_bp": 1.9698048501592544,
+        "financing_bp": 0.0,
+        "net_bp": 737.1534798167789
+      },
+      {
+        "trade_id": 199,
+        "paper_bp": -270.28995273520076,
+        "entry_delay_bp": 11.49633212591199,
+        "exit_delay_bp": -28.833545926121936,
+        "gross_bp": -252.9527389349908,
+        "bid_ask_bp": 3.987438479027135,
+        "market_impact_bp": 7.182831750149529,
+        "commission_bp": 0.3129430542894837,
+        "borrow_bp": 1.2722589347985755,
+        "financing_bp": 0.0,
+        "net_bp": -265.70821115325555
+      },
+      {
+        "trade_id": 200,
+        "paper_bp": -223.90258637253865,
+        "entry_delay_bp": 15.315518989826387,
+        "exit_delay_bp": -23.70449970943363,
+        "gross_bp": -215.5136056529314,
+        "bid_ask_bp": 3.239371763968099,
+        "market_impact_bp": 10.332979312295224,
+        "commission_bp": 1.6254761821159929,
+        "borrow_bp": 0.8732672063068985,
+        "financing_bp": 0.0,
+        "net_bp": -231.58470011761761
+      },
+      {
+        "trade_id": 201,
+        "paper_bp": 181.67698749907223,
+        "entry_delay_bp": 43.214524861114256,
+        "exit_delay_bp": 0.46048238264325514,
+        "gross_bp": 138.0019802553147,
+        "bid_ask_bp": 2.469326869337123,
+        "market_impact_bp": 6.99518117674192,
+        "commission_bp": 0.6242764554134841,
+        "borrow_bp": 1.310860560893946,
+        "financing_bp": 0.0,
+        "net_bp": 126.60233519292822
+      },
+      {
+        "trade_id": 202,
+        "paper_bp": 21.23955818643408,
+        "entry_delay_bp": -80.97139920185346,
+        "exit_delay_bp": 24.31533282968853,
+        "gross_bp": 77.89562455859902,
+        "bid_ask_bp": 3.5274995781601075,
+        "market_impact_bp": 10.40237406764137,
+        "commission_bp": 1.6872274712139506,
+        "borrow_bp": 1.8868271151275817,
+        "financing_bp": 0.0,
+        "net_bp": 60.391696326456014
+      },
+      {
+        "trade_id": 203,
+        "paper_bp": -243.74427418720757,
+        "entry_delay_bp": -148.2097129262603,
+        "exit_delay_bp": -44.86014979280333,
+        "gross_bp": -50.674411468143965,
+        "bid_ask_bp": 2.785598117408955,
+        "market_impact_bp": 9.188641231770495,
+        "commission_bp": 0.21079595575607976,
+        "borrow_bp": 0.4836700368512364,
+        "financing_bp": 0.0,
+        "net_bp": -63.34311680993072
+      },
+      {
+        "trade_id": 204,
+        "paper_bp": -198.97914986896942,
+        "entry_delay_bp": -77.2156865944065,
+        "exit_delay_bp": 48.92090010334602,
+        "gross_bp": -170.6843633779089,
+        "bid_ask_bp": 4.03847399583804,
+        "market_impact_bp": 7.74146446786117,
+        "commission_bp": 0.1355296989503795,
+        "borrow_bp": 0.6812772117233697,
+        "financing_bp": 0.0,
+        "net_bp": -183.2811087522819
+      },
+      {
+        "trade_id": 205,
+        "paper_bp": -115.17758868214094,
+        "entry_delay_bp": 24.668575566308633,
+        "exit_delay_bp": 54.280283418562114,
+        "gross_bp": -194.1264476670117,
+        "bid_ask_bp": 3.9354919689706853,
+        "market_impact_bp": 5.134734174241357,
+        "commission_bp": 0.5297563678529708,
+        "borrow_bp": 0.9605861312137738,
+        "financing_bp": 0.0,
+        "net_bp": -204.68701630929047
+      },
+      {
+        "trade_id": 206,
+        "paper_bp": 318.01675675471995,
+        "entry_delay_bp": -50.34788991540178,
+        "exit_delay_bp": -26.33627415661855,
+        "gross_bp": 394.70092082674023,
+        "bid_ask_bp": 1.5460837429551102,
+        "market_impact_bp": 5.597982993041397,
+        "commission_bp": 0.3280608640760074,
+        "borrow_bp": 0.4874257198482194,
+        "financing_bp": 0.0,
+        "net_bp": 386.74136750681953
+      },
+      {
+        "trade_id": 207,
+        "paper_bp": 113.23361310469026,
+        "entry_delay_bp": 58.28566344705741,
+        "exit_delay_bp": 4.734211457725341,
+        "gross_bp": 50.2137381999075,
+        "bid_ask_bp": 3.9190937937598394,
+        "market_impact_bp": 4.780418703981525,
+        "commission_bp": 0.31211373487546745,
+        "borrow_bp": 2.202695331183529,
+        "financing_bp": 0.0,
+        "net_bp": 38.99941663610714
+      },
+      {
+        "trade_id": 208,
+        "paper_bp": 212.49547400015942,
+        "entry_delay_bp": -125.9391688708474,
+        "exit_delay_bp": -0.0,
+        "gross_bp": 338.4346428710068,
+        "bid_ask_bp": 1.4840072843817464,
+        "market_impact_bp": 4.525914848089851,
+        "commission_bp": 0.11758207274427603,
+        "borrow_bp": 1.614079565215963,
+        "financing_bp": 0.0,
+        "net_bp": 330.69305910057494
+      },
+      {
+        "trade_id": 209,
+        "paper_bp": 890.5083196616706,
+        "entry_delay_bp": 21.643735550507824,
+        "exit_delay_bp": -3.016046151160069,
+        "gross_bp": 871.8806302623227,
+        "bid_ask_bp": 2.799638037524009,
+        "market_impact_bp": 12.98397286276474,
+        "commission_bp": 0.3685069291731195,
+        "borrow_bp": 0.5323852650980527,
+        "financing_bp": 0.0,
+        "net_bp": 855.1961271677628
+      },
+      {
+        "trade_id": 210,
+        "paper_bp": 48.52560049951822,
+        "entry_delay_bp": -55.44606400755791,
+        "exit_delay_bp": -0.0,
+        "gross_bp": 103.97166450707613,
+        "bid_ask_bp": 3.988423347459586,
+        "market_impact_bp": 5.888873063130975,
+        "commission_bp": 0.5494338537500992,
+        "borrow_bp": 0.90972463464346,
+        "financing_bp": 0.0,
+        "net_bp": 92.635209608092
+      },
+      {
+        "trade_id": 211,
+        "paper_bp": 328.73624557446914,
+        "entry_delay_bp": 211.54217911344517,
+        "exit_delay_bp": -16.912198991776112,
+        "gross_bp": 134.10626545280005,
+        "bid_ask_bp": 3.811269003453794,
+        "market_impact_bp": 9.988362568237902,
+        "commission_bp": 0.4426747602384325,
+        "borrow_bp": 0.41057590689573487,
+        "financing_bp": 0.0,
+        "net_bp": 119.45338321397419
+      },
+      {
+        "trade_id": 212,
+        "paper_bp": 9.040858610455292,
+        "entry_delay_bp": 0.8158363585197451,
+        "exit_delay_bp": 1.5521954171163106,
+        "gross_bp": 6.672826834819236,
+        "bid_ask_bp": 1.4932307169307433,
+        "market_impact_bp": 2.0568629145194492,
+        "commission_bp": 0.12772428207195452,
+        "borrow_bp": 0.9827100685136614,
+        "financing_bp": 0.0,
+        "net_bp": 2.0122988527834265
+      },
+      {
+        "trade_id": 213,
+        "paper_bp": 450.4164292038623,
+        "entry_delay_bp": 149.15840719285703,
+        "exit_delay_bp": -0.0,
+        "gross_bp": 301.25802201100527,
+        "bid_ask_bp": 4.111465403626072,
+        "market_impact_bp": 13.925289633297982,
+        "commission_bp": 0.5225613825232024,
+        "borrow_bp": 0.3464014379785387,
+        "financing_bp": 0.0,
+        "net_bp": 282.35230415357944
+      }
+    ]
+  },
+  "exit_race": {
+    "targets": 72,
+    "stops": 77,
+    "barrier_exits": 149,
+    "other_exits": 64,
+    "observed_share": 0.48322147651006714,
+    "expected_targets": 65.8835952815761,
+    "z": 1.0183051472321425,
+    "nulls": {
+      "random_walk": {
+        "expected_targets": 65.8835952815761,
+        "expected_share": 0.44217178041326244,
+        "z": 1.0183051472321425,
+        "p_two_sided": 0.30853296304217415,
+        "p_more_targets": 0.15426648152108707
+      },
+      "gamblers_ruin": {
+        "expected_targets": 67.44375731837172,
+        "expected_share": 0.4526426665662532,
+        "z": 0.7540761592755161,
+        "p_two_sided": 0.45080349200637804,
+        "p_more_targets": 0.22540174600318902
+      },
+      "ou": {
+        "expected_targets": 120.98592129238128,
+        "expected_share": 0.8119860489421562,
+        "z": -10.727387453945713,
+        "p_two_sided": 7.570632589010358e-27,
+        "p_more_targets": 1.0
+      }
+    },
+    "inputs": {
+      "mean_abs_z": 2.361818791946309,
+      "median_sigma_z": 0.5163279268339188,
+      "median_time_stop": 25.0,
+      "median_formation_half_life": 15.805384594496086,
+      "z_windows_matched": 149,
+      "z_windows_ambiguous": 38,
+      "paths_per_trade": 20000,
+      "seed": 0
+    }
+  },
+  "persistence": {
+    "chance_pct": 5.0,
+    "windows": [
+      {
+        "window": "2020\u21922021",
+        "pct": 6.412997007268063,
+        "pairs": 2339,
+        "base_pct": 6.445478656858329
+      },
+      {
+        "window": "2021\u21922022",
+        "pct": 3.7267080745341614,
+        "pairs": 1288,
+        "base_pct": 4.814586074487796
+      },
+      {
+        "window": "2022\u21922023",
+        "pct": 4.350250976017847,
+        "pairs": 1793,
+        "base_pct": 4.563010153294844
+      },
+      {
+        "window": "2023\u21922024",
+        "pct": 3.7521815008726005,
+        "pairs": 1146,
+        "base_pct": 4.983130028549183
+      },
+      {
+        "window": "2024\u21922025",
+        "pct": 6.640625,
+        "pairs": 768,
+        "base_pct": 6.736065726822893
+      },
+      {
+        "window": "Traded pairs, out of sample",
+        "pct": 5.217391304347826,
+        "pairs": 115
+      }
+    ]
+  },
+  "persistence_detail": {
+    "clegg": {
+      "schema": 2,
+      "symbols": 300,
+      "pairs": 44850,
+      "alpha": 0.05,
+      "test": "two-direction Engle-Granger, Bonferroni p = min(1, 2 min(p12, p21)) (PairSelector.cointegration_pvalue)",
+      "correlation_screen": 0.25,
+      "min_common_days": 200,
+      "years": [
+        {
+          "year": 2020,
+          "next_year": 2021,
+          "correlated_pairs": 36681,
+          "cointegrated": {
+            "count": 2339,
+            "of": 36681,
+            "share": 0.0637659823887026,
+            "ci95": [
+              0.06128653443807274,
+              0.06631476611122376
+            ],
+            "binom_p_vs_chance": 2.808441541623591e-31
+          },
+          "still_cointegrated_next_year": {
+            "count": 150,
+            "of": 2339,
+            "share": 0.06412997007268063,
+            "ci95": [
+              0.05453890517428118,
+              0.0748294831294563
+            ],
+            "binom_p_vs_chance": 0.0023701041572167197,
+            "next_year_base_rate": 0.06445478656858329,
+            "binom_p_vs_next_year_base_rate": 1.0
+          },
+          "untestable_next_year": 0
+        },
+        {
+          "year": 2021,
+          "next_year": 2022,
+          "correlated_pairs": 19983,
+          "cointegrated": {
+            "count": 1288,
+            "of": 19983,
+            "share": 0.06445478656858329,
+            "ci95": [
+              0.06108862803156129,
+              0.0679483288720991
+            ],
+            "binom_p_vs_chance": 2.2048910212378574e-19
+          },
+          "still_cointegrated_next_year": {
+            "count": 48,
+            "of": 1288,
+            "share": 0.037267080745341616,
+            "ci95": [
+              0.027603227743939418,
+              0.04910923395879777
+            ],
+            "binom_p_vs_chance": 0.03472516386227992,
+            "next_year_base_rate": 0.04814586074487796,
+            "binom_p_vs_next_year_base_rate": 0.06833303175035796
+          },
+          "untestable_next_year": 0
+        },
+        {
+          "year": 2022,
+          "next_year": 2023,
+          "correlated_pairs": 37241,
+          "cointegrated": {
+            "count": 1793,
+            "of": 37241,
+            "share": 0.04814586074487796,
+            "ci95": [
+              0.04599352729714799,
+              0.050368999757120135
+            ],
+            "binom_p_vs_chance": 0.10089277443225063
+          },
+          "still_cointegrated_next_year": {
+            "count": 78,
+            "of": 1793,
+            "share": 0.04350250976017847,
+            "ci95": [
+              0.03453618318604184,
+              0.05399810189694909
+            ],
+            "binom_p_vs_chance": 0.23283575389785127,
+            "next_year_base_rate": 0.045630101532948435,
+            "binom_p_vs_next_year_base_rate": 0.7340343498336528
+          },
+          "untestable_next_year": 0
+        },
+        {
+          "year": 2023,
+          "next_year": 2024,
+          "correlated_pairs": 25115,
+          "cointegrated": {
+            "count": 1146,
+            "of": 25115,
+            "share": 0.045630101532948435,
+            "ci95": [
+              0.043082030187800845,
+              0.048283959477722696
+            ],
+            "binom_p_vs_chance": 0.0013751931078419988
+          },
+          "still_cointegrated_next_year": {
+            "count": 43,
+            "of": 1146,
+            "share": 0.037521815008726006,
+            "ci95": [
+              0.027285328042738973,
+              0.05021106061109772
+            ],
+            "binom_p_vs_chance": 0.057236995913710446,
+            "next_year_base_rate": 0.04983130028549183,
+            "binom_p_vs_next_year_base_rate": 0.057017877439189735
+          },
+          "untestable_next_year": 0
+        },
+        {
+          "year": 2024,
+          "next_year": 2025,
+          "correlated_pairs": 15412,
+          "cointegrated": {
+            "count": 768,
+            "of": 15412,
+            "share": 0.04983130028549183,
+            "ci95": [
+              0.046448757928034656,
+              0.053385014015494156
+            ],
+            "binom_p_vs_chance": 0.941074950068014
+          },
+          "still_cointegrated_next_year": {
+            "count": 51,
+            "of": 768,
+            "share": 0.06640625,
+            "ci95": [
+              0.04983994875609002,
+              0.08639080203748715
+            ],
+            "binom_p_vs_chance": 0.04619562697069168,
+            "next_year_base_rate": 0.06736065726822893,
+            "binom_p_vs_next_year_base_rate": 1.0
+          },
+          "untestable_next_year": 0
+        }
+      ],
+      "base_rates": [
+        {
+          "year": 2020,
+          "count": 2339,
+          "of": 36681,
+          "share": 0.0637659823887026,
+          "ci95": [
+            0.06128653443807274,
+            0.06631476611122376
+          ],
+          "binom_p_vs_chance": 2.808441541623591e-31
+        },
+        {
+          "year": 2021,
+          "count": 1288,
+          "of": 19983,
+          "share": 0.06445478656858329,
+          "ci95": [
+            0.06108862803156129,
+            0.0679483288720991
+          ],
+          "binom_p_vs_chance": 2.2048910212378574e-19
+        },
+        {
+          "year": 2022,
+          "count": 1793,
+          "of": 37241,
+          "share": 0.04814586074487796,
+          "ci95": [
+            0.04599352729714799,
+            0.050368999757120135
+          ],
+          "binom_p_vs_chance": 0.10089277443225063
+        },
+        {
+          "year": 2023,
+          "count": 1146,
+          "of": 25115,
+          "share": 0.045630101532948435,
+          "ci95": [
+            0.043082030187800845,
+            0.048283959477722696
+          ],
+          "binom_p_vs_chance": 0.0013751931078419988
+        },
+        {
+          "year": 2024,
+          "count": 768,
+          "of": 15412,
+          "share": 0.04983130028549183,
+          "ci95": [
+            0.046448757928034656,
+            0.053385014015494156
+          ],
+          "binom_p_vs_chance": 0.941074950068014
+        },
+        {
+          "year": 2025,
+          "count": 1443,
+          "of": 21422,
+          "share": 0.06736065726822893,
+          "ci95": [
+            0.06403975960452785,
+            0.07079952880881381
+          ],
+          "binom_p_vs_chance": 1.212846100678796e-28
+        }
+      ],
+      "pooled_still_cointegrated": {
+        "count": 370,
+        "of": 7334,
+        "share": 0.05044995909462776,
+        "ci95": [
+          0.04555213971559899,
+          0.055708889668308226
+        ],
+        "binom_p_vs_chance": 0.8512385542263345,
+        "expected_at_next_year_base_rates": 403.4260413810691,
+        "z_vs_next_year_base_rates": -1.713233581117958
+      },
+      "universe_cutoff": "2022-12-31"
+    },
+    "traded_pairs": {
+      "pairs": 130,
+      "alpha": 0.05,
+      "formation": {
+        "cointegrated": {
+          "count": 130,
+          "of": 130,
+          "share": 1.0,
+          "ci95": [
+            0.9720228215845483,
+            1.0
+          ],
+          "binom_p_vs_chance": 7.34683969263935e-170
+        },
+        "median_p": 0.006975001062831673,
+        "median_half_life": 17.092497656362923,
+        "median_half_life_kendall": 19.69962982621051,
+        "share_no_mean_reversion": 0.0,
+        "share_half_life_above_max": 0.0,
+        "share_half_life_kendall_above_max": 0.12307692307692308
+      },
+      "oos": {
+        "cointegrated": {
+          "count": 6,
+          "of": 115,
+          "share": 0.05217391304347826,
+          "ci95": [
+            0.0193850056715587,
+            0.11010465960377615
+          ],
+          "binom_p_vs_chance": 0.8299849004689003
+        },
+        "median_p": 0.5454408363592089,
+        "median_half_life": 29.641706396476422,
+        "median_half_life_kendall": 58.540118303829665,
+        "share_no_mean_reversion": 0.007692307692307693,
+        "share_half_life_above_max": 0.6076923076923076,
+        "share_half_life_kendall_above_max": 0.8
+      },
+      "max_half_life": 25.0,
+      "per_pair": [
+        {
+          "pair": "AAPL-PANW",
+          "trades": 4,
+          "formation_p": 0.0021566838531084822,
+          "formation_half_life": 13.747177497991776,
+          "formation_half_life_kendall": 15.38214082843972,
+          "formation_n": 754,
+          "oos_p": 0.6809515519713409,
+          "oos_half_life": 34.25534753779535,
+          "oos_half_life_kendall": 50.183081116657554,
+          "oos_n": 624
+        },
+        {
+          "pair": "ACN-AKAM",
+          "trades": 1,
+          "formation_p": 0.03413895552751201,
+          "formation_half_life": 20.240664448217533,
+          "formation_half_life_kendall": 23.99509360829689,
+          "formation_n": 751,
+          "oos_p": 0.40125236907327977,
+          "oos_half_life": 33.59605005749173,
+          "oos_half_life_kendall": 70.14895443407502,
+          "oos_n": 372
+        },
+        {
+          "pair": "ACN-ICLR",
+          "trades": 1,
+          "formation_p": 0.0009316030099049586,
+          "formation_half_life": 12.221868054716285,
+          "formation_half_life_kendall": 13.499618057084026,
+          "formation_n": 754,
+          "oos_p": 1.0,
+          "oos_half_life": 87.49684649458023,
+          "oos_half_life_kendall": null,
+          "oos_n": 498
+        },
+        {
+          "pair": "ADBE-NOW",
+          "trades": 1,
+          "formation_p": 0.028629781529499247,
+          "formation_half_life": 20.878704244387954,
+          "formation_half_life_kendall": 24.876784284519147,
+          "formation_n": 754,
+          "oos_p": 0.6584031685654804,
+          "oos_half_life": 71.78175008607623,
+          "oos_half_life_kendall": 423.4398859326609,
+          "oos_n": 498
+        },
+        {
+          "pair": "ADSK-GDDY",
+          "trades": 1,
+          "formation_p": 0.0025342345729512826,
+          "formation_half_life": 15.311889344398923,
+          "formation_half_life_kendall": 17.377343541488226,
+          "formation_n": 750,
+          "oos_p": 0.6367761530353935,
+          "oos_half_life": 14.52240328398024,
+          "oos_half_life_kendall": 22.071518454633928,
+          "oos_n": 246
+        },
+        {
+          "pair": "ADSK-PINS",
+          "trades": 1,
+          "formation_p": 0.03886122333874783,
+          "formation_half_life": 19.209803372755786,
+          "formation_half_life_kendall": 22.546135116909454,
+          "formation_n": 754,
+          "oos_p": 0.10965877145632157,
+          "oos_half_life": 29.77818222206495,
+          "oos_half_life_kendall": 45.51178102448712,
+          "oos_n": 498
+        },
+        {
+          "pair": "AEE-ETR",
+          "trades": 1,
+          "formation_p": 0.0006990602867887753,
+          "formation_half_life": 13.068438921757602,
+          "formation_half_life_kendall": 14.538425948825168,
+          "formation_n": 754,
+          "oos_p": 0.19822730843524872,
+          "oos_half_life": 31.52885097143738,
+          "oos_half_life_kendall": 44.54861114878423,
+          "oos_n": 624
+        },
+        {
+          "pair": "AEE-FE",
+          "trades": 1,
+          "formation_p": 0.0010465619763700567,
+          "formation_half_life": 15.662974920685272,
+          "formation_half_life_kendall": 17.817248130918564,
+          "formation_n": 754,
+          "oos_p": 1.0,
+          "oos_half_life": 90.9211761418398,
+          "oos_half_life_kendall": 567.3992471962944,
+          "oos_n": 624
+        },
+        {
+          "pair": "AEP-DTE",
+          "trades": 1,
+          "formation_p": 0.04568292392379079,
+          "formation_half_life": 21.082763921483885,
+          "formation_half_life_kendall": 25.18605718657233,
+          "formation_n": 751,
+          "oos_p": null,
+          "oos_half_life": 17.584923754459478,
+          "oos_half_life_kendall": 109.96874401285297,
+          "oos_n": 120
+        },
+        {
+          "pair": "AEP-ETR",
+          "trades": 1,
+          "formation_p": 0.0012527825753342774,
+          "formation_half_life": 15.298920311396142,
+          "formation_half_life_kendall": 17.34829508342288,
+          "formation_n": 754,
+          "oos_p": 0.8089543654255971,
+          "oos_half_life": 33.221062085122796,
+          "oos_half_life_kendall": 47.99749482784146,
+          "oos_n": 624
+        },
+        {
+          "pair": "AFL-TRV",
+          "trades": 1,
+          "formation_p": 0.008609347963274195,
+          "formation_half_life": 15.080554454930702,
+          "formation_half_life_kendall": 17.068424787191404,
+          "formation_n": 754,
+          "oos_p": 0.6485875260989622,
+          "oos_half_life": 41.75801511942922,
+          "oos_half_life_kendall": 68.07112059152283,
+          "oos_n": 624
+        },
+        {
+          "pair": "ANET-PANW",
+          "trades": 1,
+          "formation_p": 0.010604981409821516,
+          "formation_half_life": 19.88507169349752,
+          "formation_half_life_kendall": 23.503318789749567,
+          "formation_n": 750,
+          "oos_p": 0.17622730431646028,
+          "oos_half_life": 29.505230570887893,
+          "oos_half_life_kendall": 95.37117181696944,
+          "oos_n": 246
+        },
+        {
+          "pair": "APA-EOG",
+          "trades": 1,
+          "formation_p": 0.022844360739062642,
+          "formation_half_life": 19.62992957752939,
+          "formation_half_life_kendall": 23.126259969384773,
+          "formation_n": 754,
+          "oos_p": 0.33023528007779934,
+          "oos_half_life": 63.12862707973754,
+          "oos_half_life_kendall": 234.33892787852753,
+          "oos_n": 498
+        },
+        {
+          "pair": "APP-DDOG",
+          "trades": 1,
+          "formation_p": 0.03578672862402436,
+          "formation_half_life": 22.935398036679892,
+          "formation_half_life_kendall": 27.871954442020993,
+          "formation_n": 751,
+          "oos_p": 0.8983129566427587,
+          "oos_half_life": 52.86444682148758,
+          "oos_half_life_kendall": 291.0678777563722,
+          "oos_n": 372
+        },
+        {
+          "pair": "AR-OVV",
+          "trades": 3,
+          "formation_p": 0.003716113270904911,
+          "formation_half_life": 14.032504272871845,
+          "formation_half_life_kendall": 15.73974757604209,
+          "formation_n": 754,
+          "oos_p": 0.08684566934916421,
+          "oos_half_life": 39.91276850458382,
+          "oos_half_life_kendall": 63.30770739212326,
+          "oos_n": 624
+        },
+        {
+          "pair": "AVGO-FLEX",
+          "trades": 1,
+          "formation_p": 0.0030449052719447763,
+          "formation_half_life": 17.98796724524541,
+          "formation_half_life_kendall": 20.89693229061144,
+          "formation_n": 751,
+          "oos_p": null,
+          "oos_half_life": 6.0920455661522475,
+          "oos_half_life_kendall": 8.66240238493643,
+          "oos_n": 120
+        },
+        {
+          "pair": "AXP-BNY",
+          "trades": 2,
+          "formation_p": 0.0005574564873982633,
+          "formation_half_life": 19.236499512575172,
+          "formation_half_life_kendall": 22.603783335473455,
+          "formation_n": 750,
+          "oos_p": 0.32277743197046804,
+          "oos_half_life": 15.534071726964306,
+          "oos_half_life_kendall": 24.484876659156445,
+          "oos_n": 246
+        },
+        {
+          "pair": "AZO-KR",
+          "trades": 1,
+          "formation_p": 0.010671267750694045,
+          "formation_half_life": 17.327460933407973,
+          "formation_half_life_kendall": 20.01195258073041,
+          "formation_n": 751,
+          "oos_p": null,
+          "oos_half_life": 20.270246665698508,
+          "oos_half_life_kendall": 616.1420582457205,
+          "oos_n": 120
+        },
+        {
+          "pair": "BAC-PNC",
+          "trades": 3,
+          "formation_p": 0.01863000468822536,
+          "formation_half_life": 17.80211072113734,
+          "formation_half_life_kendall": 20.633777743108652,
+          "formation_n": 754,
+          "oos_p": 1.0,
+          "oos_half_life": 53.248926434816816,
+          "oos_half_life_kendall": 138.88029374882854,
+          "oos_n": 498
+        },
+        {
+          "pair": "BBY-RH",
+          "trades": 5,
+          "formation_p": 0.009046113560081559,
+          "formation_half_life": 16.6410011388831,
+          "formation_half_life_kendall": 19.091889038297673,
+          "formation_n": 754,
+          "oos_p": 0.4211660155175757,
+          "oos_half_life": 25.012588940689017,
+          "oos_half_life_kendall": 35.26404786587966,
+          "oos_n": 498
+        },
+        {
+          "pair": "BDX-TFX",
+          "trades": 1,
+          "formation_p": 0.012725345992994802,
+          "formation_half_life": 14.178579981202832,
+          "formation_half_life_kendall": 15.923504757823258,
+          "formation_n": 754,
+          "oos_p": 0.4250779396049783,
+          "oos_half_life": 27.351151998651403,
+          "oos_half_life_kendall": 36.592120665990066,
+          "oos_n": 627
+        },
+        {
+          "pair": "BX-DLR",
+          "trades": 3,
+          "formation_p": 0.0013984783348577428,
+          "formation_half_life": 13.700527372908073,
+          "formation_half_life_kendall": 15.331075710790104,
+          "formation_n": 751,
+          "oos_p": 0.1913118775292355,
+          "oos_half_life": 15.684376891686508,
+          "oos_half_life_kendall": 20.766572388439723,
+          "oos_n": 372
+        },
+        {
+          "pair": "CAG-CPB",
+          "trades": 2,
+          "formation_p": 0.00184753127000394,
+          "formation_half_life": 12.585324530937818,
+          "formation_half_life_kendall": 13.943785069887836,
+          "formation_n": 754,
+          "oos_p": 0.12188014639715306,
+          "oos_half_life": 21.854799808014228,
+          "oos_half_life_kendall": 27.424322135553265,
+          "oos_n": 624
+        },
+        {
+          "pair": "CDNS-PTC",
+          "trades": 1,
+          "formation_p": 0.006720537292133558,
+          "formation_half_life": 23.817536594580282,
+          "formation_half_life_kendall": 29.183696624672987,
+          "formation_n": 751,
+          "oos_p": 0.35147598675107394,
+          "oos_half_life": 14.333020148252976,
+          "oos_half_life_kendall": 18.467622246743783,
+          "oos_n": 372
+        },
+        {
+          "pair": "CFG-HBAN",
+          "trades": 3,
+          "formation_p": 0.012841533649484966,
+          "formation_half_life": 18.140028814852034,
+          "formation_half_life_kendall": 21.10214795153063,
+          "formation_n": 751,
+          "oos_p": null,
+          "oos_half_life": 34.73823474114387,
+          "oos_half_life_kendall": null,
+          "oos_n": 120
+        },
+        {
+          "pair": "CHRW-FDX",
+          "trades": 1,
+          "formation_p": 0.00525055421105481,
+          "formation_half_life": 17.40874749037941,
+          "formation_half_life_kendall": 20.10787748847319,
+          "formation_n": 754,
+          "oos_p": 0.4615573723139872,
+          "oos_half_life": 1764.4016739147987,
+          "oos_half_life_kendall": null,
+          "oos_n": 624
+        },
+        {
+          "pair": "CL-ECL",
+          "trades": 3,
+          "formation_p": 0.023509222156902213,
+          "formation_half_life": 17.043870440712123,
+          "formation_half_life_kendall": 19.62331199489692,
+          "formation_n": 754,
+          "oos_p": 0.365048512368898,
+          "oos_half_life": 54.11480279082357,
+          "oos_half_life_kendall": 144.91571836548187,
+          "oos_n": 498
+        },
+        {
+          "pair": "CL-PG",
+          "trades": 1,
+          "formation_p": 0.028215859831820587,
+          "formation_half_life": 18.40586652725822,
+          "formation_half_life_kendall": 21.448117793811683,
+          "formation_n": 754,
+          "oos_p": 0.06991008318864796,
+          "oos_half_life": 21.479757017076142,
+          "oos_half_life_kendall": 28.63722044320142,
+          "oos_n": 498
+        },
+        {
+          "pair": "CMS-DTE",
+          "trades": 2,
+          "formation_p": 0.00031743568287815737,
+          "formation_half_life": 11.00758278631533,
+          "formation_half_life_kendall": 12.03522334556621,
+          "formation_n": 754,
+          "oos_p": 0.47449043451339257,
+          "oos_half_life": 19.436588649983015,
+          "oos_half_life_kendall": 25.1234810701349,
+          "oos_n": 498
+        },
+        {
+          "pair": "CMS-FE",
+          "trades": 2,
+          "formation_p": 0.005955517697813442,
+          "formation_half_life": 23.589502436211827,
+          "formation_half_life_kendall": 28.842530988828972,
+          "formation_n": 751,
+          "oos_p": null,
+          "oos_half_life": 8.123897546939208,
+          "oos_half_life_kendall": 13.377566315796006,
+          "oos_n": 120
+        },
+        {
+          "pair": "CNP-EXC",
+          "trades": 1,
+          "formation_p": 0.03392253650081632,
+          "formation_half_life": 18.85900979476576,
+          "formation_half_life_kendall": 22.06508214041098,
+          "formation_n": 754,
+          "oos_p": 0.5088947568419884,
+          "oos_half_life": 40.643449202638905,
+          "oos_half_life_kendall": 65.16285208311785,
+          "oos_n": 624
+        },
+        {
+          "pair": "CNP-KMI",
+          "trades": 1,
+          "formation_p": 0.003676011982030669,
+          "formation_half_life": 19.628383050117296,
+          "formation_half_life_kendall": 23.146042683179967,
+          "formation_n": 750,
+          "oos_p": 0.003786494133136738,
+          "oos_half_life": 26.75121093383836,
+          "oos_half_life_kendall": 71.63203691832393,
+          "oos_n": 246
+        },
+        {
+          "pair": "CNP-SRE",
+          "trades": 1,
+          "formation_p": 0.0018124553358657913,
+          "formation_half_life": 15.92237748763401,
+          "formation_half_life_kendall": 18.163346157767084,
+          "formation_n": 751,
+          "oos_p": 1.0,
+          "oos_half_life": 173.79935002959354,
+          "oos_half_life_kendall": null,
+          "oos_n": 372
+        },
+        {
+          "pair": "COF-WFC",
+          "trades": 2,
+          "formation_p": 0.0015564988129630885,
+          "formation_half_life": 13.216712335939176,
+          "formation_half_life_kendall": 14.728590435058534,
+          "formation_n": 751,
+          "oos_p": null,
+          "oos_half_life": 7.582234614662948,
+          "oos_half_life_kendall": 11.980608189980334,
+          "oos_n": 120
+        },
+        {
+          "pair": "CPNG-LOW",
+          "trades": 1,
+          "formation_p": 0.03610784855916618,
+          "formation_half_life": 16.225412627985197,
+          "formation_half_life_kendall": 18.561733550683005,
+          "formation_n": 750,
+          "oos_p": 1.0,
+          "oos_half_life": 49.58694074974385,
+          "oos_half_life_kendall": null,
+          "oos_n": 246
+        },
+        {
+          "pair": "CRH-PH",
+          "trades": 8,
+          "formation_p": 0.005016487779776478,
+          "formation_half_life": 12.645565362393786,
+          "formation_half_life_kendall": 14.025761867509477,
+          "formation_n": 750,
+          "oos_p": 0.7701836965303522,
+          "oos_half_life": 16.48879397814112,
+          "oos_half_life_kendall": 26.932594660763254,
+          "oos_n": 246
+        },
+        {
+          "pair": "CRL-EBAY",
+          "trades": 3,
+          "formation_p": 0.0006504654548213291,
+          "formation_half_life": 14.553254408878342,
+          "formation_half_life_kendall": 16.396940479928173,
+          "formation_n": 754,
+          "oos_p": 0.39622074534460383,
+          "oos_half_life": 35.44837687611228,
+          "oos_half_life_kendall": 52.78118713820902,
+          "oos_n": 624
+        },
+        {
+          "pair": "CRWD-ESTC",
+          "trades": 1,
+          "formation_p": 0.004769032047282445,
+          "formation_half_life": 21.48187246499369,
+          "formation_half_life_kendall": 25.763763592511612,
+          "formation_n": 750,
+          "oos_p": 0.4334867230149799,
+          "oos_half_life": 13.94461647631227,
+          "oos_half_life_kendall": 20.769115459059527,
+          "oos_n": 246
+        },
+        {
+          "pair": "CSGP-EFX",
+          "trades": 1,
+          "formation_p": 0.018893361344812083,
+          "formation_half_life": 20.612591047993885,
+          "formation_half_life_kendall": 24.518847086271606,
+          "formation_n": 751,
+          "oos_p": null,
+          "oos_half_life": 7.370287500349703,
+          "oos_half_life_kendall": 11.464292610293846,
+          "oos_n": 120
+        },
+        {
+          "pair": "CSGP-PYPL",
+          "trades": 1,
+          "formation_p": 0.0026717636131154653,
+          "formation_half_life": 21.474238753015772,
+          "formation_half_life_kendall": 25.752799205795146,
+          "formation_n": 750,
+          "oos_p": 0.5051767926213422,
+          "oos_half_life": 29.31850906065848,
+          "oos_half_life_kendall": 93.4551877026135,
+          "oos_n": 246
+        },
+        {
+          "pair": "CSGP-SPGI",
+          "trades": 1,
+          "formation_p": 0.015113623973998815,
+          "formation_half_life": 19.953544170860848,
+          "formation_half_life_kendall": 23.59318047356826,
+          "formation_n": 751,
+          "oos_p": null,
+          "oos_half_life": 58.70557374319074,
+          "oos_half_life_kendall": null,
+          "oos_n": 120
+        },
+        {
+          "pair": "CSX-UNP",
+          "trades": 1,
+          "formation_p": 0.01899886028173382,
+          "formation_half_life": 19.656081608057413,
+          "formation_half_life_kendall": 23.18451544849583,
+          "formation_n": 750,
+          "oos_p": 0.46040063199066705,
+          "oos_half_life": 96.48152781004698,
+          "oos_half_life_kendall": null,
+          "oos_n": 246
+        },
+        {
+          "pair": "CTSH-NOW",
+          "trades": 2,
+          "formation_p": 0.0030102561696093025,
+          "formation_half_life": 13.32743644646231,
+          "formation_half_life_kendall": 14.866033231279275,
+          "formation_n": 751,
+          "oos_p": null,
+          "oos_half_life": 8.200498499615911,
+          "oos_half_life_kendall": 13.584689840396232,
+          "oos_n": 120
+        },
+        {
+          "pair": "CVX-DVN",
+          "trades": 1,
+          "formation_p": 0.004399340194427402,
+          "formation_half_life": 18.164752587632577,
+          "formation_half_life_kendall": 21.135566674431274,
+          "formation_n": 751,
+          "oos_p": null,
+          "oos_half_life": 4.856255779371786,
+          "oos_half_life_kendall": 6.376317048581602,
+          "oos_n": 120
+        },
+        {
+          "pair": "DAL-UAL",
+          "trades": 1,
+          "formation_p": 0.003645749446925135,
+          "formation_half_life": 17.557851155220845,
+          "formation_half_life_kendall": 20.306789231671612,
+          "formation_n": 754,
+          "oos_p": 1.0,
+          "oos_half_life": 51.82344144586532,
+          "oos_half_life_kendall": 99.09880294519537,
+          "oos_n": 627
+        },
+        {
+          "pair": "DDOG-TTWO",
+          "trades": 1,
+          "formation_p": 0.009276939186022848,
+          "formation_half_life": 17.076584671548062,
+          "formation_half_life_kendall": 19.678521335217397,
+          "formation_n": 751,
+          "oos_p": 1.0,
+          "oos_half_life": 37.93050611508282,
+          "oos_half_life_kendall": 92.05388001989111,
+          "oos_n": 372
+        },
+        {
+          "pair": "DDOG-ZS",
+          "trades": 1,
+          "formation_p": 0.020232382220080523,
+          "formation_half_life": 18.05297822304333,
+          "formation_half_life_kendall": 20.989132617872546,
+          "formation_n": 750,
+          "oos_p": 0.7383171624988858,
+          "oos_half_life": 29.46648813161022,
+          "oos_half_life_kendall": 94.96921669838255,
+          "oos_n": 246
+        },
+        {
+          "pair": "DE-JCI",
+          "trades": 1,
+          "formation_p": 0.015370335856916696,
+          "formation_half_life": 21.941070565538876,
+          "formation_half_life_kendall": 26.41898895630257,
+          "formation_n": 751,
+          "oos_p": null,
+          "oos_half_life": 5.94368288651875,
+          "oos_half_life_kendall": 8.368078176801918,
+          "oos_n": 120
+        },
+        {
+          "pair": "DHI-LEN",
+          "trades": 4,
+          "formation_p": 0.012615954610715858,
+          "formation_half_life": 8.778512663353137,
+          "formation_half_life_kendall": 9.422866241420735,
+          "formation_n": 754,
+          "oos_p": 1.0,
+          "oos_half_life": 220.5476145695059,
+          "oos_half_life_kendall": null,
+          "oos_n": 627
+        },
+        {
+          "pair": "DKS-TSCO",
+          "trades": 2,
+          "formation_p": 0.004580391019341868,
+          "formation_half_life": 15.805384594496086,
+          "formation_half_life_kendall": 18.0148134162333,
+          "formation_n": 750,
+          "oos_p": 0.08829831790937052,
+          "oos_half_life": 7.697945650243164,
+          "oos_half_life_kendall": 9.425836487728644,
+          "oos_n": 246
+        },
+        {
+          "pair": "DOCS-DOCU",
+          "trades": 2,
+          "formation_p": 0.00021070047814204278,
+          "formation_half_life": 12.32047003573359,
+          "formation_half_life_kendall": 14.340578295232117,
+          "formation_n": 510,
+          "oos_p": 0.08212541324446945,
+          "oos_half_life": 21.738651900837862,
+          "oos_half_life_kendall": 27.241977900135655,
+          "oos_n": 624
+        },
+        {
+          "pair": "DOCU-XYZ",
+          "trades": 4,
+          "formation_p": 0.0012892594487427802,
+          "formation_half_life": 11.675755978588976,
+          "formation_half_life_kendall": 12.837328724061404,
+          "formation_n": 754,
+          "oos_p": 0.6130151652340755,
+          "oos_half_life": 56.660250516652546,
+          "oos_half_life_kendall": 164.6886923929632,
+          "oos_n": 498
+        },
+        {
+          "pair": "DUK-ETR",
+          "trades": 1,
+          "formation_p": 0.03898453192850546,
+          "formation_half_life": 24.525429660589747,
+          "formation_half_life_kendall": 30.252157194963836,
+          "formation_n": 751,
+          "oos_p": 0.3473520147935557,
+          "oos_half_life": 18.005436195756328,
+          "oos_half_life_kendall": 25.02617737533395,
+          "oos_n": 372
+        },
+        {
+          "pair": "DUK-FE",
+          "trades": 4,
+          "formation_p": 0.0007108298257085506,
+          "formation_half_life": 17.486645881108505,
+          "formation_half_life_kendall": 20.211732551244612,
+          "formation_n": 754,
+          "oos_p": 0.33043803088648305,
+          "oos_half_life": 26.179917664822643,
+          "oos_half_life_kendall": 34.58167114675486,
+          "oos_n": 624
+        },
+        {
+          "pair": "DXCM-ZBH",
+          "trades": 1,
+          "formation_p": 0.04174454425129689,
+          "formation_half_life": 21.56045848689918,
+          "formation_half_life_kendall": 25.876727214700242,
+          "formation_n": 750,
+          "oos_p": 0.7590726801881232,
+          "oos_half_life": 28.310198666502824,
+          "oos_half_life_kendall": 83.96198824163673,
+          "oos_n": 246
+        },
+        {
+          "pair": "EFX-IQV",
+          "trades": 2,
+          "formation_p": 0.002680044657746372,
+          "formation_half_life": 17.629180640668682,
+          "formation_half_life_kendall": 20.40213162673643,
+          "formation_n": 754,
+          "oos_p": 1.0,
+          "oos_half_life": 60.02261814288587,
+          "oos_half_life_kendall": 134.85861330803579,
+          "oos_n": 624
+        },
+        {
+          "pair": "ELV-UNH",
+          "trades": 2,
+          "formation_p": 0.006189001113049143,
+          "formation_half_life": 14.434888295314089,
+          "formation_half_life_kendall": 16.24704461884274,
+          "formation_n": 754,
+          "oos_p": 1.0,
+          "oos_half_life": 65.2906805810038,
+          "oos_half_life_kendall": 164.6612820559401,
+          "oos_n": 624
+        },
+        {
+          "pair": "EOG-FANG",
+          "trades": 1,
+          "formation_p": 0.009682142853827036,
+          "formation_half_life": 18.632475907244586,
+          "formation_half_life_kendall": 21.775445257471734,
+          "formation_n": 750,
+          "oos_p": 0.7598669660937444,
+          "oos_half_life": 81.22666302972857,
+          "oos_half_life_kendall": null,
+          "oos_n": 246
+        },
+        {
+          "pair": "EOG-MPC",
+          "trades": 3,
+          "formation_p": 0.005980869311839736,
+          "formation_half_life": 15.300966795024314,
+          "formation_half_life_kendall": 17.363296370292034,
+          "formation_n": 750,
+          "oos_p": 0.47094508524333045,
+          "oos_half_life": 14.432151802013468,
+          "oos_half_life_kendall": 21.864584219625446,
+          "oos_n": 246
+        },
+        {
+          "pair": "EQT-EXE",
+          "trades": 1,
+          "formation_p": 0.0396592991442597,
+          "formation_half_life": 24.452011384704623,
+          "formation_half_life_kendall": 30.14067892325438,
+          "formation_n": 751,
+          "oos_p": 0.5671349929479708,
+          "oos_half_life": 20.367165572746178,
+          "oos_half_life_kendall": 29.81890658283528,
+          "oos_n": 372
+        },
+        {
+          "pair": "ETN-IR",
+          "trades": 1,
+          "formation_p": 0.019153917810755615,
+          "formation_half_life": 14.428253657555427,
+          "formation_half_life_kendall": 16.24949672080838,
+          "formation_n": 750,
+          "oos_p": 0.4058861703472255,
+          "oos_half_life": 35.265960765896175,
+          "oos_half_life_kendall": 201.14109354537234,
+          "oos_n": 246
+        },
+        {
+          "pair": "ETR-EXC",
+          "trades": 1,
+          "formation_p": 0.00032884458206126107,
+          "formation_half_life": 20.054636999742854,
+          "formation_half_life_kendall": 23.71718327750885,
+          "formation_n": 754,
+          "oos_p": 0.4694566524915612,
+          "oos_half_life": 45.7047875922759,
+          "oos_half_life_kendall": 78.92631469089494,
+          "oos_n": 627
+        },
+        {
+          "pair": "EXC-FE",
+          "trades": 1,
+          "formation_p": 0.00020302840733209281,
+          "formation_half_life": 18.57390722667919,
+          "formation_half_life_kendall": 21.676327768776947,
+          "formation_n": 754,
+          "oos_p": 1.0,
+          "oos_half_life": 85.20369359371892,
+          "oos_half_life_kendall": 400.11436187900546,
+          "oos_n": 624
+        },
+        {
+          "pair": "EXE-OXY",
+          "trades": 3,
+          "formation_p": 0.0005348561412145529,
+          "formation_half_life": 9.74655027960457,
+          "formation_half_life_kendall": 10.5489871013017,
+          "formation_n": 751,
+          "oos_p": 0.0029970394025539255,
+          "oos_half_life": 11.329333136153995,
+          "oos_half_life_kendall": 13.775177266557455,
+          "oos_n": 372
+        },
+        {
+          "pair": "FICO-MA",
+          "trades": 1,
+          "formation_p": 0.015093825973327549,
+          "formation_half_life": 24.742488206453718,
+          "formation_half_life_kendall": 30.582645634471913,
+          "formation_n": 751,
+          "oos_p": 0.3676314677947695,
+          "oos_half_life": 23.3836650187102,
+          "oos_half_life_kendall": 36.7384743112187,
+          "oos_n": 372
+        },
+        {
+          "pair": "FISV-URI",
+          "trades": 3,
+          "formation_p": 0.01819735863612913,
+          "formation_half_life": 16.9888070951372,
+          "formation_half_life_kendall": 19.562207730295828,
+          "formation_n": 751,
+          "oos_p": 0.7948394637552116,
+          "oos_half_life": 149.92802645248145,
+          "oos_half_life_kendall": null,
+          "oos_n": 370
+        },
+        {
+          "pair": "FISV-V",
+          "trades": 1,
+          "formation_p": 0.010142853364375613,
+          "formation_half_life": 17.108410641177787,
+          "formation_half_life_kendall": 19.72073831720363,
+          "formation_n": 751,
+          "oos_p": 0.904955199247614,
+          "oos_half_life": 1461.6942357960074,
+          "oos_half_life_kendall": null,
+          "oos_n": 370
+        },
+        {
+          "pair": "FITB-PNC",
+          "trades": 4,
+          "formation_p": 0.0036816639174222766,
+          "formation_half_life": 13.654340391805526,
+          "formation_half_life_kendall": 15.275752725713202,
+          "formation_n": 750,
+          "oos_p": 0.529016608785355,
+          "oos_half_life": 6.619439560460646,
+          "oos_half_life_kendall": 7.86389178745581,
+          "oos_n": 246
+        },
+        {
+          "pair": "GDDY-NOW",
+          "trades": 1,
+          "formation_p": 0.0047016296564739496,
+          "formation_half_life": 15.482621684563227,
+          "formation_half_life_kendall": 17.5845580521937,
+          "formation_n": 754,
+          "oos_p": 0.2707351450717368,
+          "oos_half_life": 20.95533051787198,
+          "oos_half_life_kendall": 26.02488057915782,
+          "oos_n": 624
+        },
+        {
+          "pair": "GDDY-SNPS",
+          "trades": 1,
+          "formation_p": 0.000708061710020086,
+          "formation_half_life": 12.816649115634075,
+          "formation_half_life_kendall": 14.227903231086847,
+          "formation_n": 754,
+          "oos_p": 0.21601612429222372,
+          "oos_half_life": 164.2373272203634,
+          "oos_half_life_kendall": null,
+          "oos_n": 624
+        },
+        {
+          "pair": "GDDY-VRSN",
+          "trades": 1,
+          "formation_p": 0.005417148755178416,
+          "formation_half_life": 15.758250134102216,
+          "formation_half_life_kendall": 17.940465763448163,
+          "formation_n": 754,
+          "oos_p": 1.0,
+          "oos_half_life": 152.62856733866806,
+          "oos_half_life_kendall": null,
+          "oos_n": 624
+        },
+        {
+          "pair": "GDDY-XYZ",
+          "trades": 1,
+          "formation_p": 0.0018323346509209967,
+          "formation_half_life": 13.983428736483615,
+          "formation_half_life_kendall": 15.678115692950756,
+          "formation_n": 754,
+          "oos_p": 0.5664375003225774,
+          "oos_half_life": 100.35436739160903,
+          "oos_half_life_kendall": 1369.4199411868865,
+          "oos_n": 624
+        },
+        {
+          "pair": "GFS-QCOM",
+          "trades": 2,
+          "formation_p": 0.008788024906210546,
+          "formation_half_life": 14.38468767506057,
+          "formation_half_life_kendall": 16.426661083913178,
+          "formation_n": 674,
+          "oos_p": 0.27867917273717924,
+          "oos_half_life": 30.871747331492102,
+          "oos_half_life_kendall": 59.25955785297793,
+          "oos_n": 372
+        },
+        {
+          "pair": "GFS-TDY",
+          "trades": 1,
+          "formation_p": 0.006562126147396014,
+          "formation_half_life": 12.98674313734344,
+          "formation_half_life_kendall": 15.06796833279479,
+          "formation_n": 548,
+          "oos_p": 0.011772081208735899,
+          "oos_half_life": 11.064084164885346,
+          "oos_half_life_kendall": 12.713730021669052,
+          "oos_n": 498
+        },
+        {
+          "pair": "GFS-TXN",
+          "trades": 3,
+          "formation_p": 0.00040040305238232127,
+          "formation_half_life": 10.10572890802872,
+          "formation_half_life_kendall": 11.328125807075741,
+          "formation_n": 548,
+          "oos_p": 0.19183026629325328,
+          "oos_half_life": 37.78036700519646,
+          "oos_half_life_kendall": 67.23168211505157,
+          "oos_n": 498
+        },
+        {
+          "pair": "GOOG-GOOGL",
+          "trades": 5,
+          "formation_p": 0.03502490748035902,
+          "formation_half_life": 6.952297482813831,
+          "formation_half_life_kendall": 7.354385732460768,
+          "formation_n": 751,
+          "oos_p": 0.48048034078406643,
+          "oos_half_life": 4.350793423593412,
+          "oos_half_life_kendall": 4.678349968484271,
+          "oos_n": 372
+        },
+        {
+          "pair": "GOOG-NOW",
+          "trades": 2,
+          "formation_p": 0.005094629272453747,
+          "formation_half_life": 20.06807220941451,
+          "formation_half_life_kendall": 23.735950511019933,
+          "formation_n": 754,
+          "oos_p": 0.9944384814084225,
+          "oos_half_life": null,
+          "oos_half_life_kendall": null,
+          "oos_n": 498
+        },
+        {
+          "pair": "GRMN-MSI",
+          "trades": 1,
+          "formation_p": 0.003157689131731917,
+          "formation_half_life": 16.97651424211819,
+          "formation_half_life_kendall": 19.545932918183485,
+          "formation_n": 751,
+          "oos_p": null,
+          "oos_half_life": 6.28339662456486,
+          "oos_half_life_kendall": 9.050791013392617,
+          "oos_n": 120
+        },
+        {
+          "pair": "GTLB-NET",
+          "trades": 1,
+          "formation_p": 0.0285549031818622,
+          "formation_half_life": 21.350318237651198,
+          "formation_half_life_kendall": 25.57502600725917,
+          "formation_n": 750,
+          "oos_p": 1.0,
+          "oos_half_life": 19.666210734621068,
+          "oos_half_life_kendall": 36.53388350554567,
+          "oos_n": 246
+        },
+        {
+          "pair": "GTLB-PTC",
+          "trades": 4,
+          "formation_p": 0.010351501252519305,
+          "formation_half_life": 19.301809307507618,
+          "formation_half_life_kendall": 22.693887907677748,
+          "formation_n": 750,
+          "oos_p": 1.0,
+          "oos_half_life": 26.922175193944177,
+          "oos_half_life_kendall": 72.86598754470168,
+          "oos_n": 246
+        },
+        {
+          "pair": "HBAN-PNC",
+          "trades": 1,
+          "formation_p": 0.01774602862135916,
+          "formation_half_life": 18.49553032616933,
+          "formation_half_life_kendall": 21.58409509296256,
+          "formation_n": 751,
+          "oos_p": null,
+          "oos_half_life": 3.0143448301429987,
+          "oos_half_life_kendall": 3.5531995585063374,
+          "oos_n": 120
+        },
+        {
+          "pair": "HD-SHW",
+          "trades": 3,
+          "formation_p": 0.022095613025223507,
+          "formation_half_life": 13.542918291648672,
+          "formation_half_life_kendall": 15.134259947789806,
+          "formation_n": 751,
+          "oos_p": null,
+          "oos_half_life": 13.319288673976033,
+          "oos_half_life_kendall": 36.829705665499844,
+          "oos_n": 120
+        },
+        {
+          "pair": "HIG-MRSH",
+          "trades": 1,
+          "formation_p": 0.019881997126128974,
+          "formation_half_life": 20.34198090515477,
+          "formation_half_life_kendall": 24.119560239642194,
+          "formation_n": 754,
+          "oos_p": 1.0,
+          "oos_half_life": 110.7371720423756,
+          "oos_half_life_kendall": null,
+          "oos_n": 498
+        },
+        {
+          "pair": "HST-RJF",
+          "trades": 1,
+          "formation_p": 0.010059239234612266,
+          "formation_half_life": 16.21611452437699,
+          "formation_half_life_kendall": 18.535470872065133,
+          "formation_n": 754,
+          "oos_p": 1.0,
+          "oos_half_life": 31.174793641316295,
+          "oos_half_life_kendall": 48.84968231914616,
+          "oos_n": 498
+        },
+        {
+          "pair": "HST-TROW",
+          "trades": 1,
+          "formation_p": 0.007613159926620944,
+          "formation_half_life": 14.844790407557122,
+          "formation_half_life_kendall": 16.76743907129905,
+          "formation_n": 754,
+          "oos_p": 0.1518991445965614,
+          "oos_half_life": 23.165290646834098,
+          "oos_half_life_kendall": 31.706654222076523,
+          "oos_n": 498
+        },
+        {
+          "pair": "ICE-SPG",
+          "trades": 1,
+          "formation_p": 0.024166532417576863,
+          "formation_half_life": 18.157908379203608,
+          "formation_half_life_kendall": 21.126313994006154,
+          "formation_n": 751,
+          "oos_p": 0.8859411990571352,
+          "oos_half_life": 38.30989508757535,
+          "oos_half_life_kendall": 94.31450178607004,
+          "oos_n": 372
+        },
+        {
+          "pair": "ICE-WELL",
+          "trades": 1,
+          "formation_p": 0.0062364202649471115,
+          "formation_half_life": 20.04063058427199,
+          "formation_half_life_kendall": 23.714863555811796,
+          "formation_n": 751,
+          "oos_p": null,
+          "oos_half_life": 13.404659371591732,
+          "oos_half_life_kendall": 37.4842147311855,
+          "oos_n": 120
+        },
+        {
+          "pair": "ICLR-MCO",
+          "trades": 1,
+          "formation_p": 0.00361779119010974,
+          "formation_half_life": 16.121688208850973,
+          "formation_half_life_kendall": 18.422801563404526,
+          "formation_n": 751,
+          "oos_p": 0.08896378295489314,
+          "oos_half_life": 49.05680795937627,
+          "oos_half_life_kendall": 204.08613061453457,
+          "oos_n": 372
+        },
+        {
+          "pair": "ILMN-RVTY",
+          "trades": 1,
+          "formation_p": 0.007904711837686275,
+          "formation_half_life": 18.932035048574633,
+          "formation_half_life_kendall": 22.18006482212973,
+          "formation_n": 751,
+          "oos_p": 1.0,
+          "oos_half_life": 92.51232173599584,
+          "oos_half_life_kendall": null,
+          "oos_n": 372
+        },
+        {
+          "pair": "KMI-LNG",
+          "trades": 1,
+          "formation_p": 0.01132552287240176,
+          "formation_half_life": 17.96948254739919,
+          "formation_half_life_kendall": 20.85865438970292,
+          "formation_n": 754,
+          "oos_p": 0.9795143530368419,
+          "oos_half_life": 34.60853013101913,
+          "oos_half_life_kendall": 57.8206787546814,
+          "oos_n": 498
+        },
+        {
+          "pair": "KMI-NI",
+          "trades": 1,
+          "formation_p": 0.0138054611433307,
+          "formation_half_life": 17.85954734728126,
+          "formation_half_life_kendall": 20.710873077198602,
+          "formation_n": 754,
+          "oos_p": 0.5740912600717969,
+          "oos_half_life": 28.102442712870953,
+          "oos_half_life_kendall": 41.71758098384109,
+          "oos_n": 498
+        },
+        {
+          "pair": "KMI-TRGP",
+          "trades": 4,
+          "formation_p": 0.016323891240913296,
+          "formation_half_life": 17.542326270971778,
+          "formation_half_life_kendall": 20.298702333440083,
+          "formation_n": 751,
+          "oos_p": 1.0,
+          "oos_half_life": 43.30869245932352,
+          "oos_half_life_kendall": 131.6116790591265,
+          "oos_n": 372
+        },
+        {
+          "pair": "LEN-NVR",
+          "trades": 2,
+          "formation_p": 0.006998513241977811,
+          "formation_half_life": 14.02858892685986,
+          "formation_half_life_kendall": 15.734828558030332,
+          "formation_n": 754,
+          "oos_p": 1.0,
+          "oos_half_life": 209.37190599235157,
+          "oos_half_life_kendall": null,
+          "oos_n": 624
+        },
+        {
+          "pair": "LVS-SBUX",
+          "trades": 1,
+          "formation_p": 0.0011835562119322056,
+          "formation_half_life": 16.16662679084098,
+          "formation_half_life_kendall": 18.484945666347468,
+          "formation_n": 750,
+          "oos_p": 1.0,
+          "oos_half_life": 91.98436638762453,
+          "oos_half_life_kendall": null,
+          "oos_n": 246
+        },
+        {
+          "pair": "M-TGT",
+          "trades": 1,
+          "formation_p": 0.021699866591076065,
+          "formation_half_life": 17.348507527331797,
+          "formation_half_life_kendall": 20.04412737179644,
+          "formation_n": 750,
+          "oos_p": 0.5454408363592089,
+          "oos_half_life": 99.82556736234075,
+          "oos_half_life_kendall": null,
+          "oos_n": 246
+        },
+        {
+          "pair": "MA-MCO",
+          "trades": 1,
+          "formation_p": 0.030585765576876835,
+          "formation_half_life": 20.50474964348853,
+          "formation_half_life_kendall": 24.372721814354644,
+          "formation_n": 750,
+          "oos_p": 0.1204724551905314,
+          "oos_half_life": 9.43231107577232,
+          "oos_half_life_kendall": 12.149369368429788,
+          "oos_n": 246
+        },
+        {
+          "pair": "MA-V",
+          "trades": 1,
+          "formation_p": 0.0035306538071466203,
+          "formation_half_life": 16.443071700537242,
+          "formation_half_life_kendall": 18.84673788188608,
+          "formation_n": 750,
+          "oos_p": 0.3777969212790956,
+          "oos_half_life": 26.88076555112176,
+          "oos_half_life_kendall": 72.56467734871761,
+          "oos_n": 246
+        },
+        {
+          "pair": "MCO-SPGI",
+          "trades": 2,
+          "formation_p": 0.020629668046456166,
+          "formation_half_life": 13.706802602180645,
+          "formation_half_life_kendall": 15.34135209352977,
+          "formation_n": 750,
+          "oos_p": 1.0,
+          "oos_half_life": 17.582356307352672,
+          "oos_half_life_kendall": 29.96398969213915,
+          "oos_n": 246
+        },
+        {
+          "pair": "MDB-NOW",
+          "trades": 1,
+          "formation_p": 0.003320293272522507,
+          "formation_half_life": 15.776507748832914,
+          "formation_half_life_kendall": 17.964101291419666,
+          "formation_n": 754,
+          "oos_p": 0.4832178506407879,
+          "oos_half_life": 37.37461480063737,
+          "oos_half_life_kendall": 57.16050706495285,
+          "oos_n": 624
+        },
+        {
+          "pair": "MDB-TTD",
+          "trades": 1,
+          "formation_p": 0.016034651660976538,
+          "formation_half_life": 24.788492844829626,
+          "formation_half_life_kendall": 30.624116503137785,
+          "formation_n": 754,
+          "oos_p": 1.0,
+          "oos_half_life": 66.56067281980879,
+          "oos_half_life_kendall": 289.67198391577904,
+          "oos_n": 498
+        },
+        {
+          "pair": "MET-TRV",
+          "trades": 1,
+          "formation_p": 0.007069194742148408,
+          "formation_half_life": 8.571177187422647,
+          "formation_half_life_kendall": 9.1847219075524,
+          "formation_n": 754,
+          "oos_p": 0.028672431450441193,
+          "oos_half_life": 16.471555021853597,
+          "oos_half_life_kendall": 19.440919328619984,
+          "oos_n": 627
+        },
+        {
+          "pair": "META-MSFT",
+          "trades": 1,
+          "formation_p": 0.004768470286035638,
+          "formation_half_life": 15.53681809956579,
+          "formation_half_life_kendall": 17.667213166053752,
+          "formation_n": 750,
+          "oos_p": 1.0,
+          "oos_half_life": 19.963547555613342,
+          "oos_half_life_kendall": 37.5690588933554,
+          "oos_n": 246
+        },
+        {
+          "pair": "META-NOW",
+          "trades": 1,
+          "formation_p": 0.0003802068497132629,
+          "formation_half_life": 15.0632472762006,
+          "formation_half_life_kendall": 17.055233169657694,
+          "formation_n": 751,
+          "oos_p": 1.0,
+          "oos_half_life": 57.81508291638876,
+          "oos_half_life_kendall": 549.3882306100556,
+          "oos_n": 372
+        },
+        {
+          "pair": "MPC-SLB",
+          "trades": 1,
+          "formation_p": 0.048279794009179124,
+          "formation_half_life": 21.435746076527916,
+          "formation_half_life_kendall": 25.670531763737994,
+          "formation_n": 754,
+          "oos_p": 0.22869965963314864,
+          "oos_half_life": 31.917605576686935,
+          "oos_half_life_kendall": 45.327409070658554,
+          "oos_n": 624
+        },
+        {
+          "pair": "MPC-XOM",
+          "trades": 1,
+          "formation_p": 0.001271086628264756,
+          "formation_half_life": 13.14042007974715,
+          "formation_half_life_kendall": 14.627441766871444,
+          "formation_n": 754,
+          "oos_p": 0.6479720726553009,
+          "oos_half_life": 43.60389604347869,
+          "oos_half_life_kendall": 73.10801691736975,
+          "oos_n": 624
+        },
+        {
+          "pair": "MPWR-NVDA",
+          "trades": 1,
+          "formation_p": 0.041103733449438566,
+          "formation_half_life": 19.49177644770427,
+          "formation_half_life_kendall": 22.95116262640823,
+          "formation_n": 751,
+          "oos_p": 1.0,
+          "oos_half_life": 38.61921519963012,
+          "oos_half_life_kendall": 96.20640374936045,
+          "oos_n": 372
+        },
+        {
+          "pair": "MSCI-V",
+          "trades": 1,
+          "formation_p": 0.021817453825768485,
+          "formation_half_life": 18.575018313491764,
+          "formation_half_life_kendall": 21.69711700163817,
+          "formation_n": 750,
+          "oos_p": 0.0051594171886645375,
+          "oos_half_life": 4.737116526214365,
+          "oos_half_life_kendall": 5.349879746335648,
+          "oos_n": 246
+        },
+        {
+          "pair": "NET-TTWO",
+          "trades": 1,
+          "formation_p": 0.005448526660322918,
+          "formation_half_life": 17.445769684879263,
+          "formation_half_life_kendall": 20.17389572393416,
+          "formation_n": 750,
+          "oos_p": 0.9331266025330275,
+          "oos_half_life": 20.553279441531842,
+          "oos_half_life_kendall": 39.70406913123254,
+          "oos_n": 246
+        },
+        {
+          "pair": "NOW-PLTR",
+          "trades": 2,
+          "formation_p": 0.014375746660330903,
+          "formation_half_life": 17.97109774865893,
+          "formation_half_life_kendall": 20.874200188738218,
+          "formation_n": 751,
+          "oos_p": 0.9935360451400386,
+          "oos_half_life": 28.931690531321397,
+          "oos_half_life_kendall": 52.51797179654297,
+          "oos_n": 372
+        },
+        {
+          "pair": "PINS-SNPS",
+          "trades": 1,
+          "formation_p": 0.0032326869879745665,
+          "formation_half_life": 15.066245364907232,
+          "formation_half_life_kendall": 17.06207240693114,
+          "formation_n": 750,
+          "oos_p": 0.5609623949246983,
+          "oos_half_life": 11.125152818759414,
+          "oos_half_life_kendall": 15.095321325538254,
+          "oos_n": 246
+        },
+        {
+          "pair": "PLTR-TTWO",
+          "trades": 1,
+          "formation_p": 0.007041804175034612,
+          "formation_half_life": 17.240317835122752,
+          "formation_half_life_kendall": 19.88381202015759,
+          "formation_n": 754,
+          "oos_p": 0.08145102115010634,
+          "oos_half_life": 14.59918656845113,
+          "oos_half_life_kendall": 17.600795862013843,
+          "oos_n": 498
+        },
+        {
+          "pair": "PPL-SO",
+          "trades": 1,
+          "formation_p": 0.011755818922794667,
+          "formation_half_life": 16.365982228591626,
+          "formation_half_life_kendall": 18.731261362279838,
+          "formation_n": 754,
+          "oos_p": 0.4743774452730112,
+          "oos_half_life": 31.66810149401402,
+          "oos_half_life_kendall": 44.8266655832704,
+          "oos_n": 624
+        },
+        {
+          "pair": "PPL-XEL",
+          "trades": 2,
+          "formation_p": 0.027998692183836243,
+          "formation_half_life": 17.969303873229716,
+          "formation_half_life_kendall": 20.858413971879795,
+          "formation_n": 754,
+          "oos_p": 0.14067219213102367,
+          "oos_half_life": 23.77681550517414,
+          "oos_half_life_kendall": 32.86107168724686,
+          "oos_n": 498
+        },
+        {
+          "pair": "PTC-SNPS",
+          "trades": 1,
+          "formation_p": 0.008638258037180331,
+          "formation_half_life": 22.74251327608182,
+          "formation_half_life_kendall": 27.588000763212538,
+          "formation_n": 751,
+          "oos_p": 0.09552916622823059,
+          "oos_half_life": 18.849504408596413,
+          "oos_half_life_kendall": 26.6822934143086,
+          "oos_n": 372
+        },
+        {
+          "pair": "RBLX-TTD",
+          "trades": 1,
+          "formation_p": 0.013237025827693448,
+          "formation_half_life": 22.20978935401793,
+          "formation_half_life_kendall": 26.816404220660406,
+          "formation_n": 750,
+          "oos_p": 1.0,
+          "oos_half_life": 91.93783574607683,
+          "oos_half_life_kendall": null,
+          "oos_n": 246
+        },
+        {
+          "pair": "RBLX-TTWO",
+          "trades": 1,
+          "formation_p": 0.0018721908821896479,
+          "formation_half_life": 17.369205326845385,
+          "formation_half_life_kendall": 20.07172387794408,
+          "formation_n": 750,
+          "oos_p": 0.6977189529596177,
+          "oos_half_life": 29.47206075743866,
+          "oos_half_life_kendall": 95.02688914354721,
+          "oos_n": 246
+        },
+        {
+          "pair": "S-TEAM",
+          "trades": 1,
+          "formation_p": 0.003031818459228696,
+          "formation_half_life": 14.68414102580461,
+          "formation_half_life_kendall": 16.571495285526066,
+          "formation_n": 751,
+          "oos_p": 1.0,
+          "oos_half_life": 56.244938944597706,
+          "oos_half_life_kendall": 434.4502478638095,
+          "oos_n": 372
+        },
+        {
+          "pair": "STNE-TOST",
+          "trades": 1,
+          "formation_p": 0.0009587274736324711,
+          "formation_half_life": 9.464376157641837,
+          "formation_half_life_kendall": 10.799974038385438,
+          "formation_n": 448,
+          "oos_p": 1.0,
+          "oos_half_life": 76.72715188489276,
+          "oos_half_life_kendall": 263.5866752629779,
+          "oos_n": 624
+        },
+        {
+          "pair": "SYF-WFC",
+          "trades": 1,
+          "formation_p": 0.007102743782237003,
+          "formation_half_life": 15.05207952026045,
+          "formation_half_life_kendall": 17.043932334510462,
+          "formation_n": 750,
+          "oos_p": 0.03965035998394907,
+          "oos_half_life": 8.957954612498996,
+          "oos_half_life_kendall": 11.37673757325595,
+          "oos_n": 246
+        },
+        {
+          "pair": "TDY-TXN",
+          "trades": 2,
+          "formation_p": 0.0003792649535432213,
+          "formation_half_life": 11.039156081829232,
+          "formation_half_life_kendall": 12.07292393937281,
+          "formation_n": 754,
+          "oos_p": 0.6660568381168015,
+          "oos_half_life": 105.80081999536266,
+          "oos_half_life_kendall": 4585.205921372683,
+          "oos_n": 624
+        },
+        {
+          "pair": "TEAM-ZS",
+          "trades": 2,
+          "formation_p": 0.0021172686300645147,
+          "formation_half_life": 14.17186935969013,
+          "formation_half_life_kendall": 15.915052989567965,
+          "formation_n": 754,
+          "oos_p": 0.8672132201379094,
+          "oos_half_life": 44.759001210608055,
+          "oos_half_life_kendall": 76.40883338332418,
+          "oos_n": 624
+        },
+        {
+          "pair": "TROW-VICI",
+          "trades": 1,
+          "formation_p": 0.032161423221166684,
+          "formation_half_life": 16.286821984675903,
+          "formation_half_life_kendall": 18.642033042343694,
+          "formation_n": 750,
+          "oos_p": 0.9756198595042819,
+          "oos_half_life": 20.188697172083245,
+          "oos_half_life_kendall": 38.3710272958177,
+          "oos_n": 246
+        },
+        {
+          "pair": "TROW-WY",
+          "trades": 1,
+          "formation_p": 0.0018041539510761995,
+          "formation_half_life": 18.946085373606536,
+          "formation_half_life_kendall": 22.204395671079418,
+          "formation_n": 750,
+          "oos_p": 1.0,
+          "oos_half_life": 20.91634250147972,
+          "oos_half_life_kendall": 41.07569417450823,
+          "oos_n": 246
+        },
+        {
+          "pair": "TRV-WTW",
+          "trades": 4,
+          "formation_p": 0.0008987760898778025,
+          "formation_half_life": 12.281658875386654,
+          "formation_half_life_kendall": 13.580090905433662,
+          "formation_n": 750,
+          "oos_p": 0.4582395058951195,
+          "oos_half_life": 31.816430919775815,
+          "oos_half_life_kendall": 124.47988283058196,
+          "oos_n": 246
+        },
+        {
+          "pair": "TSCO-ULTA",
+          "trades": 2,
+          "formation_p": 0.017843342518153643,
+          "formation_half_life": 19.12935198231861,
+          "formation_half_life_kendall": 22.435542879920142,
+          "formation_n": 754,
+          "oos_p": 0.13063768515838237,
+          "oos_half_life": 19.884755440270883,
+          "oos_half_life_kendall": 25.87575351661604,
+          "oos_n": 498
+        },
+        {
+          "pair": "UNP-UPS",
+          "trades": 2,
+          "formation_p": 0.011411782031119045,
+          "formation_half_life": 20.36816862858694,
+          "formation_half_life_kendall": 24.156335841885998,
+          "formation_n": 754,
+          "oos_p": 0.060049991239965204,
+          "oos_half_life": 20.699299867276135,
+          "oos_half_life_kendall": 25.63178881547065,
+          "oos_n": 624
+        },
+        {
+          "pair": "URI-V",
+          "trades": 1,
+          "formation_p": 0.006951488883685535,
+          "formation_half_life": 17.946994714579183,
+          "formation_half_life_kendall": 20.84173254323479,
+          "formation_n": 751,
+          "oos_p": 1.0,
+          "oos_half_life": 46.58803721460272,
+          "oos_half_life_kendall": 167.30285126994855,
+          "oos_n": 372
+        },
+        {
+          "pair": "VICI-VMRK",
+          "trades": 1,
+          "formation_p": 0.0025926118472860893,
+          "formation_half_life": 12.943666556850964,
+          "formation_half_life_kendall": 14.390764602669798,
+          "formation_n": 751,
+          "oos_p": 0.14471870871548842,
+          "oos_half_life": 19.509563849029774,
+          "oos_half_life_kendall": 28.020539895838606,
+          "oos_n": 372
+        },
+        {
+          "pair": "WEC-XEL",
+          "trades": 3,
+          "formation_p": 0.0012127861883395143,
+          "formation_half_life": 13.205876185748833,
+          "formation_half_life_kendall": 14.708482931552298,
+          "formation_n": 754,
+          "oos_p": 0.21849391286951614,
+          "oos_half_life": 28.42530296351682,
+          "oos_half_life_kendall": 38.603051939076785,
+          "oos_n": 624
+        },
+        {
+          "pair": "WYNN-YUM",
+          "trades": 1,
+          "formation_p": 0.001625124861102375,
+          "formation_half_life": 16.852057682295104,
+          "formation_half_life_kendall": 19.38136039542578,
+          "formation_n": 751,
+          "oos_p": 0.4600846357709294,
+          "oos_half_life": 45.36859257570767,
+          "oos_half_life_kendall": 152.6118979274451,
+          "oos_n": 372
+        }
+      ]
+    }
+  },
+  "decay": [
+    {
+      "period": "Formation (in sample), same rule",
+      "n": 3223,
+      "bp": 64.68489423267611,
+      "lo": 49.50326931340456,
+      "hi": 79.86651915194767,
+      "t": 8.351042353516956,
+      "t_month_clustered": 5.60478837587156,
+      "span": [
+        "2020-01-05",
+        "2025-07-10"
+      ]
+    },
+    {
+      "period": "Out of sample, same rule",
+      "n": 1698,
+      "bp": -12.595514758367658,
+      "lo": -33.75334782582128,
+      "hi": 8.562318309085962,
+      "t": -1.1668117830259335,
+      "t_month_clustered": -0.882837497921456,
+      "span": [
+        "2023-07-03",
+        "2025-12-31"
+      ]
+    },
+    {
+      "period": "Engine trades",
+      "n": 213,
+      "bp": -7.868950085033682,
+      "lo": -68.68424170504709,
+      "hi": 52.946341534979716,
+      "t": -0.25360631768458863,
+      "t_month_clustered": -0.24927124878550114,
+      "span": [
+        "2023-07-03",
+        "2025-12-16"
+      ]
+    }
+  ],
+  "decay_detail": {
+    "exit_reasons": {
+      "formation": {
+        "target": 1429,
+        "stop": 1135,
+        "time": 659
+      },
+      "oos": {
+        "target": 589,
+        "stop": 742,
+        "time": 367
+      }
+    },
+    "pairs": 130
+  },
+  "breakdowns": {
+    "by_side": [
+      {
+        "group": "LONG",
+        "trades": 102,
+        "gross_bp": 22.364244810419454,
+        "gross_t": 0.554757563159033,
+        "cost_bp": 16.83310167381467,
+        "net_bp": 5.531143136604778,
+        "gross_usd": 2010527.83,
+        "net_usd": 1044341.5599999998,
+        "net_pct_of_capital": 1.04434156,
+        "net_win_rate": 0.4803921568627451,
+        "gross_win_rate": 0.49019607843137253
+      },
+      {
+        "group": "SHORT",
+        "trades": 111,
+        "gross_bp": -35.65080485382846,
+        "gross_t": -0.7644961180668609,
+        "cost_bp": 15.487276568645331,
+        "net_bp": -51.13808142247378,
+        "gross_usd": -490433.63000000064,
+        "net_usd": -1431618.9200000004,
+        "net_pct_of_capital": -1.4316189200000005,
+        "net_win_rate": 0.4774774774774775,
+        "gross_win_rate": 0.4954954954954955
+      }
+    ],
+    "by_exit_reason": [
+      {
+        "group": "target",
+        "trades": 72,
+        "gross_bp": 375.522717036173,
+        "gross_t": 9.727222443387836,
+        "cost_bp": 16.264565893123567,
+        "net_bp": 359.2581511430495,
+        "gross_usd": 15824486.540000001,
+        "net_usd": 15152079.08,
+        "net_pct_of_capital": 15.15207908,
+        "net_win_rate": 0.9861111111111112,
+        "gross_win_rate": 0.9861111111111112
+      },
+      {
+        "group": "stop",
+        "trades": 77,
+        "gross_bp": -371.1737780977325,
+        "gross_t": -9.817681472552467,
+        "cost_bp": 16.359729289429236,
+        "net_bp": -387.5335073871619,
+        "gross_usd": -14633788.639999999,
+        "net_usd": -15332919.500000004,
+        "net_pct_of_capital": -15.332919500000003,
+        "net_win_rate": 0.012987012987012988,
+        "gross_win_rate": 0.012987012987012988
+      },
+      {
+        "group": "time",
+        "trades": 61,
+        "gross_bp": -14.377137878365723,
+        "gross_t": -0.3408030325779134,
+        "cost_bp": 15.857908421818665,
+        "net_bp": -30.235046300184404,
+        "gross_usd": -109393.06000000022,
+        "net_usd": -621898.7300000001,
+        "net_pct_of_capital": -0.6218987300000001,
+        "net_win_rate": 0.4426229508196721,
+        "gross_win_rate": 0.4918032786885246
+      },
+      {
+        "group": "end_of_data",
+        "trades": 3,
+        "gross_bp": 247.88810979636273,
+        "gross_t": 3.4072040867228828,
+        "cost_bp": 12.66125217561392,
+        "net_bp": 235.2268576207488,
+        "gross_usd": 438789.36,
+        "net_usd": 415461.79,
+        "net_pct_of_capital": 0.41546179,
+        "net_win_rate": 1.0,
+        "gross_win_rate": 1.0
+      }
+    ],
+    "by_abs_z": [
+      {
+        "group": "1.8-2.0",
+        "trades": 45,
+        "gross_bp": 10.515122736286258,
+        "gross_t": 0.1793031135998103,
+        "cost_bp": 15.438286611153119,
+        "net_bp": -4.923163874866854,
+        "gross_usd": -131532.08000000005,
+        "net_usd": -431443.9899999999,
+        "net_pct_of_capital": -0.4314439899999999,
+        "net_win_rate": 0.5111111111111111,
+        "gross_win_rate": 0.5333333333333333
+      },
+      {
+        "group": "2.0-2.5",
+        "trades": 93,
+        "gross_bp": -39.798488371472615,
+        "gross_t": -0.9234587930017661,
+        "cost_bp": 14.459257897452654,
+        "net_bp": -54.257746268925274,
+        "gross_usd": -473439.5400000005,
+        "net_usd": -1128420.1,
+        "net_pct_of_capital": -1.1284201,
+        "net_win_rate": 0.5053763440860215,
+        "gross_win_rate": 0.5161290322580645
+      },
+      {
+        "group": "2.5-3.0",
+        "trades": 57,
+        "gross_bp": -56.77035158689677,
+        "gross_t": -0.8958122213579326,
+        "cost_bp": 18.427349049953396,
+        "net_bp": -75.19770063685014,
+        "gross_usd": -2342448.2700000005,
+        "net_usd": -3028210.6100000003,
+        "net_pct_of_capital": -3.0282106100000004,
+        "net_win_rate": 0.38596491228070173,
+        "gross_win_rate": 0.40350877192982454
+      },
+      {
+        "group": ">=3.0",
+        "trades": 18,
+        "gross_bp": 265.99458709750064,
+        "gross_t": 1.845492511719328,
+        "cost_bp": 19.237294002022097,
+        "net_bp": 246.75729309547856,
+        "gross_usd": 4467514.09,
+        "net_usd": 4200797.34,
+        "net_pct_of_capital": 4.200797339999999,
+        "net_win_rate": 0.5555555555555556,
+        "gross_win_rate": 0.5555555555555556
+      }
+    ],
+    "by_signal_year": [
+      {
+        "group": "2023",
+        "trades": 47,
+        "gross_bp": 18.952506519964608,
+        "gross_t": 0.2907794349549421,
+        "cost_bp": 19.69480730116479,
+        "net_bp": -0.7423007812001847,
+        "gross_usd": 1077066.78,
+        "net_usd": 508662.95000000007,
+        "net_pct_of_capital": 0.5086629500000001,
+        "net_win_rate": 0.46808510638297873,
+        "gross_win_rate": 0.46808510638297873
+      },
+      {
+        "group": "2024",
+        "trades": 80,
+        "gross_bp": 24.531099206837403,
+        "gross_t": 0.506736877637761,
+        "cost_bp": 16.08100921955259,
+        "net_bp": 8.450089987284798,
+        "gross_usd": 923361.2999999996,
+        "net_usd": 233766.97999999952,
+        "net_pct_of_capital": 0.2337669799999995,
+        "net_win_rate": 0.5,
+        "gross_win_rate": 0.525
+      },
+      {
+        "group": "2025",
+        "trades": 86,
+        "gross_bp": -52.66676873369191,
+        "gross_t": -1.0279738313936224,
+        "cost_bp": 14.231713827090415,
+        "net_bp": -66.89848256078231,
+        "gross_usd": -480333.8799999994,
+        "net_usd": -1129707.29,
+        "net_pct_of_capital": -1.12970729,
+        "net_win_rate": 0.46511627906976744,
+        "gross_win_rate": 0.47674418604651164
+      }
+    ],
+    "years": [
+      {
+        "year": 2023,
+        "days": 126,
+        "return_pct": 1.0536493199999386,
+        "sharpe": 1.0441253957983179,
+        "net_usd": 1053649.3199999928
+      },
+      {
+        "year": 2024,
+        "days": 252,
+        "return_pct": -0.5460171242830159,
+        "sharpe": -0.2631883014094591,
+        "net_usd": -551770.2299999893
+      },
+      {
+        "year": 2025,
+        "days": 250,
+        "return_pct": -0.8847162043645551,
+        "sharpe": -0.370484006860381,
+        "net_usd": -889156.4099999964
+      }
+    ],
+    "months": [
+      {
+        "month": "2023-07",
+        "days": 20,
+        "return_pct": -0.2665926900000781,
+        "net_usd": -266592.6899999976
+      },
+      {
+        "month": "2023-08",
+        "days": 23,
+        "return_pct": 1.1329627859677949,
+        "net_usd": 1129942.3900000006
+      },
+      {
+        "month": "2023-09",
+        "days": 20,
+        "return_pct": -0.5592505619511634,
+        "net_usd": -564078.8500000089
+      },
+      {
+        "month": "2023-10",
+        "days": 22,
+        "return_pct": 0.13819973846800337,
+        "net_usd": 138613.3300000131
+      },
+      {
+        "month": "2023-11",
+        "days": 21,
+        "return_pct": 0.5460344813886131,
+        "net_usd": 548425.4799999893
+      },
+      {
+        "month": "2023-12",
+        "days": 20,
+        "return_pct": 0.06668196929537906,
+        "net_usd": 67339.65999999642
+      },
+      {
+        "month": "2024-01",
+        "days": 21,
+        "return_pct": -0.2193516923847838,
+        "net_usd": -221662.8899999857
+      },
+      {
+        "month": "2024-02",
+        "days": 20,
+        "return_pct": 0.21080787706939663,
+        "net_usd": 212561.76999999583
+      },
+      {
+        "month": "2024-03",
+        "days": 20,
+        "return_pct": -0.45046201710863265,
+        "net_usd": -455167.3100000024
+      },
+      {
+        "month": "2024-04",
+        "days": 22,
+        "return_pct": -0.6266375579836891,
+        "net_usd": -630330.8400000036
+      },
+      {
+        "month": "2024-05",
+        "days": 22,
+        "return_pct": -0.02182095567047071,
+        "net_usd": -21812.019999995828
+      },
+      {
+        "month": "2024-06",
+        "days": 19,
+        "return_pct": 0.44950004508348407,
+        "net_usd": 449217.92999999225
+      },
+      {
+        "month": "2024-07",
+        "days": 22,
+        "return_pct": 0.6619968138578125,
+        "net_usd": 664555.1400000006
+      },
+      {
+        "month": "2024-08",
+        "days": 22,
+        "return_pct": 0.5043107876433472,
+        "net_usd": 509611.15000000596
+      },
+      {
+        "month": "2024-09",
+        "days": 20,
+        "return_pct": -1.0156358607777083,
+        "net_usd": -1031486.099999994
+      },
+      {
+        "month": "2024-10",
+        "days": 23,
+        "return_pct": -0.280379152546828,
+        "net_usd": -281862.74000000954
+      },
+      {
+        "month": "2024-11",
+        "days": 20,
+        "return_pct": -0.1933246196206717,
+        "net_usd": -193802.65999999642
+      },
+      {
+        "month": "2024-12",
+        "days": 21,
+        "return_pct": 0.44816870083437266,
+        "net_usd": 448408.3400000036
+      },
+      {
+        "month": "2025-01",
+        "days": 20,
+        "return_pct": -0.1339177149906834,
+        "net_usd": -134589.82000000775
+      },
+      {
+        "month": "2025-02",
+        "days": 19,
+        "return_pct": -0.7560720385289876,
+        "net_usd": -758849.0099999905
+      },
+      {
+        "month": "2025-03",
+        "days": 21,
+        "return_pct": -0.36171648613266827,
+        "net_usd": -360300.15000000596
+      },
+      {
+        "month": "2025-04",
+        "days": 21,
+        "return_pct": 0.19425204319831746,
+        "net_usd": 192791.54000000656
+      },
+      {
+        "month": "2025-05",
+        "days": 21,
+        "return_pct": -0.2761328815446329,
+        "net_usd": -274589.1099999994
+      },
+      {
+        "month": "2025-06",
+        "days": 20,
+        "return_pct": -0.5864557521272129,
+        "net_usd": -581566.7200000137
+      },
+      {
+        "month": "2025-07",
+        "days": 22,
+        "return_pct": -0.08238925262482599,
+        "net_usd": -81223.25999999046
+      },
+      {
+        "month": "2025-08",
+        "days": 21,
+        "return_pct": 0.1879477391306894,
+        "net_usd": 185135.20000000298
+      },
+      {
+        "month": "2025-09",
+        "days": 21,
+        "return_pct": -0.7937824159797602,
+        "net_usd": -783373.450000003
+      },
+      {
+        "month": "2025-10",
+        "days": 23,
+        "return_pct": -0.14513050798261595,
+        "net_usd": -142090.48000000417
+      },
+      {
+        "month": "2025-11",
+        "days": 19,
+        "return_pct": 0.8829286578161843,
+        "net_usd": 863179.5199999958
+      },
+      {
+        "month": "2025-12",
+        "days": 22,
+        "return_pct": 1.0000560666293845,
+        "net_usd": 986319.3300000131
+      }
+    ]
+  },
+  "concentration": {
+    "months": {
+      "total_net_usd": -387277.31999999285,
+      "best": {
+        "month": "2023-08",
+        "days": 23,
+        "return_pct": 1.1329627859677949,
+        "net_usd": 1129942.3900000006,
+        "share_of_total": -2.9176570164243585,
+        "share_of_positive_months": 0.1766611297828859
+      },
+      "worst": {
+        "month": "2024-09",
+        "days": 20,
+        "return_pct": -1.0156358607777083,
+        "net_usd": -1031486.099999994,
+        "share_of_total": 2.6634301745323303
+      },
+      "total_excluding_best_usd": -1517219.7099999934
+    },
+    "walk_forward": {
+      "windows": 11,
+      "stitched_total_return_pct": -6.2444,
+      "best": {
+        "window": 14,
+        "return_pct": 1.0997,
+        "share_of_total": -0.1761097943757607
+      },
+      "worst": {
+        "window": 9,
+        "return_pct": -1.6663,
+        "share_of_total": 0.2668470949971174
+      }
+    },
+    "pairs": {
+      "traded": 130,
+      "trades_per_pair_max": 8,
+      "net_usd_total": -387277.36000000127,
+      "net_usd_top5": 4457448.609999999,
+      "net_usd_bottom5": -3762021.25,
+      "net_usd_excluding_top5_and_bottom5": -1082704.720000001
+    }
+  },
+  "exposure": {
+    "hedge_ratio": {
+      "mean": 0.69597558685446,
+      "share_below_1": 0.8779342723004695,
+      "p10": 0.35628,
+      "p25": 0.5011,
+      "p50": 0.6967,
+      "p75": 0.8737,
+      "p90": 1.01796
+    },
+    "net_dollar_per_gross": {
+      "mean": -0.028605087345571416,
+      "mean_abs": 0.2162237559167946,
+      "implied_by_hedge_ratio_mean": -0.02928516134856307,
+      "by_side": {
+        "LONG": 0.18271163896139658,
+        "SHORT": -0.22278802503305553
+      }
+    },
+    "net_market_beta_per_gross": {
+      "mean": 0.014694712511178591,
+      "mean_abs": 0.24627157627726523,
+      "by_side": {
+        "LONG": 0.26288517509282294,
+        "SHORT": -0.21337219905033242
+      }
+    },
+    "market_component": {
+      "market_usd": 782488.8903086606,
+      "gross_usd": 1520094.2,
+      "gross_ex_market_bp": {
+        "n": 213,
+        "mean": -11.23285437489238,
+        "median": -4.656256610843769,
+        "sd": 425.2176022466527,
+        "t": -0.38553933695581993
+      },
+      "market_share_of_gross_variance": 0.12387992572236906,
+      "by_side": {
+        "LONG": {
+          "gross_usd": 2010527.83,
+          "market_usd": 2064274.2365243419
+        },
+        "SHORT": {
+          "gross_usd": -490433.63000000064,
+          "market_usd": -1281785.3462156814
+        }
+      },
+      "proxy": "equal-weight daily return of the sector SPDR ETFs",
+      "beta_window_days": 252
+    }
+  },
+  "capacity": [
+    {
+      "aum_musd": 10.0,
+      "net_bp": -16.722843947054418,
+      "impact_bp": 3.3682956943145212,
+      "sharpe": 0.10228194629703055,
+      "total_return_pct": 0.49148154564946367
+    },
+    {
+      "aum_musd": 100.0,
+      "net_bp": -24.000706281506567,
+      "impact_bp": 10.64615802876668,
+      "sharpe": -0.061762347930563406,
+      "total_return_pct": -0.3872765057887584
+    },
+    {
+      "aum_musd": 1000.0,
+      "net_bp": -45.67633697226361,
+      "impact_bp": 32.32178871952372,
+      "sharpe": -0.5424512393269604,
+      "total_return_pct": -2.9224889279706234
+    },
+    {
+      "aum_musd": 5000.0,
+      "net_bp": -75.11186144709524,
+      "impact_bp": 61.757313194355355,
+      "sharpe": -1.1652697350400396,
+      "total_return_pct": -6.133878104686419
+    }
+  ],
+  "capacity_detail": {
+    "base_aum_musd": 100.0,
+    "method": "repriced per execution",
+    "gross_bp_per_trade": -7.868950085033682,
+    "gross_bp_t": -0.25360631768458863,
+    "note": "completeness item: costs re-priced for the same trades; a gross edge indistinguishable from zero is not made an edge by a smaller book"
+  },
+  "cash": {
+    "strategy_return_pct": -0.3872773200002677,
+    "sharpe_reported": -0.062,
+    "sharpe_recomputed": -0.06176249701926064,
+    "sharpe_is_excess_of_cash": true,
+    "period": [
+      "2023-07-03",
+      "2025-12-31"
+    ],
+    "tbill_return_pct": 12.721242993231762,
+    "tbill_mean_yield_pct": 4.793164660394153,
+    "strategy_plus_cash_return_pct": 12.284505153725434,
+    "strategy_minus_cash_return_pct": -11.629148122523025,
+    "sharpe_if_cash_were_subtracted": -2.295418481773798,
+    "rates_cover_window": true,
+    "source": "FRED DTB3 (3-month T-bill, discount basis) as bond-equivalent yield, act/365 daily accrual",
+    "net_dollar_carry_usd": 94301.88301599021,
+    "net_dollar_carry_pct_of_capital": 0.09430188301599021
+  },
+  "source": {
+    "results": {
+      "path": "outputs/v33_dev/pairs_trading_results_2023_2025_unbiased.json",
+      "size_bytes": 868438,
+      "mtime_utc": "2026-10-21T06:19:29+00:00",
+      "sha256": "0209861c37c3bb97bd9a2f79723490956a4a35af20462a396ec5493622f06b21"
+    },
+    "price_cache": {
+      "path": "data/enhanced_russell_3000_data.pkl",
+      "size_bytes": 1233745259,
+      "mtime_utc": "2026-10-21T06:14:48+00:00",
+      "sha256": "3a9a93cc2ea9352e7e43319307ec9039cf0bd4f35c06939dc5a956c619c0a7be"
+    },
+    "price_cache_is_the_runs": true,
+    "dtb3": {
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DTB3",
+      "sha256": "58a47f4c4e9bbcef07c32623d5821632321b39bbc0bc5c314fd6e49632fa4038",
+      "bytes": 301377,
+      "fetched_at": "2026-10-20T12:25:04+00:00",
+      "vintage": null
+    },
+    "macro": {
+      "path": "data/macro_data.pkl",
+      "size_bytes": 439927,
+      "mtime_utc": "2026-10-18T08:10:48+00:00",
+      "sha256": "ced8d4f9227f810a3e5d2de1ea97b3fcf94939577637f70c3c9fbf33d8dd3012"
+    },
+    "builder": "scripts/anatomy_of_the_null.py",
+    "seed": 0,
+    "paths_per_trade": 20000
+  }
+}

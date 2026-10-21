@@ -1,353 +1,313 @@
-# Russell 3000 Statistical Arbitrage — Pairs Trading Research System
+# Russell 3000 Statistical Arbitrage — Pairs Trading Research
 
 [![CI](https://github.com/NavnoorBawa/russell3000-pairs-trading/actions/workflows/ci.yml/badge.svg)](https://github.com/NavnoorBawa/russell3000-pairs-trading/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/NavnoorBawa/russell3000-pairs-trading/actions/workflows/codeql.yml/badge.svg)](https://github.com/NavnoorBawa/russell3000-pairs-trading/actions/workflows/codeql.yml)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-1a1a1a.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-1a1a1a.svg)](LICENSE)
 
-**[Live project page →](https://navnoorbawa.github.io/russell3000-pairs-trading/)**
+**[Research note (live page) →](https://navnoorbawa.github.io/russell3000-pairs-trading/)** ·
+[Paper (PDF)](paper/pairs_study.pdf) ·
+[Committed results](results/)
 
-A research system that asks one question and is built to answer it honestly: **does a
-cointegration pairs-trading strategy on the Russell 3000 have an edge after realistic
-execution and costs, out of sample?** It selects pairs on formation data only, trades a
-Kalman-filtered spread with next-day fills and a per-stock cost model, validates with a
-continuous walk-forward simulation, and then tests whether the result is distinguishable
-from zero (Probabilistic and Deflated Sharpe, Newey-West, block bootstrap) and from two
-baselines (Gatev et al. 2006 distance method, random pairs).
+One question, answered as strictly as free data allow: **does a cointegration pairs-trading
+strategy on the Russell 3000 have an edge after realistic execution and costs?**
 
-> **Status — v32 (October 2026): the engine was rebuilt and the study re-run. The answer
-> is unchanged — there is no edge.**
->
-> A complete audit of v31.1 (about 270 findings across seven review areas, nearly all
-> confirmed by an independent adversarial re-check) found defects in the trading engine itself: entry
-> and exit used different z-scores, the Kalman "hedge ratio" was a price-level ratio that
-> changed with the data vendor's back-adjustment, each trade's final P&L reached the
-> position sizer and the loss cool-off on the day it was **opened**, P&L was booked on
-> exit days only, and the walk-forward silently discarded trades still open at a window's
-> end. v32 rewrites the engine, the cost model, the ranker training, the benchmarks and the
-> outputs ([what changed](#what-v32-changed)), so the v31.1 figures were withdrawn rather
-> than adjusted.
->
-> The v32 study run of 2026-10-18 (universe: the 3,000 largest US common stocks by market
-> cap, 97% fetched; prices 2020–2025) is **negative and statistically indistinguishable from
-> zero** in the main backtest and out of sample, does not differ significantly from the
-> textbook distance method or from randomly chosen pairs, and its learned ranker has no
-> out-of-sample skill. The code is also validated on synthetic markets with known answers
-> ([below](#validation-on-markets-with-known-answers)) and by 350+ hermetic tests.
+## The finding
 
----
+The v33 design (same-industry cointegrated pairs among the 500 most liquid point-in-time Russell
+3000 members, re-formed every six months, next-day fills, a per-stock cost model)
+returned <!--m:main.total_return_pct-->−0.39%<!--/m--> net over July 2023 – December 2025
+on <!--m:main.trades-->213<!--/m--> trades (Sharpe <!--m:main.sharpe-->−0.06<!--/m-->, 95%
+interval <!--m:significance.main.boot_lo-->−1.29<!--/m-->
+to <!--m:significance.main.boot_hi-->+1.16<!--/m-->), indistinguishable from zero, from the Gatev
+distance method (Sharpe <!--m:benchmarks.gatev.sharpe-->−0.80<!--/m-->) and from random pairs. The
+same rule started in February 2023, the walk-forward, lost money:
+Sharpe <!--m:oos.pooled_sharpe-->−1.04<!--/m-->, one-sided 95% upper
+bound <!--m:study.dev.facts.oos_ucb-->−0.15<!--/m-->, eight-factor alpha t
+= <!--m:study.dev.facts.ff_alpha_oos_t-->−2.25<!--/m-->, though its two-sided interval just includes
+zero; <!--m:oos.windows_positive-->4<!--/m--> of <!--m:oos.windows-->11<!--/m--> quarterly windows
+were positive (mean <!--m:oos.avg_window_return_pct-->−0.58%<!--/m--> per window, p
+= <!--m:significance.oos_windows.p-->0.096<!--/m-->).
 
-## Results
+No gross edge is detected either. Before costs the trades made
+\$<!--m:study.dev.facts.gross_usd_m-->1.52<!--/m-->M
+(Sharpe <!--m:study.dev.facts.gross_sharpe-->+0.29<!--/m-->, Newey–West p
+= <!--m:study.dev.facts.gross_hac_p-->0.645<!--/m-->),
+or <!--m:study.dev.facts.break_even_x-->0.80<!--/m--> times the modelled costs: weighted by
+size <!--m:study.dev.facts.sf_gross_bp-->+13.5<!--/m--> bp a trade,
+equal-weighted <!--m:study.dev.facts.gross_bp-->−7.9<!--/m--> bp (t
+= <!--m:study.dev.facts.gross_t-->−0.25<!--/m-->),
+against <!--m:study.dev.facts.cost_bp_notional-->16.9<!--/m--> bp of cost. The evidence layer is
+consistent with that: the rule's <!--m:study.dev.facts.decay_form_bp-->+64.7<!--/m--> bp a trade on
+the data that selected a pair falls to <!--m:study.dev.facts.decay_oos_bp-->−12.6<!--/m--> bp after
+formation; after formation the spreads hit their targets about as often as a random walk's would;
+and only <!--m:study.dev.facts.pers_traded_count-->6<!--/m--> of
+the <!--m:study.dev.facts.pers_traded_of-->115<!--/m--> traded pairs testable after formation are
+still cointegrated, about the base rate of any correlated pair. A second family, Avellaneda–Lee
+residual reversion, agrees (Sharpe <!--m:study.residual.sharpe-->−0.28<!--/m-->
+over <!--m:study.residual.trades-->10,916<!--/m--> trades). The sample rules out a Sharpe ratio
+above <!--m:study.dev.facts.sharpe_ucb-->0.92<!--/m--> (one-sided 95%) but cannot tell 0 from 0.5.
+The pre-registered falsification test on 2026 data,
+with <!--m:study.dev.facts.ho_power_1-->16<!--/m-->% power against a true Sharpe ratio of 1, is
+sealed until its protocol is filed.
 
-| | v32 | v31.1 (withdrawn) |
+Every number in this file and on the page is a marker checked against the run's headline JSON
+or the site data built from it (`python scripts/check_published_numbers.py`, which fails on any
+mismatch; `--write` fills them).
+
+| Development period, Jul 2023 – Dec 2025 | v33 (this study) | v32 (published 18 Oct 2026) |
 |---|---|---|
-| Main backtest (Jul 2023 – 2025): return | <!--m:main.total_return_pct-->−0.30%<!--/m--> | −0.31% |
-| Main backtest: Sharpe | <!--m:main.sharpe-->−0.07<!--/m--> | −0.31 |
-| Main backtest: trades | <!--m:main.trades-->161<!--/m--> | 14 |
-| Walk-forward OOS: average window return | <!--m:oos.avg_window_return_pct|3-->−0.158%<!--/m--> | −0.282% |
-| Walk-forward OOS: pooled daily Sharpe | <!--m:oos.pooled_sharpe-->−0.33<!--/m--> | −1.23 |
-| Walk-forward OOS: windows positive | <!--m:oos.windows_positive-->3<!--/m--> of <!--m:oos.windows-->11<!--/m--> | 1 of 10 |
-| Per-window t-test p-value | <!--m:significance.oos_windows.p|3-->0.478<!--/m--> | 0.085 |
-| Gatev (2006) distance method, same period: Sharpe | <!--m:benchmarks.gatev.sharpe-->+0.07<!--/m--> | +0.26 |
-| Ranker out-of-sample AUC (0.5 = no skill) | <!--m:ranker.oos_auc|3-->0.514<!--/m--> | not measured |
+| Main backtest: net return | <!--m:main.total_return_pct-->−0.39%<!--/m--> | <!--m:study.v32.main.ret_pct-->−0.30%<!--/m--> |
+| Main backtest: net Sharpe | <!--m:main.sharpe-->−0.06<!--/m--> | <!--m:study.v32.main.sharpe-->−0.07<!--/m--> |
+| Main backtest: trades | <!--m:main.trades-->213<!--/m--> | <!--m:study.v32.main.trades-->161<!--/m--> |
+| Walk-forward: net Sharpe | <!--m:oos.pooled_sharpe-->−1.04<!--/m--> | <!--m:study.v32.oos.sharpe-->−0.33<!--/m--> |
+| Gross bp per trade, equal-weighted (t) | <!--m:study.dev.facts.gross_bp-->−7.9<!--/m--> (<!--m:study.dev.facts.gross_t-->−0.25<!--/m-->) | <!--m:study.v32.gross_bp-->+11.4<!--/m--> (<!--m:study.v32.gross_t-->0.37<!--/m-->) |
+| Cost bp per trade | <!--m:study.dev.facts.cost_bp-->16.1<!--/m--> | <!--m:study.v32.cost_bp-->12.5<!--/m--> |
+| Gatev distance method: Sharpe | <!--m:benchmarks.gatev.sharpe-->−0.80<!--/m--> | <!--m:study.v32.gatev_sharpe-->+0.07<!--/m--> |
+| Percentile among <!--m:benchmarks.random_control.n_draws-->200<!--/m--> random-pair portfolios | <!--m:benchmarks.random_control.strategy_percentile-->37<!--/m--> | <!--m:study.v32.random_percentile-->28<!--/m--> |
+| Second family (Avellaneda–Lee): net Sharpe [95%] | <!--m:study.residual.sharpe-->−0.28<!--/m--> [<!--m:study.residual.lo-->−1.47<!--/m-->, <!--m:study.residual.hi-->+0.93<!--/m-->] | not run |
 
-Every number above is filled from `outputs/headline_metrics.json` by
-`python scripts/check_published_numbers.py --write`, and the same script without
-`--write` fails if any published number disagrees with the run.
+v32 is kept as the published record and runs frozen, without a test, as the descriptive arm
+of the holdout. The v33 design changed seven fields of v32, each made after v32's development
+results on this same period were seen and fixed before any v33 run: point-in-time index
+membership instead of today's largest stocks, the 500 most liquid names instead of 300, pairs within one Fama–French 49 industry, a full re-selection every 126
+trading days instead of re-testing the 2022 pool, the regime gate off, no learned ranker, and one
+0.38% borrow fee instead of borrow plus a double-counted financing spread
+([the site's design section](https://navnoorbawa.github.io/russell3000-pairs-trading/#method)
+gives the reason for each).
 
-### What the v32 run shows
+## Why no edge is detected
 
-- **No edge in the main backtest.** <!--m:main.trades-->161<!--/m--> trades over Jul 2023 –
-  Dec 2025, return <!--m:main.total_return_pct-->−0.30%<!--/m-->, Sharpe
-  <!--m:main.sharpe-->−0.07<!--/m-->; Newey-West p = <!--m:significance.main.hac_p|3-->0.917<!--/m-->,
-  block-bootstrap 95% interval for the Sharpe
-  [<!--m:significance.main.boot_lo-->−1.39<!--/m-->, <!--m:significance.main.boot_hi-->+1.23<!--/m-->].
-- **No edge out of sample.** The continuous walk-forward (11 windows, a ranker refit per
-  window) averages <!--m:oos.avg_window_return_pct|3-->−0.158%<!--/m--> per window with a
-  pooled daily Sharpe of <!--m:oos.pooled_sharpe-->−0.33<!--/m--> (Newey-West
-  p = <!--m:significance.oos_daily.hac_p|3-->0.559<!--/m-->); the Deflated Sharpe against 32
-  trials is <!--m:significance.oos_daily.dsr_pct-->0.4<!--/m-->%.
-- **No better than the baselines — and no worse.** The Gatev (2006) distance method on the
-  same universe and period, with the same t+1 fills and cost model, returns
-  <!--m:benchmarks.gatev.total_return_pct-->+0.57%<!--/m--> at Sharpe
-  <!--m:benchmarks.gatev.sharpe-->+0.07<!--/m-->; the Sharpe difference is
-  <!--m:benchmarks.sharpe_diff_vs_gatev.diff-->−0.14<!--/m--> (Ledoit-Wolf
-  p = <!--m:benchmarks.sharpe_diff_vs_gatev.p|3-->0.879<!--/m-->). Against 200 random-pair
-  draws the strategy sits at the <!--m:benchmarks.random_control.strategy_percentile-->28<!--/m-->th
-  percentile.
-- **The cointegration evidence does not survive multiple testing.** Of
-  <!--m:fdr.pairs_tested-->35,491<!--/m--> correlated pairs tested,
-  <!--m:fdr.significant_raw_p05-->2,965<!--/m--> are "cointegrated" at raw p < 0.05 (chance
-  alone would give about 1,775), but only <!--m:fdr.survive_bh_fdr_q05-->1<!--/m--> survives a
-  Benjamini-Hochberg correction: the excess is spread thinly across many weak relationships.
-- **The learned ranker has no skill.** Out-of-sample AUC
-  <!--m:ranker.oos_auc|3-->0.514<!--/m--> for the main model and
-  <!--m:ranker.wf_pooled_auc|3-->0.510<!--/m--> pooled across the walk-forward windows
-  (0.5 = coin flip).
-- **Every fund-cost profile is flat to negative**, from
-  <!--m:fund_profiles.institutional.total_return_pct-->+0.04%<!--/m--> (buy-side
-  institutional) to <!--m:fund_profiles.fundamental_ls.total_return_pct-->−3.27%<!--/m-->
-  (fundamental long/short).
+The evidence layer (`pairs_trading/anatomy.py`, `scripts/anatomy_of_the_null.py`) takes the
+null apart trade by trade, from the committed run:
 
-v31.1 reached the same conclusion with defective code (main −0.31%, out-of-sample
-−0.28%/qtr); v32 confirms it with an engine that passes known-answer, causality and
-accounting tests. The defensible statement is the narrow one: **this cointegration
-pairs strategy, on this universe and period, has no detectable edge after realistic
-execution and costs.**
+- **Costs exceed the gross P&L.** Paper P&L at the signal closes was
+  \$<!--m:study.dev.facts.sf_paper_usd_k-->1,693.3<!--/m-->k, gross after the next-day fills
+  \$<!--m:study.dev.facts.gross_usd_k-->1,520.1<!--/m-->k, modelled costs
+  \$<!--m:study.dev.facts.cost_usd_k-->1,907.4<!--/m-->k (<!--m:study.dev.facts.impact_share_pct-->67.4<!--/m-->%
+  market impact): net P&L breaks even only at <!--m:study.dev.facts.break_even_x-->0.80<!--/m-->×
+  the modelled costs. The gross return itself is indistinguishable from zero and from the cost.
+- **The edge is in-sample only.** The same rule on the
+  same <!--m:study.dev.facts.decay_pairs-->130<!--/m--> traded pairs
+  earns <!--m:study.dev.facts.decay_form_bp-->+64.7<!--/m--> bp a trade on their formation windows
+  (t = <!--m:study.dev.facts.decay_form_t-->8.35<!--/m-->)
+  and <!--m:study.dev.facts.decay_oos_bp-->−12.6<!--/m--> bp after formation (t
+  = <!--m:study.dev.facts.decay_oos_t-->−1.17<!--/m-->). "After formation" is development data; this
+  project keeps "out of sample" for the 2026 test.
+- **After formation the spreads behave like random
+  walks.** <!--m:study.dev.facts.er_targets-->72<!--/m--> trades hit the profit target first
+  and <!--m:study.dev.facts.er_stops-->77<!--/m--> the stop; a random-walk spread
+  expects <!--m:study.dev.facts.er_rw_expected-->65.9<!--/m--> targets, a spread reverting at its
+  formation half-life <!--m:study.dev.facts.er_ou_expected-->121.0<!--/m-->. Of the traded pairs'
+  half-lives after formation, <!--m:study.dev.facts.hl_oos_above_max_pct-->60.8<!--/m-->% exceed
+  the rule's 25-day maximum.
+- **Cointegration persists only at the base rate.** On a broader universe than v33's (the 300 most
+  liquid names of 2022, any industry, one-year windows),
+  of <!--m:study.dev.facts.pers_of-->7,334<!--/m--> pairs cointegrated in one year of
+  2020–2024, <!--m:study.dev.facts.pers_count-->370<!--/m--> were cointegrated the next,
+  against <!--m:study.dev.facts.pers_expected-->403.4<!--/m--> at that year's base rate, itself
+  close to the test's 5% level (Clegg 2014 found the same); of the traded
+  pairs, <!--m:study.dev.facts.pers_traded_count-->6<!--/m-->
+  of <!--m:study.dev.facts.pers_traded_of-->115<!--/m-->.
+- **Costs and capacity only make it worse.** Each declared scenario re-runs the whole backtest
+  (`scripts/cost_sensitivity.py`; trade counts differ because sizes are a share of equity and the
+  30% gross cap binds): impact Y = 1.0 gives a Sharpe
+  of <!--m:study.dev.cost_sensitivity.scenarios.impact_1_0.full.sharpe-->−0.70<!--/m-->, borrow at
+  3% <!--m:study.dev.cost_sensitivity.scenarios.borrow_3.full.sharpe-->−0.71<!--/m-->, a \$5B
+  book <!--m:study.dev.cost_sensitivity.scenarios.capital_5b.full.sharpe-->−1.50<!--/m--> (an order
+  the closing auction could not absorb, so that row understates the cost).
 
-## Validation on markets with known answers
+## The pre-registered 2026 test
 
-A backtest on real data can only say what a strategy did, not whether the code measures
-what it claims. [`scripts/synthetic_validation.py`](scripts/synthetic_validation.py) runs
-the real engine, with its full cost model, on synthetic markets whose answer is known
-([`pairs_trading/synthetic.py`](pairs_trading/synthetic.py)); CI runs two markets per
-scenario on every push to main and on pull requests. Five independent markets per scenario:
+**Status: sealed.** No daily price history of any security for dates after 2025-12-31 has been
+requested, and the fetch code refuses such a request (`study_config.assert_unsealed`) unless
+`PAIRS_UNSEAL` names the registered commit; the commitment is that only the runbook sets it. The
+pre-registration will be committed and pushed as `docs/PREREGISTRATION.md` before any 2026
+daily price is fetched; until then it is a draft. `scripts/run_holdout.sh` then runs each arm
+once from that commit on the <!--m:study.dev.facts.ho_days-->200<!--/m--> trading days from
+2026-01-02 to 2026-10-19, records every attempt, and publishes the result whatever it is.
 
-| Check | What must happen | v32 result |
+That period has already ended, and the project was developed during it (versions 8 to 33). The
+test is sealed, not prospective: the project's code and caches hold no daily 2026 prices of the
+traded securities, but the designers' general knowledge of 2026 markets cannot be sealed. The
+2026 information the project did receive (the latest quote in the price vendor's responses, the
+market values behind the v32 universe file, identity data, factor files) is listed under Known
+limitations and in the pre-registration.
+
+| Arm | Strategy | Role |
 |---|---|---|
-| Planted cointegrated pairs (OU spreads, half-life 5–14 days) | find a large positive edge | 2,241 trades, +80.7 bp gross per trade (t = 23.7), median net Sharpe 3.3 |
-| Correlated but not cointegrated pairs (random-walk spread, no drift), forced into the universe | no edge (a positive mean would be look-ahead) | 2,485 trades, +4.6 bp (t = 1.15); 16 more markets: 8,325 trades, +0.25 bp (t = 0.12) |
-| Kalman hedge ratio vs the true slope | recover it | median absolute error 0.031 (90th percentile 0.073) |
-| Pair selection on 2020–2022 data, 6 planted pairs among 24 names | find them, admit few others | 100% of planted pairs found; unrelated pairs admitted: 2.4 of 270 per market with planted pairs, 2.6 of 276 per market with none (≤ 3% in every market) |
+| S1 | v33 pairs, the design above | H1: net mean return > 0 |
+| S2 | Avellaneda–Lee sector-ETF residual reversion, published parameters | H2: net mean return > 0 |
+| S3 | v32 as published, frozen | reported, tested in no family (its universe is ranked on market values inside 2026) |
 
-The test suite adds causality checks with teeth, each confirmed by re-introducing the bug
-it guards against: every decision dated on or before T is unchanged when all stock prices,
-volumes, VIX and sector data after T are replaced — with classical ranking and with a
-trained ranker (this catches a sizer that sees open trades' outcomes and the v31
-terminal-date feature look-ahead); the regime gate's inputs are prefix-invariant (catches a
-centred window); the same trades are taken at the same z-scores when the vendor
-back-adjusts history for a split after the sample; and trade paths, fills and the fund
-replay are checked against hand-computed answers.
+Test: one-sided Newey–West t on the daily net returns, Holm-adjusted across H1 and H2 at a
+familywise 5%. Power, stated in advance from the development returns' shape: a test at Holm's first
+step detects with 80% probability only an annualised Sharpe ratio of
+about <!--m:study.dev.facts.ho_mde_025-->2.96<!--/m-->,
+with <!--m:study.dev.facts.ho_power_1-->16<!--/m-->% power against a true Sharpe of 1. The holdout
+is a falsification check: it can reject a large edge, but it cannot confirm a small one.
 
-## Architecture (v32)
+## What is in the repository
 
-```
-universe: data/marketcap.csv (3,000 largest US common stocks) · daily OHLCV 2020–2025 · VIX + 11 sector ETFs
-  │
-  ├─ Pair selection — formation data to 2022-12-31 only
-  │    screens on point-in-time (split-unadjusted) price and dollar volume; 300 most liquid
-  │    positive return correlation ≥ 0.25 · two-direction Engle-Granger p < 0.05 (Bonferroni)
-  │    (fast_coint.py: statsmodels' coint re-implemented in numpy, same statistic to ~1e-13, 13-30x faster;
-  │    the all-pairs search runs over PAIRS_N_JOBS processes: the 44,850 pairs in 67 s instead of 30 min,
-  │    the same 1,776 pairs in the same order — scripts/selector_equivalence.py)
-  │    half-life 4–25 days on the cointegrating spread · heuristic quality score
-  │    PCA (5 factors) residual cointegration → quality bonus · Benjamini-Hochberg diagnostic
-  │    re-selection every 90 trading days: 2-year re-test + 126-day check (p ≤ 0.30)
-  │
-  ├─ Spread model
-  │    two-state Kalman filter (slope + intercept) on log prices centred on their burn-in
-  │    means: β is a hedge ratio, and every signal is invariant to vendor back-adjustment
-  │
-  ├─ Trading rule — one z-score for everything
-  │    z = locked spread (lp1 − β_t·lp2) vs its mean/std over the last 30–60 bars (3 × half-life), frozen at the signal
-  │    entry |z| ≥ 1.8 · target |z| ≤ 0.5 · stop 1.5 further against · time stop clamp(2.5·HL, 10, 25) days
-  │    signal at day-t close, fill at the t+1 close (entry and exit); legs $1 vs $β
-  │    gates: 20-day return correlation ≥ 0.20, β in [0.25, 4], loss cool-off (a 1%-of-equity cost rail never binds here)
-  │
-  ├─ Ranker (optional, PAIRS_USE_TRANSFORMER=0 disables)
-  │    classifier of P(trade profitable) on 30 features, trained on outcomes of the actual rule,
-  │    used only to ORDER same-day candidates; out-of-sample AUC reported
-  │
-  ├─ Portfolio and risk
-  │    $100M · 3–10% per pair · 30% gross cap · 8 entries/day · no shared legs
-  │    VIX / sector-dispersion regime scaling · drawdown and daily-loss kill switch (flattens)
-  │    daily mark-to-market; commissions, spreads and impact booked on fill days
-  │
-  ├─ Costs (per stock, per fill)
-  │    $0.002/share commission · half-spread by dollar-ADV bucket · square-root impact on own σ and ADV
-  │    general-collateral borrow 25 bp/yr on the short leg · prime-broker carry on the short half
-  │
-  ├─ Walk-forward: ONE continuous out-of-sample simulation (252-day train / 63-day test grid),
-  │    ranker refit per window on that window's train period, positions carried across windows
-  │
-  └─ Evidence layer
-       significance.py: PSR, DSR (32 trials), Newey-West t, Politis-White block bootstrap,
-       Lo (2002) adjusted Sharpe, Ledoit-Wolf Sharpe-difference test, PBO (CSCV)
-       benchmark.py: Gatev (2006) distance method, t+1 fills, same costs · 200-draw random-pair control
-       market-beta attribution · capital utilisation · rejection funnel
-```
+| Path | What it holds |
+|---|---|
+| [`pairs_trading/`](pairs_trading/) | The system: study profiles and calendars (`study_config.py`), the point-in-time universe (`universe.py`), data and price anchoring (`data_processor.py`), pair selection with an exact numpy Engle–Granger (`pair_selector.py`, `fast_coint.py`), the engine (`trading_system.py`), costs (`transaction_costs.py`), significance, power and data-snooping tests (`significance.py`, `power.py`, `snooping.py`), baselines (`benchmark.py`), the evidence layer (`anatomy.py`, `evidence.py`) and the second family (`residual_statarb.py`) |
+| [`scripts/`](scripts/) | Runbooks (`run_dev_studies.sh`, `run_holdout.sh`), the evidence scripts, the holdout evaluator, the trial registry, the site and paper builders and the publication checker |
+| [`results/`](results/) | Every published run, with its provenance: `v33_dev/` (this study, with `anatomy.json` and `cost_sensitivity.json`), `residual_dev/` (S2), `validation/`, `v32_dev/` (the published v32 run), `variant_family/` (the declared family; its run is in progress) and `trial_registry.jsonl` (every trial whose result was seen) |
+| [`reference/`](reference/) | IWV N-PORT holdings snapshots, the CUSIP-to-ticker map and the industry map, with how each was built and checked |
+| [`docs/`](docs/) | `PROGRESS.md` (the full engineering log, deliberately unflattering), `EXECUTION_COSTS.md`, `FREE_RESOURCES.md` |
+| `index.html`, [`assets/`](assets/) | The research note; `assets/study.json` is built from `results/` by `scripts/build_site_data.py` |
+| [`paper/`](paper/) | The Typst paper and its committed PDF, built from the same data as the page (`scripts/build_paper.py`) |
+| [`tests/`](tests/) | The test suite (below) |
 
-18 modules in [`pairs_trading/`](pairs_trading/). Entry point: `python -m pairs_trading.main`
-(or `pairs-trading` after `pip install -e .`).
-
-## What v32 changed
-
-Each row is a defect the audit confirmed in v31.1 and how v32 handles it. "Flatters" marks
-defects that made the old backtest look better than the strategy was.
-
-| Area | v31.1 | v32 |
-|---|---|---|
-| **Look-ahead** | each trade's final P&L was recorded with the position sizer and the loss-streak cool-off **on its entry day** (flatters) | outcomes reach the sizer and cool-off only after the exit fill; a perturbation test enforces it |
-| **Look-ahead** | one-state Kalman without intercept on log prices: β absorbed the price level (true 0.90 read as ≈1.27), and a vendor back-adjustment for a split or dividend after the sample changed every past signal | two-state filter on burn-in-centred log prices; signals are invariant to such back-adjustment (a test enforces it) |
-| Signal | entry used an expanding-window z of the Kalman residual; target, stop and time stop used a β-locked z — two different spreads | one β-locked z with reference statistics frozen at the signal, used for every decision |
-| Hedge | equal-dollar legs regardless of β | legs weighted $1 : $β; β outside [0.25, 4] is skipped, not clamped |
-| Accounting | a trade's whole P&L booked on its exit day (understates volatility and drawdown) | daily mark-to-market; costs on fill days; end-of-data positions force-closed, never dropped |
-| Walk-forward | independent 63-day windows; trades still open at a window's end were discarded (flatters) | one continuous simulation with per-window ranker refits; per-window figures are slices of it |
-| Sizing | z multiplier applied after the 3–10% clamp, so the strongest signals were vetoed by the 10% limit | multiplier inside the clamp; one quality threshold (0.55) instead of a dead 0.40 pre-filter |
-| Entry gates | CUSUM and Hurst gates on 30–90 bars | measured near-random at these lengths (CUSUM rejects 0–8% and Hurst 5–11% of random walks and mean-reverting spreads alike); off by default, kept as flags |
-| Re-selection | inconsistent p-value definitions; pair statistics frozen at the 2022 selection | one Bonferroni p-value; statistics re-estimated at every re-selection; opt-in full re-search (`PAIRS_RESELECT=full`) |
-| Selection | half-life on the β = 1 spread; share-volume screen on split-adjusted data; negative correlations admitted; a silent screen-free fallback | half-life on the cointegrating spread; point-in-time dollar-volume screen; positive correlation; no fallback; deterministic leg order |
-| Costs | effective commission ≈0.09 bp; the same 0.8 bp spread for every stock; impact from a fixed share volume (so it scaled with 1/√price); fund profiles: impact without volatility (its cap bound on every trade), charged on entry only, institutional costs 10× too small (unit error) | per-share commission; half-spread by dollar-ADV bucket; square-root impact on each stock's own σ and dollar ADV, on entry and exit; GC borrow and financing; fund-profile units and impact fixed |
-| Data | universe screens on split-adjusted prices (later splits decided membership); partial fetches cached as the study; an unreadable cache was silently refetched and overwritten; last trading day dropped | point-in-time screens; fetch coverage ≥ 90% enforced, retries with backoff, manifest; caches written atomically and never overwritten; inclusive end date |
-| Ranker | trained on a different target than the rule it ranks, from features extracted with empty stock data; 8 always-zero inputs; class weighting left the score uncalibrated; a 1,000-episode "RL" loop updated nothing | labels from the actual rule (outcome complete inside the training window); live features; 30 real inputs; prior-corrected probabilities; failures score the base rate; out-of-sample AUC and Brier reported; RL loop removed |
-| Benchmarks | Gatev baseline filled on the signal bar at 2.5–5× lower cost than the strategy; 5-draw random control | t+1 fills and the same per-stock cost model; Gatev re-normalisation and crossing exits; 200-draw random control with its distribution; Ledoit-Wolf test of the Sharpe difference |
-| Statistics | fixed 10-day bootstrap blocks; DSR = 1.0 when one trial; constant series gave a Sharpe of 10¹⁶ | Politis-White block length; Lo (2002) adjustment; PBO; one Sharpe definition with a zero-variance guard |
-| Outputs | publication check scraped a log (could not parse signed numbers, matched integers as substrings); a failed stage still exited 0 | `headline_metrics.json` plus marker check (and `--write`); provenance block in every export; failed stages make the run exit non-zero |
-
-The full record of v32 (and every earlier version) is in [docs/PROGRESS.md](docs/PROGRESS.md).
-
-## Known limitations
-
-These hold for v32 and should be read with any result it produces.
-
-- **Survivorship, and an approximate index.** The universe is the 3,000 largest US common
-  stocks by market cap on 2026-10-18 (the Russell 3000 rule applied to the Nasdaq
-  screener, not FTSE Russell's constituent list), back-filled with 2020–2025 prices.
-  Companies that failed, delisted or were acquired before that date are absent, and pairs
-  that broke because a company failed are missing, which flatters a pairs strategy.
-  Fixing it needs a point-in-time dataset such as CRSP.
-- **Design choices were made on the same data.** Thresholds, gates and the regime rule
-  were chosen across 32 versions using 2020–2025. The walk-forward is out of sample for
-  pair selection and the ranker, not for those choices. The Deflated Sharpe counts 32
-  trials (a lower bound), and `scripts/parameter_sensitivity.py` reports how fragile the
-  chosen thresholds are (PBO).
-- **Re-selection can drop pairs but not add them** unless `PAIRS_RESELECT=full` (slow).
-- **Borrow is general-collateral for every name** (25 bp/yr); hard-to-borrow fees, recalls,
-  short rebates and regulatory fees are not modelled.
-- **Fills are close-to-close**; no auction, queue or intraday modelling. Capacity is
-  reported as average ADV participation rather than simulated.
-- **Ranker features include pair statistics estimated on the formation window** that also
-  produces its earliest training labels. The ranker only orders same-day candidates, and
-  its out-of-sample AUC is reported.
-- **The "transformer" sees one 30-feature vector** — a sequence of length one — so it is
-  functionally a residual MLP. Its scores are not bit-identical across CPU thread counts
-  or devices.
-- **Sector features are coarse.** The sector map covers 286 of the 3,000 symbols; the rest
-  get neutral sector inputs. Pairs are not restricted to one industry.
-- **The 126-day re-selection check has little power.** At n ≈ 87 bars (asymptotic MacKinnon
-  p-values) the rule p ≤ 0.30 passes 27% of non-cointegrated pairs and only 32–63% of truly
-  cointegrated ones (half-life 14 down to 5 days), so it removes many healthy pairs at every
-  re-selection. It is kept as the documented v8 design; `RESEL_RECENT_MAX_P = 1.0` turns it off.
-- **The price cache used through v31 was built with a full-sample penny-stock screen**, and
-  its fill step also wrote forward-filled prices into rows where the vendor returned none.
-  v32 does neither, but a cache built before v32 keeps both until it is re-fetched. Its
-  universe coverage is also unchecked: v31 wrote no fetch manifest (and dropped some
-  symbols on purpose), so such a run records `universe_coverage: null` plus the fraction of
-  the universe the cache holds; a cache holding less than half the universe is refused
-  unless `PAIRS_ALLOW_PARTIAL_FETCH=1` (which makes the run a variant). The v32 study run used a freshly fetched v32 cache, so none of this applies to its results.
-- **"Point-in-time" prices undo the splits inside the data window, not dividends or later
-  splits.** The cached closes are dividend-adjusted and back-adjusted for every split up to
-  the fetch date, while split events come only for the requested window, so early price
-  levels carry later dividends (more than 10% off on some snapshot date for about two in
-  five mapped names) and later share-basis changes (51 members at a constant factor from
-  1/80 to 25). Returns are unaffected. The v32 run's $5 price screen and per-share cost
-  terms use these levels; from v33 on, the point-in-time members' levels are anchored to
-  N-PORT's value per share at every snapshot date (`reference/README.md`).
-
-Literature context: Do & Faff (2010, *Financial Analysts Journal*; 2012, *Journal of
-Financial Research*) find that simple distance-method pairs trading became largely
-unprofitable after 2002 once trading costs are counted. That is indirect support for a
-negative result here, not a test of this strategy.
-
-## Reproducing
+## Reproduce
 
 ```bash
-pip install -r requirements.txt          # Python 3.12; or: pip install -e ".[dev]"
-mkdir -p logs outputs
+# the environment pinned in requirements.txt (Python 3.12; CPU torch as in CI)
+python3.12 -m venv .venv
+.venv/bin/pip install --no-deps torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
+.venv/bin/pip install -r requirements.txt
 
-# the universe: the 3,000 largest US common stocks by market cap (Nasdaq screener)
-python scripts/build_universe.py
-# the study (prices are fetched from Yahoo's chart API and cached on the first run)
-python -m pairs_trading.main 2>&1 | tee logs/backtest.log
+# the development-period studies behind the published numbers, in order:
+# main, anatomy, costs, residual, variants, validation, publish (each logs to logs/dev_<step>.log)
+PYTHON=.venv/bin/python bash scripts/run_dev_studies.sh
+PYTHON=.venv/bin/python bash scripts/run_dev_studies.sh main anatomy     # or any steps
 
-# publish: fill every marked number in README.md and index.html, then verify them
-python scripts/check_published_numbers.py --write
-python scripts/make_og_image.py          # social card from the same JSON
-cp -r outputs outputs_headline           # keep the headline run: every run rewrites outputs/
-# (re-check later with: python scripts/check_published_numbers.py --json outputs_headline/headline_metrics.json)
+# the site's data, and the check of every marked number in README.md and index.html
+.venv/bin/python scripts/build_site_data.py              # results/v33_dev -> assets/study.json
+.venv/bin/python scripts/check_published_numbers.py      # against results/v33_dev/headline_metrics.json
 
-# evidence beyond the headline (each run rewrites outputs/; the publishing scripts refuse a
-# JSON from a non-default switch unless --allow-variant is given)
-python scripts/synthetic_validation.py   # known-answer checks (~4 min)
-python scripts/parameter_sensitivity.py  # threshold grid + PBO on the study data (slow)
-python scripts/selector_equivalence.py   # pair selection vs v32's statsmodels loop (~50 min)
-PAIRS_USE_TRANSFORMER=0 python -m pairs_trading.main > logs/backtest_noml.log 2>&1   # ranker ablation
-PAIRS_FILL=open python -m pairs_trading.main > logs/backtest_open.log 2>&1          # fill sensitivity
+# the pre-registered 2026 test: once, from a full clone at the registered commit
+PYTHON=.venv/bin/python bash scripts/run_holdout.sh
 ```
 
-| Switch | Default | Effect |
+The runbooks clear every `PAIRS_*` switch of the calling shell, set `PYTHONHASHSEED=0`, refuse
+an environment that differs from `requirements.txt` (`scripts/check_pins.py`) or uncommitted
+code, and record the commit, the design and calendar hashes and the price cache's sha256 in
+every export. A single run is `python -m pairs_trading.main --profile v33 --calendar dev
+--output-dir outputs/v33_dev`. Prices come from Yahoo's chart API and are cached under `data/`
+with a fetch manifest; a later fetch will not match the cached data bit for bit, because vendors
+revise history. `data/`, `logs/` and `outputs/` are git-ignored.
+
+## Built with free data only
+
+Every input is free and needs no account: Yahoo's chart API for prices, the SEC's N-PORT filings of
+the iShares Russell 3000 ETF for point-in-time membership, OpenFIGI for identifiers, SEC SIC codes
+for industries, the Kenneth French library for factors, FRED for T-bill rates.
+[docs/FREE_RESOURCES.md](docs/FREE_RESOURCES.md) lists what each source provided and what free data
+could not provide (delisted histories, tick data, borrow fees), and how the study bounds or
+discloses each gap; the survivorship gap, for one, is measured at every formation
+(<!--m:study.dev.facts.gap_first_pct-->3.33<!--/m-->% of index weight at the
+first, <!--m:study.dev.facts.gap_last_pct-->1.08<!--/m-->% at the last) and split by the outcome
+of each symbol's fetch, from the price-fetch manifest published with the run
+(`results/v33_dev/price_fetch_manifest.json`). Of the requested symbols,
+the vendor served price history for <!--m:study.dev.facts.cached_pct-->82.2<!--/m-->% and answered
+HTTP 404 for <!--m:study.dev.facts.not_found_pct-->14.2<!--/m-->%.
+
+## Validation and tests
+
+`scripts/synthetic_validation.py` runs the real engine, with its full cost model, on synthetic
+markets whose answer is known (<!--m:study.validation.seeds-->10<!--/m--> markets per scenario,
+`results/validation/`):
+
+| Check | What must happen | Result |
 |---|---|---|
-| `PAIRS_SEED` | 42 | seeds Python, NumPy and torch; recorded in every export |
-| `PAIRS_USE_TRANSFORMER` | 1 | `0` skips ranker training: classical ranking on the same code path |
-| `PAIRS_FILL` | close | `open` fills at the next bar's open instead of its close |
-| `PAIRS_RESELECT` | pool | `full` re-runs the complete pair search at every re-selection |
-| `PAIRS_N_JOBS` | min(4, CPUs) | worker processes for the all-pairs search (`1`: in the main process); the selection is identical for any value |
-| `PAIRS_ALLOW_PARTIAL_FETCH` | unset | `1` accepts price data covering < 90% of the universe (a partial fetch, or loading a v32 cache built from one); such a run is a variant. A pre-v32 cache has no fetch manifest: its coverage cannot be checked, only that it holds at least half the universe |
-| `PAIRS_DEMO_UNIVERSE` | unset | `1` uses an 85-symbol smoke-test universe when `data/marketcap.csv` is absent (does not reproduce the study) |
-| `PAIRS_SKIP_REPROCESS` | unset | `1` loads the price cache verbatim |
-
-Inputs: `data/marketcap.csv` (the study universe, built by `scripts/build_universe.py`
-with its as-of date in `data/marketcap.meta.json`; the loader stops rather than
-substituting another universe if it is missing), `data/enhanced_russell_3000_data.pkl`
-(price cache, with a fetch manifest) and `data/macro_data.pkl` (VIX and sector ETFs).
-Prices come from Yahoo's chart API, read directly: yfinance reads the same endpoint, but
-its cookie handshake is now rate-limited. Outputs go to `outputs/` (JSON exports, `headline_metrics.json`, charts).
-`data/`, `logs/` and `outputs/` are git-ignored.
-
-A run exits non-zero if any analysis stage fails; its exports are still written, marked
-`"complete": false`, for debugging.
-
-## Testing
+| Planted cointegrated pairs (OU spreads, half-life 5–14 days) | a large positive gross edge | <!--m:study.validation.edge.mean_bp-->+82.6<!--/m--> bp gross per trade (t = <!--m:study.validation.edge.t-->34.8<!--/m-->) |
+| Correlated, not cointegrated pairs forced into the universe | no edge; a positive mean would be look-ahead | <!--m:study.validation.forced_null.mean_bp-->+1.7<!--/m--> bp (t = <!--m:study.validation.forced_null.t-->0.65<!--/m-->) |
+| Kalman hedge ratio against the true slope | recover it | median absolute error <!--m:study.validation.hedge_ratio.median_abs_error-->0.032<!--/m--> |
+| Pair selection among unrelated names | find the planted pairs; admit at most 5% of the others | recall <!--m:study.validation.selection.recall-->1.000<!--/m-->; worst market <!--m:study.validation.selection.worst_fp_rate-->0.0296<!--/m--> |
 
 ```bash
 pip install -e ".[dev]"
 ruff check .
-pytest --cov=pairs_trading                # ~3 min, hermetic: no data files, no network
+pytest --cov=pairs_trading                # hermetic: no data files, no network
 ```
 
-The suite runs the whole pipeline end to end (classical ranking) on a synthetic market
-written to a temporary directory in the exact on-disk format of the study, trains and uses
-the ranker in a separate test, and tests the engine for causality
-(future-perturbation and back-adjustment invariance), accounting (daily P&L reconciles
-with trades; mark-to-market telescopes), the trading rule (one z definition, timing,
-exposure caps, run-off), the cost model, pair selection, the ranker (calibration,
-out-of-sample metrics, as-of features), the statistics (against reference
-implementations), the benchmarks, the exports and the publication scripts. CI also runs
-the known-answer validation, `pip-audit` on the installed environment, `ruff` and CodeQL;
-pandas/NumPy `FutureWarning`s are errors, so a silent behaviour change in a dependency
-fails the build.
+The suite runs the whole pipeline on a synthetic market in the study's on-disk format and tests
+the engine for causality (every decision dated on or before T is unchanged when all data after T
+are replaced; signals are invariant to vendor back-adjustment), accounting, the trading rule, the
+cost model, the point-in-time universe and its sealing, the statistics against reference
+implementations, the evidence layer, the holdout protocol, the exports and the publication
+scripts; it also checks that `assets/study.json` is current and that every published number
+matches the run. CI runs the suite on the pinned and the latest environments, the known-answer
+validation, `ruff`, `pip-audit` and CodeQL.
 
-```
-├── pairs_trading/   # the system (main.py is the entry point; synthetic.py is test-only)
-├── tests/           # pytest suite
-├── scripts/         # publication check, social card, synthetic validation, parameter sensitivity, selector equivalence
-├── docs/            # PROGRESS.md (complete engineering log) and research notes
-├── index.html       # project page
-└── data/ logs/ outputs/   # local only (git-ignored)
-```
+## Known limitations
+
+These are the site's threats to validity, in the same order; the page gives each one's direction
+and size.
+
+- **Survivorship is measured, not removed.** Point-in-time members without free price history
+  cannot be traded; their index weight is reported at every formation, split by fetch outcome:
+  mostly names the vendor no longer serves (HTTP 404), largely acquired or delisted since, the
+  rest failed fetches and failed data checks. Among the 500 heaviest members at the first
+  formation they include takeover targets and SVB Financial, which failed inside the
+  walk-forward. The gap probably flatters a convergence strategy.
+- **Design choices were made on the same data.** 33 versions on 2020–2025; the deflated Sharpe's
+  32 trials are a lower bound; v33's changes were chosen after v32's results on this same period
+  were seen; and an exploratory v33 run was seen before the published one (it is in the trial
+  registry). The pre-registered holdout and the declared variant family address it.
+- **The 2026 test is sealed, not prospective.** The test period ended before the pre-registration
+  is filed, and the project was developed during it; the designers' general knowledge of 2026
+  markets cannot be sealed.
+- **The path depends on the start date.** Sizing is a share of equity and the 30% cap binds, so
+  the same rule on the same days gives different trades from different start dates: on the days
+  they share, the main backtest and the walk-forward have Sharpe ratios a point apart, a spread
+  one path's bootstrap interval does not include.
+- **Vendor prices carry corporate actions after the window.** Yahoo back-applies later splits
+  and dividends to the whole history; price levels are anchored to N-PORT's price at each snapshot
+  date, and returns are unaffected.
+- **Some inputs are dated 2026.** Identity data (identifier map, SIC codes, listing venue), the
+  French factor files, FRED rates and the v32 universe file were fetched in 2026, and the price
+  API's responses carry the latest quote in their metadata (not read). Two rules of the industry
+  map use 2026 information (a ticker missing from the SEC's 2026 company list has no industry; a
+  name first held in 2026 needs to be among the 3,000 largest of 18 October 2026); they are
+  disclosed in the pre-registration. None of these inputs is a 2026 daily price, factors are
+  truncated at each calendar's end, and no strategy reads them.
+- **The frozen v32 arm's universe looks ahead into 2026.** It is ranked on market values of
+  18 October 2026, which is why S3 is descriptive only.
+- **Renamed securities can look delisted.** A ticker change with a new CUSIP is remapped through
+  N-PORT's reported tickers, issuer successions and price checks.
+- **Borrow is one fee for every name.** Specials and recalls are not modelled; 1% and 3% stress
+  runs bound the effect.
+- **Fills are close-to-close.** The closing auction is assumed, with no queue, auction-volume or
+  intraday model; participation is measured against full-day volume, so the largest books in the
+  capacity scenarios could not be filled at the close; impact is stressed at Y = 0.6 and 1.0.
+- **Cost parameters are published averages, not measurements.** No free tick or quote data:
+  spreads and impact come from published estimates.
+- **Cost scenarios change the trades.** Each re-run is a new path, so the headline trades are
+  also re-priced under every scenario.
+- **Hedge ratios below one leave market exposure.** The book carries a small market loading,
+  reported with an eight-factor attribution.
+- **The main backtest and the walk-forward overlap.** With no model to refit they are one rule
+  from two start dates; the holdout is the independent test.
+- **One period, one regime.** 30 months with T-bills near 5%, and one path; returns are not yet
+  split by volatility or dispersion regime.
+- **The random-pair control trades a different rule.** Random pairs run through the Gatev rule,
+  not this engine.
 
 ## What this project is not
 
-- **Not a deployable strategy.** It is a framework for finding out whether one exists.
-- **Not reinforcement learning.** There is no policy, value function or environment loop;
-  v32 deleted a loop that was labelled as training but updated nothing.
-- **Not "AI-driven".** The learned component only orders candidates that the classical
-  rule has already accepted. In v31.1 its contribution was exactly zero; v32 measures its
-  out-of-sample skill directly.
+- **Not a deployable strategy.** It is a framework for finding out whether one exists, and its
+  answer for this design, on 2023–2025, is: no detectable edge.
+- **Not machine learning.** v33 ranks candidates by signal strength and pair quality; a learned
+  ranker showed no skill in v32 and is only a declared variant.
+- **Not investment advice.** Hypothetical, backtested results on notional capital.
 
 ## Version history (highlights)
 
-Full engineering log in [docs/PROGRESS.md](docs/PROGRESS.md) — deliberately unflattering.
+Full engineering log in [docs/PROGRESS.md](docs/PROGRESS.md).
 
 | Version | Change |
 |---|---|
 | v9–v12 | first look-ahead fixes (P&L, pair selection, Kalman β drift) |
 | v16–v19 | Kalman spread fixes, β-weighted P&L, PCA residual cointegration, dynamic hold |
 | v24–v26.1 | ranker trained and wired in (ranking only); controlled ablation; a label bug that had disabled training |
-| v28–v29 | significance layer and baselines; t+1 entry fills (OOS +0.49% → +0.08%/qtr) |
+| v28–v29 | significance layer and baselines; t+1 entry fills |
 | v30 | leakage audit: survivorship confirmed, selection-clean window tagging |
-| v31–v31.1 | pre-launch audit: inverted stop-loss, same-bar exits, future re-selections in the walk-forward and more; OOS −0.28%/qtr |
-| v32 | full audit (≈270 confirmed findings): engine, Kalman model, accounting, walk-forward, costs, ranker, benchmarks and outputs rebuilt; synthetic known-answer validation; study re-run: still no edge (OOS pooled Sharpe −0.33, p = 0.56; ranker AUC 0.51) |
+| v31–v31.1 | pre-launch audit: inverted stop-loss, same-bar exits, future re-selections in the walk-forward; results withdrawn |
+| v32 | full audit (about 270 confirmed findings) and rebuild of the engine, accounting, walk-forward, costs, ranker, benchmarks and outputs; synthetic known-answer validation; study run of 18 Oct 2026: no detectable edge. Kept as the published record and the frozen holdout arm |
+| v33 | the design to be pre-registered: point-in-time universe, same-industry pairs, full re-formation, no regime gate or ranker, one borrow fee; the evidence layer, a second strategy family, the trial registry and the sealed 2026 holdout. Development run of 21 Oct 2026: no detectable edge |
 
 ---
 

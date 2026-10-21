@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Fail when README.md / index.html publish a number that disagrees with the run.
 
-The source of truth is outputs/headline_metrics.json, written by
-pairs_trading.json_export.export_headline_metrics at the end of every run. Each
-published headline number is wrapped in a marker that names its key in that file:
+The source of truth is a run's headline_metrics.json, written by
+pairs_trading.json_export.export_headline_metrics at the end of every run; by default
+the published run the page is built from, results/v33_dev/headline_metrics.json (the
+v33 design on the development calendar; assets/study.json comes from the same run).
+Each published headline number is wrapped in a marker that names its key in that file:
 
     README.md    <!--m:oos.pooled_sharpe-->−1.23<!--/m-->
     index.html   <td data-metric="oos.pooled_sharpe">−1.23</td>
@@ -58,7 +60,7 @@ import sys
 from html.parser import HTMLParser
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-DEFAULT_JSON = ROOT / 'outputs' / 'headline_metrics.json'
+DEFAULT_JSON = ROOT / 'results' / 'v33_dev' / 'headline_metrics.json'   # the run the page is built from
 DEFAULT_FILES = (ROOT / 'README.md', ROOT / 'index.html')
 DEFAULT_SITE_JSON = ROOT / 'assets' / 'study.json'
 SITE_NAMESPACE = 'study'            # markers 'study.KEY' resolve into the site data
@@ -386,8 +388,8 @@ def _display(path):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    ap.add_argument('--json', default=None, help='headline metrics JSON '
-                    '(default: outputs/headline_metrics.json in the repository)')
+    ap.add_argument('--json', default=None, help='headline metrics JSON (default: '
+                    'results/v33_dev/headline_metrics.json, the run the page is built from)')
     ap.add_argument('--files', nargs='+', default=None,
                     help='published files to check (default: README.md index.html)')
     ap.add_argument('--allow-missing', action='store_true',
@@ -482,8 +484,8 @@ def main(argv=None):
         print(f'FAIL: {f}')
     print(f'Compared {total} values ({", ".join(per_file)}); {len(failures)} failure(s).')
     if failures:
-        print('Refresh the marked numbers in the published files (and og-image.png via '
-              'scripts/make_og_image.py) from outputs/headline_metrics.json.')
+        print(f'Refresh the marked numbers in the published files (--write; and og-image.png via '
+              f'scripts/make_og_image.py) from {_display(json_path)}.')
         return 1
     if total == 0:
         print('WARNING: no marked values were compared.')

@@ -2,12 +2,15 @@
 """Regenerate og-image.png — the 1200x630 social-share card — from the run's results.
 
 Every number on the card is read from outputs/headline_metrics.json (written by
-pairs_trading.json_export.export_headline_metrics): the per-window out-of-sample
-returns and trade counts (a window with zero trades is drawn as a stub, so "traded
-nothing" is visibly different from "traded and broke even"), the average window return,
-the pooled OOS Sharpe, the positive / zero-trade window counts, the comparison with
-the Gatev baseline (worded by its Sharpe-difference test when the run has one) and the
-data years.
+pairs_trading.json_export.export_headline_metrics): the per-window walk-forward returns
+and trade counts (a window with zero trades is drawn as a stub, so "traded nothing" is
+visibly different from "traded and broke even"; windows are numbered 1..N, as on the
+site), the main backtest's and the walk-forward's Sharpe ratios with their bootstrap
+intervals (the average window return and pooled Sharpe when a run has no intervals),
+the positive / zero-trade window counts, the comparison with the Gatev baseline (worded
+by its Sharpe-difference test when the run has one) and the data years. The title states
+the verdict, "no detectable edge", only when the main backtest's interval spans zero.
+Colours are the site's (assets/site.css).
 
 Usage:  python3.12 scripts/make_og_image.py [--json PATH] [--out PATH]
         python3.12 scripts/make_og_image.py --pending   # status card, no figures (no run yet)
@@ -29,16 +32,19 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEFAULT_JSON = ROOT / 'outputs' / 'headline_metrics.json'
 DEFAULT_OUT = ROOT / 'og-image.png'
 
-# ── Palette (matches index.html light theme) ──────────────────────────────────
+# ── Palette (the site's light theme: assets/site.css --ink, --pos, --neg) ─────
 BG = '#ffffff'
-TEXT = '#1d1d1b'
-MUTED = '#6b6b66'          # 5.3:1 on white
+TEXT = '#141413'
+MUTED = '#67665f'          # 5.8:1 on white
 FAINT = '#d8d8d4'
-POS = '#2e7d54'
-NEG = '#b03a3a'
+POS = '#2a78d6'            # a window gain (--pos)
+NEG = '#e34948'            # a window loss (--neg)
 ZERO = '#c4c4bf'
 
-TITLE = 'Pairs trading research,\nmeasured honestly.'
+# The card's title states the verdict only when the data support it: the main backtest's
+# bootstrap interval spans zero ("no detectable edge"); otherwise it names the study.
+VERDICT_TITLE = 'No detectable edge:\nRussell 3000 pairs trading'
+NEUTRAL_TITLE = 'Russell 3000\npairs trading research'
 
 
 class CardDataError(ValueError):
@@ -95,7 +101,6 @@ def card_content(data):
     pooled = float(_need(data, 'oos.pooled_sharpe'))
     positive = sum(1 for v in returns if v > 0)
     no_trades = sum(1 for t in trades if t == 0)
-    clean = _get(data, 'oos.windows_selection_clean')
 
     # "%/qtr" only when the windows really are about a quarter long.
     unit = 'window'
@@ -106,7 +111,15 @@ def card_content(data):
         if 75 <= days / n <= 105:
             unit = 'qtr'
 
-    subtitle = f'Out-of-sample {_signed(avg)}%/{unit}, pooled Sharpe {_signed(pooled)}'
+    lo, hi = _get(data, 'significance.main.boot_lo'), _get(data, 'significance.main.boot_hi')
+    wlo, whi = _get(data, 'significance.oos_daily.boot_lo'), _get(data, 'significance.oos_daily.boot_hi')
+    main_sr = _get(data, 'main.sharpe')
+    if None not in (lo, hi, wlo, whi, main_sr):
+        subtitle = (f'Main backtest Sharpe {_signed(main_sr)} [{_signed(lo)}, {_signed(hi)}]; '
+                    f'walk-forward {_signed(pooled)} [{_signed(wlo)}, {_signed(whi)}]')
+    else:
+        subtitle = f'Walk-forward {_signed(avg)}%/{unit}, pooled Sharpe {_signed(pooled)}'
+    title = VERDICT_TITLE if lo is not None and hi is not None and lo < 0 < hi else NEUTRAL_TITLE
     main_sharpe, gatev_sharpe = _get(data, 'main.sharpe'), _get(data, 'benchmarks.gatev.sharpe')
     if main_sharpe is not None and gatev_sharpe is not None:
         # The Sharpe-difference test, when the run has one, decides the wording: a point
@@ -120,14 +133,17 @@ def card_content(data):
                     'beats' if main_sharpe > gatev_sharpe else 'ties with')
             subtitle += f'\nIt {verb} the textbook baseline ({detail}).'
 
-    kind = 'SELECTION-CLEAN WINDOWS' if clean == n else 'OOS WINDOWS'
-    caption = f'{n} {kind}  ·  {positive} POSITIVE'
+    caption = f'{n} WALK-FORWARD WINDOWS  ·  {positive} POSITIVE'
     if no_trades:
         caption += f'  ·  {no_trades} TRADED NOTHING'
     years = _years(data)
     eyebrow = 'RUSSELL 3000     ·     EQUITY STATISTICAL ARBITRAGE' + (f'     ·     {years}' if years else '')
+    # windows are numbered 1..N, as on the site and in the paper (the run's own index counts
+    # the windows of the formation period too)
     return {
-        'bars': [(int(i), float(v), t) for i, v, t in zip(ids, returns, trades)],
+        'bars': [(k, float(v), t) for k, (v, t) in enumerate(zip(returns, trades), 1)],
+        'run_ids': [int(i) for i in ids],
+        'title': title,
         'subtitle': subtitle,
         'caption': caption,
         'eyebrow': eyebrow,
@@ -136,6 +152,7 @@ def card_content(data):
 
 PENDING = {
     'bars': [],
+    'title': NEUTRAL_TITLE,
     'eyebrow': 'RUSSELL 3000     ·     EQUITY STATISTICAL ARBITRAGE     ·     v32',
     'subtitle': 'Engine rebuilt after a full audit; earlier results withdrawn.\n'
                 'Validated on synthetic markets with known answers. Study re-run pending.',
@@ -153,7 +170,7 @@ def render_card(content, out_path):
     bars = content['bars']
     fig = plt.figure(figsize=(12, 6.3), dpi=100, facecolor=BG)
     try:
-        fig.text(0.06, 0.86, TITLE, fontsize=44, fontweight='bold', color=TEXT,
+        fig.text(0.06, 0.86, content.get('title', NEUTRAL_TITLE), fontsize=44, fontweight='bold', color=TEXT,
                  va='top', ha='left', linespacing=1.15)
         # (letter-spacing is faked with padded separators — matplotlib Text has none)
         fig.text(0.06, 0.635, content['eyebrow'], fontsize=11, color=MUTED, va='top', ha='left',
@@ -191,11 +208,11 @@ def render_card(content, out_path):
             else:
                 ax.bar(i, val, width=0.72, color=POS if val > 0 else NEG, edgecolor='none', zorder=2)
 
-        ax.text(0, lo - pad * 0.72, f'W{bars[0][0]}', fontsize=11, color=MUTED,
-                ha='center', va='top', family='monospace')
+        ax.text(-0.36, lo - pad * 0.72, f'WINDOW {bars[0][0]}', fontsize=11, color=MUTED,
+                ha='left', va='top', family='monospace')
         if len(bars) > 1:
-            ax.text(len(bars) - 1, lo - pad * 0.72, f'W{bars[-1][0]}', fontsize=11, color=MUTED,
-                    ha='center', va='top', family='monospace')
+            ax.text(len(bars) - 1 + 0.36, lo - pad * 0.72, f'WINDOW {bars[-1][0]}', fontsize=11, color=MUTED,
+                    ha='right', va='top', family='monospace')
         ax.text(len(bars) / 2 - 0.5, hi + pad * 0.55, content['caption'],
                 fontsize=10.5, color=MUTED, ha='center', va='center', family='monospace')
 

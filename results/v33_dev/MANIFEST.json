@@ -1,0 +1,86 @@
+{
+ "files": {
+  "anatomy.json": {
+   "bytes": 190507,
+   "sha256": "f181726d79fb3150638aa29642585dcd72f0078a5fc2f16f2fd031d80b2beb0d"
+  },
+  "cost_sensitivity.json": {
+   "bytes": 3631,
+   "sha256": "3915a9bd2e94aedc351af47869d524bcf1c0e86e044446094b0ecfeccaded1d2"
+  },
+  "fund_type_comparison.json": {
+   "bytes": 280971,
+   "sha256": "e1ecc11df56a0049435a168ab0c2ea840a613f42491bafc882e017bde70e8205"
+  },
+  "headline_metrics.json": {
+   "bytes": 8636,
+   "sha256": "b09f239032db62196602447e8d1d780286b5c2674e8e85d02062beab946d0fb1"
+  },
+  "pairs_trading_results_2023_2025_unbiased.json": {
+   "bytes": 868438,
+   "sha256": "0209861c37c3bb97bd9a2f79723490956a4a35af20462a396ec5493622f06b21"
+  },
+  "pairs_trading_results_2023_2025_unbiased_compact.json": {
+   "bytes": 362639,
+   "sha256": "455c250627f99e7e23877b89c77c0b76aa4039a256581078e0189df446b595f0"
+  },
+  "price_fetch_manifest.json": {
+   "bytes": 93967,
+   "sha256": "b00c6c31d28daee14f46797c3bc3e9f2239c1120e9fdf31bdece2fa94c3d4fd8"
+  },
+  "run.log": {
+   "bytes": 95108,
+   "sha256": "95b5b7a7bbcb8576b464781b008072e2680a258399cabe3c6b14f454c9b16d00"
+  }
+ },
+ "name": "v33_dev",
+ "price_cache": {
+  "mtime_utc": "2026-10-21T06:14:48+00:00",
+  "path": "data/enhanced_russell_3000_data.pkl",
+  "sha256": "3a9a93cc2ea9352e7e43319307ec9039cf0bd4f35c06939dc5a956c619c0a7be",
+  "size_bytes": 1233745259
+ },
+ "run_config": {
+  "effective": {
+   "calendar": "dev",
+   "fill": "close",
+   "profile": "v33",
+   "ranker": "none",
+   "regime_gate": false,
+   "reselect": "full",
+   "use_transformer_ranker": false
+  },
+  "git_commit": "744270556ba6d688e95bee8d7d88608c7c656c55",
+  "git_dirty": false,
+  "package_version": "32.0.0",
+  "run_timestamp_utc": "2026-10-21T06:19:29+00:00"
+ },
+ "study": {
+  "calendar": {
+   "backtest_start": "2023-07-01",
+   "data_end": "2025-12-31",
+   "data_start": "2020-01-01",
+   "macro_cache": "data/macro_data.pkl",
+   "model_train_end": "2023-06-30",
+   "name": "dev",
+   "price_cache": "data/enhanced_russell_3000_data.pkl",
+   "selection_cutoff": "2022-12-31",
+   "walk_forward": true
+  },
+  "calendar_hash": "0bcc31796bad",
+  "profile": {
+   "borrow_rate": 0.0038,
+   "formation_calendar_days": 1095,
+   "max_universe": 500,
+   "name": "v33",
+   "pb_financing_spread": 0.0,
+   "ranker": "none",
+   "regime_gate": false,
+   "reselect": "full",
+   "reselect_every": 126,
+   "same_industry": true,
+   "universe": "pit_iwv"
+  },
+  "profile_hash": "d54d21314c22"
+ }
+}

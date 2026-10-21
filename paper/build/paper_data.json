@@ -1,68 +1,91 @@
 {
  "claims": {
-  "alpha_negative": true,
-  "alpha_not_significant": true,
-  "best_month_exceeds_total": true,
+  "all_schedules_lose": true,
+  "best_month_small": true,
   "best_schedule_cheapest": true,
-  "beta_main_not_significant": true,
-  "beta_oos_significant": true,
-  "beta_small": true,
-  "bh_survivors_few": true,
-  "both_bounds_about_one": true,
-  "both_cannot_reject_sharpe_half": true,
-  "both_mde_above_bound": true,
-  "both_reject_sharpe_1_5_and_2": true,
+  "bh_none_at_5pct": true,
   "break_even_below_one": true,
   "break_even_is_edge_over_cost": true,
-  "chance_accounts_for_most": true,
-  "chance_count_near_selected": true,
-  "clearing_windows_contain_best_month": true,
-  "dependence_widens": true,
+  "cap_close_to_binding": true,
+  "cap_exceeded_marked_to_market": true,
+  "capacity_monotone": true,
+  "chance_about_half": true,
+  "cost_curve_falls": true,
+  "coverage_rule_above_cached": true,
+  "decay_in_sample_significant": true,
+  "decay_oos_not_significant": true,
   "dsr_low": true,
-  "edge_below_cost": true,
-  "edge_not_significant": true,
   "every_interval_spans_zero": true,
+  "every_scenario_loses": true,
+  "ex_market_gross_negative": true,
   "excess_cointegration": true,
-  "fetch_ok_is_price_history": true,
-  "flat_days_reconcile": true,
-  "flat_run_exists": true,
-  "gatev_above_strategy": true,
+  "exit_delay_costs_more_than_entry_gains": true,
+  "exit_race_like_random_walk": true,
+  "exit_race_rejects_selected_reversion": true,
+  "exploratory_run_on_record": true,
+  "factors_explain_little": true,
+  "few_flat_days": true,
+  "fewer_than_half_months_positive": true,
+  "ff_alpha_main_not_significant": true,
+  "ff_alpha_oos_negative": true,
+  "gap_first_is_first_formation": true,
+  "gap_mostly_not_found": true,
+  "gap_shrinks": true,
+  "gatev_below_strategy": true,
+  "gatev_ci_spans_zero": true,
   "gross_below_cost": true,
+  "gross_bp_negative": true,
   "gross_not_significant": true,
   "gross_pnl_below_costs": true,
-  "gross_split_pending": true,
+  "gross_sharpe_not_significant": true,
+  "half_lives_lengthen": true,
+  "half_lives_within_rule_at_formation": true,
   "holdout_sealed": true,
+  "hurdles_above_bound": true,
   "impact_largest_cost": true,
+  "initial_formation_governed_no_trade": true,
   "inside_random_spread": true,
   "iwv_gap_shrinks": true,
   "kurtosis_fat": true,
-  "last_window_longer": true,
+  "last_window_not_shorter": true,
   "long_gained_short_lost": true,
   "main_ci_spans_zero": true,
   "main_negative": true,
+  "market_loading": true,
+  "mde_above_bound": true,
+  "momentum_against": true,
   "most_hedge_ratios_below_one": true,
-  "multi_factor_pending": true,
+  "no_rolling_window_clears_zero": true,
+  "no_scenario_significant": true,
   "no_schedule_significant": true,
   "not_different_from_gatev": true,
   "oos_ci_spans_zero": true,
   "oos_negative": true,
-  "ranker_brier_worse_than_base": true,
-  "ranker_no_skill": true,
-  "residual_pending": true,
-  "schedules_some_lose_rest_break_even": true,
-  "sharpe_1_borderline_both": true,
-  "sharpe_1_rejected_only_if_iid": true,
-  "short_loss_near_long_gain": true,
-  "sides_carry_their_sign": true,
-  "sign_exceptions_near_one": true,
+  "oos_ucb_negative": true,
+  "oos_windows_ci_spans_zero": true,
+  "persistence_at_chance": true,
+  "persistence_traded_near_chance": true,
+  "residual_ci_spans_zero": true,
+  "residual_gross_below_cost": true,
+  "residual_net_negative": true,
+  "scenario_trades_differ": true,
+  "schedules_gross_negative": true,
+  "sharpe_1_5_and_2_rejected": true,
+  "sharpe_1_rejected": true,
+  "sharpe_break_even_below_one": true,
+  "sharpe_half_not_rejected": true,
+  "small_book_fixed_positive_full_not": true,
   "snooping_pending": true,
-  "stops_lost_more_than_targets_earned": true,
+  "st_reversal_loading": true,
+  "start_date_changes_path": true,
+  "stops_offset_targets": true,
   "ucb_below_one": true,
-  "universe_not_point_in_time": true,
-  "validation_pending": true,
-  "wf_carry_window_exists": true,
-  "wf_flat_window_exists": true,
-  "without_best_month_lower": true
+  "v32_ci_spans_zero": true,
+  "v32_ranker_no_skill": true,
+  "v32_tested_more_pairs": true,
+  "validation_passes": true,
+  "walk_forward_bound_below_zero_ci_spans": true,
+  "win_rate_ci_spans_half": true
  },
  "colors": {
   "accent": "#1d4f91",
@@ -83,255 +106,195 @@
   "rule-2": "#c9c8be",
   "series-1": "#2a78d6",
   "series-2": "#eb6834",
-  "series-3": "#1baf7a",
+  "series-3": "#16956a",
   "sunk": "#f1f0ec"
  },
  "concordance": [
   [
    1,
-   "Net Sharpe ratio of each pre-registered strategy on the 2026 holdout",
+   "Net Sharpe ratio of each pre-registered arm on the 2026 holdout",
    "forthcoming"
   ],
   [
    2,
-   "Net of costs the book ends slightly below where it started; the Gatev baseline ends at +0.57%",
+   "Net of costs the book ends where it started, −0.39% after two and a half years, with the 30% gross cap close to binding throughout",
    "ex-equity"
   ],
   [
    3,
-   "Out of sample, 3 of 11 walk-forward windows made money; the stitched path ends at −1.75%",
+   "The same rule started in February 2023: 4 of 11 quarterly windows made money and the stitched path ends at −6.24%",
    "ex-walkforward"
   ],
   [
    4,
-   "One month carries the result: July 2024 earned +2.14%; the whole period returned −0.30%",
+   "No month carries the result: 13 of 30 months were positive and the best, August 2023, earned +1.13%",
    "ex-monthly"
   ],
   [
    5,
-   "Half-year Sharpe ratios swing between −2.8 and +3.4; the only stretch whose band clears zero contains July 2024",
+   "Half-year Sharpe ratios range from −2.5 to +1.2, and no window's band clears zero",
    "ex-rolling"
   ],
   [
    6,
-   "Every Sharpe interval spans zero; the data exclude only Sharpe ratios above about 1",
+   "Every bootstrap interval spans zero, gross or net, in both families; the main backtest excludes Sharpe ratios above 0.92, and the walk-forward's one-sided bound is below zero",
    "ex-forest"
   ],
   [
    7,
-   "The strategy sits at the 28th percentile of 200 random-pair portfolios",
+   "The strategy sits at the 37th percentile of 200 random-pair portfolios",
    "ex-randomnull"
   ],
   [
    8,
-   "Deflated for 32 trials, the main backtest's Sharpe ratio has a 1.4% probability of beating chance; the data-snooping tests are pending",
+   "Deflated for 32 trials, the main backtest's Sharpe ratio is far from significant (deflated Sharpe ratio 1.4%); the data-snooping tests are running",
    "ex-dsr"
   ],
   [
    9,
-   "Gross P&L, itself not significant, does not cover modelled costs; market impact is the largest item",
+   "From paper P&L to net: the next-day fill gives up part of the paper P&L, and costs exceed what the trades earned before them",
    "ex-waterfall"
   ],
   [
    10,
-   "Stops lost more than targets earned, and short-spread trades lost about what long-spread trades made",
+   "Targets and stops offset each other; long-spread trades made $1.04M and short-spread trades lost $1.43M, consistent with hedge ratios below one",
    "ex-anatomy"
   ],
   [
    11,
-   "Sharpe ratio against a multiple of modelled costs",
-   "forthcoming"
+   "After formation, spreads hit their targets about as often as a random walk would, not as the selection implies",
+   "ex-exitrace"
   ],
   [
    12,
-   "Exit race: targets against stops, and against a spread with no mean reversion",
-   "forthcoming"
+   "The rule's edge on its own pairs is in-sample only: +64.7 bp a trade on the selection data, −12.6 bp after formation",
+   "ex-decay"
   ],
   [
    13,
-   "In-sample to out-of-sample decay of the same rule on the same pairs",
-   "forthcoming"
+   "Cointegration persists only at the base rate: a pair cointegrated one year is cointegrated the next about as often as any correlated pair",
+   "ex-persistence"
   ],
   [
    14,
-   "Do selected pairs stay cointegrated?",
-   "forthcoming"
+   "After formation, 60.8% of the traded pairs' half-lives exceed the rule's 25-day maximum",
+   "ex-halflife"
   ],
   [
    15,
-   "Re-costed under five other cost and sizing schedules, the same trades lose money in four and break even in one",
-   "ex-schedules"
+   "Under every declared cost and capacity scenario the full re-run loses money; each one is a new path, so the trades change",
+   "ex-scenarios"
   ],
   [
    16,
-   "Capacity: impact cost against book size for a stated gross edge",
-   "forthcoming"
+   "With the trades held fixed, net Sharpe falls from +0.29 at zero cost to −0.42 at twice the modelled costs",
+   "ex-costcurve"
   ],
   [
    17,
-   "The only loading measured so far is a small market beta, significant out of sample",
-   "ex-factors"
+   "Larger books only lose more: impact grows from 3.4 bp a trade at $10M to 61.8 bp at $5B",
+   "ex-capacity"
   ],
   [
    18,
-   "Daily returns are fat-tailed (kurtosis 6.7) with a spike at zero from flat days",
-   "ex-distribution"
+   "Re-sizing the same trades changes even the sign of their gross P&L: negative under all 5 other schedules, against +$1.52M in the headline run",
+   "ex-schedules"
   ],
   [
    19,
-   "From 35,491 candidate pairs to 100 traded; chance alone accounts for most “cointegrated” pairs",
-   "ex-funnel"
+   "Returns load on short-term reversal, as a convergence strategy's should, and leave no positive alpha",
+   "ex-factors"
   ],
   [
    20,
-   "Engle–Granger p-values against the uniform null",
-   "forthcoming"
+   "Daily returns are fat-tailed (kurtosis 7.7)",
+   "ex-distribution"
   ],
   [
    21,
-   "Avellaneda–Lee residual reversion against the pairs strategy, development period",
-   "forthcoming"
+   "From 5,082 pairs tested at the first formation, chance alone could account for up to about half the “cointegrated” ones",
+   "ex-funnel"
   ],
   [
    22,
+   "The second family agrees: Avellaneda–Lee residual reversion has no detectable edge, gross (Sharpe +0.27) or net (−0.28)",
+   "ex-residual"
+  ],
+  [
+   23,
    "The pipeline, and what data each stage may see",
    "ex-pipeline"
   ],
   [
-   23,
-   "Data splits: formation, walk-forward, main backtest and the sealed holdout",
+   24,
+   "Data splits: formation and re-formations, walk-forward, main backtest and the sealed holdout",
    "ex-timeline"
   ],
   [
-   24,
-   "Point-in-time universe: index members with and without price history at each formation date",
-   "forthcoming"
+   25,
+   "The survivorship gap, measured: index weight without price history falls from 3.33% at the first formation to 1.08% at the last",
+   "ex-universe"
   ],
   [
-   25,
-   "Gross bp per trade on synthetic markets with known answers",
-   "forthcoming"
+   26,
+   "On synthetic markets the engine finds a planted edge (+82.6 bp a trade) and none where there is none (+1.7 bp, t = 0.65)",
+   "ex-validation"
   ]
  ],
  "figures": {
   "anatomy": "build/figures/anatomy.svg",
-  "capacity": null,
-  "costcurve": null,
-  "decay": null,
+  "capacity": "build/figures/capacity.svg",
+  "costcurve": "build/figures/costcurve.svg",
+  "decay": "build/figures/decay.svg",
   "distribution": "build/figures/distribution.svg",
   "dsr": "build/figures/dsr.svg",
   "equity": "build/figures/equity.svg",
-  "exitrace": null,
+  "exitrace": "build/figures/exitrace.svg",
   "factors": "build/figures/factors.svg",
   "forest": "build/figures/forest.svg",
   "funnel": "build/figures/funnel.svg",
+  "halflife": "build/figures/halflife.svg",
   "holdout": null,
   "monthly": "build/figures/monthly.svg",
-  "persistence": null,
-  "pvalues": null,
+  "persistence": "build/figures/persistence.svg",
   "randomnull": "build/figures/randomnull.svg",
-  "residual": null,
+  "residual": "build/figures/residual.svg",
   "rolling": "build/figures/rolling.svg",
+  "scenarios": "build/figures/scenarios.svg",
   "schedules": "build/figures/schedules.svg",
   "snapshots": "build/figures/snapshots.svg",
   "timeline": "build/figures/timeline.svg",
-  "universe": null,
-  "validation": null,
+  "universe": "build/figures/universe.svg",
+  "validation": "build/figures/validation.svg",
   "walkforward": "build/figures/walkforward.svg",
   "waterfall": "build/figures/waterfall.svg"
  },
  "flags": {
-  "cost_split": false,
-  "fetch": true,
+  "cost_split": true,
   "holdout_complete": false,
   "iwv": true,
-  "multi_factor": false,
+  "multi_factor": true,
   "preregistered": false,
-  "random_band": false,
-  "residual": false,
+  "random_band": true,
+  "residual": true,
+  "scenarios": true,
   "snooping": false,
-  "universe_pit": false,
-  "validation": false,
-  "wf_daily": false
+  "universe_pit": true,
+  "validation": true,
+  "wf_daily": true
  },
  "forthcoming": [
   [
-   "validation",
-   "Known-answer validation",
-   "The engine and its full cost model on synthetic markets with a known answer: the gross edge on planted cointegrated pairs, no edge on forced non-cointegrated pairs, the hedge-ratio error and pair-selection recall",
-   "A committed validation run"
-  ],
-  [
-   "universe",
-   "Point-in-time universe coverage",
-   "Index members with and without price history at each formation date, and the index weight the price data do not cover: the survivorship gap",
-   "The v33 development run"
-  ],
-  [
-   "pvalues",
-   "Engle–Granger p-values",
-   "The distribution of the 35,491 p-values against the uniform distribution expected if no pair were cointegrated",
-   "The v33 development run"
-  ],
-  [
    "snooping",
    "Data-snooping tests",
-   "White's Reality Check, Hansen's SPA test, the Romano–Wolf stepdown, the model confidence set and the probability of backtest overfitting over the declared family (27-point grid, 11 toggles)",
-   "The family's run on the development calendar"
-  ],
-  [
-   "costcurve",
-   "Cost sensitivity",
-   "Net Sharpe ratio from 0× to 2× modelled costs with the break-even multiple, the Sharpe ratio gross of costs, and the impact coefficient at 0.3, 0.6 and 1.0 crossed with two borrow fees",
-   "The v33 development run"
-  ],
-  [
-   "exitrace",
-   "Exit race",
-   "Targets against stops, compared with the count expected for a spread that does not mean-revert",
-   "The v33 development run"
-  ],
-  [
-   "decay",
-   "Decay from formation to trading",
-   "Gross return per trade of the same rule on the same pairs, formation period against trading period",
-   "The v33 development run"
-  ],
-  [
-   "persistence",
-   "Persistence of cointegration",
-   "The share of selected pairs still cointegrated in later windows, against the 5% expected by chance",
-   "The v33 development run"
-  ],
-  [
-   "capacity",
-   "Capacity",
-   "Impact cost against book size for a stated hypothetical gross edge (the measured edge is not significant)",
-   "The v33 development run"
-  ],
-  [
-   "multi_factor",
-   "Multi-factor attribution",
-   "Loadings on the five Fama–French factors, momentum and short- and long-term reversal, with Newey–West errors",
-   "The v33 development run"
-  ],
-  [
-   "random_band",
-   "Random-pair band",
-   "Each day's 5th–95th percentile of the random-pair draws' cumulative returns, drawn around the equity curve",
-   "The v33 development run"
-  ],
-  [
-   "residual",
-   "Avellaneda–Lee residual reversion",
-   "The second strategy family's development-period net Sharpe ratio and 95% interval, beside the pairs strategy",
-   "Its run on the development calendar"
+   "White's Reality Check, Hansen's SPA test, the Romano–Wolf stepdown, the model confidence set and the probability of backtest overfitting over the declared family (27-point grid, 11 toggles), whatever they show; the design is not re-chosen from them",
+   "The family's run on the development calendar, in progress"
   ],
   [
    "holdout",
    "The 2026 holdout",
-   "Each arm's net Sharpe ratio, Holm-adjusted p-value and decision (H1 and H2; the v32 arm descriptive), and its cumulative return",
-   "The pre-registration, then a single run on 2026 data"
+   "Each arm's net Sharpe ratio, one-sided upper bound, Holm-adjusted p-value and decision (S1 and S2; S3 descriptive), and its cumulative return",
+   "The pre-registration, filed before any 2026 daily price is fetched, then a single run of each arm on 2026 data"
   ]
  ],
  "layout": {
@@ -340,93 +303,90 @@
   "measure_mm": 130.0
  },
  "m": {
-  "benchmarks.gatev.sharpe": "+0.07",
-  "benchmarks.gatev.total_return_pct": "+0.57%",
-  "benchmarks.random_control.median_sharpe": "+0.26",
+  "benchmarks.gatev.sharpe": "−0.80",
+  "benchmarks.gatev.total_return_pct": "−9.55%",
+  "benchmarks.random_control.median_sharpe": "+0.09",
   "benchmarks.random_control.n_draws": "200",
-  "benchmarks.random_control.p5_sharpe": "−0.53",
-  "benchmarks.random_control.p95_sharpe": "+1.10",
-  "benchmarks.random_control.strategy_percentile": "28",
-  "benchmarks.sharpe_diff_vs_gatev.diff": "−0.14",
-  "benchmarks.sharpe_diff_vs_gatev.p": "0.879",
-  "fdr.final_selected_pairs": "1,776",
-  "fdr.pairs_tested": "35,491",
-  "fdr.significant_raw_p05": "2,965",
-  "fdr.survive_bh_fdr_q05": "1",
-  "fund_profiles.fundamental_ls.total_return_pct": "−3.27%",
-  "fund_profiles.institutional.total_return_pct": "+0.04%",
-  "main.annual_turnover_x": "6.0×",
-  "main.avg_gross_exposure_pct": "15.1%",
-  "main.exit_reasons.end_of_data": "5",
-  "main.exit_reasons.stop": "65",
-  "main.exit_reasons.target": "61",
-  "main.exit_reasons.time": "30",
-  "main.max_drawdown_pct": "−3.00%",
-  "main.sharpe": "−0.07",
-  "main.total_return_pct": "−0.30%",
-  "main.trades": "161",
-  "main.win_rate_pct": "47.2%",
-  "oos.avg_window_return_pct": "−0.158%",
-  "oos.pooled_sharpe": "−0.33",
-  "oos.total_return_pct": "−1.75%",
-  "oos.trades": "219",
+  "benchmarks.random_control.p5_sharpe": "−1.85",
+  "benchmarks.random_control.p95_sharpe": "+1.17",
+  "benchmarks.random_control.strategy_percentile": "37",
+  "benchmarks.sharpe_diff_vs_gatev.diff": "+0.73",
+  "benchmarks.sharpe_diff_vs_gatev.p": "0.364",
+  "fdr.final_selected_pairs": "309",
+  "fdr.pairs_tested": "5,082",
+  "fdr.significant_raw_p05": "489",
+  "fdr.survive_bh_fdr_q05": "0",
+  "fdr.survive_bh_fdr_q10": "1",
+  "main.annual_turnover_x": "9.0×",
+  "main.avg_gross_exposure_pct": "26.9%",
+  "main.exit_reasons.end_of_data": "3",
+  "main.exit_reasons.stop": "77",
+  "main.exit_reasons.target": "72",
+  "main.exit_reasons.time": "61",
+  "main.max_drawdown_pct": "−4.05%",
+  "main.sharpe": "−0.06",
+  "main.total_return_pct": "−0.39%",
+  "main.trades": "213",
+  "main.win_rate_pct": "47.9%",
+  "oos.avg_window_return_pct": "−0.58%",
+  "oos.pooled_sharpe": "−1.04",
+  "oos.total_return_pct": "−6.24%",
+  "oos.trades": "256",
   "oos.windows": "11",
-  "oos.windows_no_trades": "2",
-  "oos.windows_positive": "3",
-  "paper.alpha_t_main": "−0.24",
-  "paper.alpha_t_oos": "−0.79",
-  "paper.best_month": "July 2024",
-  "paper.beta_below_one": "148",
+  "oos.windows_no_trades": "0",
+  "oos.windows_positive": "4",
+  "paper.best_month": "August 2023",
   "paper.boot_block_main": "3",
-  "paper.boot_block_oos": "2",
+  "paper.boot_block_oos": "4",
   "paper.boot_resamples": "5,000",
-  "paper.chance_share_pct": "60%",
+  "paper.borrow_pct": "0.38%",
+  "paper.calendar_hash": "0bcc31796bad",
+  "paper.chance_share_pct": "52%",
   "paper.clean": "clean",
-  "paper.clear_first_end_long": "21 November 2024",
-  "paper.clear_last_end_long": "8 January 2025",
-  "paper.commit": "711b18cbd1a6",
-  "paper.commit_short": "711b18c",
-  "paper.compounded_pct": "−0.30%",
+  "paper.commit": "744270556ba6",
+  "paper.commit_short": "7442705",
   "paper.data_end_long": "31 December 2025",
   "paper.data_first_year": "2020",
   "paper.data_start_long": "2 January 2020",
   "paper.data_years": "2020–2025",
   "paper.declared_long": "20 October 2026",
-  "paper.diff_oos": "−0.16",
-  "paper.diff_oos_p": "0.859",
-  "paper.edge.cost_bp": "12.9",
-  "paper.edge.gross_bp": "+8.9",
-  "paper.edge.gross_t": "0.28",
-  "paper.edge.net_bp": "−4.0",
-  "paper.fetch.errors": "86",
-  "paper.fetch.invalid": "86",
-  "paper.fetch.ok": "2,752",
-  "paper.fetch.ok_pct": "91.8%",
-  "paper.fetch.rows_removed": "1",
-  "paper.fetch.short": "75",
-  "paper.fetch.symbols": "2,999",
-  "paper.flat_from": "December 2024",
-  "paper.flat_nonzero_days": "4",
-  "paper.flat_to": "May 2025",
+  "paper.design": "v33",
+  "paper.diff_oos": "+0.01",
+  "paper.diff_oos_p": "0.993",
+  "paper.edge.cost_bp": "16.9",
+  "paper.edge.gross_bp": "+13.5",
+  "paper.edge.gross_t": "0.40",
+  "paper.edge.net_bp": "−3.4",
+  "paper.factor_data_end_long": "31 December 2025",
+  "paper.first_formation_long": "31 December 2022",
   "paper.formation_cutoff_long": "31 December 2022",
   "paper.formation_cutoff_short": "31 Dec 2022",
   "paper.formation_year": "2022",
-  "paper.gatev_vol_pct": "4.55%",
-  "paper.gatev_wf_sharpe": "−0.01",
+  "paper.formation_years": "3",
+  "paper.formation_years_word": "three",
+  "paper.formations_word": "seven",
+  "paper.gatev_vol_pct": "4.91%",
+  "paper.gatev_wf_sharpe": "−0.83",
+  "paper.hl_none_oos": "1",
+  "paper.hl_pairs": "130",
   "paper.holdout.hi": null,
   "paper.holdout.lo": null,
   "paper.holdout.p": null,
   "paper.holdout.sharpe": null,
-  "paper.holdout_power.kurtosis": "6.7",
-  "paper.holdout_power.mde_126": "4.3",
-  "paper.holdout_power.mde_200": "3.4",
-  "paper.holdout_power.mde_252": "3.0",
-  "paper.holdout_power.mde_normal_126": "4.0",
-  "paper.holdout_power.mde_normal_200": "3.2",
-  "paper.holdout_power.mde_normal_252": "2.8",
+  "paper.holdout_end_long": "19 October 2026",
+  "paper.holdout_power.kurtosis": "7.73",
+  "paper.holdout_power.mde_05_126": "3.31",
+  "paper.holdout_power.mde_05_200": "2.62",
+  "paper.holdout_power.mde_05_252": "2.33",
+  "paper.holdout_power.mde_126": "3.74",
+  "paper.holdout_power.mde_200": "2.96",
+  "paper.holdout_power.mde_252": "2.63",
+  "paper.holdout_power.mde_normal_126": "3.98",
+  "paper.holdout_power.mde_normal_200": "3.15",
+  "paper.holdout_power.mde_normal_252": "2.81",
   "paper.holdout_power.registered_days": "200",
-  "paper.holdout_power.rho": "0.07",
-  "paper.holdout_power.skew": "0.17",
+  "paper.holdout_power.rho": "−0.065",
+  "paper.holdout_power.skew": "0.23",
   "paper.holdout_start_long": "2 January 2026",
   "paper.holdout_year": "2026",
   "paper.iwv.equity_max": "2,895",
@@ -434,286 +394,640 @@
   "paper.iwv.first_long": "30 September 2019",
   "paper.iwv.last_long": "31 December 2025",
   "paper.iwv.n": "26",
+  "paper.iwv.sealed": "2",
   "paper.iwv.sealed_from_long": "1 January 2026",
-  "paper.iwv.unmapped_max_pct": "1.0%",
-  "paper.iwv.unmapped_min_pct": "0.0%",
   "paper.iwv_first_year": "2019",
   "paper.iwv_last_year": "2025",
   "paper.iwv_unmapped_first_pct": "1.04%",
   "paper.iwv_unmapped_last_pct": "0.01%",
-  "paper.lo_sharpe_main": "−0.07",
-  "paper.lo_sharpe_oos": "−0.36",
-  "paper.long_net_long": "75",
-  "paper.long_trades": "78",
-  "paper.main_vol_pct": "1.53%",
-  "paper.names_file": "3,000",
-  "paper.names_prices": "2,752",
-  "paper.oos_end_long": "12 December 2025",
+  "paper.last_formation_long": "10 July 2025",
+  "paper.lo_sharpe_main": "−0.06",
+  "paper.lo_sharpe_oos": "−1.00",
+  "paper.main_vol_pct": "2.15%",
+  "paper.names_prices": "2,538",
+  "paper.oos_end_long": "19 December 2025",
   "paper.oos_end_month": "December 2025",
+  "paper.oos_start_long": "14 February 2023",
   "paper.oos_start_month": "February 2023",
-  "paper.paper_date_long": "20 October 2026",
-  "paper.percentile_ordinal": "28th",
+  "paper.paper_date_long": "21 October 2026",
+  "paper.percentile_ordinal": "37th",
   "paper.period_end_long": "31 December 2025",
   "paper.period_end_month": "December 2025",
   "paper.period_start_long": "3 July 2023",
   "paper.period_start_month": "July 2023",
-  "paper.position_max_pct": "9.0%",
-  "paper.position_min_pct": "1.2%",
-  "paper.power_ar1.critical": "1.11",
-  "paper.power_ar1.mde": "1.68",
-  "paper.power_ar1.p_ge_0_5": "0.200",
-  "paper.power_ar1.p_ge_1": "0.057",
-  "paper.power_ar1.rho": "0.07",
-  "paper.power_ar1.se": "0.68",
-  "paper.power_ar1.trl_0_5": "12.4",
-  "paper.power_ar1.trl_1": "3.1",
-  "paper.power_ar1.ucb": "1.04",
+  "paper.position_max_pct": "10.0%",
+  "paper.position_min_pct": "2.2%",
   "paper.prereg_status": "not yet filed",
-  "paper.proxy": "equal-weight daily return of 11 sector SPDR ETFs",
-  "paper.ranker_brier_base_pooled": "0.2499",
-  "paper.ranker_brier_pooled": "0.2547",
-  "paper.residual.hi": null,
-  "paper.residual.lo": null,
-  "paper.residual.p": null,
-  "paper.residual.ret_pct": null,
-  "paper.residual.sharpe": null,
-  "paper.residual.trades": null,
-  "paper.results_path": "results/v32_dev/pairs_trading_results_2023_2025_unbiased.json",
-  "paper.run_date_long": "18 October 2026",
-  "paper.run_dir": "results/v32_dev",
-  "paper.run_time": "2026-10-18 09:21 UTC",
+  "paper.profile_hash": "d54d21314c22",
+  "paper.reselect_every": "126",
+  "paper.results_path": "results/v33_dev/pairs_trading_results_2023_2025_unbiased.json",
+  "paper.run_date_long": "21 October 2026",
+  "paper.run_dir": "results/v33_dev",
+  "paper.run_time": "2026-10-21 06:19 UTC",
   "paper.sched_best_id": "A",
-  "paper.sched_best_ret": "+0.04%",
-  "paper.sched_worst_id": "C",
-  "paper.sched_worst_ret": "−3.27%",
-  "paper.schedules_even_word": "one",
-  "paper.schedules_lose_word": "four",
+  "paper.sched_best_ret": "−0.56%",
+  "paper.sched_worst_id": "D",
+  "paper.sched_worst_ret": "−7.12%",
+  "paper.schedules_lose_word": "five",
   "paper.schedules_n_word": "five",
-  "paper.short_net_short": "74",
-  "paper.short_trades": "83",
-  "paper.sign_exceptions_word": "one",
   "paper.snooping.effective_trials": null,
   "paper.snooping.mcs_included": null,
   "paper.snooping.pbo_pct": null,
   "paper.snooping.reality_check_p": null,
   "paper.snooping.romano_wolf_rejected": null,
   "paper.snooping.spa_p": null,
+  "paper.trials_n": "6",
+  "paper.trials_word": "six",
   "paper.trl_power_ratio": "2.3",
-  "paper.universe_as_of_long": "18 October 2026",
-  "paper.universe_top": "300",
+  "paper.universe_top": "500",
   "paper.v32_borrow_bp": "25",
+  "paper.v32_commit_short": "711b18c",
   "paper.v32_financing_bp": "50",
   "paper.v32_formation_years": "2",
+  "paper.v32_percentile_ordinal": "28th",
   "paper.v32_reselect_every": "90",
-  "paper.v33_borrow_pct": "0.38%",
-  "paper.v33_formation_years": "3",
-  "paper.v33_reselect_every": "126",
-  "paper.v33_universe_top": "500",
-  "paper.version": "32.0.0",
-  "paper.versions_count": "32",
-  "paper.wf_carry_windows": "8",
-  "paper.wf_common_days": "616",
-  "paper.wf_common_sharpe": "−0.17",
-  "paper.wf_flat_windows": "9",
-  "paper.wf_last_days": "81",
+  "paper.v32_run_date_long": "18 October 2026",
+  "paper.v32_universe_as_of_long": "18 October 2026",
+  "paper.v32_universe_selected": "3,000",
+  "paper.v32_universe_top": "300",
+  "paper.versions_count": "33",
+  "paper.wf_common_days": "621",
+  "paper.wf_common_sharpe": "−0.82",
+  "paper.wf_last_days": "86",
   "paper.wf_window_days": "63",
-  "paper.without_best_pct": "−2.39%",
   "paper.years": "2023–2025",
-  "paper.zero_return_days": "203",
-  "ranker.oos_auc": "0.514",
-  "ranker.wf_pooled_auc": "0.510",
-  "significance.main.ann_sharpe": "−0.07",
-  "significance.main.boot_hi": "+1.23",
-  "significance.main.boot_lo": "−1.39",
+  "significance.main.ann_sharpe": "−0.06",
+  "significance.main.boot_hi": "+1.16",
+  "significance.main.boot_lo": "−1.29",
   "significance.main.dsr_pct": "1.4%",
-  "significance.main.hac_p": "0.917",
+  "significance.main.hac_p": "0.923",
   "significance.main.hac_t": "−0.10",
-  "significance.main.psr_pct": "45.5%",
-  "significance.oos_daily.ann_sharpe": "−0.33",
-  "significance.oos_daily.boot_hi": "+0.86",
-  "significance.oos_daily.boot_lo": "−1.49",
-  "significance.oos_daily.dsr_pct": "0.4%",
-  "significance.oos_daily.hac_p": "0.559",
-  "significance.oos_daily.hac_t": "−0.58",
-  "significance.oos_daily.psr_pct": "28.7%",
-  "significance.oos_windows.ci_hi_pct": "+0.320%",
-  "significance.oos_windows.ci_lo_pct": "−0.636%",
-  "significance.oos_windows.p": "0.478",
-  "significance.oos_windows.t": "−0.74",
-  "study.dev.factors.alpha.0.t": "−0.24",
-  "study.dev.factors.alpha.1.t": "−0.80",
-  "study.dev.facts.adv_participation_pct": "1.01%",
-  "study.dev.facts.alpha_main_pct": "−0.25%",
-  "study.dev.facts.alpha_oos_pct": "−0.84%",
-  "study.dev.facts.best_month_pct": "+2.14%",
-  "study.dev.facts.beta_main": "0.010",
-  "study.dev.facts.beta_main_t": "1.81",
-  "study.dev.facts.beta_oos": "0.016",
-  "study.dev.facts.beta_oos_t": "2.17",
-  "study.dev.facts.bid_ask_usd_k": "230.4",
-  "study.dev.facts.borrow_usd_k": "46.5",
-  "study.dev.facts.break_even_x": "0.69×",
+  "significance.main.psr_pct": "46.1%",
+  "significance.oos_daily.ann_sharpe": "−1.04",
+  "significance.oos_daily.boot_hi": "+0.05",
+  "significance.oos_daily.boot_lo": "−2.09",
+  "significance.oos_daily.dsr_pct": "0.0%",
+  "significance.oos_daily.hac_p": "0.061",
+  "significance.oos_daily.hac_t": "−1.87",
+  "significance.oos_daily.psr_pct": "3.9%",
+  "significance.oos_windows.ci_hi_pct": "+0.12%",
+  "significance.oos_windows.ci_lo_pct": "−1.28%",
+  "significance.oos_windows.p": "0.096",
+  "significance.oos_windows.t": "−1.84",
+  "study.dev.cost_sensitivity.scenarios.borrow_1.full.adv_pct": "1.42%",
+  "study.dev.cost_sensitivity.scenarios.borrow_1.full.ret_pct": "−1.79%",
+  "study.dev.cost_sensitivity.scenarios.borrow_1.full.sharpe": "−0.26",
+  "study.dev.cost_sensitivity.scenarios.borrow_1.full.trades": "262",
+  "study.dev.cost_sensitivity.scenarios.borrow_3.full.adv_pct": "1.42%",
+  "study.dev.cost_sensitivity.scenarios.borrow_3.full.ret_pct": "−4.61%",
+  "study.dev.cost_sensitivity.scenarios.borrow_3.full.sharpe": "−0.71",
+  "study.dev.cost_sensitivity.scenarios.borrow_3.full.trades": "265",
+  "study.dev.cost_sensitivity.scenarios.capital_10m.fixed.ret_pct": "+0.49%",
+  "study.dev.cost_sensitivity.scenarios.capital_10m.fixed.sharpe": "+0.10",
+  "study.dev.cost_sensitivity.scenarios.capital_10m.full.adv_pct": "0.15%",
+  "study.dev.cost_sensitivity.scenarios.capital_10m.full.ret_pct": "−0.09%",
+  "study.dev.cost_sensitivity.scenarios.capital_10m.full.sharpe": "0.00",
+  "study.dev.cost_sensitivity.scenarios.capital_10m.full.trades": "245",
+  "study.dev.cost_sensitivity.scenarios.capital_1b.full.adv_pct": "13.26%",
+  "study.dev.cost_sensitivity.scenarios.capital_1b.full.ret_pct": "−5.88%",
+  "study.dev.cost_sensitivity.scenarios.capital_1b.full.sharpe": "−1.02",
+  "study.dev.cost_sensitivity.scenarios.capital_1b.full.trades": "244",
+  "study.dev.cost_sensitivity.scenarios.capital_5b.full.adv_pct": "72.84%",
+  "study.dev.cost_sensitivity.scenarios.capital_5b.full.ret_pct": "−8.07%",
+  "study.dev.cost_sensitivity.scenarios.capital_5b.full.sharpe": "−1.50",
+  "study.dev.cost_sensitivity.scenarios.capital_5b.full.trades": "236",
+  "study.dev.cost_sensitivity.scenarios.headline.full.adv_pct": "1.61%",
+  "study.dev.cost_sensitivity.scenarios.headline.full.ret_pct": "−0.39%",
+  "study.dev.cost_sensitivity.scenarios.headline.full.sharpe": "−0.06",
+  "study.dev.cost_sensitivity.scenarios.headline.full.trades": "213",
+  "study.dev.cost_sensitivity.scenarios.impact_0_6.full.adv_pct": "1.41%",
+  "study.dev.cost_sensitivity.scenarios.impact_0_6.full.ret_pct": "−2.66%",
+  "study.dev.cost_sensitivity.scenarios.impact_0_6.full.sharpe": "−0.41",
+  "study.dev.cost_sensitivity.scenarios.impact_0_6.full.trades": "273",
+  "study.dev.cost_sensitivity.scenarios.impact_1_0.full.adv_pct": "1.46%",
+  "study.dev.cost_sensitivity.scenarios.impact_1_0.full.ret_pct": "−4.38%",
+  "study.dev.cost_sensitivity.scenarios.impact_1_0.full.sharpe": "−0.70",
+  "study.dev.cost_sensitivity.scenarios.impact_1_0.full.trades": "248",
+  "study.dev.cost_sensitivity.trades_max": "273",
+  "study.dev.cost_sensitivity.trades_min": "213",
+  "study.dev.facts.adv_participation_pct": "1.61%",
+  "study.dev.facts.anchor_max_ratio": "25.6",
+  "study.dev.facts.anchor_min_ratio_inv": "80",
+  "study.dev.facts.anchor_moved": "732",
+  "study.dev.facts.anchor_moved_pct": "28.8%",
+  "study.dev.facts.anchor_symbols": "2,538",
+  "study.dev.facts.avg_exposure_pct": "26.9%",
+  "study.dev.facts.best_month_pct": "+1.13%",
+  "study.dev.facts.beta_long_per_gross": "+0.26",
+  "study.dev.facts.beta_main": "0.037",
+  "study.dev.facts.beta_main_t": "2.40",
+  "study.dev.facts.beta_oos": "0.046",
+  "study.dev.facts.beta_oos_t": "3.44",
+  "study.dev.facts.beta_short_per_gross": "−0.21",
+  "study.dev.facts.bid_ask_usd_k": "432.4",
+  "study.dev.facts.borrow_usd_k": "130.7",
+  "study.dev.facts.break_even_x": "0.80×",
+  "study.dev.facts.cached_pct": "82.2%",
+  "study.dev.facts.cap_100m_impact_bp": "10.6",
+  "study.dev.facts.cap_100m_net_bp": "−24.0",
+  "study.dev.facts.cap_10m_impact_bp": "3.4",
+  "study.dev.facts.cap_10m_net_bp": "−16.7",
+  "study.dev.facts.cap_1b_impact_bp": "32.3",
+  "study.dev.facts.cap_1b_net_bp": "−45.7",
+  "study.dev.facts.cap_5b_impact_bp": "61.8",
+  "study.dev.facts.cap_5b_net_bp": "−75.1",
   "study.dev.facts.capital_musd": "100",
-  "study.dev.facts.commission_usd_k": "36.4",
-  "study.dev.facts.cost_bp": "12.5",
-  "study.dev.facts.cost_bp_capital": "96.3",
-  "study.dev.facts.cost_bp_notional": "12.93",
-  "study.dev.facts.cost_usd_k": "962.7",
-  "study.dev.facts.coverage_pct": "97.1%",
+  "study.dev.facts.cash_tbill_pct": "12.72%",
+  "study.dev.facts.cash_tbill_yield_pct": "4.79%",
+  "study.dev.facts.commission_usd_k": "58.2",
+  "study.dev.facts.cost_0x_sharpe": "+0.29",
+  "study.dev.facts.cost_2x_sharpe": "−0.42",
+  "study.dev.facts.cost_bp": "16.1",
+  "study.dev.facts.cost_bp_capital": "190.7",
+  "study.dev.facts.cost_bp_notional": "16.93",
+  "study.dev.facts.cost_usd_k": "1,907.4",
+  "study.dev.facts.cost_usd_m": "1.91",
+  "study.dev.facts.coverage_pct": "98.8%",
   "study.dev.facts.days": "628",
+  "study.dev.facts.decay_engine_bp": "−7.9",
+  "study.dev.facts.decay_engine_hi": "+52.9",
+  "study.dev.facts.decay_engine_lo": "−68.7",
+  "study.dev.facts.decay_engine_n": "213",
+  "study.dev.facts.decay_engine_t": "−0.25",
+  "study.dev.facts.decay_form_bp": "+64.7",
+  "study.dev.facts.decay_form_n": "3,223",
+  "study.dev.facts.decay_form_t": "8.35",
+  "study.dev.facts.decay_form_tc": "5.60",
+  "study.dev.facts.decay_oos_bp": "−12.6",
+  "study.dev.facts.decay_oos_hi": "+8.6",
+  "study.dev.facts.decay_oos_lo": "−33.8",
+  "study.dev.facts.decay_oos_n": "1,698",
+  "study.dev.facts.decay_oos_t": "−1.17",
+  "study.dev.facts.decay_oos_tc": "−0.88",
+  "study.dev.facts.decay_pairs": "130",
   "study.dev.facts.dsr_trials": "32",
-  "study.dev.facts.exposure_max_pct": "29.99%",
-  "study.dev.facts.financing_usd_k": "92.1",
-  "study.dev.facts.flat_days": "207",
-  "study.dev.facts.flat_pct": "33%",
-  "study.dev.facts.gate_blocked_days": "248",
-  "study.dev.facts.gatev_hi": "+1.27",
-  "study.dev.facts.gatev_lo": "−1.15",
-  "study.dev.facts.gross_bp": "+11.4",
-  "study.dev.facts.gross_bp_capital": "66.3",
-  "study.dev.facts.gross_t": "0.37",
-  "study.dev.facts.gross_usd_k": "662.6",
-  "study.dev.facts.hold_days": "12.6",
-  "study.dev.facts.impact_share_pct": "57.9%",
-  "study.dev.facts.kurtosis": "6.7",
-  "study.dev.facts.long_gain_usd_m": "1.55",
+  "study.dev.facts.er_barrier": "149",
+  "study.dev.facts.er_half_life": "15.8",
+  "study.dev.facts.er_other": "64",
+  "study.dev.facts.er_ou_expected": "121.0",
+  "study.dev.facts.er_ou_share_pct": "81.2%",
+  "study.dev.facts.er_ou_z": "−10.73",
+  "study.dev.facts.er_rw_expected": "65.9",
+  "study.dev.facts.er_rw_p": "0.309",
+  "study.dev.facts.er_rw_share_pct": "44.2%",
+  "study.dev.facts.er_rw_z": "+1.02",
+  "study.dev.facts.er_share_pct": "48.3%",
+  "study.dev.facts.er_stops": "77",
+  "study.dev.facts.er_targets": "72",
+  "study.dev.facts.exposure_days_above_cap": "5",
+  "study.dev.facts.exposure_max_pct": "30.11%",
+  "study.dev.facts.fetch_other_pct": "3.6%",
+  "study.dev.facts.ff_alpha_main_pct": "−0.51%",
+  "study.dev.facts.ff_alpha_main_t": "−0.38",
+  "study.dev.facts.ff_alpha_oos_pct": "−2.59%",
+  "study.dev.facts.ff_alpha_oos_t": "−2.25",
+  "study.dev.facts.ff_r2_main": "0.158",
+  "study.dev.facts.ff_r2_oos": "0.148",
+  "study.dev.facts.flat_days": "2",
+  "study.dev.facts.formations": "7",
+  "study.dev.facts.formations_traded": "6",
+  "study.dev.facts.gap_first_data_checks_pct": "0.10",
+  "study.dev.facts.gap_first_fetch_failed_pct": "0.34",
+  "study.dev.facts.gap_first_heavy_fetch_failed": "3",
+  "study.dev.facts.gap_first_heavy_missing": "19",
+  "study.dev.facts.gap_first_heavy_missing_pct": "1.29%",
+  "study.dev.facts.gap_first_heavy_not_found": "16",
+  "study.dev.facts.gap_first_members": "2,574",
+  "study.dev.facts.gap_first_missing": "444",
+  "study.dev.facts.gap_first_not_found_pct": "2.75",
+  "study.dev.facts.gap_first_pct": "3.33%",
+  "study.dev.facts.gap_heavy_members": "500",
+  "study.dev.facts.gap_last_data_checks_pct": "0.09",
+  "study.dev.facts.gap_last_fetch_failed_pct": "0.25",
+  "study.dev.facts.gap_last_heavy_fetch_failed": "3",
+  "study.dev.facts.gap_last_heavy_missing": "8",
+  "study.dev.facts.gap_last_heavy_missing_pct": "0.37%",
+  "study.dev.facts.gap_last_heavy_not_found": "5",
+  "study.dev.facts.gap_last_members": "2,658",
+  "study.dev.facts.gap_last_missing": "237",
+  "study.dev.facts.gap_last_not_found_pct": "0.72",
+  "study.dev.facts.gap_last_pct": "1.08%",
+  "study.dev.facts.gatev_hi": "+0.40",
+  "study.dev.facts.gatev_lo": "−1.98",
+  "study.dev.facts.gross_bp": "−7.9",
+  "study.dev.facts.gross_bp_capital": "152.0",
+  "study.dev.facts.gross_ex_market_bp": "−11.2",
+  "study.dev.facts.gross_ex_market_t": "−0.39",
+  "study.dev.facts.gross_hac_p": "0.645",
+  "study.dev.facts.gross_sharpe": "+0.29",
+  "study.dev.facts.gross_t": "−0.25",
+  "study.dev.facts.gross_usd_k": "1,520.1",
+  "study.dev.facts.gross_usd_m": "1.52",
+  "study.dev.facts.hedge_below_1_pct": "87.8%",
+  "study.dev.facts.hedge_mean": "0.70",
+  "study.dev.facts.hl_formation": "17.1",
+  "study.dev.facts.hl_max": "25",
+  "study.dev.facts.hl_oos": "29.6",
+  "study.dev.facts.hl_oos_above_max_pct": "60.8%",
+  "study.dev.facts.ho_days": "200",
+  "study.dev.facts.ho_mde_025": "2.96",
+  "study.dev.facts.ho_mde_025_normal": "3.15",
+  "study.dev.facts.ho_mde_05": "2.62",
+  "study.dev.facts.ho_mde_05_normal": "2.80",
+  "study.dev.facts.ho_power_1": "16%",
+  "study.dev.facts.ho_power_1_normal": "14%",
+  "study.dev.facts.ho_power_2": "48%",
+  "study.dev.facts.ho_power_2_normal": "43%",
+  "study.dev.facts.ho_power_3": "81%",
+  "study.dev.facts.ho_power_3_normal": "76%",
+  "study.dev.facts.hold_days": "15.1",
+  "study.dev.facts.hurdle_bonferroni": "1.75",
+  "study.dev.facts.hurdle_cgs": "2.26",
+  "study.dev.facts.hurdle_cgs_t": "3.80",
+  "study.dev.facts.hurdle_hlz": "1.78",
+  "study.dev.facts.hurdle_hlz_t": "3.00",
+  "study.dev.facts.hurdle_single": "0.98",
+  "study.dev.facts.hurdle_tests": "32",
+  "study.dev.facts.impact_share_pct": "67.4%",
+  "study.dev.facts.kurtosis": "7.7",
+  "study.dev.facts.long_gain_usd_m": "1.04",
+  "study.dev.facts.long_gross_bp": "+22.4",
+  "study.dev.facts.long_gross_t": "0.55",
   "study.dev.facts.main_days": "628",
-  "study.dev.facts.market_impact_usd_k": "557.2",
-  "study.dev.facts.min_trl_years_0_5": "10.8",
-  "study.dev.facts.min_trl_years_1": "2.7",
+  "study.dev.facts.market_impact_usd_k": "1,286.1",
+  "study.dev.facts.market_usd_k": "782.5",
+  "study.dev.facts.min_trl_years_0_5": "9.5",
+  "study.dev.facts.min_trl_years_1": "2.4",
+  "study.dev.facts.mkt_beta_main": "0.022",
+  "study.dev.facts.mkt_t_main": "2.37",
+  "study.dev.facts.mkt_t_oos": "4.03",
+  "study.dev.facts.mom_t_main": "−3.96",
+  "study.dev.facts.mom_t_oos": "−3.69",
   "study.dev.facts.months": "30",
-  "study.dev.facts.months_positive": "7",
-  "study.dev.facts.net_bp": "−1.1",
-  "study.dev.facts.net_bp_capital": "−30.0",
-  "study.dev.facts.net_usd_k": "−300.1",
-  "study.dev.facts.oos_days": "711",
-  "study.dev.facts.oos_overlap_days": "616",
-  "study.dev.facts.p_sr_ge_0_5": "0.184",
-  "study.dev.facts.p_sr_ge_1": "0.046",
-  "study.dev.facts.pairs_traded": "100",
-  "study.dev.facts.positions_max": "8",
-  "study.dev.facts.rolling_clear_zero": "30",
-  "study.dev.facts.rolling_max": "+3.4",
-  "study.dev.facts.rolling_min": "−2.8",
+  "study.dev.facts.months_positive": "13",
+  "study.dev.facts.net_bp": "−24.0",
+  "study.dev.facts.net_bp_capital": "−38.7",
+  "study.dev.facts.net_t": "−0.77",
+  "study.dev.facts.net_usd_k": "−387.3",
+  "study.dev.facts.not_found_pct": "14.2%",
+  "study.dev.facts.oos_critical": "0.90",
+  "study.dev.facts.oos_days": "716",
+  "study.dev.facts.oos_mde": "1.37",
+  "study.dev.facts.oos_overlap_days": "621",
+  "study.dev.facts.oos_sharpe_se": "0.54",
+  "study.dev.facts.oos_ucb": "−0.15",
+  "study.dev.facts.p_sr_ge_0_5": "0.172",
+  "study.dev.facts.p_sr_ge_1": "0.037",
+  "study.dev.facts.pairs_traded": "130",
+  "study.dev.facts.pers_count": "370",
+  "study.dev.facts.pers_expected": "403.4",
+  "study.dev.facts.pers_expected_pct": "5.50%",
+  "study.dev.facts.pers_hi_pct": "5.57%",
+  "study.dev.facts.pers_lo_pct": "4.56",
+  "study.dev.facts.pers_of": "7,334",
+  "study.dev.facts.pers_pct": "5.04%",
+  "study.dev.facts.pers_symbols": "300",
+  "study.dev.facts.pers_traded_count": "6",
+  "study.dev.facts.pers_traded_of": "115",
+  "study.dev.facts.pers_traded_pct": "5.2%",
+  "study.dev.facts.pers_z": "−1.71",
+  "study.dev.facts.position_max_pct": "10.0%",
+  "study.dev.facts.position_min_pct": "2.2%",
+  "study.dev.facts.positions_max": "10",
+  "study.dev.facts.random_p05_end": "−92.3%",
+  "study.dev.facts.random_p25_end": "−5.7%",
+  "study.dev.facts.random_p75_end": "+6.5%",
+  "study.dev.facts.random_p95_end": "+17.8%",
+  "study.dev.facts.rej_cap_fill": "2,261",
+  "study.dev.facts.rej_cap_signal": "7,866",
+  "study.dev.facts.rej_cooloff": "101",
+  "study.dev.facts.rolling_clear_zero": "0",
+  "study.dev.facts.rolling_max": "+1.2",
+  "study.dev.facts.rolling_min": "−2.5",
   "study.dev.facts.rolling_windows": "503",
-  "study.dev.facts.sharpe_critical": "1.04",
-  "study.dev.facts.sharpe_mde": "1.58",
-  "study.dev.facts.sharpe_se": "0.63",
-  "study.dev.facts.sharpe_ucb": "0.97",
-  "study.dev.facts.short_loss_usd_m": "1.85",
-  "study.dev.facts.skew": "0.17",
-  "study.dev.facts.stop_loss_usd_m": "9.80",
-  "study.dev.facts.target_gain_usd_m": "8.18",
-  "study.dev.facts.trades": "161",
-  "study.dev.facts.win_hi_pct": "54.9%",
-  "study.dev.facts.win_lo_pct": "39.6",
-  "study.dev.facts.wins": "76",
+  "study.dev.facts.sched_gross_max_pct": "−0.08%",
+  "study.dev.facts.sched_gross_min_pct": "−0.32%",
+  "study.dev.facts.sched_gross_negative": "5",
+  "study.dev.facts.sched_trades_max": "213",
+  "study.dev.facts.sched_trades_min": "206",
+  "study.dev.facts.sf_entry_delay_gain_usd_k": "61.3",
+  "study.dev.facts.sf_exit_delay_loss_usd_k": "234.5",
+  "study.dev.facts.sf_gross_bp": "13.49",
+  "study.dev.facts.sf_paper_bp": "15.03",
+  "study.dev.facts.sf_paper_usd_k": "1,693.3",
+  "study.dev.facts.sharpe_2023": "+1.04",
+  "study.dev.facts.sharpe_2024": "−0.26",
+  "study.dev.facts.sharpe_2025": "−0.37",
+  "study.dev.facts.sharpe_break_even_x": "0.83×",
+  "study.dev.facts.sharpe_critical": "0.98",
+  "study.dev.facts.sharpe_mde": "1.47",
+  "study.dev.facts.sharpe_se": "0.59",
+  "study.dev.facts.sharpe_ucb": "0.92",
+  "study.dev.facts.short_gross_bp": "−35.7",
+  "study.dev.facts.short_gross_t": "−0.76",
+  "study.dev.facts.short_loss_usd_m": "1.43",
+  "study.dev.facts.signals_evaluated": "56,960",
+  "study.dev.facts.skew": "0.23",
+  "study.dev.facts.st_rev_beta_main": "0.039",
+  "study.dev.facts.st_rev_t_main": "4.01",
+  "study.dev.facts.st_rev_t_oos": "3.80",
+  "study.dev.facts.stitched_pct": "−6.24%",
+  "study.dev.facts.stop_loss_usd_m": "15.33",
+  "study.dev.facts.target_gain_usd_m": "15.15",
+  "study.dev.facts.trades": "213",
+  "study.dev.facts.wf_common_corr": "0.50",
+  "study.dev.facts.wf_common_days": "621",
+  "study.dev.facts.wf_common_sharpe_main": "−0.09",
+  "study.dev.facts.wf_common_sharpe_oos": "−0.82",
+  "study.dev.facts.wf_gross_hac_p": "0.211",
+  "study.dev.facts.wf_gross_sharpe": "−0.69",
+  "study.dev.facts.wf_last_window_days": "86",
+  "study.dev.facts.win_hi_pct": "54.6%",
+  "study.dev.facts.win_lo_pct": "41.3",
+  "study.dev.facts.wins": "102",
   "study.dev.funnel.bh_q10": "1",
-  "study.dev.funnel.pairs.1.expected": "1,775",
+  "study.dev.funnel.pairs.1.expected": "254.1",
   "study.dev.rolling_sharpe.window": "126",
   "study.dev.snooping.grid_points": "27",
-  "study.dev.snooping.toggles": "11"
+  "study.dev.snooping.toggles": "11",
+  "study.residual.avg_gross_x": "1.2×",
+  "study.residual.avg_positions": "181",
+  "study.residual.cost_bp": "11.30",
+  "study.residual.cost_usd_m": "6.09",
+  "study.residual.days": "628",
+  "study.residual.etf_cost_usd_m": "0.76",
+  "study.residual.gross_bp": "+5.35",
+  "study.residual.gross_hi": "+1.48",
+  "study.residual.gross_lo": "−0.93",
+  "study.residual.gross_p": "0.619",
+  "study.residual.gross_sharpe": "+0.27",
+  "study.residual.gross_t": "0.87",
+  "study.residual.gross_usd_m": "2.71",
+  "study.residual.hac_t": "−0.53",
+  "study.residual.hi": "+0.93",
+  "study.residual.hold_days": "10.4",
+  "study.residual.lo": "−1.47",
+  "study.residual.max_dd_pct": "−7.65%",
+  "study.residual.max_positions": "283",
+  "study.residual.net_bp": "−4.54",
+  "study.residual.net_t": "−0.74",
+  "study.residual.p": "0.598",
+  "study.residual.psr_pct": "32.8%",
+  "study.residual.ret_pct": "−3.37%",
+  "study.residual.sharpe": "−0.28",
+  "study.residual.symbols_ever": "579",
+  "study.residual.trades": "10,916",
+  "study.residual.turnover_x": "65.9×",
+  "study.residual.universe_size": "500",
+  "study.residual.win_rate_pct": "56.5%",
+  "study.trials.1.oos_sharpe": "+0.13",
+  "study.trials.1.sharpe": "−0.51",
+  "study.v32.bh_q05": "1",
+  "study.v32.cost_bp": "12.5",
+  "study.v32.days": "628",
+  "study.v32.flat_days": "207",
+  "study.v32.gate_blocked_days": "248",
+  "study.v32.gatev_sharpe": "+0.07",
+  "study.v32.gross_bp": "+11.4",
+  "study.v32.gross_t": "0.37",
+  "study.v32.main.avg_exposure_pct": "15.1%",
+  "study.v32.main.hi": "+1.23",
+  "study.v32.main.lo": "−1.39",
+  "study.v32.main.max_dd_pct": "−3.00%",
+  "study.v32.main.p": "0.917",
+  "study.v32.main.ret_pct": "−0.30%",
+  "study.v32.main.sharpe": "−0.07",
+  "study.v32.main.trades": "161",
+  "study.v32.oos.hi": "+0.86",
+  "study.v32.oos.lo": "−1.49",
+  "study.v32.oos.p": "0.559",
+  "study.v32.oos.ret_pct": "−1.75%",
+  "study.v32.oos.sharpe": "−0.33",
+  "study.v32.oos.windows": "11",
+  "study.v32.oos.windows_positive": "3",
+  "study.v32.pairs_selected": "1,776",
+  "study.v32.pairs_tested": "35,491",
+  "study.v32.random_percentile": "28",
+  "study.v32.ranker_auc": "0.514",
+  "study.validation.edge.mean_bp": "+82.6",
+  "study.validation.edge.median_net_sharpe": "3.47",
+  "study.validation.edge.t": "34.8",
+  "study.validation.edge.trades": "4,692",
+  "study.validation.forced_null.mean_bp": "+1.7",
+  "study.validation.forced_null.t": "0.65",
+  "study.validation.forced_null.trades": "5,450",
+  "study.validation.hedge_ratio.median_abs_error": "0.032",
+  "study.validation.hedge_ratio.p90_abs_error": "0.074",
+  "study.validation.seeds": "10",
+  "study.validation.selection.per_null_market": "2.6",
+  "study.validation.selection.recall": "1.000",
+  "study.validation.selection.unrelated_per_planted_market": "3.3",
+  "study.validation.selection.worst_fp_rate": "0.0296",
+  "universe.missing_value_weight_pct": "3.192%",
+  "universe.unmapped_value_weight_pct": "0.142%"
  },
  "meta": {
   "builder": "scripts/build_paper.py",
-  "commit": "711b18cbd1a657b2dff2b95647e5dbae40320fa4",
-  "fetch_manifest": "results/v32_dev/price_fetch_manifest.json",
-  "headline": "results/v32_dev/headline_metrics.json",
-  "headline_sha256": "93471564009554007e8bff1f6a67a02f7f2db96b99d76ad8bd3e5a57b5183b0e",
-  "paper_date": "2026-10-20",
-  "study_sha256": "0e29723453ec72cbc84e0b52709ff1cc7fc87529c63a20a592382208e790f676",
+  "commit": "744270556ba6d688e95bee8d7d88608c7c656c55",
+  "headline": "results/v33_dev/headline_metrics.json",
+  "headline_sha256": "b09f239032db62196602447e8d1d780286b5c2674e8e85d02062beab946d0fb1",
+  "paper_date": "2026-10-21",
+  "run_dir": "results/v33_dev",
+  "study_sha256": "d8e8fca7332c56e51314d271b8244d2a99ced64c8d8dde04597f6592daefc5ea",
   "universe_index_sha256": "2afd0cb6a7a7b79e08e6d45a5fc78f7ac6d43903c3cafbde1a042bf048883c3c"
  },
  "pending": {
-  "capacity": "Pending: evidence layer.",
-  "costcurve": "Pending: v33 development run.",
-  "decay": "Pending: evidence layer.",
-  "exitrace": "Pending: evidence layer.",
-  "holdout": "Sealed.",
-  "persistence": "Pending: evidence layer.",
-  "pvalues": "Pending: v33 development run.",
-  "residual": "Pending: v33 development run.",
-  "universe": "Pending: v33 development run.",
-  "validation": "Pending: committed validation run."
+  "holdout": "Sealed."
  },
  "schema": 1,
  "tables": {
   "alternatives": [
    [
     "0.5",
-    "0.184",
-    "0.200",
-    "10.8",
-    "12.4"
+    "0.172",
+    "9.5"
    ],
    [
     "1.0",
-    "0.046",
-    "0.057",
-    "2.7",
-    "3.1"
+    "0.037",
+    "2.4"
    ],
    [
     "1.5",
-    "0.007",
-    "0.010",
-    "1.2",
-    "1.4"
+    "0.004",
+    "1.1"
    ],
    [
     "2.0",
-    "0.001",
-    "0.001",
-    "0.7",
-    "0.8"
+    "< 0.001",
+    "0.6"
+   ]
+  ],
+  "compare": [
+   [
+    "Main backtest, net Sharpe [95% interval]",
+    "−0.07 [−1.39, +1.23]",
+    "−0.06 [−1.29, +1.16]"
+   ],
+   [
+    "Main backtest, net return",
+    "−0.30%",
+    "−0.39%"
+   ],
+   [
+    "Main backtest, maximum drawdown",
+    "−3.00%",
+    "−4.05%"
+   ],
+   [
+    "Walk-forward, net Sharpe [95% interval]",
+    "−0.33 [−1.49, +0.86]",
+    "−1.04 [−2.09, +0.05]"
+   ],
+   [
+    "Walk-forward windows positive",
+    "3 of 11",
+    "4 of 11"
+   ],
+   [
+    "Trades",
+    "161",
+    "213"
+   ],
+   [
+    "Gross bp per trade, equal-weighted (t)",
+    "+11.4 (0.37)",
+    "−7.9 (−0.25)"
+   ],
+   [
+    "Cost bp per trade, equal-weighted",
+    "12.5",
+    "16.1"
+   ],
+   [
+    "Average gross exposure, % of capital",
+    "15.1",
+    "26.9"
+   ],
+   [
+    "Days with no position",
+    "207",
+    "2"
+   ],
+   [
+    "Pairs tested at the first formation",
+    "35,491",
+    "5,082"
+   ],
+   [
+    "Gatev distance method, Sharpe",
+    "+0.07",
+    "−0.80"
+   ],
+   [
+    "Percentile among random-pair portfolios",
+    "28",
+    "37"
+   ]
+  ],
+  "design": [
+   [
+    "Universe",
+    "The 3,000 largest US common stocks by market cap on 18 October 2026, back-filled to 2020",
+    "Russell 3000 members as held by the iShares Russell 3000 ETF in its SEC N-PORT filings, the snapshot in force at each formation",
+    "Today's largest names are survivors chosen with hindsight; point-in-time membership removes that look-ahead and makes the survivorship gap a measured quantity"
+   ],
+   [
+    "Names searched",
+    "300 most liquid",
+    "500 most liquid",
+    "A size at which both strategy families trade the same liquid names"
+   ],
+   [
+    "Candidate pairs",
+    "Any two names",
+    "Two names in the same Fama–French 49 industry",
+    "An economic link is the premise of convergence (Do and Faff 2010); fewer tests raise the power of the multiple-testing correction (5,082 against 35,491)"
+   ],
+   [
+    "Re-formation",
+    "The 2022 pool re-tested every 90 trading days; pairs can drop out, none can enter",
+    "The whole selection re-run every 126 trading days on the trailing three years",
+    "A pool that can only shrink goes stale, and v32's 126-day re-test had too little power to tell broken pairs from healthy ones; re-forming on a schedule is Gatev's formation-and-trading cycle"
+   ],
+   [
+    "Regime gate",
+    "VIX and sector-dispersion scaling, with a hard stop on new entries",
+    "Off (a declared variant)",
+    "Its thresholds were fitted on windows now inside the test period; in the v32 run it blocked new entries on 248 of 628 days"
+   ],
+   [
+    "Ranking",
+    "A learned classifier orders same-day candidates",
+    "Signal strength × pair quality (the learned ranker is a declared variant)",
+    "v32's ranker showed no skill on the trades after its training window (AUC 0.514; 0.5 is none)"
+   ],
+   [
+    "Borrow and financing",
+    "25 bp general-collateral borrow plus a 50 bp prime-broker spread on the short half of gross",
+    "One 0.38% fee a year on the short notional",
+    "The two charges double-count the cost of shorting; the fee is a median buy-side indicative fee (the execution-cost note gives its source)"
    ]
   ],
   "forest": [
    [
     "Main backtest, net",
-    "−0.07",
-    "−1.39",
-    "+1.23",
+    "−0.06",
+    "−1.29",
+    "+1.16",
     "628",
     "circular block bootstrap (5000 resamples, block 3 days)"
    ],
    [
-    "Walk-forward OOS, net",
-    "−0.33",
-    "−1.49",
-    "+0.86",
-    "711",
-    "circular block bootstrap (5000 resamples, block 2 days)"
+    "Main backtest, gross of costs",
+    "+0.29",
+    "−0.92",
+    "+1.52",
+    "628",
+    "circular block bootstrap (5000 resamples, block 3 days)"
+   ],
+   [
+    "Walk-forward, net",
+    "−1.04",
+    "−2.09",
+    "+0.05",
+    "716",
+    "circular block bootstrap (5000 resamples, block 4 days)"
    ],
    [
     "Gatev distance method, net",
-    "+0.07",
-    "−1.15",
-    "+1.27",
+    "−0.80",
+    "−1.98",
+    "+0.40",
     "628",
-    "circular block bootstrap (5000 resamples, block 3 days)"
+    "circular block bootstrap (5000 resamples, block 2 days)"
    ],
    [
     "Main minus Gatev",
-    "−0.14",
-    "−1.90",
-    "+1.62",
+    "+0.73",
+    "−0.90",
+    "+2.37",
     "628",
     "Ledoit-Wolf studentized block bootstrap"
    ],
    [
-    "Walk-forward OOS minus Gatev",
-    "−0.16",
-    "−2.00",
-    "+1.68",
-    "616",
+    "Walk-forward minus Gatev",
+    "+0.01",
+    "−1.50",
+    "+1.51",
+    "621",
     "Ledoit-Wolf studentized block bootstrap"
    ],
    [
     "Random pairs (median draw)",
-    "+0.26",
-    "−0.53",
-    "+1.10",
+    "+0.09",
+    "−1.85",
+    "+1.17",
     "—",
     "5th-95th percentile of 200 draws (a spread across draws, not a confidence interval)"
    ]
@@ -721,28 +1035,53 @@
   "holdout_power": [
    [
     "126",
-    "4.3",
-    "4.0"
+    "3.74",
+    "3.31",
+    "3.98"
    ],
    [
     "200",
-    "3.4",
-    "3.2"
+    "2.96",
+    "2.62",
+    "3.15"
    ],
    [
     "252",
-    "3.0",
-    "2.8"
+    "2.63",
+    "2.33",
+    "2.81"
+   ]
+  ],
+  "hurdles": [
+   [
+    "One test, one-sided 5%",
+    "1.64",
+    "0.98"
+   ],
+   [
+    "Bonferroni over 32 trials, one-sided",
+    "—",
+    "1.75"
+   ],
+   [
+    "Harvey, Liu and Zhu (2016), field-wide",
+    "3.00",
+    "1.78"
+   ],
+   [
+    "Chordia, Goyal and Saretto (2020), field-wide",
+    "3.80",
+    "2.26"
    ]
   ],
   "hypotheses": [
    [
-    "H1",
-    "v33 pairs (design proposed for pre-registration)",
+    "H1 · S1",
+    "v33 pairs, the design of this note",
     "mean daily net return > 0"
    ],
    [
-    "H2",
+    "H2 · S2",
     "Avellaneda–Lee residual reversion",
     "mean daily net return > 0"
    ],
@@ -755,147 +1094,213 @@
   "manifest": [
    [
     "Commit",
-    "711b18cbd1a6 (clean)"
+    "744270556ba6 (clean)"
    ],
    [
     "Run",
-    "2026-10-18 09:21 UTC"
+    "2026-10-21 06:19 UTC; results in results/v33_dev/"
+   ],
+   [
+    "Design",
+    "profile v33 d54d21314c22, calendar dev 0bcc31796bad"
    ],
    [
     "Price cache",
-    "sha256 70776501502e08533cf17d46bbf466b26bb9d68233aa467aa1665d4ea5525ea1"
+    "sha256 3a9a93cc2ea9352e7e43319307ec9039cf0bd4f35c06939dc5a956c619c0a7be"
    ],
    [
     "Headline JSON",
-    "results/v32_dev/headline_metrics.json, sha256 93471564009554007e8bff1f6a67a02f7f2db96b99d76ad8bd3e5a57b5183b0e"
+    "results/v33_dev/headline_metrics.json, sha256 b09f239032db62196602447e8d1d780286b5c2674e8e85d02062beab946d0fb1"
    ],
    [
     "Site data",
-    "assets/study.json, sha256 0e29723453ec72cbc84e0b52709ff1cc7fc87529c63a20a592382208e790f676"
+    "assets/study.json, sha256 d8e8fca7332c56e51314d271b8244d2a99ced64c8d8dde04597f6592daefc5ea"
    ],
    [
     "Universe",
-    "Nasdaq screener, 18 October 2026; 2,752 of 2,999 symbols with prices"
+    "IWV N-PORT snapshots (reference/universe/); price history for 82.2% of the requested symbols (2,538), 14.2% no longer served (HTTP 404); fetch-coverage rule met at 98.8%"
+   ],
+   [
+    "Fetch manifest",
+    "results/v33_dev/price_fetch_manifest.json"
    ],
    [
     "Seed",
-    "PAIRS_SEED=42"
+    "PAIRS_SEED=42, PYTHONHASHSEED=0"
    ],
    [
     "Stack",
-    "python 3.12.3 · numpy 1.26.4 · pandas 2.2.3 · scipy 1.15.2 · statsmodels 0.14.4 · torch 2.13.0+cpu"
+    "python 3.12.3 · numpy 1.26.4 · pandas 2.2.3 · scipy 1.15.2 · statsmodels 0.14.4"
    ]
   ],
   "performance": [
    [
     "Trading days",
     "628",
-    "711",
+    "716",
     "628"
    ],
    [
     "Total net return, %",
-    "−0.30",
-    "−1.75",
-    "+0.57"
+    "−0.39",
+    "−6.24",
+    "−9.55"
    ],
    [
     "Annualised net return, % (95% interval)",
-    "−0.11 [−2.15, +1.93]",
-    "−0.61 [−2.65, +1.43]",
-    "+0.33 [−4.87, +5.53]"
+    "−0.13 [−2.82, +2.55]",
+    "−2.25 [−4.60, +0.11]",
+    "−3.91 [−9.39, +1.58]"
    ],
    [
     "Annualised volatility, % (95% interval)",
-    "1.53 [1.36, 1.70]",
-    "1.82",
-    "4.55 [4.11, 5.01]"
+    "2.15 [1.91, 2.42]",
+    "2.16 [1.94, 2.39]",
+    "4.91 [4.18, 5.69]"
    ],
    [
     "Sharpe ratio (95% interval)",
-    "−0.07 [−1.39, +1.23]",
-    "−0.33 [−1.49, +0.86]",
-    "+0.07 [−1.15, +1.27]"
+    "−0.06 [−1.29, +1.16]",
+    "−1.04 [−2.09, +0.05]",
+    "−0.80 [−1.98, +0.40]"
    ],
    [
     "Maximum drawdown, %",
-    "−3.00",
-    "−2.35",
-    "−4.14"
+    "−4.05",
+    "−6.46",
+    "−10.82"
    ],
    [
     "Drawdown length, trading days: to trough / to recovery",
-    "227 / 300",
-    "—",
-    "53 / 191"
+    "304 / not regained",
+    "707 / not regained",
+    "579 / not regained"
    ],
    [
     "Average gross exposure, % of capital",
-    "15.1",
+    "26.9",
     "—",
     "—"
    ],
    [
     "Net return on average gross exposure, % a year",
-    "−0.72",
+    "−0.49",
     "—",
     "—"
    ],
    [
     "Trades",
-    "161",
-    "219",
-    "142"
+    "213",
+    "256",
+    "120"
    ],
    [
     "Hit rate, % of trades",
-    "47.2",
-    "48.0",
+    "47.9",
+    "44.1",
     "—"
    ],
    [
     "Average holding period, trading days",
-    "12.6",
+    "15.1",
     "—",
-    "55.5"
+    "62.5"
    ],
    [
     "Annual turnover, × capital",
-    "6.0",
+    "9.0",
     "—",
     "—"
    ]
   ],
-  "profiles": [
+  "scenarios": [
    [
-    "Universe",
-    "the 3,000 largest US stocks by market cap on 18 October 2026",
-    "point-in-time members (IWV N-PORT)"
+    "Headline: Y = 0.3, borrow 0.38%, $100M",
+    "213",
+    "−0.39",
+    "−0.06",
+    "−4.05",
+    "16.9",
+    "1.61",
+    "−0.39",
+    "−0.06"
    ],
    [
-    "Pair search",
-    "300 most liquid names, all pairs",
-    "500 most liquid names, same Fama–French 49 industry"
+    "Impact Y = 0.6",
+    "273",
+    "−2.66",
+    "−0.41",
+    "−4.96",
+    "27.8",
+    "1.41",
+    "−1.61",
+    "−0.29"
    ],
    [
-    "Re-selection",
-    "re-test the 2022 pool every 90 trading days",
-    "full re-formation every 126 trading days on the trailing 3 years"
+    "Impact Y = 1.0",
+    "248",
+    "−4.38",
+    "−0.70",
+    "−6.30",
+    "39.1",
+    "1.46",
+    "−3.11",
+    "−0.58"
    ],
    [
-    "Regime gate",
-    "on",
-    "off (a declared variant)"
+    "Borrow 1% a year",
+    "262",
+    "−1.79",
+    "−0.26",
+    "−4.78",
+    "18.5",
+    "1.42",
+    "−0.60",
+    "−0.10"
    ],
    [
-    "Ranker",
-    "learned classifier orders same-day candidates",
-    "none (classical ranking; ablation arm)"
+    "Borrow 3% a year",
+    "265",
+    "−4.61",
+    "−0.71",
+    "−7.06",
+    "24.5",
+    "1.42",
+    "−1.28",
+    "−0.23"
    ],
    [
-    "Borrow and financing",
-    "25 bp borrow + 50 bp financing a year",
-    "one 0.38% fee a year"
+    "Book of $10M",
+    "245",
+    "−0.09",
+    "0.00",
+    "−3.47",
+    "8.8",
+    "0.15",
+    "0.49",
+    "0.10"
+   ],
+   [
+    "Book of $1B",
+    "244",
+    "−5.88",
+    "−1.02",
+    "−6.75",
+    "36.6",
+    "13.26",
+    "−2.92",
+    "−0.54"
+   ],
+   [
+    "Book of $5B",
+    "236",
+    "−8.07",
+    "−1.50",
+    "−9.17",
+    "67.0",
+    "72.84",
+    "−6.13",
+    "−1.17"
    ]
   ],
   "schedules": [
@@ -907,12 +1312,13 @@
     "0.10",
     "0.00",
     "2–5",
-    "+0.04",
-    "+0.03",
-    "−1.09",
-    "0.22",
-    "0.15",
-    "161"
+    "−0.19",
+    "0.37",
+    "−0.56",
+    "−0.26",
+    "−1.85",
+    "0.21",
+    "210"
    ],
    [
     "B",
@@ -922,12 +1328,13 @@
     "6.00",
     "3.00",
     "2–5",
-    "−2.38",
-    "−1.58",
-    "−2.52",
-    "2.57",
-    "0.15",
-    "152"
+    "−0.09",
+    "4.78",
+    "−4.87",
+    "−2.33",
+    "−5.33",
+    "0.21",
+    "206"
    ],
    [
     "C",
@@ -937,84 +1344,102 @@
     "2.00",
     "1.50",
     "4–10",
-    "−3.27",
-    "−1.08",
-    "−4.17",
-    "3.74",
-    "0.30",
-    "161"
+    "−0.08",
+    "6.61",
+    "−6.69",
+    "−1.60",
+    "−7.81",
+    "0.42",
+    "212"
    ],
    [
     "D",
-    "1.5",
-    "4.0",
-    "20",
-    "1.00",
-    "1.00",
-    "8–20",
-    "−2.97",
-    "−0.48",
-    "−6.12",
-    "3.88",
-    "0.60",
-    "161"
-   ],
-   [
-    "E",
     "1.0",
     "2.0",
     "12",
     "0.60",
     "0.50",
     "12–30",
-    "−2.59",
-    "−0.27",
-    "−7.96",
-    "3.88",
-    "0.90",
-    "161"
+    "−0.32",
+    "6.80",
+    "−7.12",
+    "−0.55",
+    "−12.63",
+    "1.25",
+    "213"
+   ],
+   [
+    "E",
+    "1.5",
+    "4.0",
+    "20",
+    "1.00",
+    "1.00",
+    "8–20",
+    "−0.14",
+    "6.94",
+    "−7.08",
+    "−0.84",
+    "−10.30",
+    "0.83",
+    "213"
    ]
   ],
   "significance": [
    [
-    "Annualised Sharpe ratio",
-    "−0.07",
-    "−0.33"
+    "Annualised Sharpe ratio, net",
+    "−0.06",
+    "−1.04"
    ],
    [
     "Newey–West t (mean ≠ 0)",
     "−0.10",
-    "−0.58"
+    "−1.87"
    ],
    [
     "Newey–West p",
-    "0.917",
-    "0.559"
+    "0.923",
+    "0.061"
    ],
    [
-    "Probabilistic Sharpe, P(SR > 0)",
-    "45.5%",
-    "28.7%"
+    "Probabilistic Sharpe ratio (one minus the one-sided p of SR ≤ 0)",
+    "46.1%",
+    "3.9%"
    ],
    [
     "Deflated Sharpe (32 trials)",
     "1.4%",
-    "0.4%"
+    "0.0%"
    ],
    [
     "Block-bootstrap 95% interval",
-    "[−1.39, +1.23]",
-    "[−1.49, +0.86]"
+    "[−1.29, +1.16]",
+    "[−2.09, +0.05]"
+   ],
+   [
+    "Sharpe ratio before costs (Newey–West p)",
+    "+0.29 (0.645)",
+    "−0.69 (0.211)"
+   ],
+   [
+    "Minimum detectable Sharpe (80% power, one-sided 5%)",
+    "1.47",
+    "1.37"
+   ],
+   [
+    "One-sided 95% upper bound",
+    "0.92",
+    "−0.15"
    ],
    [
     "Gatev distance method, Sharpe [95% interval]",
-    "+0.07 [−1.15, +1.27]",
-    "−0.01 (on 616 shared days)"
+    "−0.80 [−1.98, +0.40]",
+    "−0.83 (on 621 shared days)"
    ],
    [
     "Strategy minus Gatev, Sharpe (Ledoit–Wolf p)",
-    "−0.14 (0.879)",
-    "−0.16 (0.859)"
+    "+0.73 (0.364)",
+    "+0.01 (0.993)"
    ]
   ],
   "snooping": [
@@ -1045,8 +1470,40 @@
   ],
   "sources": [
    [
-    "results/v32_dev/fund_type_comparison.json",
-    "1ad3925715acbe90861dc5d3b8561266dc38e36b8e87a43f20e93f6339a649a4"
+    "reference/universe/iwv_2022-12-30.csv",
+    "72768e4abbef6d0ec94e249b05fc7b6681822fe4c5511d212463d67ad0688f63"
+   ],
+   [
+    "reference/universe/iwv_2023-06-30.csv",
+    "80be0c0e308e7634e7ffba4444a2185532114539e984ffd63ec3fca997fe0e65"
+   ],
+   [
+    "reference/universe/iwv_2023-12-31.csv",
+    "d1c115e4abdb710cd592ef11d2f7d91318675be51fcfa166e3a7f63c5cd6c4e5"
+   ],
+   [
+    "reference/universe/iwv_2024-06-30.csv",
+    "95837ee080ec2d627747aa44ed37b5f7d48c143540e8ce3f385ae09e6fe5a82a"
+   ],
+   [
+    "reference/universe/iwv_2024-12-31.csv",
+    "acdd6cecd2fbd94082e5226aff910f33efba53cafb3039e60310057d12f888df"
+   ],
+   [
+    "reference/universe/iwv_2025-06-30.csv",
+    "767b8602838b419c9e7ebab5f76a113938e28df0c433c00064d7ebc9932304f0"
+   ],
+   [
+    "results/residual_dev/MANIFEST.json",
+    "1a89276294d27e0b9c6dd12004085153403840962da91659c3ace30df8a4e0ee"
+   ],
+   [
+    "results/residual_dev/residual_statarb.json",
+    "7bc4562bf017ce2bb31763ea97effa7e98049abbdd74a27faf452147aed2b222"
+   ],
+   [
+    "results/trial_registry.jsonl",
+    "1d3d9219aaab973f490ead6fa8580b43a71644bd2d33bf3b4981dedecb40e990"
    ],
    [
     "results/v32_dev/headline_metrics.json",
@@ -1057,16 +1514,40 @@
     "0d2e376fdbac5de777aa33187938d9e0d23ef76207f4cdc92de93ce260f9e876"
    ],
    [
-    "results/v32_dev/universe_meta.json",
-    "af2bc3d41d0b2cee0381c6479baa144d1a743cde7f78dc266de3bddac20116b5"
+    "results/v33_dev/anatomy.json",
+    "f181726d79fb3150638aa29642585dcd72f0078a5fc2f16f2fd031d80b2beb0d"
+   ],
+   [
+    "results/v33_dev/cost_sensitivity.json",
+    "3915a9bd2e94aedc351af47869d524bcf1c0e86e044446094b0ecfeccaded1d2"
+   ],
+   [
+    "results/v33_dev/fund_type_comparison.json",
+    "e1ecc11df56a0049435a168ab0c2ea840a613f42491bafc882e017bde70e8205"
+   ],
+   [
+    "results/v33_dev/headline_metrics.json",
+    "b09f239032db62196602447e8d1d780286b5c2674e8e85d02062beab946d0fb1"
+   ],
+   [
+    "results/v33_dev/pairs_trading_results_2023_2025_unbiased.json",
+    "0209861c37c3bb97bd9a2f79723490956a4a35af20462a396ec5493622f06b21"
+   ],
+   [
+    "results/v33_dev/price_fetch_manifest.json",
+    "b00c6c31d28daee14f46797c3bc3e9f2239c1120e9fdf31bdece2fa94c3d4fd8"
+   ],
+   [
+    "results/validation/synthetic_validation.json",
+    "1dd037fdb4d53d4946b3d5182226c45f0cd1f29171e85451ec7f7dcb2ba4485b"
    ],
    [
     "results/variant_family/declaration.json",
     "028b1a29935565931fbe191ac578d8f2756d36b1ddc1d7ecb4833b8f7ca66add"
    ],
    [
-    "results/v32_dev/price_fetch_manifest.json",
-    "5f6b142038e794ebf767243c9f3f0ffd5111e5915141039fc5564ab1e85a00b5"
+    "results/v32_dev/universe_meta.json",
+    "af2bc3d41d0b2cee0381c6479baa144d1a743cde7f78dc266de3bddac20116b5"
    ],
    [
     "reference/universe/index.json",
@@ -1074,29 +1555,119 @@
    ],
    [
     "index.html",
-    "887ef32af50a44688c288955c73f05cbae85cea9ee3a5bbc408e75e495dadfb3"
+    "3fcc3f0d796b2c8854ecabd882a0950b44f6af0458b149890b6d2b23bd3f923c"
+   ]
+  ],
+  "spec": [
+   [
+    "Universe",
+    "Russell 3000 members as held by the iShares Russell 3000 ETF (IWV), from its quarterly SEC N-PORT filings: the latest snapshot whose period ends on or before each formation date, used from its period date, about two months before the filing was public (IWV's holdings stand in for the index membership FTSE Russell had already published). Holdings mapped to tickers with OpenFIGI and checked against N-PORT's own value per share. Daily prices 2020–2025: price history for 82.2% of the requested symbols; 14.2% no longer served by the vendor (HTTP 404) and 3.6% failed the fetch or the data checks; the fetch-coverage rule, which counts 404s and failed data checks as resolved, is met at 98.8%. Screens on point-in-time price (at least $5, anchored to N-PORT) and dollar volume (at least $10M a day), volatility and missing data; the 500 most liquid enter the pair search."
+   ],
+   [
+    "Selection",
+    "Pairs within one Fama–French 49 industry (SEC SIC codes); positive return correlation ≥ 0.25; two-direction Engle–Granger p < 0.05 (Bonferroni across directions); half-life 4–25 days on the cointegrating spread; quality score > 0.4. The whole selection re-run every 126 trading days on the trailing three years; open positions run off."
+   ],
+   [
+    "Spread",
+    "Two-state Kalman filter (slope and intercept) on log prices centred on their burn-in means, so β is a hedge ratio and signals are invariant to vendor back-adjustment."
+   ],
+   [
+    "Rule",
+    "One β-locked z-score against its mean and standard deviation over the last 30–60 bars, frozen at the signal. Entry |z| ≥ 1.8; target once z reverts past −0.5 (long) or +0.5 (short); stop 1.5 further against; time stop max(10, min(⌊2.5 × half-life⌋, 25)) days. Gates: pair quality ≥ 0.55, 20-day correlation ≥ 0.20, β in [0.25, 4], a 30-day pause after three consecutive losing trades on a pair. No regime gate."
+   ],
+   [
+    "Book",
+    "$100M notional; 3–10% of equity per pair before risk scaling (2.2% to 10.0% as traded), scaled by the win rate of the last five closed trades and the volatility of recent daily returns; 30% gross cap on exposure at entry; at most 8 entries a day, ordered by signal strength × pair quality; no shared legs; daily mark-to-market; drawdown, daily-loss and exposure kill switch."
+   ],
+   [
+    "Costs",
+    "Per execution: $0.002 a share (minimum $0.50), half the quoted spread by 20-day dollar ADV, square-root impact (Y = 0.3, cap 50 bp); one 0.38% a year borrow fee on the short notional, charged over the days held."
+   ],
+   [
+    "Walk-forward",
+    "The same rule on the same formations from 14 February 2023, one continuous simulation cut into 63-day test windows; there is no model to refit."
+   ],
+   [
+    "Evidence",
+    "Probabilistic and deflated Sharpe, Newey–West t, Politis–White block bootstrap, power and upper bounds under a non-normal AR(1) variance, a Bonferroni Sharpe hurdle for 32 trials and two field-wide hurdles, Ledoit–Wolf Sharpe-difference test; eight-factor attribution; the anatomy of the result (shortfall, exit race, decay, persistence, half-lives, capacity, cash); Gatev distance method and random pairs under the same costs and t + 1 fills."
+   ]
+  ],
+  "trials": [
+   [
+    "v32_dev",
+    "v32 · dev",
+    "711b18c",
+    "−0.07",
+    "−0.30",
+    "161",
+    "−0.33"
+   ],
+   [
+    "v33_dev_explore",
+    "v33 · dev",
+    "6523ace*",
+    "−0.51",
+    "−3.23",
+    "242",
+    "+0.13"
+   ],
+   [
+    "rehearsal2025_unscripted",
+    "v33 · 2025",
+    "82ba529",
+    "−1.06",
+    "−2.25",
+    "97",
+    "—"
+   ],
+   [
+    "rehearsal2025_unscripted",
+    "v32 · 2025",
+    "9cf35cf",
+    "−1.07",
+    "−0.44",
+    "12",
+    "—"
+   ],
+   [
+    "v33_dev",
+    "v33 · dev",
+    "7442705",
+    "−0.06",
+    "−0.39",
+    "213",
+    "−1.04"
+   ],
+   [
+    "residual_dev",
+    "Avellaneda–Lee · dev",
+    "7442705",
+    "−0.28",
+    "−3.37",
+    "10,916",
+    "—"
    ]
   ],
   "validation": [
    [
     "Planted cointegrated pairs (OU spreads, half-life 5–14 days)",
     "a large positive gross edge",
-    "pending"
+    "4,692 trades, +82.6 bp gross per trade (t = 34.8), median net Sharpe 3.47"
    ],
    [
     "Correlated, not cointegrated pairs (random-walk spread), forced into the universe",
     "no edge; a positive mean would be look-ahead",
-    "pending"
+    "5,450 trades, +1.7 bp gross per trade (t = 0.65)"
    ],
    [
     "Kalman hedge ratio against the true slope",
     "recover it",
-    "pending"
+    "median absolute error 0.032 (90th percentile 0.074)"
    ],
    [
     "Pair selection with planted pairs among unrelated names",
     "find them; admit at most 5% of unrelated pairs",
-    "pending"
+    "100% of planted pairs found; 3.3 unrelated pairs admitted per market with planted pairs, 2.6 per market with none; the worst market admitted 2.96% of its unrelated pairs"
    ]
   ],
   "variants": [
@@ -1160,124 +1731,124 @@
   "windows": [
    [
     "1",
-    "11 Feb 2022",
     "14 Feb 2023",
     "15 May 2023",
     "63",
-    "−1.68",
-    "−2.50",
-    "42",
-    "0.511"
+    "−1.67",
+    "−3.02",
+    "28",
+    "35.7",
+    "−1.87"
    ],
    [
     "2",
-    "13 May 2022",
     "16 May 2023",
     "15 Aug 2023",
     "63",
-    "+1.30",
-    "+2.39",
-    "41",
-    "0.506"
+    "−0.58",
+    "−1.45",
+    "22",
+    "50.0",
+    "−0.68"
    ],
    [
     "3",
-    "15 Aug 2022",
     "16 Aug 2023",
     "13 Nov 2023",
     "63",
-    "−0.14",
-    "−0.27",
-    "34",
-    "0.557"
+    "−1.64",
+    "−3.32",
+    "22",
+    "27.3",
+    "−1.87"
    ],
    [
     "4",
-    "11 Nov 2022",
     "14 Nov 2023",
     "14 Feb 2024",
     "63",
-    "−0.23",
-    "−0.44",
-    "22",
-    "0.565"
+    "+0.14",
+    "+0.33",
+    "20",
+    "45.0",
+    "−0.91"
    ],
    [
     "5",
-    "14 Feb 2023",
     "15 Feb 2024",
     "15 May 2024",
     "63",
-    "+0.09",
-    "+0.20",
+    "−1.65",
+    "−3.47",
     "23",
-    "0.518"
+    "39.1",
+    "−1.85"
    ],
    [
     "6",
-    "16 May 2023",
     "16 May 2024",
     "15 Aug 2024",
     "63",
-    "−0.31",
-    "−0.46",
-    "31",
-    "0.517"
+    "+1.10",
+    "+1.89",
+    "21",
+    "38.1",
+    "−0.73"
    ],
    [
     "7",
-    "16 Aug 2023",
     "16 Aug 2024",
     "13 Nov 2024",
     "63",
-    "−0.15",
-    "−0.33",
-    "13",
-    "0.503"
+    "+0.58",
+    "+1.24",
+    "22",
+    "59.1",
+    "−0.55"
    ],
    [
     "8",
-    "14 Nov 2023",
     "14 Nov 2024",
     "18 Feb 2025",
     "63",
-    "−0.12",
-    "−2.85",
-    "0",
-    "0.525"
+    "−0.76",
+    "−1.42",
+    "18",
+    "61.1",
+    "−1.19"
    ],
    [
     "9",
-    "15 Feb 2024",
     "19 Feb 2025",
     "19 May 2025",
     "63",
-    "0.00",
-    "—",
-    "0",
-    "0.560"
+    "+0.73",
+    "+0.80",
+    "31",
+    "41.9",
+    "−1.75"
    ],
    [
     "10",
-    "16 May 2024",
     "20 May 2025",
     "19 Aug 2025",
     "63",
-    "−0.73",
-    "−2.80",
-    "1",
-    "0.487"
+    "−1.28",
+    "−2.62",
+    "24",
+    "45.8",
+    "−1.52"
    ],
    [
     "11",
-    "16 Aug 2024",
     "20 Aug 2025",
-    "12 Dec 2025",
-    "81",
-    "+0.24",
-    "+0.50",
-    "12",
-    "0.497"
+    "19 Dec 2025",
+    "86",
+    "−1.34",
+    "−2.42",
+    "25",
+    "48.0",
+    "−1.73"
    ]
   ]
  },
@@ -1286,17 +1857,11 @@
   "paper.holdout.lo": "pending (sealed until the pre-registration is filed)",
   "paper.holdout.p": "pending (sealed until the pre-registration is filed)",
   "paper.holdout.sharpe": "pending (sealed until the pre-registration is filed)",
-  "paper.residual.hi": "pending (v33 development run)",
-  "paper.residual.lo": "pending (v33 development run)",
-  "paper.residual.p": "pending (v33 development run)",
-  "paper.residual.ret_pct": "pending (v33 development run)",
-  "paper.residual.sharpe": "pending (v33 development run)",
-  "paper.residual.trades": "pending (v33 development run)",
-  "paper.snooping.effective_trials": "pending (v33 development run)",
-  "paper.snooping.mcs_included": "pending (v33 development run)",
-  "paper.snooping.pbo_pct": "pending (v33 development run)",
-  "paper.snooping.reality_check_p": "pending (v33 development run)",
-  "paper.snooping.romano_wolf_rejected": "pending (v33 development run)",
-  "paper.snooping.spa_p": "pending (v33 development run)"
+  "paper.snooping.effective_trials": "pending (the declared variant family's run)",
+  "paper.snooping.mcs_included": "pending (the declared variant family's run)",
+  "paper.snooping.pbo_pct": "pending (the declared variant family's run)",
+  "paper.snooping.reality_check_p": "pending (the declared variant family's run)",
+  "paper.snooping.romano_wolf_rejected": "pending (the declared variant family's run)",
+  "paper.snooping.spa_p": "pending (the declared variant family's run)"
  }
 }
