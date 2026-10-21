@@ -22,12 +22,22 @@ S1 (v33) run, built on the same point-in-time universe rule. A statistic a serie
 have (a strategy that never trades has no Sharpe standard error) is null.
 
 The inputs are checked before anything is computed, and a failed check exits non-zero
-without a report: each run's calendar and calendar hash against study_config, each pairs
-run's profile hash and the residual run's parameter hash against the code
-(residual_statarb.ResidualStatArbParams), complete runs without non-default switches from
-a clean tree, one commit for every run (--expect-commit), one price cache for every run,
-finite returns on identical trading dates inside the calendar, and, on the holdout,
-exactly the three registered strategies.
+without a report:
+- each strategy ID is a run of its registered kind (v33_pairs a v33 pairs run, v32_pairs
+  a v32 pairs run, avellaneda_lee the residual arm), and on the holdout exactly the three
+  registered strategies are given;
+- each run's calendar and calendar hash are study_config's, each pairs run's profile hash
+  is its profile's, and the residual run's parameter hash is the registered one
+  (study_config.RESIDUAL_PARAMS_HASH, not the hash of the code being run);
+- every run is complete, has no non-default switch and comes from a clean tree, and all
+  come from one commit (--expect-commit);
+- all runs read one price cache and one macro cache; S1 and S2 read one membership index,
+  S2 from the calendar's universe.reference_root, with the committed sector map
+  (reference/industry_ff49.csv); no formation used an IWV snapshot filed after the
+  calendar's data_end;
+- every ranking day of S2 selected as many names as S1's rule (none missing for want of a
+  sector ETF, never zero), and S2 traded;
+- the returns are finite, on identical trading dates inside the calendar.
 
 usage: python scripts/evaluate_holdout.py --pairs v33=DIR --pairs v32=DIR --residual FILE
                                           [--calendar holdout2026] [--expect-commit SHA]
@@ -37,6 +47,7 @@ DIR is a run's output directory (results JSON + headline); FILE the residual arm
 import argparse
 import hashlib
 import json
+import os
 import pathlib
 import sys
 
@@ -46,14 +57,14 @@ from scipy import stats
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from pairs_trading import universe  # noqa: E402
 from pairs_trading.benchmark import empirical_percentile  # noqa: E402
 from pairs_trading.power import power_report  # noqa: E402
-from pairs_trading.residual_statarb import ResidualStatArbParams  # noqa: E402
 from pairs_trading.significance import (  # noqa: E402
     align_return_series, annualized_sharpe, block_bootstrap_sharpe_ci, hac_tstat_mean,
     lo_annualized_sharpe, probabilistic_sharpe_ratio, sharpe_difference_test,
 )
-from pairs_trading.study_config import CALENDARS, PROFILES  # noqa: E402
+from pairs_trading.study_config import CALENDARS, PROFILES, RESIDUAL_PARAMS_HASH  # noqa: E402
 
 ALPHA = 0.05
 RESULTS_FILE = 'pairs_trading_results_2023_2025_unbiased.json'   # historical name, any period
@@ -61,6 +72,9 @@ HOLDOUT = 'holdout2026'
 REGISTERED = ('v33_pairs', 'avellaneda_lee', 'v32_pairs')       # S1, S2, S3
 CONFIRMATORY = ('v33_pairs', 'avellaneda_lee')                  # the Holm family; S3 descriptive
 BASELINE_ARM = 'v33_pairs'          # whose baselines the residual strategy is compared with
+# What each registered ID must be: (kind, pairs profile or residual strategy).
+IDENTITY = {'v33_pairs': ('pairs', 'v33'), 'v32_pairs': ('pairs', 'v32'), 'avellaneda_lee': ('residual', 'avellaneda_lee')}
+SAME_MEMBERSHIP = ('v33_pairs', 'avellaneda_lee')   # S1 and S2: one point-in-time membership index
 
 
 def holm(pvalues: dict) -> dict:
@@ -142,6 +156,17 @@ def _sha256(path: pathlib.Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _data_sha(rc: dict, key: str):
+    return ((rc.get('data') or {}).get(key) or {}).get('sha256')
+
+
+def _repo_relative(path) -> str:
+    """A path as the residual script records it: relative to the repository when inside it,
+    else its name."""
+    path = os.path.abspath(path)
+    return os.path.relpath(path, ROOT) if path.startswith(str(ROOT) + os.sep) else os.path.basename(path)
+
+
 def load_pairs_run(directory: pathlib.Path) -> dict:
     path, head_path = directory / RESULTS_FILE, directory / 'headline_metrics.json'
     doc = json.loads(path.read_text())
@@ -182,7 +207,9 @@ def load_pairs_run(directory: pathlib.Path) -> dict:
                            'calendar_hash': study.get('calendar_hash'),
                            'complete': head.get('complete'),
                            'non_default_switches': head.get('non_default_switches'),
-                           'price_cache_sha256': ((rc.get('data') or {}).get('price_cache') or {}).get('sha256')},
+                           'price_cache_sha256': _data_sha(rc, 'price_cache'),
+                           'macro_cache_sha256': _data_sha(rc, 'macro_cache'),
+                           'universe_file_sha256': _data_sha(rc, 'universe_file')},
             'files': {p.name: _sha256(p) for p in (path, head_path) if p.exists()},
             'commit': rc.get('git_commit'), 'kind': 'pairs'}
 
@@ -194,6 +221,7 @@ def load_residual_run(path: pathlib.Path) -> dict:
     rc = doc.get('run_config') or {}
     study = rc.get('study') or {}
     summary = doc.get('summary') or {}
+    sector_map = rc.get('sector_map') or {}
     gross_exposure = summary.get('avg_gross_exposure'), summary.get('max_gross_exposure')
     return {'dates': doc['daily_dates'], 'net': doc['daily_net_returns'],
             'gross': doc.get('daily_gross_returns'), 'trades': doc.get('total_trades'),
@@ -209,7 +237,14 @@ def load_residual_run(path: pathlib.Path) -> dict:
                            'calendar_hash': study.get('calendar_hash'),
                            'complete': doc.get('complete'),
                            'non_default_switches': doc.get('non_default_switches'),
-                           'price_cache_sha256': ((rc.get('data') or {}).get('price_cache') or {}).get('sha256')},
+                           'price_cache_sha256': _data_sha(rc, 'price_cache'),
+                           'macro_cache_sha256': _data_sha(rc, 'macro_cache'),
+                           'universe_file_sha256': _data_sha(rc, 'universe_file'),
+                           'reference_root': (rc.get('universe') or {}).get('reference_root'),
+                           'sector_map_registered': sector_map.get('registered'),
+                           'sector_map_sha256': (sector_map.get('file') or {}).get('sha256')},
+            'rankings': (doc.get('universe') or {}).get('rankings'),
+            'universe_size': (doc.get('params') or {}).get('universe_size'),
             'files': {path.name: _sha256(path)},
             'commit': rc.get('git_commit'), 'kind': 'residual'}
 
@@ -227,12 +262,24 @@ def check_runs(runs: dict, calendar: str = HOLDOUT, expect_commit: str = None) -
         bad.append(f"the runs are not from one commit: {commits}")
     elif expect_commit and set(commits.values()) != {expect_commit}:
         bad.append(f"the runs are from {commits}, not the expected commit {expect_commit}")
-    caches = {k: (v.get('provenance') or {}).get('price_cache_sha256') for k, v in runs.items()}
-    if None in caches.values() or len(set(caches.values())) > 1:
-        bad.append(f"the runs did not read one price cache: {caches}")
+    for key, what in (('price_cache_sha256', 'one price cache'), ('macro_cache_sha256', 'one macro cache')):
+        shas = {k: (v.get('provenance') or {}).get(key) for k, v in runs.items()}
+        if None in shas.values() or len(set(shas.values())) > 1:
+            bad.append(f"the runs did not read {what}: {shas}")
+    index = {k: (runs[k].get('provenance') or {}).get('universe_file_sha256') for k in SAME_MEMBERSHIP if k in runs}
+    if len(index) > 1 and (None in index.values() or len(set(index.values())) > 1):
+        bad.append(f"S1 and S2 did not read one membership index: {index}")
     first = None
     for k, v in runs.items():
         p = v.get('provenance') or {}
+        if k in IDENTITY:
+            name = p.get('strategy') if v.get('kind') == 'residual' else p.get('profile')
+            if (v.get('kind'), name) != IDENTITY[k]:
+                bad.append(f"{k}: a {v.get('kind')} run of {name}, not the registered {' run of '.join(IDENTITY[k])}")
+        filed_late = [g.get('snapshot') for g in v.get('universe_by_formation') or []
+                      if str(g.get('snapshot_filed') or '') > cal.data_end]
+        if filed_late:
+            bad.append(f"{k}: snapshots {filed_late} filed after the calendar's data_end {cal.data_end}")
         net = np.asarray(v['net'], dtype=float)
         dates = _days(v['dates'])
         if net.size == 0 or not np.all(np.isfinite(net)) or len(dates) != net.size:
@@ -244,9 +291,7 @@ def check_runs(runs: dict, calendar: str = HOLDOUT, expect_commit: str = None) -
         if p.get('calendar_hash') != cal.config_hash():
             bad.append(f"{k}: calendar hash {p.get('calendar_hash')}, study_config's is {cal.config_hash()}")
         if v.get('kind') == 'residual':
-            if p.get('params_hash') != ResidualStatArbParams().config_hash():
-                bad.append(f"{k}: parameter hash {p.get('params_hash')}, the residual arm's is "
-                           f"{ResidualStatArbParams().config_hash()}")
+            bad += [f"{k}: {problem}" for problem in residual_problems(v, cal)]
         else:
             profile = PROFILES.get(p.get('profile'))
             if profile is None or p.get('profile_hash') != profile.config_hash():
@@ -261,6 +306,31 @@ def check_runs(runs: dict, calendar: str = HOLDOUT, expect_commit: str = None) -
             first = (k, dates)
         elif dates != first[1]:
             bad.append(f"{k}: trading dates differ from {first[0]}'s")
+    return bad
+
+
+def residual_problems(run: dict, cal) -> list:
+    """Why a residual export is not the registered arm S2 on calendar `cal` (beyond the
+    checks every run gets)."""
+    p, bad = run.get('provenance') or {}, []
+    if p.get('params_hash') != RESIDUAL_PARAMS_HASH:
+        bad.append(f"parameter hash {p.get('params_hash')}, the registered arm's is {RESIDUAL_PARAMS_HASH}")
+    committed = universe.REFERENCE_DIR / 'industry_ff49.csv'
+    if (p.get('sector_map_registered') is not True or not committed.exists()
+            or p.get('sector_map_sha256') != _sha256(committed)):
+        bad.append(f"sector map sha256 {p.get('sector_map_sha256')} (registered {p.get('sector_map_registered')}), "
+                   f"not the committed {_repo_relative(committed)}")
+    root = _repo_relative(universe.reference_root(cal))
+    if p.get('reference_root') != root:
+        bad.append(f"membership read from {p.get('reference_root')}, the calendar's is {root}")
+    size, rankings = run.get('universe_size'), run.get('rankings') or []
+    short = [r.get('date') for r in rankings
+             if not r.get('selected') or size is None or r.get('screened') is None
+             or r['selected'] < min(size, r['screened'])]
+    if not rankings or short:
+        bad.append(f"ranking days {short or 'none'} selected no names or fewer than S1's rule")
+    if not run.get('trades'):
+        bad.append('no trades')
     return bad
 
 

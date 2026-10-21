@@ -37,7 +37,7 @@ from typing import Dict, List, Optional, Tuple
 
 from pairs_trading.config import pd, np, logging, SECTOR_ETFS
 from pairs_trading.data_processor import EnhancedRussell3000DataProcessor
-from pairs_trading.pair_selector import FixedPrimeFundPairSelector
+from pairs_trading.pair_selector import FixedPrimeFundPairSelector, formation_window
 from pairs_trading.multi_agent_system import FixedTransformerMultiAgentSystem, classifier_skill
 from pairs_trading.position_sizer import FixedPrimeFundPositionSizer
 from pairs_trading.risk_manager import FixedPrimeFundRiskManager
@@ -1597,8 +1597,7 @@ class CompleteFixedRussell3000TradingSystem:
         for sym, df in self.processed_data.items():
             if len(df.index) == 0 or (members is not None and sym not in members):
                 continue
-            cut = _align_ts(resel_date, df.index[0])
-            w = df[(df.index > cut - pd.Timedelta(days=window_days)) & (df.index <= cut)]
+            w = formation_window(df, resel_date, window_days)
             if len(w) >= 100:
                 window_data[sym] = w
         selector = self._new_pair_selector()

@@ -155,13 +155,14 @@ s2() { "$PY" scripts/run_residual_statarb.py --calendar $CAL --out ${OUT}_residu
 V33="${OUT}_v33/$RESULTS_JSON ${OUT}_v33/headline_metrics.json"
 V32="${OUT}_v32/$RESULTS_JSON ${OUT}_v32/headline_metrics.json"
 RESIDUAL="${OUT}_residual/residual_statarb.json"
-run_step v33 "$CACHES $V33" s1
+run_step v33 "$UNIVERSE/index.json $CACHES $V33" s1
 run_step v32 "$CACHES $V32" s3
-run_step residual "$CACHES $RESIDUAL" s2
+run_step residual "$UNIVERSE/index.json $CACHES $RESIDUAL" s2
 
-# 4. The registered test: one-sided HAC t per strategy, Holm across the three, on inputs
-#    checked to be these runs (one commit, one cache, the calendar, the profiles and the
-#    residual arm's parameters).
+# 4. The registered test: one-sided HAC t per strategy, Holm across S1 and S2 (S3 reported,
+#    not tested), on inputs checked to be these runs (one commit, one price and macro cache,
+#    one membership for S1 and S2, the calendar, the profiles and the residual arm's
+#    registered parameters).
 evaluate() {
     mkdir -p "$RES"
     "$PY" scripts/evaluate_holdout.py --calendar $CAL --expect-commit "$HEAD_COMMIT" \

@@ -6,10 +6,16 @@ price and volume after t changes, with and without the point-in-time gate); t+1 
 the universe gate, the run-off after `end` and missing bars; known answers on synthetic
 markets (a planted OU residual must give a large positive gross edge, a random-walk
 residual none); ETF hedge netting, exposures and cost accounting on hand-built books;
-S1's cost model and point-in-time membership rule (a non-member never enters; the
-membership changes only where a snapshot takes effect); the run script on a study
-calendar laid out from synthetic caches (the calendar's bounds, the export the evaluator
-reads, nothing fetched, refusals of incomplete or foreign caches and of other code).
+S1's cost model and universe rule (on the days S1 re-forms, the names S1's own formation
+code screens; each screen, the window's bounds and the point-in-time price; a screened
+name without a sector ETF passed over; with the cap and the screens binding, decisions
+dated <= t unchanged by data after t) and point-in-time membership (a non-member never
+enters; the membership changes only where a snapshot takes effect); the registered
+parameters, value by value and by their hash; the run script on a study calendar laid
+out from synthetic caches (the calendar's bounds, the export the evaluator reads, each
+snapshot followed and none filed after the calendar's end read, a sealed-period
+calendar's membership read from data/, the sector-ETF gap, nothing fetched, refusals of
+incomplete or foreign caches, of other code and of a universe short of S1's rule).
 """
 import hashlib
 import importlib.util
@@ -36,6 +42,7 @@ from pairs_trading.transaction_costs import EnhancedPrimeFundTransactionCostMode
 from pairs_trading.universe import PITUniverse, sector_etf_map
 
 START, END = '2021-07-01', '2023-12-31'
+MARKET_START = '2020-01-01'        # S1's screen needs 300 bars in the formation window by START
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPT = os.path.join(REPO, 'scripts', 'run_residual_statarb.py')
 
@@ -49,7 +56,7 @@ def _script():
 
 @pytest.fixture(scope='module')
 def ou_run():
-    frames, etfs, smap, _ = make_residual_market(seed=0, residual='ou')
+    frames, etfs, smap, _ = make_residual_market(seed=0, residual='ou', start=MARKET_START)
     return frames, etfs, smap, run_residual_statarb(frames, etfs, smap, START, END)
 
 
@@ -132,6 +139,15 @@ def test_rolling_fit_uses_the_trailing_window_ending_at_each_row():
     assert np.isnan(fits['m'][69]).all() and not fits['estimable'][69].any()
 
 
+def test_the_s_score_is_centred_on_its_own_days_universe():
+    m = np.array([[0.02, -0.01, 0.05], [0.02, -0.01, 0.05]])
+    sigma = np.full((2, 3), 0.01)
+    universe = np.array([[True, True, False], [True, True, True]])
+    s = centred_s_scores(m, sigma, np.ones((2, 3), dtype=bool), universe)
+    np.testing.assert_allclose(s[0], -(m[0] - 0.005) / 0.01)
+    np.testing.assert_allclose(s[1], -(m[1] - 0.02) / 0.01)
+
+
 def test_s_score_is_centred_over_accepted_universe_members():
     # A&L eq. 22: s = -(m - <m>) / sigma_eq, <m> over the universe's accepted models
     m = np.array([[0.02, -0.01, 0.05, 0.30]])
@@ -166,43 +182,130 @@ def _frames(close: dict, volume: dict, start='2024-01-02'):
                             index=idx) for s in close}, idx.tz_localize(None)
 
 
-def test_liquidity_universe_ranks_on_past_dollar_volume_with_a_price_floor():
-    n = 150
-    close = {'A': np.full(n, 4.0), 'B': np.full(n, 50.0), 'C': np.full(n, 20.0), 'D': np.full(n, 10.0)}
-    vol = {'A': np.full(n, 1e7), 'B': np.full(n, 1e5), 'C': np.full(n, 2e5), 'D': np.full(n, 3e5)}
-    vol['D'][100:] = 1e3                           # D dries up from row 100 on
-    frames, dates = _frames(close, vol)
-    etf = {'XLK': pd.Series(np.full(n, 100.0), index=dates)}
-    market = ResidualMarket.from_prices(frames, etf, dict.fromkeys(close, 'XLK'))
-    uni = LiquidityUniverse(market, size=2, rebalance_every=21, lookback=30, min_history=10, anchor=dates[70])
-    # A ($40M/day) is the most liquid but trades below $5; then D $3M, C $4M, B $5M: B and C
-    assert uni(dates[70]) == ['B', 'C']
-    assert uni.ranking_day(dates[90]) == 70 and uni.ranking_day(dates[91]) == 91
-    assert uni.ranking_day(dates[60]) == 49 and uni(dates[5]) == []
-    # D's collapse at row 100 is invisible until a ranking day sees it (no look-ahead)
-    vol_d_up = dict(vol, D=np.where(np.arange(n) >= 100, 1e7, 3e5))
-    market2 = ResidualMarket.from_prices(_frames(close, vol_d_up)[0], etf, dict.fromkeys(close, 'XLK'))
-    uni2 = LiquidityUniverse(market2, size=2, rebalance_every=21, lookback=30, min_history=10, anchor=dates[70])
-    for d in dates[70:112]:
-        assert uni2(d) == uni(d)
-    assert uni2(dates[112]) == ['B', 'D']
+def _screen_market(seed=7):
+    """make_residual_market with one name failing each of S1's screens and three that test
+    its window and its prices, every one of them made the most liquid so that only the
+    screen can keep it out of a 12-name universe:
+      names[0] annualised volatility above 80%      names[1] mean point-in-time price < $5
+      names[2] dollar volume < $10M a day           names[3] fewer than 300 bars
+      names[4] 15% of closes missing
+      names[5] 25% daily moves over its first 120 bars only: out while they are inside the
+               1095-day window, in once they have left it
+      names[6] $4 adjusted, $40 point in time: a 10:1 split on its last bar
+      names[7] 15% daily moves after row 701 only: in on every ranking day up to row 701
+      names[8] first bar on row 402: 299 bars on row 700, the 300th on row 701"""
+    frames, etfs, smap, _ = make_residual_market(seed=seed, residual='ou', start=MARKET_START)
+    names = sorted(frames)
+    rng = np.random.default_rng(seed)
+    n = len(frames[names[0]])
+
+    def edit(i, close=None, volume=None):
+        f = frames[names[i]].copy()
+        if close is not None:
+            f['Close'] = close(f['Close'].to_numpy())
+        f['Volume'] = f['Volume'].to_numpy() * (40.0 if volume is None else volume)
+        frames[names[i]] = f
+
+    edit(0, close=lambda c: c * np.exp(np.cumsum(rng.normal(0, 0.06, n))))
+    edit(1, close=lambda c: c / c.max() * 4.5)
+    edit(2, volume=1e-3)
+    edit(3)
+    frames[names[3]] = frames[names[3]].iloc[-280:]
+    edit(4, close=lambda c: np.where(rng.random(n) < 0.15, np.nan, c))
+    zigzag = 0.12 * (-1.0) ** np.arange(n)                  # large moves, no drift
+    edit(5, close=lambda c: c * np.exp(np.cumsum(np.where(np.arange(n) < 120, 2 * zigzag, 0.0))))
+    edit(6, close=lambda c: c / np.median(c) * 4.0)
+    frames[names[6]]['Stock Splits'] = np.where(np.arange(n) == n - 1, 10.0, 0.0)
+    edit(7, close=lambda c: c * np.exp(np.cumsum(np.where(np.arange(n) > 701, 1.25 * zigzag, 0.0))))
+    edit(8)
+    frames[names[8]] = frames[names[8]].iloc[402:]
+    return frames, etfs, smap, names
 
 
-def test_liquidity_universe_uses_the_ranking_day_close_and_nothing_after_it():
-    # Ranking days 70, 91, 112. E, the most liquid, trades at $4 until it reaches $6 on
-    # ranking day 91 itself; D's volume jumps on row 92, the day AFTER that ranking day.
-    n = 150
-    close = {'B': np.full(n, 50.0), 'C': np.full(n, 20.0), 'D': np.full(n, 10.0), 'E': np.full(n, 4.0)}
-    vol = {'B': np.full(n, 1e5), 'C': np.full(n, 2e5), 'D': np.full(n, 3e5), 'E': np.full(n, 1e7)}
-    close['E'][91:] = 6.0
-    vol['D'][92:] = 1e7
-    frames, dates = _frames(close, vol)
-    etf = {'XLK': pd.Series(np.full(n, 100.0), index=dates)}
-    market = ResidualMarket.from_prices(frames, etf, dict.fromkeys(close, 'XLK'))
-    uni = LiquidityUniverse(market, size=2, rebalance_every=21, lookback=30, min_history=10, anchor=dates[70])
-    assert uni(dates[70]) == ['B', 'C']            # E below $5; B $5M/day, C $4M/day, D $3M/day
-    assert uni(dates[91]) == uni(dates[111]) == ['B', 'E']   # E qualifies on its day-91 close
-    assert uni(dates[112]) == ['D', 'E']           # D's jump is seen by the next ranking day
+def test_on_the_days_s1_re_forms_the_universe_is_the_names_s1_screens(monkeypatch):
+    """S1's own formation code (trading_system._full_reselection, find_quality_pairs with the
+    v33 profile's 1095-day window) and this arm's universe on the same days, the cap
+    binding: the same names, and each planted screen failure out for its own reason."""
+    import dataclasses
+    from pairs_trading.synthetic import build_system
+    frames, etfs, smap, names = _screen_market()
+    system = build_system(frames, {'VIX': None, 'sectors': etfs}, pairs=[])
+    system.profile = dataclasses.replace(PROFILES['v33'], max_universe=12)
+    made = []
+    new_selector = system._new_pair_selector
+    monkeypatch.setattr(system, '_new_pair_selector', lambda: made.append(new_selector()) or made[-1])
+    market = ResidualMarket.from_prices(system.processed_data, etfs, smap)
+    params = ResidualStatArbParams()
+    assert params.universe_window_days == PROFILES['v33'].formation_calendar_days == 1095
+    assert params.universe_size == PROFILES['v33'].max_universe
+    for k in (450, 700, 701, 1000):
+        day = market.dates[k]
+        system._full_reselection(day)
+        uni = LiquidityUniverse(market, system.processed_data, size=12, window_days=params.universe_window_days,
+                                anchor=day)
+        got = uni(day)
+        assert got == sorted(made[-1].last_quality_symbols) and len(got) == 12, k
+        assert not set(names[:5]) & set(got)                            # each fails one screen
+        assert (names[5] in got) == (day - market.dates[119] >= pd.Timedelta(days=1095))
+        assert names[6] in got                                          # the point-in-time price
+        assert (names[7] in got) == (k <= 701)                          # nothing after the day
+        assert (names[8] in got) == (k >= 701)                          # not even the next bar
+        assert uni.log[k]['screened'] == uni.log[k]['eligible'] > uni.log[k]['selected'] == 12
+    assert names[5] not in LiquidityUniverse(market, system.processed_data, size=12, anchor=market.dates[450])(
+        market.dates[450])
+
+
+def test_the_universe_passes_over_a_screened_name_without_a_sector_etf():
+    frames, etfs, smap, _ = make_residual_market(seed=7, residual='ou', start=MARKET_START)
+    full = ResidualMarket.from_prices(frames, etfs, smap)
+    day = full.dates[900]
+    s1 = LiquidityUniverse(full, frames, size=12, anchor=day)(day)
+    unhedged = s1[0]
+    market = ResidualMarket.from_prices(frames, etfs, {s: e for s, e in smap.items() if s != unhedged})
+    uni = LiquidityUniverse(market, frames, size=12, anchor=day)
+    got = uni(day)
+    assert unhedged not in got and len(got) == 12 and len(set(got) - set(s1)) == 1
+    log = uni.log[900]
+    assert log['s1_without_sector_etf'] == 1 and log['eligible'] == log['screened'] - 1 and log['selected'] == 12
+
+
+@pytest.mark.parametrize('cutoff', ['2022-06-15', '2023-03-01'])
+def test_a_binding_universe_ignores_data_after_t(cutoff):
+    """The cap and the screens bind (12 names; a third of them the most liquid but around the
+    $5 floor, so the window's mean price decides; volumes on random walks, so the liquidity
+    ranking moves) and the universe is re-ranked daily, so a look-ahead in the window, the screen, the
+    ranking or the centring of the s-score would change a decision dated <= t."""
+    frames, etfs, smap, _ = make_residual_market(seed=11, residual='ou', start=MARKET_START)
+    rng = np.random.default_rng(12)
+    for n, sym in enumerate(sorted(frames)):
+        f = frames[sym].copy()
+        f['Volume'] = f['Volume'] * np.exp(np.cumsum(rng.normal(0, 0.05, len(f))))
+        if n % 3 == 0:
+            scale = 5.0 / float(f['Close'].median())
+            for c in ('Open', 'High', 'Low', 'Close'):
+                f[c] = f[c] * scale
+            f['Volume'] = f['Volume'] * 30
+        frames[sym] = f
+    params = ResidualStatArbParams(universe_size=12, universe_rebalance_days=1)
+    base = run_residual_statarb(frames, etfs, smap, START, END, params=params)
+    pert = run_residual_statarb(perturb_after(frames, cutoff), etfs, smap, START, END, params=params)
+    cut = pd.Timestamp(cutoff)
+    rows = base['market'].dates <= cut
+    inu = base['signals'].in_universe
+    np.testing.assert_array_equal(inu[rows], pert['signals'].in_universe[rows])
+    assert len({tuple(np.flatnonzero(r)) for r in inu[rows]}) > 3          # the universe moves
+    assert {row['screened'] for row in base['universe']['rankings']} != {36}    # the screen binds
+    held = inu[rows].any(axis=0)
+    for name in ('s', 'accepted'):
+        np.testing.assert_array_equal(getattr(base['signals'], name)[rows][:, held],
+                                      getattr(pert['signals'], name)[rows][:, held])
+    assert not np.array_equal(inu[~rows], pert['signals'].in_universe[~rows])
+    n = sum(pd.Timestamp(d) <= cut for d in base['daily_dates'])
+    assert base['daily_equity'][:n] == pert['daily_equity'][:n]
+
+    def decisions(res):
+        return [_decision(t) for t in res['trades'] if pd.Timestamp(t['signal_date']) <= cut]
+    assert decisions(base) == decisions(pert) and len(decisions(base)) > 50
 
 
 def test_nasdaq_sector_map_normalises_symbols_and_skips_unmapped_sectors(tmp_path):
@@ -295,7 +398,7 @@ def _decision(t):
 
 @pytest.mark.parametrize('cutoff, gated', [('2022-06-15', False), ('2023-03-01', False), ('2022-06-15', True)])
 def test_decisions_up_to_t_ignore_all_data_after_t(cutoff, gated, tmp_path):
-    frames, etfs, smap, _ = make_residual_market(seed=11, residual='ou')
+    frames, etfs, smap, _ = make_residual_market(seed=11, residual='ou', start=MARKET_START)
     members = None
     if gated:                               # the point-in-time gate, with snapshots on both sides of t
         names = sorted(smap)
@@ -372,7 +475,7 @@ def test_orders_fill_at_the_next_close_with_shares_fixed_at_the_signal_close(ou_
 
 
 def test_only_universe_members_open_positions_and_leavers_are_still_managed():
-    frames, etfs, smap, _ = make_residual_market(seed=0, residual='ou')
+    frames, etfs, smap, _ = make_residual_market(seed=0, residual='ou', start=MARKET_START)
     names = sorted(smap)
 
     def universe(date):                                   # half the names, alternating monthly
@@ -424,7 +527,7 @@ def test_random_walk_residuals_give_no_gross_edge():
     # 0.24 with a standard deviation of 1.1. Pooled over three seeds here.
     bp, hac = [], []
     for seed in (21, 22, 23):
-        frames, etfs, smap, _ = make_residual_market(seed=seed, residual='random_walk')
+        frames, etfs, smap, _ = make_residual_market(seed=seed, residual='random_walk', start=MARKET_START)
         res = run_residual_statarb(frames, etfs, smap, START, END)
         bp += [t['gross_bp'] for t in res['trades']]
         hac.append(res['summary']['hac_t_gross'])
@@ -655,7 +758,7 @@ SNAP_DATES = ('2021-03-31', '2022-06-30', '2022-12-30')
 def _pit_market(tmp_path, seed=0):
     """make_residual_market with three membership snapshots: names[0] is never a member,
     names[1] joins on 2022-06-30, names[2] leaves on 2022-12-30."""
-    frames, etfs, smap, _ = make_residual_market(seed=seed, residual='ou')
+    frames, etfs, smap, _ = make_residual_market(seed=seed, residual='ou', start=MARKET_START)
     names = sorted(smap)
     outsider, joiner, leaver = names[:3]
     snaps = {SNAP_DATES[0]: [n for n in names if n not in (outsider, joiner)],
@@ -715,6 +818,9 @@ def test_point_in_time_membership_changes_only_where_a_snapshot_takes_effect(tmp
 CAL = CALENDARS['rehearsal2025']
 COMMIT = 'c' * 40
 SNAPSHOTS = ('2024-09-30', '2024-12-31', '2025-03-31', '2025-06-30', '2025-09-30')
+# write_reference files a snapshot 56 days after its period date: 2025-09-30's filing
+# (2025-11-25) is after the calendar's data_end, so a run on that day could not read it.
+KNOWN = SNAPSHOTS[:-1]
 
 
 def _calendar_layout(root, monkeypatch, extend_past_end=False):
@@ -763,11 +869,12 @@ def test_a_calendar_run_trades_inside_the_calendar_and_exports_the_registered_re
     rankings = doc['universe']['rankings']
     assert rankings[0]['date'] == CAL.backtest_start and len(rankings) == -(-len(days) // 21)
     for row in rankings:                    # the snapshot in force on each ranking day, its members
-        assert row['snapshot'] == max(d for d in SNAPSHOTS if d <= row['date'])
-        assert row['members'] == row['selected'] == len(names) - 1
+        assert row['snapshot'] == max(d for d in KNOWN if d <= row['date'])
+        assert row['members'] == row['with_prices'] == row['screened'] == row['eligible'] == row['selected'] \
+            == len(names) - 1 and row['s1_without_sector_etf'] == 0
     gaps = doc['universe_by_formation']     # one survivorship record per snapshot that governs
     assert [g['snapshot'] for g in gaps] == sorted({row['snapshot'] for row in rankings})
-    assert all(g['missing'] == 0 and g['members'] == len(names) - 1 for g in gaps)
+    assert all(g['missing'] == g['no_sector_etf'] == 0 and g['members'] == len(names) - 1 for g in gaps)
 
     # the record the evaluator and the publisher read
     assert doc['complete'] is True and doc['non_default_switches'] == []
@@ -781,7 +888,8 @@ def test_a_calendar_run_trades_inside_the_calendar_and_exports_the_registered_re
         with open(tmp_path / path, 'rb') as fh:
             assert rc['data'][key]['sha256'] == hashlib.sha256(fh.read()).hexdigest(), key
     assert rc['sector_map']['registered'] is True and len(rc['sector_map']['file']['sha256']) == 64
-    assert rc['universe']['snapshots'][0]['period_date'] == '2024-12-31'
+    assert [s['period_date'] for s in rc['universe']['snapshots']] == ['2024-12-31', '2025-03-31', '2025-06-30']
+    assert rc['universe']['known_by'] == CAL.data_end and rc['universe']['reference_root'] == 'reference'
     assert rc['data']['backtest_start'] == CAL.backtest_start and rc['data']['data_end'] == CAL.data_end
 
 
@@ -832,3 +940,132 @@ def test_the_run_script_refuses_a_cache_of_another_period_and_other_code(tmp_pat
     caplog.clear()
     assert mod.main(args) == 2 and 'PAIRS_EXPECTED_COMMIT' in caplog.text
     assert not (tmp_path / 'r.json').exists()
+
+
+def test_a_calendar_run_follows_each_snapshot_it_could_read(tmp_path, monkeypatch):
+    """The script's membership wiring: a joiner and a leaver between snapshots, and a name
+    that joins only in a 2025-08-29 snapshot filed on 2025-10-24, after the calendar's
+    data_end: in force on the last ranking day by its period date, but a run on the
+    calendar's last day could not have read it."""
+    from pairs_trading import universe
+    names = _calendar_layout(tmp_path, monkeypatch)
+    joiner, leaver, late = names[1], names[2], names[3]
+    snaps = {d: [n for n in names[1:] if not (n == joiner and d < '2025-03-31')
+                 and not (n == leaver and d >= '2025-06-30') and not (n == late and d < '2025-08-29')]
+             for d in SNAPSHOTS + ('2025-08-29',)}
+    ref = write_reference(tmp_path / 'reference2', snaps, sector_etf=universe.sector_etf_map())
+    index = json.loads((ref / 'universe' / 'index.json').read_text())
+    for entry in index['snapshots']:
+        if entry['period_date'] == '2025-08-29':
+            entry['filing_date'] = '2025-10-24'
+    (ref / 'universe' / 'index.json').write_text(json.dumps(index))
+    monkeypatch.setattr(universe, 'REFERENCE_DIR', ref)
+    out = tmp_path / 'r.json'
+    assert _script().main(['--calendar', CAL.name, '--out', str(out)]) == 0
+    doc = json.loads(out.read_text())
+    rankings = doc['universe']['rankings']
+    for row in rankings:
+        snap = max(d for d in KNOWN if d <= row['date'])
+        assert row['snapshot'] == snap and row['members'] == row['selected'] == len(snaps[snap]), row
+    joined = min(r['date'] for r in rankings if r['date'] >= '2025-03-31')
+    left = min(r['date'] for r in rankings if r['date'] >= '2025-06-30')
+
+    def entries(sym):
+        return [t['signal_date'] for t in doc['trades'] if t['symbol'] == sym]
+    assert entries(joiner) and min(entries(joiner)) >= joined
+    assert entries(leaver) and max(entries(leaver)) < left
+    assert rankings[-1]['date'] > '2025-08-29' and not entries(late)
+    assert [s['period_date'] for s in doc['run_config']['universe']['snapshots']][-1] == KNOWN[-1]
+
+
+def test_a_calendar_in_the_sealed_period_reads_its_membership_from_data(tmp_path, monkeypatch):
+    """A calendar reaching past SEALED_FROM reads data/<name>_reference/ (where the runbook
+    builds the sealed snapshots), never the committed reference/: synthetic caches under
+    another calendar name, nothing fetched."""
+    from pairs_trading import study_config, universe
+    from pairs_trading.synthetic import write_calendar_caches
+    names = _calendar_layout(tmp_path, monkeypatch)
+    cal = study_config.Calendar(
+        name='sealedtest', data_start='2022-01-03', data_end='2026-03-31', selection_cutoff='2025-12-31',
+        model_train_end='2025-12-31', backtest_start='2026-01-02', walk_forward=False,
+        price_cache='data/sealedtest_prices.pkl', macro_cache='data/sealedtest_macro.pkl')
+    monkeypatch.setitem(study_config.CALENDARS, cal.name, cal)
+    frames, etfs, smap, _ = make_residual_market(seed=5, residual='ou', start=cal.data_start, end=cal.data_end)
+    write_calendar_caches(tmp_path, cal, frames, {'VIX': pd.Series(20.0, index=etfs['XLK'].index), 'sectors': etfs})
+    sealed = write_reference(tmp_path / 'data' / 'sealedtest_reference',
+                             {'2025-09-30': names[1:], '2025-12-31': names[2:]}, sector_etf=smap)
+    monkeypatch.setattr(universe, 'REPO_ROOT', tmp_path)
+    assert universe.reference_root(cal) == sealed
+    mod = _script()
+    monkeypatch.setattr(mod, 'ROOT', tmp_path)
+    out = tmp_path / 'r.json'
+    assert mod.main(['--calendar', cal.name, '--out', str(out)]) == 0
+    doc = json.loads(out.read_text())
+    rc = doc['run_config']
+    assert rc['universe']['reference_root'] == 'data/sealedtest_reference'
+    assert rc['data']['universe_file']['path'] == 'data/sealedtest_reference/universe/index.json'
+    with open(sealed / 'universe' / 'index.json', 'rb') as fh:
+        assert rc['data']['universe_file']['sha256'] == hashlib.sha256(fh.read()).hexdigest()
+    assert {row['snapshot'] for row in doc['universe']['rankings']} == {'2025-12-31'}
+    assert names[1] not in {t['symbol'] for t in doc['trades']}            # not in the sealed snapshot
+    assert rc['sector_map']['file']['path'] == 'reference/industry_ff49.csv'
+
+
+def test_a_member_without_a_sector_etf_is_in_the_gap_and_a_short_universe_is_not_the_arm(tmp_path, monkeypatch,
+                                                                                        caplog):
+    """35 members pass S1's screen and one of them has no sector ETF: S1's rule selects 35
+    and the arm can hold 34, so the run is written with complete false and exits 2; the
+    member is counted in the gap of every snapshot."""
+    from pairs_trading import universe
+    names = _calendar_layout(tmp_path, monkeypatch)
+    unhedged = names[5]
+    smap = {s: e for s, e in universe.sector_etf_map().items() if s != unhedged}
+    monkeypatch.setattr(universe, 'REFERENCE_DIR', write_reference(
+        tmp_path / 'reference2', {d: names[1:] for d in SNAPSHOTS}, sector_etf=smap))
+    out = tmp_path / 'r.json'
+    assert _script().main(['--calendar', CAL.name, '--out', str(out)]) == 2
+    doc = json.loads(out.read_text())
+    assert doc['complete'] is False and doc['non_default_switches'] == []
+    assert len(doc['incomplete_reasons']) == len(doc['universe']['rankings'])
+    assert "34 names selected, S1's rule selects 35" in doc['incomplete_reasons'][0]
+    for row in doc['universe']['rankings']:
+        assert row['selected'] == row['eligible'] == row['screened'] - 1 == 34 and row['s1_without_sector_etf'] == 1
+    for g in doc['universe_by_formation']:
+        assert g['no_sector_etf'] == 1 and g['no_sector_etf_heaviest'][0][0] == unhedged
+        assert g['no_sector_etf_value_weight'] == pytest.approx(1 / 35)
+    assert 'complete false' in caplog.text
+
+
+def test_a_run_without_trades_or_with_an_empty_ranking_is_not_the_arm():
+    mod = _script()
+    params = ResidualStatArbParams()
+    res = {'universe': {'rankings': [{'date': '2026-01-02', 'selected': 500, 'screened': 1500, 'eligible': 1490}]},
+           'total_trades': 0}
+    assert mod.incomplete_reasons(res, params) == ['no trades']
+    res['total_trades'] = 9
+    assert mod.incomplete_reasons(res, params) == []
+    res['universe']['rankings'].append({'date': '2026-02-03', 'selected': 0, 'screened': 0, 'eligible': 0})
+    assert mod.incomplete_reasons(res, params) == ["2026-02-03: 0 names selected, S1's rule selects 0 "
+                                                   "(0 pass its screen, 0 of them with a sector ETF)"]
+
+
+def test_the_registered_parameters_are_a_and_l_s_and_s1_s(tmp_path, monkeypatch, caplog):
+    """A&L Sec. 4 / 4.1 and S1's universe size and formation window, pinned value by value and
+    by the hash study_config registers; the script refuses code whose defaults hash to
+    anything else."""
+    from dataclasses import asdict
+    from pairs_trading.study_config import RESIDUAL_PARAMS_HASH
+    p = ResidualStatArbParams()
+    assert asdict(p) == {'window': 60, 'kappa_min': 252 / 30, 's_open': 1.25, 's_close_short': 0.75,
+                         's_close_long': 0.50, 'position_frac': 0.005, 'universe_size': 500,
+                         'universe_rebalance_days': 21, 'universe_window_days': 1095, 'adv_days': 20,
+                         'initial_capital': 100_000_000.0}
+    assert p.config_hash() == RESIDUAL_PARAMS_HASH == '2d50e388fb12'
+    v33 = PROFILES['v33']
+    assert (p.universe_size, p.universe_window_days) == (v33.max_universe, v33.formation_calendar_days)
+    _calendar_layout(tmp_path, monkeypatch)
+    mod = _script()
+    monkeypatch.setattr(mod, 'RESIDUAL_PARAMS_HASH', 'b65a2c7e6504')        # the previous design's
+    out = tmp_path / 'r.json'
+    assert mod.main(['--calendar', CAL.name, '--out', str(out)]) == 2
+    assert 'not the registered residual arm' in caplog.text and not out.exists()

@@ -16,20 +16,27 @@ python -m pairs_trading.main --profile v33 --calendar NAME --fetch-only).
 
 Universe, S1's rule: the point-in-time Russell 3000 members of the IWV snapshot in force on
 each ranking day, read from universe.reference_root(calendar) (reference/, or
-data/<calendar>_reference/ for a calendar in the sealed period), the 500 most liquid by
-trailing point-in-time dollar volume. Stock -> sector ETF: the committed map
-reference/industry_ff49.csv (SIC -> Fama-French 49 -> SPDR). Costs: S1's cost model.
+data/<calendar>_reference/ for a calendar in the sealed period), through S1's formation
+screen on S1's three-year window, the 500 most liquid (residual_statarb.LiquidityUniverse).
+Only snapshots filed by the calendar's data_end are read: a run on that day could not
+have seen a later filing, so the dress rehearsal sees what the holdout run will. Stock ->
+sector ETF: the committed map reference/industry_ff49.csv (SIC -> Fama-French 49 -> SPDR).
+Costs: S1's cost model. The parameters must be the registered ones
+(study_config.RESIDUAL_PARAMS_HASH) or the script stops.
 
 Output (--out, default outputs/residual_statarb_<calendar>.json): the daily net and gross
 returns, gross exposure and open positions, every trade, cost totals, turnover, the
 summary and significance battery, the universe on every ranking day and its survivorship
-gap per IWV snapshot, and run_config (json_export.build_run_config: the commit and tree
-state at the start of the run, PAIRS_EXPECTED_COMMIT enforced as for the pairs pipeline;
-the calendar and its hash; the parameters and their hash; the cache fingerprints; the
-membership index and the sector map with their sha256). 'complete' and
+gap per IWV snapshot (members without prices, holdings without a ticker, and members
+with prices but no sector ETF), and run_config (json_export.build_run_config: the commit
+and tree state at the start of the run, PAIRS_EXPECTED_COMMIT enforced as for the pairs
+pipeline; the calendar and its hash; the parameters and their hash; the cache
+fingerprints; the membership index and the sector map with their sha256). 'complete' and
 'non_default_switches' play the part of a pairs run's headline: other parameters, another
 sector map or a partial cache make a sensitivity variant, which scripts/evaluate_holdout.py
-and scripts/publish_run.py refuse.
+and scripts/publish_run.py refuse. A run in which a ranking day's universe falls short of
+S1's rule (fewer names with a sector ETF than S1 would select, or none) or nothing is
+traded is written with complete false and the reasons, and the script exits 2.
 
 usage: python scripts/run_residual_statarb.py [--calendar dev|rehearsal2025|holdout2026] [--out PATH]
            [--universe-size 500] [--position-frac 0.005] [--sector-map PATH|nasdaq]
@@ -61,7 +68,7 @@ from pairs_trading.residual_statarb import (  # noqa: E402
     S1_PROFILE, ResidualStatArbParams, ff49_sector_etf_map, nasdaq_sector_etf_map, run_residual_statarb,
     s1_cost_model,
 )
-from pairs_trading.study_config import CALENDARS, get_calendar  # noqa: E402
+from pairs_trading.study_config import CALENDARS, RESIDUAL_PARAMS_HASH, get_calendar  # noqa: E402
 from pairs_trading import universe  # noqa: E402
 
 UNIVERSE_FILE = os.path.join('data', 'marketcap.csv')
@@ -116,11 +123,29 @@ def load_sector_map(choice: str = None, reference_dir=None) -> tuple:
                      'etf_counts': dict(sorted(Counter(mapping.values()).items()))}
 
 
+def snapshot_in_force(snapshots: list, date) -> str:
+    """Period date of the latest of `snapshots` (index entries, oldest first) with period
+    date <= `date`."""
+    day = _day(date)
+    eligible = [s['period_date'] for s in snapshots if _day(s['period_date']) <= day]
+    if not eligible:
+        raise ValueError(f'no IWV snapshot on or before {day.date()}')
+    return eligible[-1]
+
+
 def membership(pit: universe.PITUniverse, calendar) -> tuple:
-    """(symbols, snapshots): every member of each IWV snapshot in force on some day from the
-    calendar's backtest_start to its data_end, and those snapshots' index entries."""
-    first, last = pit.snapshot_asof(calendar.backtest_start), _day(calendar.data_end)
-    snapshots = [s for s in pit.snapshots() if first <= _day(s['period_date']) <= last]
+    """(symbols, snapshots): the IWV snapshots in force on some day from the calendar's
+    backtest_start to its data_end among those filed by data_end, their index entries, and
+    every member of them.
+
+    A snapshot is in force from its period date (universe.PITUniverse), but a run on the
+    calendar's last data date can only read the snapshots filed by then: the holdout run
+    cannot see its last quarter's, and its rehearsal does not either.
+    """
+    last = _day(calendar.data_end)
+    known = [s for s in pit.snapshots() if s.get('filing_date') and _day(s['filing_date']) <= last]
+    first = _day(snapshot_in_force(known, calendar.backtest_start))
+    snapshots = [s for s in known if first <= _day(s['period_date']) <= last]
     symbols = sorted({t for s in snapshots for t in pit.members_asof(s['period_date'])})
     return symbols, snapshots
 
@@ -183,10 +208,27 @@ def residual_switches(run_config: dict, params: ResidualStatArbParams, sector_in
     return out
 
 
-def export_payload(results: dict, run_config: dict, switches=()) -> dict:
+def incomplete_reasons(results: dict, params: ResidualStatArbParams) -> list:
+    """Why a finished run is not a run of the arm (empty: it is): a ranking day whose universe
+    is empty or smaller than S1's rule selects (min(universe_size, the names passing S1's
+    screen): too few screened names have a sector ETF), or no trade at all."""
+    out = []
+    for row in results['universe']['rankings']:
+        if not row['selected'] or row['selected'] < min(params.universe_size, row['screened']):
+            out.append(f"{row['date']}: {row['selected']} names selected, S1's rule selects "
+                       f"{min(params.universe_size, row['screened'])} ({row['screened']} pass its screen, "
+                       f"{row['eligible']} of them with a sector ETF)")
+    if not results['total_trades']:
+        out.append('no trades')
+    return out
+
+
+def export_payload(results: dict, run_config: dict, switches=(), incomplete=()) -> dict:
     """The JSON document: everything in `results` except the in-memory arrays."""
     payload = {k: v for k, v in results.items() if k not in ('signals', 'market')}
-    payload['complete'] = True
+    payload['complete'] = not incomplete
+    if incomplete:
+        payload['incomplete_reasons'] = list(incomplete)
     payload['non_default_switches'] = list(switches)
     payload['run_config'] = run_config
     return payload
@@ -197,20 +239,31 @@ def universe_record(pit: universe.PITUniverse, calendar, snapshots: list, result
 
     Each ranking row gets the period date of the snapshot in force; each snapshot's gap
     is measured on the first ranking day it governs (universe.PITUniverse.coverage, the
-    record S1 keeps per formation, under the same 'formation_date' key).
+    record S1 keeps per formation, under the same 'formation_date' key: members without
+    prices, holdings without a ticker), plus the members with prices that have no sector
+    ETF and so can never enter this arm's universe ('no_sector_etf', its index weight and
+    its ten heaviest names). The gap is the sum of the three weights.
     """
     first_day = {}
     for row in results['universe']['rankings']:
-        row['snapshot'] = str(pit.snapshot_asof(row['date']).date())
+        row['snapshot'] = snapshot_in_force(snapshots, row['date'])
         first_day.setdefault(row['snapshot'], row['date'])
-    gaps = [{'formation_date': day, **{k: v for k, v in pit.coverage(prices.keys(), day).items()
-                                        if k != 'missing_symbols'}}
-            for day in first_day.values()]
+    hedgeable = set(results['market'].symbols)
+    gaps = []
+    for snapshot, day in first_day.items():
+        cov = pit.coverage(prices.keys(), snapshot)
+        weights = pit.weights_asof(snapshot)
+        unhedged = weights.loc[[t for t in weights.index if t in prices and t not in hedgeable]]
+        gaps.append({'formation_date': day, **{k: v for k, v in cov.items() if k != 'missing_symbols'},
+                     'no_sector_etf': int(len(unhedged)), 'no_sector_etf_value_weight': float(unhedged.sum()),
+                     'no_sector_etf_heaviest': [[t, float(w)] for t, w in
+                                                sorted(unhedged.items(), key=lambda kv: (-kv[1], kv[0]))[:10]]})
     index = pit.universe_dir / 'index.json'
     fingerprint = file_fingerprint(str(index))
     fingerprint['path'] = _repo_path(index)
     info = {'source': 'point-in-time Russell 3000 membership, IWV N-PORT holdings (universe.PITUniverse)',
             'reference_root': _repo_path(universe.reference_root(calendar)), 'index': fingerprint,
+            'known_by': calendar.data_end,
             'snapshots': [{k: s.get(k) for k in ('period_date', 'filing_date', 'accession', 'file')}
                           for s in snapshots]}
     return info, gaps
@@ -237,6 +290,10 @@ def main(argv=None) -> int:
     t0 = time.time()
     try:
         record_start_provenance()           # PAIRS_EXPECTED_COMMIT: stops before any data is read
+        if ResidualStatArbParams().config_hash() != RESIDUAL_PARAMS_HASH:
+            raise RuntimeError(f'ResidualStatArbParams() hashes to {ResidualStatArbParams().config_hash()}, the '
+                               f'registered arm (study_config.RESIDUAL_PARAMS_HASH) to {RESIDUAL_PARAMS_HASH}: '
+                               'this code is not the registered residual arm')
         calendar = get_calendar(args.calendar)
         out = args.out or os.path.join('outputs', f'residual_statarb_{calendar.name}.json')
         step = DATA_STEP.format(name=calendar.name)
@@ -265,7 +322,7 @@ def main(argv=None) -> int:
 
     results = run_residual_statarb(prices, macro['sectors'], sector_map, calendar.backtest_start,
                                    calendar.data_end, params=params, cost_model=s1_cost_model(),
-                                   members=pit.members_asof)
+                                   members=lambda day: pit.members_asof(snapshot_in_force(snapshots, day)))
     universe_info, gaps = universe_record(pit, calendar, snapshots, results, prices)
     results['universe_by_formation'] = gaps
     first = min(df.index[0] for df in prices.values() if len(df))
@@ -281,7 +338,8 @@ def main(argv=None) -> int:
     if processor.never_fetched:
         run_config['data']['never_fetched_members'] = list(processor.never_fetched)
     switches = residual_switches(run_config, params, sector_info, processor.never_fetched)
-    _atomic_write_json(export_payload(results, run_config, switches), out)
+    incomplete = incomplete_reasons(results, params)
+    _atomic_write_json(export_payload(results, run_config, switches, incomplete), out)
 
     s = results['summary']
     g = s['gross_bp_per_trade']
@@ -295,6 +353,9 @@ def main(argv=None) -> int:
         log.warning(f'non-default switches (a sensitivity variant, not the registered arm): {switches}')
     log.info(f'commit {run_config["git_commit"]}{" (uncommitted changes)" if run_config["git_dirty"] else ""}; '
              f'wrote {out} ({time.time() - t0:.0f}s)')
+    if incomplete:
+        log.error(f'not a run of the arm, written with complete false: {incomplete}')
+        return 2
     return 0
 
 

@@ -1,5 +1,6 @@
 """The pre-registered holdout's machinery: scripts/evaluate_holdout.py on synthetic run
 exports (no market data), its input checks, and the reports it promises."""
+import hashlib
 import importlib.util
 import json
 import os
@@ -9,7 +10,7 @@ import pandas as pd
 import pytest
 
 from pairs_trading.residual_statarb import ResidualStatArbParams
-from pairs_trading.study_config import CALENDARS, PROFILES
+from pairs_trading.study_config import CALENDARS, PROFILES, RESIDUAL_PARAMS_HASH
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(REPO, 'scripts')
@@ -25,17 +26,21 @@ def _load(name):
 ev = _load('evaluate_holdout')
 COMMIT = 'c' * 40
 DATES = [str(d.date()) for d in pd.bdate_range('2026-01-02', periods=200)]
+INDEX, MACRO = 'e1' * 32, 'f1' * 32          # the membership index and macro cache the arms read
+with open(os.path.join(REPO, 'reference', 'industry_ff49.csv'), 'rb') as _fh:
+    SECTOR_MAP = hashlib.sha256(_fh.read()).hexdigest()          # the committed sector map
 
 
 def _pairs_export(directory, net, profile='v33', calendar='holdout2026', commit=COMMIT, dirty=False,
-                  complete=True, switches=(), dates=DATES, seed=0, cache='ab' * 32):
+                  complete=True, switches=(), dates=DATES, seed=0, cache='ab' * 32, macro=MACRO, index=INDEX):
     """A run's output directory shaped like export_testing_results_to_json + headline."""
     rng = np.random.default_rng(seed)
     os.makedirs(directory, exist_ok=True)
     study = {'profile': {'name': profile}, 'calendar': {'name': calendar},
              'profile_hash': PROFILES[profile].config_hash(), 'calendar_hash': CALENDARS[calendar].config_hash()}
     rc = {'git_commit': commit, 'git_dirty': dirty, 'run_timestamp_utc': '2026-10-21T00:00:00+00:00',
-          'study': study, 'data': {'price_cache': {'sha256': cache}}}
+          'study': study, 'data': {'price_cache': {'sha256': cache}, 'macro_cache': {'sha256': macro},
+                                   'universe_file': {'sha256': index if profile == 'v33' else 'aa' * 32}}}
     days = [{'date': d, 'daily_return_pct': float(r) * 100, 'gross_return_pct': float(r) * 100,
              'open_positions': int(r != 0)} for d, r in zip(dates, net)]
     dist = list(rng.normal(0, 0.005, len(dates)))
@@ -61,17 +66,28 @@ def _pairs_export(directory, net, profile='v33', calendar='holdout2026', commit=
 
 
 def _residual_export(path, net, commit=COMMIT, dates=DATES, calendar='holdout2026', cache='ab' * 32,
-                     params=ResidualStatArbParams(), switches=()):
+                     params=ResidualStatArbParams(), switches=(), macro=MACRO, index=INDEX, sector_map=SECTOR_MAP,
+                     registered=True, root=None, trades=40, selected=500, filed='2026-08-25'):
     """The fields of scripts/run_residual_statarb.py's export that the evaluator reads."""
     study = {'strategy': 'avellaneda_lee', 'profile': None, 'calendar': {'name': calendar},
              'calendar_hash': CALENDARS[calendar].config_hash(), 'params_hash': params.config_hash()}
+    root = root or ('data/holdout2026_reference' if calendar == 'holdout2026' else 'reference')
+    rankings = [{'date': d, 'members': 2500, 'with_prices': 2400, 'screened': 1500, 'eligible': 1490,
+                 'selected': 500, 's1_without_sector_etf': 0} for d in dates[::21]]
+    rankings[-1]['selected'] = selected
     with open(path, 'w') as f:
-        json.dump({'daily_dates': list(dates), 'daily_net_returns': [float(x) for x in net], 'total_trades': 0,
+        json.dump({'daily_dates': list(dates), 'daily_net_returns': [float(x) for x in net], 'total_trades': trades,
                    'daily_open_positions': [0] * len(dates),
                    'summary': {'avg_gross_exposure': 0.25, 'max_gross_exposure': 0.5},
+                   'universe': {'rankings': rankings}, 'params': {'universe_size': params.universe_size},
+                   'universe_by_formation': [{'formation_date': dates[0], 'snapshot': '2026-06-30',
+                                              'snapshot_filed': filed}],
                    'complete': True, 'non_default_switches': list(switches),
                    'run_config': {'git_commit': commit, 'git_dirty': False, 'study': study,
-                                  'data': {'price_cache': {'sha256': cache}}}}, f)
+                                  'data': {'price_cache': {'sha256': cache}, 'macro_cache': {'sha256': macro},
+                                           'universe_file': {'sha256': index}},
+                                  'universe': {'reference_root': root},
+                                  'sector_map': {'registered': registered, 'file': {'sha256': sector_map}}}}, f)
     return path
 
 
@@ -156,6 +172,17 @@ def test_the_baseline_comparison_reproduces_the_in_run_test():
     (dict(res={'cache': 'cd' * 32}), 'one price cache'),
     (dict(res={'params': ResidualStatArbParams(position_frac=0.01)}), 'avellaneda_lee: parameter hash'),
     (dict(res={'switches': ['PAIRS_ALLOW_PARTIAL_FETCH=1']}), 'avellaneda_lee: complete True, non-default'),
+    (dict(v32={'macro': 'cd' * 32}), 'one macro cache'),
+    (dict(res={'macro': 'cd' * 32}), 'one macro cache'),
+    (dict(res={'index': 'cd' * 32}), 'one membership index'),
+    (dict(res={'root': 'reference'}), 'avellaneda_lee: membership read from reference'),
+    (dict(res={'sector_map': '1' * 64}), 'avellaneda_lee: sector map'),
+    (dict(res={'registered': False}), 'avellaneda_lee: sector map'),
+    (dict(res={'trades': 0}), 'avellaneda_lee: no trades'),
+    (dict(res={'selected': 0}), 'avellaneda_lee: ranking days'),
+    (dict(res={'selected': 497}), "fewer than S1's rule"),
+    (dict(res={'filed': '2026-11-25'}), 'avellaneda_lee: snapshots'),
+    (dict(swap=True), 'v32_pairs: a pairs run of v33, not the registered pairs run of v32'),
 ])
 def test_inputs_that_are_not_the_registered_runs_are_refused(tmp_path, capsys, change, needle):
     rng = np.random.default_rng(4)
@@ -166,6 +193,8 @@ def test_inputs_that_are_not_the_registered_runs_are_refused(tmp_path, capsys, c
     v32 = _pairs_export(tmp_path / 'v32', net32, profile='v32', **change.get('v32', {}))
     res = _residual_export(tmp_path / 'res.json', rng.normal(0, 0.004, 200), **change.get('res', {}))
     args = _args(tmp_path, v33, v32, res)
+    if change.get('swap'):
+        args = _args(tmp_path, v33, v33, res)
     if change.get('residual') is False:
         args = args[:4] + args[6:]
     assert ev.main(args) == 2
@@ -221,17 +250,23 @@ cal = CALENDARS[args.calendar or 'holdout2026']
 dates = [str(x.date()) for x in pd.bdate_range(cal.backtest_start, cal.data_end)]
 rng = np.random.default_rng(len(args.profile or 'r'))
 net = rng.normal(0, 0.004, len(dates))
+sha = lambda path: {'sha256': hashlib.sha256(open(path, 'rb').read()).hexdigest()}
+index = f'data/{cal.name}_reference/universe/index.json'
 if kind == 'residual':
     from pairs_trading.residual_statarb import ResidualStatArbParams
     p = pathlib.Path(args.out); p.parent.mkdir(parents=True, exist_ok=True)
     study = {'strategy': 'avellaneda_lee', 'profile': None, 'calendar': {'name': cal.name},
              'calendar_hash': cal.config_hash(), 'params_hash': ResidualStatArbParams().config_hash()}
-    cache = hashlib.sha256(open(cal.price_cache, 'rb').read()).hexdigest()
+    rankings = [{'date': d, 'screened': 1500, 'eligible': 1490, 'selected': 500} for d in dates[::21]]
     p.write_text(json.dumps({'daily_dates': dates, 'daily_net_returns': list(net), 'total_trades': 3,
                              'summary': {'sharpe': 0.1, 'total_return': 0.01}, 'complete': True,
-                             'non_default_switches': [],
+                             'non_default_switches': [], 'universe': {'rankings': rankings},
+                             'params': {'universe_size': 500},
                              'run_config': {'git_commit': os.environ['PAIRS_EXPECTED_COMMIT'], 'git_dirty': False,
-                                            'study': study, 'data': {'price_cache': {'sha256': cache}}}}))
+                                            'study': study, 'universe': {'reference_root': f'data/{cal.name}_reference'},
+                                            'sector_map': {'registered': True, 'file': sha('reference/industry_ff49.csv')},
+                                            'data': {'price_cache': sha(cal.price_cache), 'macro_cache': sha(cal.macro_cache),
+                                                     'universe_file': sha(index)}}}))
     sys.exit(0)
 if args.fetch_only:
     with open(cal.price_cache, 'a') as f:
@@ -244,7 +279,8 @@ if os.environ.get('STUB_FAIL') == args.profile:
 out = pathlib.Path(args.output_dir); out.mkdir(parents=True, exist_ok=True)
 rc = {'git_commit': os.environ['PAIRS_EXPECTED_COMMIT'], 'git_dirty': False,
       'study': describe(PROFILES[args.profile], cal),
-      'data': {'price_cache': {'sha256': hashlib.sha256(open(cal.price_cache, 'rb').read()).hexdigest()}}}
+      'data': {'price_cache': sha(cal.price_cache), 'macro_cache': sha(cal.macro_cache),
+               'universe_file': sha(index if args.profile == 'v33' else 'data/marketcap.csv')}}
 days = [{'date': d, 'daily_return_pct': float(r) * 100, 'gross_return_pct': float(r) * 100, 'open_positions': 1}
         for d, r in zip(dates, net)]
 (out / 'pairs_trading_results_2023_2025_unbiased.json').write_text(json.dumps(
@@ -278,6 +314,7 @@ def frozen_repo(tmp_path):
     (repo / 'requirements.txt').write_text('# no pins in this test\n')
     (repo / 'reference').mkdir()
     (repo / 'reference' / 'README').write_text('reference data\n')
+    (repo / 'reference' / 'industry_ff49.csv').write_text('ticker,cik,sic,ff49,ff49_name,sector_etf,entity_type\n')
     (repo / 'data').mkdir()
     (repo / 'data' / 'marketcap.csv').write_text('Symbol\nAAA\n')
     _git(repo, 'init', '-q', '-b', 'main')
@@ -499,6 +536,15 @@ def three_arms(tmp_path_factory):
     return root
 
 
+@pytest.fixture
+def arms(three_arms, monkeypatch):
+    """three_arms, with its stand-in reference/ as the committed one while the evaluator runs
+    (the residual run's sector map and membership root are checked against it)."""
+    from pairs_trading import universe
+    monkeypatch.setattr(universe, 'REFERENCE_DIR', three_arms / 'reference')
+    return three_arms
+
+
 def _three_args(root, residual=None, commit=COMMIT):
     return ['--calendar', CAL.name, '--expect-commit', commit, '--pairs', f'v33_pairs={root / "out_v33"}',
             '--pairs', f'v32_pairs={root / "out_v32"}',
@@ -506,8 +552,8 @@ def _three_args(root, residual=None, commit=COMMIT):
             '--out', str(root / 'evaluation.json')]
 
 
-def test_the_evaluator_accepts_real_exports_of_all_three_arms(three_arms):
-    root = three_arms
+def test_the_evaluator_accepts_real_exports_of_all_three_arms(arms):
+    root = arms
     assert ev.main(_three_args(root)) == 0
     rep = json.loads((root / 'evaluation.json').read_text(), parse_constant=pytest.fail)
     assert sorted(rep['strategies']) == sorted(ev.REGISTERED) and rep['family'] == ['v33_pairs', 'avellaneda_lee']
@@ -522,10 +568,12 @@ def test_the_evaluator_accepts_real_exports_of_all_three_arms(three_arms):
     assert al['random_pair']['percentile'] is not None
     assert [g['snapshot'] for g in al['universe_by_formation']][0] == '2024-12-31'
     prov = rep['inputs']['runs']['avellaneda_lee']['provenance']
-    assert (prov['git_commit'], prov['calendar'], prov['params_hash']) == (
-        COMMIT, CAL.name, ResidualStatArbParams().config_hash())
-    caches = {r['provenance']['price_cache_sha256'] for r in rep['inputs']['runs'].values()}
-    assert len(caches) == 1                  # one data step: every arm read the same price cache
+    assert (prov['git_commit'], prov['calendar'], prov['params_hash']) == (COMMIT, CAL.name, RESIDUAL_PARAMS_HASH)
+    assert prov['sector_map_registered'] is True and prov['reference_root'] == 'reference'
+    runs = rep['inputs']['runs']
+    for key in ('price_cache_sha256', 'macro_cache_sha256'):   # one data step: every arm read the same caches
+        assert len({r['provenance'][key] for r in runs.values()}) == 1
+    assert prov['universe_file_sha256'] == runs['v33_pairs']['provenance']['universe_file_sha256']
     days = {k: v['period'] for k, v in rep['strategies'].items()}
     assert len({tuple(p) for p in days.values()}) == 1
 
@@ -539,24 +587,54 @@ def test_the_evaluator_accepts_real_exports_of_all_three_arms(three_arms):
     (lambda d: d.update(non_default_switches=['universe_size=300']), 'avellaneda_lee: complete'),
     (lambda d: d['run_config']['data']['price_cache'].update(sha256='0' * 64), 'one price cache'),
     (lambda d: d.update(daily_dates=d['daily_dates'][1:] + ['2025-10-20']), 'avellaneda_lee: trading dates'),
+    (lambda d: d['run_config']['data']['macro_cache'].update(sha256='0' * 64), 'one macro cache'),
+    (lambda d: d['run_config']['data']['universe_file'].update(sha256='0' * 64), 'one membership index'),
+    (lambda d: d['run_config']['universe'].update(reference_root='data/somewhere_else'),
+     'avellaneda_lee: membership read from data/somewhere_else'),
+    (lambda d: d['run_config']['sector_map']['file'].update(sha256='1' * 64), 'avellaneda_lee: sector map'),
+    (lambda d: d['run_config']['sector_map'].update(registered=False), 'avellaneda_lee: sector map'),
+    (lambda d: d['universe']['rankings'][3].update(selected=d['universe']['rankings'][3]['selected'] - 1),
+     "fewer than S1's rule"),
+    (lambda d: d.update(total_trades=0), 'avellaneda_lee: no trades'),
+    (lambda d: d['universe_by_formation'][-1].update(snapshot_filed='2025-11-25'), 'filed after'),
+    (lambda d: d['run_config']['study'].update(strategy='other'), 'avellaneda_lee: a residual run of other'),
 ])
-def test_the_evaluator_refuses_a_residual_export_that_is_not_the_registered_run(three_arms, tmp_path, capsys,
+def test_the_evaluator_refuses_a_residual_export_that_is_not_the_registered_run(arms, tmp_path, capsys,
                                                                                  edit, needle):
-    doc = json.loads((three_arms / 'out_residual' / 'residual_statarb.json').read_text())
+    doc = json.loads((arms / 'out_residual' / 'residual_statarb.json').read_text())
     edit(doc)
     altered = tmp_path / 'residual_statarb.json'
     altered.write_text(json.dumps(doc))
-    args = _three_args(three_arms, residual=altered)
+    args = _three_args(arms, residual=altered)
     args[args.index('--out') + 1] = str(tmp_path / 'evaluation.json')
     assert ev.main(args) == 2
     assert needle in capsys.readouterr().err
     assert not (tmp_path / 'evaluation.json').exists()
 
 
-def test_the_real_residual_export_is_refused_at_another_commit(three_arms, tmp_path, capsys):
-    args = _three_args(three_arms, commit='e' * 40)
+def test_the_real_residual_export_is_refused_at_another_commit(arms, tmp_path, capsys):
+    args = _three_args(arms, commit='e' * 40)
     args[args.index('--out') + 1] = str(tmp_path / 'evaluation.json')
     assert ev.main(args) == 2 and 'expected commit' in capsys.readouterr().err
+
+
+def test_each_strategy_id_must_be_its_registered_run(arms, tmp_path, capsys):
+    out = ['--out', str(tmp_path / 'evaluation.json')]
+    base = ['--calendar', CAL.name, '--expect-commit', COMMIT]
+    swapped = base + ['--pairs', f'v33_pairs={arms / "out_v32"}', '--pairs', f'v32_pairs={arms / "out_v33"}',
+                      '--residual', str(arms / 'out_residual' / 'residual_statarb.json')] + out
+    assert ev.main(swapped) == 2
+    err = capsys.readouterr().err
+    assert 'v33_pairs: a pairs run of v32, not the registered pairs run of v33' in err
+    assert 'v32_pairs: a pairs run of v33, not the registered pairs run of v32' in err
+    pairs_as_residual = base + ['--pairs', f'v33_pairs={arms / "out_v33"}', '--pairs',
+                                f'avellaneda_lee={arms / "out_v32"}'] + out
+    assert ev.main(pairs_as_residual) == 2
+    assert 'avellaneda_lee: a pairs run of v32, not the registered residual run of avellaneda_lee' in \
+        capsys.readouterr().err
+    assert not (tmp_path / 'evaluation.json').exists()
+    # on the registered IDs, the real exports pass
+    assert ev.main(_three_args(arms)[:-1] + [str(tmp_path / 'evaluation.json')]) == 0
 
 
 def test_the_residual_export_is_published_and_registered_like_a_pairs_run(three_arms, tmp_path):

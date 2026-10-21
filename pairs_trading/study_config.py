@@ -119,6 +119,14 @@ PROFILES = {
         borrow_rate=0.0038, pb_financing_spread=0.0),
 }
 
+# The residual arm S2 (pairs_trading/residual_statarb.py) is registered by the hash of its
+# parameters, ResidualStatArbParams().config_hash(): A&L's published window, kappa and
+# s-score cut-offs, the declared position size and re-ranking interval, and S1's universe
+# size and formation window. The arm's script refuses to run, and the holdout evaluator
+# refuses a run, whose parameters hash to anything else; this file cannot change in a
+# crash fix (scripts/run_holdout.sh, NEVER_FIXED).
+RESIDUAL_PARAMS_HASH = '2d50e388fb12'
+
 CALENDARS = {
     'dev': Calendar(
         name='dev', data_start='2020-01-01', data_end='2025-12-31',

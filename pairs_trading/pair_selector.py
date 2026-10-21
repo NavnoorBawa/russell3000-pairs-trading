@@ -93,6 +93,62 @@ def _test_pair_block(selector: 'FixedPrimeFundPairSelector', frames: Dict[str, p
                 for s1, s2 in pairs]
 
 
+# The symbol screen of every formation, on its window: the universe rule of the pairs
+# arms, which the residual arm applies as well (residual_statarb.LiquidityUniverse).
+SCREEN_MIN_BARS = 300
+SCREEN_MIN_PRICE = 5.0
+SCREEN_VOLATILITY = (0.05, 0.8)      # annualised, both bounds exclusive
+SCREEN_MAX_MISSING = 0.10            # fraction of missing closes, exclusive
+MIN_DOLLAR_VOLUME = 10e6
+
+
+def formation_window(data: pd.DataFrame, date, calendar_days: int) -> pd.DataFrame:
+    """The rows of `data` dated in (date - calendar_days, date]: the trailing window of a
+    formation on `date` (a naive date is read in the index's time zone)."""
+    cut = pd.Timestamp(date)
+    tz = getattr(data.index[0], 'tzinfo', None) if len(data.index) else None
+    if tz is not None and cut.tzinfo is None:
+        cut = cut.tz_localize(tz)
+    elif tz is None and cut.tzinfo is not None:
+        cut = cut.tz_localize(None)
+    return data[(data.index > cut - pd.Timedelta(days=calendar_days)) & (data.index <= cut)]
+
+
+def screen_symbols(window_data: Dict[str, pd.DataFrame],
+                   min_dollar_volume: float = MIN_DOLLAR_VOLUME) -> List[Tuple[str, float]]:
+    """[(symbol, mean point-in-time dollar volume)] of the symbols that pass the formation
+    screen, most liquid first (ties by symbol).
+
+    On each symbol's formation-window frame: >= SCREEN_MIN_BARS bars, mean point-in-time
+    close >= SCREEN_MIN_PRICE, mean point-in-time dollar volume >= min_dollar_volume,
+    annualised volatility of 'Returns' inside SCREEN_VOLATILITY, missing closes below
+    SCREEN_MAX_MISSING. PairSelector.find_quality_pairs keeps the max_universe first.
+    """
+    screened = []
+    for symbol in sorted(window_data):
+        data = window_data[symbol]
+        if len(data) < SCREEN_MIN_BARS:
+            continue
+        # v32: point-in-time (split-unadjusted) price and volume. The adjusted series
+        # divide pre-split prices (and multiply pre-split volumes) by LATER split
+        # ratios, so these level screens used to depend on future corporate actions.
+        price = data['Close_PIT'] if 'Close_PIT' in data.columns else data['Close']
+        shares = data['Volume_PIT'] if 'Volume_PIT' in data.columns else data['Volume']
+        if price.mean() < SCREEN_MIN_PRICE:
+            continue
+        dollar_volume = float((price * shares).mean())
+        if not np.isfinite(dollar_volume) or dollar_volume < min_dollar_volume:
+            continue
+        volatility = data['Returns'].std() * np.sqrt(252)
+        if not (SCREEN_VOLATILITY[0] < volatility < SCREEN_VOLATILITY[1]):
+            continue
+        if data['Close'].isnull().sum() / len(data) >= SCREEN_MAX_MISSING:
+            continue
+        screened.append((symbol, dollar_volume))
+    screened.sort(key=lambda kv: (-kv[1], kv[0]))
+    return screened
+
+
 class FixedPrimeFundPairSelector:
     """Formation-period pair selection: screens, correlation, cointegration, half-life, quality."""
 
@@ -115,7 +171,7 @@ class FixedPrimeFundPairSelector:
         # ones (a $400 stock trading 1M shares a day is $400M of daily liquidity). Every
         # symbol must clear the floor; if more than max_universe do, the most liquid
         # max_universe are kept, which keeps the all-pairs search (n^2/2 tests) bounded.
-        self.min_dollar_volume = 10e6
+        self.min_dollar_volume = MIN_DOLLAR_VOLUME
         self.max_universe = 300
         # Optional ticker -> industry map (study_config profile same_industry): when set,
         # only pairs whose two legs share an industry are tested (Do & Faff 2010); a symbol
@@ -378,32 +434,8 @@ class FixedPrimeFundPairSelector:
         # A new search starts without the previous one's outputs (the selector itself is
         # sent to the pair-test workers).
         self.selected_pairs, self.pair_statistics, self.fdr_diagnostic = [], {}, {}
-        symbols = sorted(processed_data)
-        logger.info(f"Pair selection: screening {len(symbols)} symbols")
-
-        screened = []
-        for symbol in symbols:
-            data = processed_data[symbol]
-            if len(data) < 300:
-                continue
-            # v32: point-in-time (split-unadjusted) price and volume. The adjusted series
-            # divide pre-split prices (and multiply pre-split volumes) by LATER split
-            # ratios, so these level screens used to depend on future corporate actions.
-            price = data['Close_PIT'] if 'Close_PIT' in data.columns else data['Close']
-            shares = data['Volume_PIT'] if 'Volume_PIT' in data.columns else data['Volume']
-            if price.mean() < 5.0:
-                continue
-            dollar_volume = float((price * shares).mean())
-            if not np.isfinite(dollar_volume) or dollar_volume < self.min_dollar_volume:
-                continue
-            volatility = data['Returns'].std() * np.sqrt(252)
-            if not (0.05 < volatility < 0.8):
-                continue
-            if data['Close'].isnull().sum() / len(data) >= 0.10:
-                continue
-            screened.append((symbol, dollar_volume))
-
-        screened.sort(key=lambda kv: (-kv[1], kv[0]))
+        logger.info(f"Pair selection: screening {len(processed_data)} symbols")
+        screened = screen_symbols(processed_data, self.min_dollar_volume)
         quality_symbols = sorted(sym for sym, _ in screened[:self.max_universe])
         logger.info(f"Pair selection: {len(screened)} symbols pass the screens; testing the "
                     f"{len(quality_symbols)} most liquid")
