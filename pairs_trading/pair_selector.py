@@ -219,18 +219,14 @@ class FixedPrimeFundPairSelector:
         except Exception:
             return False, 1.0
 
-    def calculate_half_life(self, data1: pd.DataFrame, data2: pd.DataFrame) -> float:
-        """Mean-reversion half-life (days) of the cointegrating spread.
+    def spread_ar1(self, data1: pd.DataFrame, data2: pd.DataFrame) -> Tuple[float, int]:
+        """AR(1) coefficient phi of the cointegrating spread, and its sample size n.
 
         Step 1 (as in Engle-Granger): OLS hedge regression log p1 = a + b log p2 on the
         pair's common dates. Step 2: AR(1) with intercept on that residual spread,
-        s_t = c + phi s_{t-1} + e_t; half-life = -ln 2 / ln phi for 0 < phi < 1.
-
-        v32: through v31 this used the beta = 1 spread log p1 - log p2 — not the spread
-        that was tested for cointegration nor the one traded — so a genuinely
-        cointegrated pair with hedge ratio far from 1 got a meaningless (often 999)
-        half-life; and the AR(1) ran on the gap-compressed series, so lags straddled gaps
-        (now only true one-step pairs enter the regression).
+        s_t = c + phi s_{t-1} + e_t, fitted by OLS on the n genuine one-step pairs. phi is
+        NaN when it cannot be estimated (fewer than 50 common dates or 30 one-step pairs,
+        or a constant leg).
         """
         try:
             # Gap-aware: align on the union of dates so a day missing from either leg is a
@@ -241,25 +237,41 @@ class FixedPrimeFundPairSelector:
             p2 = data2['Close'].reindex(idx).to_numpy(dtype=float)
             ok = np.isfinite(p1) & np.isfinite(p2) & (p1 > 0) & (p2 > 0)
             if ok.sum() < 50:
-                return 999.0
+                return float('nan'), 0
             lp1 = np.full(len(idx), np.nan)
             lp2 = np.full(len(idx), np.nan)
             lp1[ok], lp2[ok] = np.log(p1[ok]), np.log(p2[ok])
             if np.std(lp2[ok]) < 1e-12:
-                return 999.0
+                return float('nan'), 0
             b, a = np.polyfit(lp2[ok], lp1[ok], 1)
             spread = lp1 - (a + b * lp2)
             y, x = spread[1:], spread[:-1]
             m = np.isfinite(y) & np.isfinite(x)
-            if m.sum() < 30:
-                return 999.0
-            X = np.column_stack([np.ones(int(m.sum())), x[m]])
-            phi = float(np.linalg.lstsq(X, y[m], rcond=None)[0][1])
-            if 0.0 < phi < 1.0:
-                return float(max(1.0, min(999.0, -np.log(2.0) / np.log(phi))))
-            return 999.0
+            n = int(m.sum())
+            if n < 30:
+                return float('nan'), n
+            X = np.column_stack([np.ones(n), x[m]])
+            return float(np.linalg.lstsq(X, y[m], rcond=None)[0][1]), n
         except Exception:
-            return 999.0
+            return float('nan'), 0
+
+    def calculate_half_life(self, data1: pd.DataFrame, data2: pd.DataFrame) -> float:
+        """Mean-reversion half-life (days) of the cointegrating spread.
+
+        half-life = -ln 2 / ln phi for 0 < phi < 1, with phi the AR(1) coefficient of the
+        Engle-Granger residual spread (spread_ar1), clipped to [1, 999]; 999 when the
+        spread does not mean-revert or phi cannot be estimated.
+
+        v32: through v31 this used the beta = 1 spread log p1 - log p2 — not the spread
+        that was tested for cointegration nor the one traded — so a genuinely
+        cointegrated pair with hedge ratio far from 1 got a meaningless (often 999)
+        half-life; and the AR(1) ran on the gap-compressed series, so lags straddled gaps
+        (now only true one-step pairs enter the regression).
+        """
+        phi, _ = self.spread_ar1(data1, data2)
+        if 0.0 < phi < 1.0:
+            return float(max(1.0, min(999.0, -np.log(2.0) / np.log(phi))))
+        return 999.0
 
     def compute_pca_residuals(self, processed_data: Dict, quality_symbols: List[str],
                                n_components: int = 5) -> Dict:
