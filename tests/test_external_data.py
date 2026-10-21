@@ -140,6 +140,8 @@ def test_cache_is_written_once_and_pinned(tmp_path, monkeypatch):
     got2, meta2 = ed.cached_download('https://example.org/x.zip', path, vintage_of=ed._french_vintage)
     assert got2 == blob and len(calls) == 1                 # served from the cache
     assert meta2['fetched_at'] == meta['fetched_at']
+    ed.cached_download('https://example.org/x.zip', path, refresh=True, offline=True)
+    assert len(calls) == 1                                  # offline wins over refresh
     ed.cached_download('https://example.org/x.zip', path, refresh=True)
     assert len(calls) == 2
     with pytest.raises(FileNotFoundError):

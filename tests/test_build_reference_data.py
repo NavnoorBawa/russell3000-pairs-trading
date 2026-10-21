@@ -5,6 +5,7 @@ Nasdaq Trader nasdaqtraded.txt sample, both in their real layout). The offline b
 runs on a synthetic 49-industry definition and cached EDGAR answers. No network.
 """
 import csv
+import hashlib
 import importlib.util
 import io
 import json
@@ -68,6 +69,15 @@ def test_sector_etf_table_and_overrides():
     assert b.sector_etf(4955, 'Other') == 'XLI'
     assert b.sector_etf(9995, 'Other') is None                  # catch-all without a sector
     assert b.sector_etf(None, None) is None
+    assert b.sector_etf(5122, 'Whlsl') == 'XLV'                 # drug wholesalers (McKesson, Cencora, Cardinal)
+    assert b.sector_etf(5141, 'Whlsl') == 'XLP' and b.sector_etf(5065, 'Whlsl') == 'XLI'
+    assert b.sector_etf(7370, 'Softw') == 'XLC'                 # Alphabet, Meta
+    assert b.sector_etf(7372, 'Softw') == 'XLK'
+    assert b.sector_etf(7389, 'BusSv') == 'XLF' and b.sector_etf(7374, 'BusSv') == 'XLI'
+    assert b.sector_etf(8731, 'BusSv') == 'XLV'                 # contract research organisations
+    spans = sorted((lo, hi) for lo, hi, _ in b.SECTOR_ETF_SIC_OVERRIDES)
+    assert all(lo <= hi for lo, hi in spans)
+    assert all(prev_hi < lo for (_, prev_hi), (lo, _) in zip(spans, spans[1:]))   # disjoint: order is irrelevant
 
 
 def test_parse_nasdaq_traded():
@@ -131,6 +141,32 @@ def test_offline_build(tmp_path):
     with open(ref / 'listing_venue.csv', newline='') as f:
         venues = list(csv.DictReader(f))
     assert venues[0] == {'ticker': 'A', 'venue': 'NYSE', 'etf_flag': 'N', 'as_of': '2026-10-20'}
+
+
+def test_a_missing_marketcap_file_stops_the_build(tmp_path, capsys):
+    """industry_ff49.csv also covers the v32 universe file; without it the table would
+    silently lose its tickers, so the build stops unless --no-marketcap says so."""
+    raw, ref = tmp_path / 'raw', tmp_path / 'reference'
+    (raw / 'french').mkdir(parents=True)
+    (raw / 'sec').mkdir()
+    (raw / 'nasdaqtrader').mkdir()
+    (raw / 'french' / 'Siccodes49.zip').write_bytes(_synthetic_siccodes())
+    (raw / 'sec' / 'company_tickers.json').write_text(json.dumps({'0': {'cik_str': 1, 'ticker': 'AAA', 'title': 'A'}}))
+    (raw / 'sec' / 'submissions_summary.json').write_text(json.dumps({'1': {'sic': 4501, 'entityType': 'operating'}}))
+    (raw / 'nasdaqtrader' / 'nasdaqtraded.txt').write_text(_read('nasdaqtraded.txt'))
+    (ref / 'universe').mkdir(parents=True)
+    (ref / 'universe' / 'iwv_2020-03-31.csv').write_text('ticker,cusip,isin,name,weight,price\nAAA,1,,A,1,10\n')
+    base = ['--offline', '--raw-dir', str(raw), '--reference-dir', str(ref)]
+    with pytest.raises(SystemExit, match='not found'):
+        b.main(base + ['--marketcap', str(tmp_path / 'missing.csv')])
+    assert not (ref / 'industry_ff49.csv').exists()
+    assert b.main(base + ['--no-marketcap']) == 0
+    assert (ref / 'industry_ff49.csv').read_text().splitlines()[1].startswith('AAA,1,4501,')
+    (tmp_path / 'marketcap.csv').write_text('Symbol,Name\nAAA,A\nZZZ,Z\n')
+    capsys.readouterr()
+    assert b.main(base + ['--marketcap', str(tmp_path / 'marketcap.csv')]) == 0
+    digest = hashlib.sha256((tmp_path / 'marketcap.csv').read_bytes()).hexdigest()
+    assert f'(sha256 {digest}, 2 tickers)' in capsys.readouterr().out
 
 
 def test_offline_build_refuses_missing_cache(tmp_path):

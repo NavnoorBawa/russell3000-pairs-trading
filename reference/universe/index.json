@@ -6,7 +6,93 @@
  "holdings": "assetCat EC (equity common) of each N-PORT-P primary_doc.xml; one row per CUSIP (ISIN where N-PORT gives no CUSIP)",
  "weight": "valUSD / total valUSD of the equity-common holdings on the period date",
  "membership_rule": "a snapshot is in force from its period_date until the next snapshot",
- "ticker_map": "cusip_ticker_map.json (OpenFIGI)",
+ "ticker_map": "cusip_ticker_map.json (OpenFIGI, with the tickers N-PORT reports); a CUSIP listed under \"successions\" takes its successor CUSIP's ticker",
+ "successions": {
+  "04351G101": {
+   "successor": "04351G200",
+   "ticker": "ASNAQ"
+  },
+  "09609G100": {
+   "successor": "09609G209",
+   "ticker": "BLUE"
+  },
+  "13781Y103": {
+   "successor": "13781Y202",
+   "ticker": "CANO"
+  },
+  "14171W103": {
+   "successor": "14171W202",
+   "ticker": "CMAX"
+  },
+  "21077C107": {
+   "successor": "21077C305",
+   "ticker": "LOGC"
+  },
+  "25401T108": {
+   "successor": "25401T603",
+   "ticker": "DBRG"
+  },
+  "369604103": {
+   "successor": "369604301",
+   "ticker": "GE"
+  },
+  "37954A204": {
+   "successor": "37954A303",
+   "ticker": "XRN"
+  },
+  "44891N109": {
+   "successor": "44891N208",
+   "ticker": "PPLI"
+  },
+  "50202P105": {
+   "successor": "50202P204",
+   "ticker": "LICYQ"
+  },
+  "550424105": {
+   "successor": "550424303",
+   "ticker": "LAZRQ"
+  },
+  "56854Q101": {
+   "successor": "56854Q200",
+   "ticker": "MRNS"
+  },
+  "649445103": {
+   "successor": "649445400",
+   "ticker": "FLG"
+  },
+  "649604501": {
+   "successor": "649604840",
+   "ticker": "ADAM"
+  },
+  "654110105": {
+   "successor": "654110303",
+   "ticker": "NKLA"
+  },
+  "68404L102": {
+   "successor": "68404L201",
+   "ticker": "OPCH"
+  },
+  "83417Q105": {
+   "successor": "83417Q204",
+   "ticker": "SWI"
+  },
+  "90187B408": {
+   "successor": "90187B804",
+   "ticker": "TWO"
+  },
+  "90214J101": {
+   "successor": "90214J200",
+   "ticker": "TWOU"
+  },
+  "92339V100": {
+   "successor": "92339V308",
+   "ticker": "VER"
+  },
+  "966387409": {
+   "successor": "966387508",
+   "ticker": "WLL"
+  }
+ },
  "sealed_from": "2026-01-01",
  "sealed": [
   {
@@ -33,10 +119,13 @@
    "file": "iwv_2019-09-30.csv",
    "n_holdings": 2899,
    "n_equity": 2895,
-   "n_mapped": 2472,
-   "n_tickers": 2472,
-   "mapped_value_share": 0.958502,
-   "equity_value_usd": 9599678384.44
+   "n_mapped": 2662,
+   "n_tickers": 2661,
+   "mapped_value_share": 0.989572,
+   "equity_value_usd": 9599678384.44,
+   "shared_tickers": [
+    "RDUS"
+   ]
   },
   {
    "period_date": "2019-12-31",
@@ -48,10 +137,13 @@
    "file": "iwv_2019-12-31.csv",
    "n_holdings": 2896,
    "n_equity": 2892,
-   "n_mapped": 2471,
-   "n_tickers": 2471,
-   "mapped_value_share": 0.960674,
-   "equity_value_usd": 10145277035.77
+   "n_mapped": 2666,
+   "n_tickers": 2665,
+   "mapped_value_share": 0.990493,
+   "equity_value_usd": 10145277035.77,
+   "shared_tickers": [
+    "RDUS"
+   ]
   },
   {
    "period_date": "2020-03-31",
@@ -63,10 +155,13 @@
    "file": "iwv_2020-03-31.csv",
    "n_holdings": 2885,
    "n_equity": 2880,
-   "n_mapped": 2468,
-   "n_tickers": 2468,
-   "mapped_value_share": 0.966156,
-   "equity_value_usd": 8201134434.74
+   "n_mapped": 2662,
+   "n_tickers": 2661,
+   "mapped_value_share": 0.991427,
+   "equity_value_usd": 8201134434.74,
+   "shared_tickers": [
+    "RDUS"
+   ]
   },
   {
    "period_date": "2020-06-30",
@@ -78,10 +173,13 @@
    "file": "iwv_2020-06-30.csv",
    "n_holdings": 2812,
    "n_equity": 2806,
-   "n_mapped": 2423,
-   "n_tickers": 2423,
-   "mapped_value_share": 0.972489,
-   "equity_value_usd": 9316976291.54
+   "n_mapped": 2626,
+   "n_tickers": 2625,
+   "mapped_value_share": 0.993818,
+   "equity_value_usd": 9316976291.54,
+   "shared_tickers": [
+    "RDUS"
+   ]
   },
   {
    "period_date": "2020-09-30",
@@ -93,10 +191,13 @@
    "file": "iwv_2020-09-30.csv",
    "n_holdings": 2850,
    "n_equity": 2842,
-   "n_mapped": 2444,
-   "n_tickers": 2444,
-   "mapped_value_share": 0.972761,
-   "equity_value_usd": 9465973055.48
+   "n_mapped": 2660,
+   "n_tickers": 2659,
+   "mapped_value_share": 0.994124,
+   "equity_value_usd": 9465973055.48,
+   "shared_tickers": [
+    "RDUS"
+   ]
   },
   {
    "period_date": "2020-12-31",
@@ -108,10 +209,13 @@
    "file": "iwv_2020-12-31.csv",
    "n_holdings": 2867,
    "n_equity": 2859,
-   "n_mapped": 2450,
-   "n_tickers": 2450,
-   "mapped_value_share": 0.96971,
-   "equity_value_usd": 10583972709.15
+   "n_mapped": 2676,
+   "n_tickers": 2675,
+   "mapped_value_share": 0.994255,
+   "equity_value_usd": 10583972709.15,
+   "shared_tickers": [
+    "RDUS"
+   ]
   },
   {
    "period_date": "2021-03-31",
@@ -123,10 +227,13 @@
    "file": "iwv_2021-03-31.csv",
    "n_holdings": 2889,
    "n_equity": 2881,
-   "n_mapped": 2470,
-   "n_tickers": 2470,
-   "mapped_value_share": 0.969072,
-   "equity_value_usd": 10936900078.46
+   "n_mapped": 2698,
+   "n_tickers": 2697,
+   "mapped_value_share": 0.9942,
+   "equity_value_usd": 10936900078.46,
+   "shared_tickers": [
+    "RDUS"
+   ]
   },
   {
    "period_date": "2021-06-30",
@@ -138,10 +245,13 @@
    "file": "iwv_2021-06-30.csv",
    "n_holdings": 2694,
    "n_equity": 2684,
-   "n_mapped": 2303,
-   "n_tickers": 2303,
-   "mapped_value_share": 0.970906,
-   "equity_value_usd": 11879301378.13
+   "n_mapped": 2547,
+   "n_tickers": 2546,
+   "mapped_value_share": 0.994519,
+   "equity_value_usd": 11879301378.13,
+   "shared_tickers": [
+    "RDUS"
+   ]
   },
   {
    "period_date": "2021-09-30",
@@ -153,10 +263,13 @@
    "file": "iwv_2021-09-30.csv",
    "n_holdings": 2712,
    "n_equity": 2703,
-   "n_mapped": 2322,
-   "n_tickers": 2322,
-   "mapped_value_share": 0.97472,
-   "equity_value_usd": 11675272215.16
+   "n_mapped": 2571,
+   "n_tickers": 2570,
+   "mapped_value_share": 0.994994,
+   "equity_value_usd": 11675272215.16,
+   "shared_tickers": [
+    "RDUS"
+   ]
   },
   {
    "period_date": "2021-12-31",
@@ -168,10 +281,13 @@
    "file": "iwv_2021-12-31.csv",
    "n_holdings": 2752,
    "n_equity": 2744,
-   "n_mapped": 2354,
-   "n_tickers": 2354,
-   "mapped_value_share": 0.976884,
-   "equity_value_usd": 13003128211.54
+   "n_mapped": 2616,
+   "n_tickers": 2615,
+   "mapped_value_share": 0.995822,
+   "equity_value_usd": 13003128211.54,
+   "shared_tickers": [
+    "RDUS"
+   ]
   },
   {
    "period_date": "2022-03-31",
@@ -183,10 +299,13 @@
    "file": "iwv_2022-03-31.csv",
    "n_holdings": 2767,
    "n_equity": 2757,
-   "n_mapped": 2368,
-   "n_tickers": 2368,
-   "mapped_value_share": 0.978331,
-   "equity_value_usd": 11990431102.05
+   "n_mapped": 2634,
+   "n_tickers": 2633,
+   "mapped_value_share": 0.995939,
+   "equity_value_usd": 11990431102.05,
+   "shared_tickers": [
+    "RDUS"
+   ]
   },
   {
    "period_date": "2022-06-30",
@@ -198,10 +317,13 @@
    "file": "iwv_2022-06-30.csv",
    "n_holdings": 2698,
    "n_equity": 2689,
-   "n_mapped": 2319,
-   "n_tickers": 2319,
-   "mapped_value_share": 0.974256,
-   "equity_value_usd": 9926717203.42
+   "n_mapped": 2622,
+   "n_tickers": 2621,
+   "mapped_value_share": 0.996846,
+   "equity_value_usd": 9926717203.42,
+   "shared_tickers": [
+    "RDUS"
+   ]
   },
   {
    "period_date": "2022-09-30",
@@ -213,9 +335,9 @@
    "file": "iwv_2022-09-30.csv",
    "n_holdings": 2588,
    "n_equity": 2581,
-   "n_mapped": 2252,
-   "n_tickers": 2252,
-   "mapped_value_share": 0.975206,
+   "n_mapped": 2552,
+   "n_tickers": 2552,
+   "mapped_value_share": 0.997947,
    "equity_value_usd": 9424124096.08
   },
   {
@@ -228,10 +350,13 @@
    "file": "iwv_2022-12-30.csv",
    "n_holdings": 2610,
    "n_equity": 2603,
-   "n_mapped": 2279,
-   "n_tickers": 2279,
-   "mapped_value_share": 0.978169,
-   "equity_value_usd": 10804449940.0
+   "n_mapped": 2575,
+   "n_tickers": 2574,
+   "mapped_value_share": 0.998582,
+   "equity_value_usd": 10804449940.0,
+   "shared_tickers": [
+    "STR"
+   ]
   },
   {
    "period_date": "2023-03-31",
@@ -243,9 +368,9 @@
    "file": "iwv_2023-03-31.csv",
    "n_holdings": 2631,
    "n_equity": 2624,
-   "n_mapped": 2315,
-   "n_tickers": 2315,
-   "mapped_value_share": 0.982944,
+   "n_mapped": 2598,
+   "n_tickers": 2598,
+   "mapped_value_share": 0.998602,
    "equity_value_usd": 10701958845.92
   },
   {
@@ -258,9 +383,9 @@
    "file": "iwv_2023-06-30.csv",
    "n_holdings": 2691,
    "n_equity": 2684,
-   "n_mapped": 2387,
-   "n_tickers": 2387,
-   "mapped_value_share": 0.983205,
+   "n_mapped": 2657,
+   "n_tickers": 2657,
+   "mapped_value_share": 0.998804,
    "equity_value_usd": 11520928818.18
   },
   {
@@ -273,9 +398,9 @@
    "file": "iwv_2023-09-30.csv",
    "n_holdings": 2703,
    "n_equity": 2696,
-   "n_mapped": 2413,
-   "n_tickers": 2413,
-   "mapped_value_share": 0.985153,
+   "n_mapped": 2670,
+   "n_tickers": 2670,
+   "mapped_value_share": 0.9993,
    "equity_value_usd": 10993845187.6
   },
   {
@@ -288,9 +413,9 @@
    "file": "iwv_2023-12-31.csv",
    "n_holdings": 2708,
    "n_equity": 2700,
-   "n_mapped": 2426,
-   "n_tickers": 2426,
-   "mapped_value_share": 0.986523,
+   "n_mapped": 2675,
+   "n_tickers": 2675,
+   "mapped_value_share": 0.999333,
    "equity_value_usd": 12472010404.79
   },
   {
@@ -303,9 +428,9 @@
    "file": "iwv_2024-03-31.csv",
    "n_holdings": 2697,
    "n_equity": 2690,
-   "n_mapped": 2429,
-   "n_tickers": 2429,
-   "mapped_value_share": 0.988511,
+   "n_mapped": 2668,
+   "n_tickers": 2668,
+   "mapped_value_share": 0.999496,
    "equity_value_usd": 13623964931.75
   },
   {
@@ -318,9 +443,9 @@
    "file": "iwv_2024-06-30.csv",
    "n_holdings": 2684,
    "n_equity": 2676,
-   "n_mapped": 2433,
-   "n_tickers": 2433,
-   "mapped_value_share": 0.990472,
+   "n_mapped": 2654,
+   "n_tickers": 2654,
+   "mapped_value_share": 0.99956,
    "equity_value_usd": 14226574228.37
   },
   {
@@ -333,9 +458,9 @@
    "file": "iwv_2024-09-30.csv",
    "n_holdings": 2686,
    "n_equity": 2679,
-   "n_mapped": 2475,
-   "n_tickers": 2475,
-   "mapped_value_share": 0.991446,
+   "n_mapped": 2660,
+   "n_tickers": 2660,
+   "mapped_value_share": 0.999572,
    "equity_value_usd": 14923834808.63
   },
   {
@@ -348,9 +473,9 @@
    "file": "iwv_2024-12-31.csv",
    "n_holdings": 2689,
    "n_equity": 2683,
-   "n_mapped": 2495,
-   "n_tickers": 2495,
-   "mapped_value_share": 0.992189,
+   "n_mapped": 2665,
+   "n_tickers": 2665,
+   "mapped_value_share": 0.999688,
    "equity_value_usd": 15608180558.2
   },
   {
@@ -363,9 +488,9 @@
    "file": "iwv_2025-03-31.csv",
    "n_holdings": 2676,
    "n_equity": 2670,
-   "n_mapped": 2499,
-   "n_tickers": 2499,
-   "mapped_value_share": 0.993077,
+   "n_mapped": 2655,
+   "n_tickers": 2655,
+   "mapped_value_share": 0.999718,
    "equity_value_usd": 14400268519.92
   },
   {
@@ -378,9 +503,9 @@
    "file": "iwv_2025-06-30.csv",
    "n_holdings": 2679,
    "n_equity": 2672,
-   "n_mapped": 2527,
-   "n_tickers": 2527,
-   "mapped_value_share": 0.993687,
+   "n_mapped": 2658,
+   "n_tickers": 2658,
+   "mapped_value_share": 0.999743,
    "equity_value_usd": 15819753865.33
   },
   {
@@ -393,9 +518,9 @@
    "file": "iwv_2025-09-30.csv",
    "n_holdings": 2589,
    "n_equity": 2583,
-   "n_mapped": 2465,
-   "n_tickers": 2465,
-   "mapped_value_share": 0.993898,
+   "n_mapped": 2573,
+   "n_tickers": 2573,
+   "mapped_value_share": 0.999866,
    "equity_value_usd": 17090462546.42
   },
   {
@@ -408,9 +533,9 @@
    "file": "iwv_2025-12-31.csv",
    "n_holdings": 2602,
    "n_equity": 2596,
-   "n_mapped": 2499,
-   "n_tickers": 2499,
-   "mapped_value_share": 0.993933,
+   "n_mapped": 2589,
+   "n_tickers": 2589,
+   "mapped_value_share": 0.999871,
    "equity_value_usd": 18263711018.89
   }
  ]

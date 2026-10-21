@@ -435,12 +435,12 @@
   "paper.iwv.last_long": "31 December 2025",
   "paper.iwv.n": "26",
   "paper.iwv.sealed_from_long": "1 January 2026",
-  "paper.iwv.unmapped_max_pct": "4.1%",
-  "paper.iwv.unmapped_min_pct": "0.6%",
+  "paper.iwv.unmapped_max_pct": "1.0%",
+  "paper.iwv.unmapped_min_pct": "0.0%",
   "paper.iwv_first_year": "2019",
   "paper.iwv_last_year": "2025",
-  "paper.iwv_unmapped_first_pct": "4.1%",
-  "paper.iwv_unmapped_last_pct": "0.6%",
+  "paper.iwv_unmapped_first_pct": "1.04%",
+  "paper.iwv_unmapped_last_pct": "0.01%",
   "paper.lo_sharpe_main": "−0.07",
   "paper.lo_sharpe_oos": "−0.36",
   "paper.long_net_long": "75",
@@ -622,7 +622,7 @@
   "headline_sha256": "93471564009554007e8bff1f6a67a02f7f2db96b99d76ad8bd3e5a57b5183b0e",
   "paper_date": "2026-10-20",
   "study_sha256": "0e29723453ec72cbc84e0b52709ff1cc7fc87529c63a20a592382208e790f676",
-  "universe_index_sha256": "c64cc39c6431a8da4aee409914dd3a993f750ea42f71548c22b67ec35d398323"
+  "universe_index_sha256": "2afd0cb6a7a7b79e08e6d45a5fc78f7ac6d43903c3cafbde1a042bf048883c3c"
  },
  "pending": {
   "capacity": "Pending: evidence layer.",
@@ -1070,7 +1070,7 @@
    ],
    [
     "reference/universe/index.json",
-    "c64cc39c6431a8da4aee409914dd3a993f750ea42f71548c22b67ec35d398323"
+    "2afd0cb6a7a7b79e08e6d45a5fc78f7ac6d43903c3cafbde1a042bf048883c3c"
    ],
    [
     "index.html",

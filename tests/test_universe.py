@@ -100,6 +100,21 @@ def test_normalise_ticker():
     assert normalise_ticker(None) == ''
 
 
+def test_traded_prices_one_per_ticker_and_snapshot(tmp_path):
+    (tmp_path / 'universe').mkdir()
+    snaps = {'2020-03-31': 'ticker,cusip,isin,name,weight,price\n'
+                           'AAA,000000AA1,,Alpha,0.5,10.5\nBRK-B,084670702,,B,0.2,200\nBRK-B,084670108,,B,0.1,300000\n'
+                           'CCC,000000CC9,,Gamma,0.15,\n,,,ESCROW,0.05,1\n',
+             '2020-06-30': 'ticker,cusip,isin,name,weight\nAAA,000000AA1,,Alpha,1\n',     # written without prices
+             '2020-09-30': 'ticker,cusip,isin,name,weight,price\nAAA,000000AA1,,Alpha,1,12\n'}
+    for period, text in snaps.items():
+        (tmp_path / 'universe' / f'iwv_{period}.csv').write_text(text)
+    (tmp_path / 'universe' / 'index.json').write_text(json.dumps({'snapshots': [
+        {'period_date': p, 'file': f'iwv_{p}.csv'} for p in snaps]}))
+    traded = PITUniverse(tmp_path).traded_prices()
+    assert traded.values.tolist() == [[pd.Timestamp('2020-03-31'), 'AAA', 10.5], [pd.Timestamp('2020-09-30'), 'AAA', 12.0]]
+
+
 # --- the committed reference data ------------------------------------------------------
 
 committed = pytest.mark.skipif(not (REFERENCE_DIR / 'universe' / 'index.json').exists(),
@@ -113,6 +128,10 @@ def test_committed_snapshots_are_consistent_and_none_is_sealed():
     with open(REFERENCE_DIR / 'universe' / 'cusip_ticker_map.json') as f:
         entries = json.load(f)['entries']
     assert not [k for k, e in entries.items() if e['status'] in ('reused', 'unmapped') and e['ticker']]
+    successions = index['successions']
+    for old, link in successions.items():                   # same issuer number, successor's own ticker
+        assert old[:6] == link['successor'][:6] and entries.get(old, {}).get('status') != 'active'
+        assert link['ticker'] == (successions.get(link['successor']) or entries[link['successor']])['ticker']
     snaps = index['snapshots']
     assert snaps and [s['period_date'] for s in snaps] == sorted(s['period_date'] for s in snaps)
     for s in snaps:
@@ -126,9 +145,10 @@ def test_committed_snapshots_are_consistent_and_none_is_sealed():
         assert mapped == pytest.approx(s['mapped_value_share'], abs=1e-5)
         assert sum(1 for r in rows if r['ticker']) == s['n_mapped']
         assert all(r['ticker'] == normalise_ticker(r['ticker']) for r in rows)
-        for r in rows:                                       # every ticker comes from the committed map
+        for r in rows:                                       # every ticker comes from the map or a succession
             sid = r['cusip'] or r['isin']
-            assert r['ticker'] == ((entries.get(sid) or {}).get('ticker') or ''), (s['file'], sid)
+            want = successions[sid]['ticker'] if sid in successions else (entries.get(sid) or {}).get('ticker')
+            assert r['ticker'] == (want or ''), (s['file'], sid)
 
 
 @committed
@@ -138,3 +158,68 @@ def test_committed_universe_loads():
     members = uni.members_asof(last)
     assert len(members) > 2000 and members == sorted(set(members))
     assert {'AAPL', 'MSFT', 'JPM'} <= set(members)
+
+
+@committed
+def test_committed_universe_keeps_members_whose_cusip_changed():
+    # OpenFIGI no longer resolves these identifiers (re-domiciliation, reverse split,
+    # holding-company reorganisation); N-PORT's reported ticker or the issuer's successor
+    # CUSIP recovers them, so the formation universe is not missing them
+    uni = PITUniverse()
+    assert {'LIN', 'COO', 'CCL', 'AMC', 'LCID'} <= set(uni.members_asof('2022-12-31'))
+    assert 'GE' in uni.members_asof('2020-12-31')
+
+
+@committed
+def test_committed_map_respects_the_price_check():
+    # Every mapping the 2026-10-20 rebuild changed was checked against N-PORT's own value
+    # per share (reference/README.md). The rejected ones carry no ticker, and no snapshot
+    # joins a security to a ticker that another holding is the own US line of.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        'build_pit_universe', REFERENCE_DIR.parent / 'scripts' / 'build_pit_universe.py')
+    b = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(b)
+    with open(REFERENCE_DIR / 'universe' / 'cusip_ticker_map.json') as f:
+        entries = json.load(f)['entries']
+    for sid, (ticker, _) in b.REJECTED_MAPPINGS.items():
+        if sid in b.ACCEPTED_MAPPINGS:                      # denied one ticker, given another
+            assert entries[sid]['ticker'] == b.ACCEPTED_MAPPINGS[sid][0] != ticker, sid
+            continue
+        assert (entries[sid]['status'], entries[sid]['ticker']) == ('reused', None), sid
+        assert entries[sid]['note'].startswith(f'{ticker} is '), sid
+    for sid, (ticker, _) in b.ACCEPTED_MAPPINGS.items():    # none taken away by the shared-ticker rule
+        assert (entries[sid]['ticker'], entries[sid]['matched_by']) == (ticker, 'price check'), sid
+        assert entries[sid]['note'].startswith(f'{ticker}: '), sid
+    with open(REFERENCE_DIR / 'universe' / 'index.json') as f:
+        index = json.load(f)
+    for s in index['snapshots']:
+        with open(REFERENCE_DIR / 'universe' / s['file'], newline='') as f:
+            rows = [r for r in csv.DictReader(f) if r['ticker'] in s.get('shared_tickers', ())]
+        for t in {r['ticker'] for r in rows}:
+            own = [r for r in rows if r['ticker'] == t
+                   and (entries.get(r['cusip'] or r['isin']) or {}).get('matched_by') in ('cusip', 'isin')
+                   and entries[r['cusip'] or r['isin']]['status'] == 'active']
+            assert not own or len(own) == sum(r['ticker'] == t for r in rows), (s['file'], t)
+    uni = PITUniverse()
+    held = uni.holdings_asof('2020-12-31').set_index('cusip')['ticker']
+    assert (held['78645L100'], held['45031U101']) == ('', 'SAFE')    # SAFE's history before 2023 is iStar's
+    assert 'OABI' in uni.members_asof('2022-12-31')           # the common stock, not its earnout shares
+    # the price check's accepted mappings: securities whose history sits under a later line
+    assert {'RTX', 'AON', 'TFC', 'TT'} <= set(uni.members_asof('2019-09-30'))
+    assert {'LH', 'CPAY', 'HHH'} <= set(uni.members_asof('2022-12-31'))
+
+
+@committed
+def test_committed_snapshots_carry_the_traded_price():
+    """N-PORT's value per share on the period date, which anchors Close_PIT
+    (data_processor.anchor_point_in_time)."""
+    uni = PITUniverse()
+    for s in uni.snapshots():
+        frame = uni.holdings_asof(s['period_date'])
+        price = pd.to_numeric(frame['price'], errors='coerce')
+        mapped = frame['ticker'] != ''
+        assert (price[mapped].notna() * frame.loc[mapped, 'weight']).sum() > 0.999 * frame.loc[mapped, 'weight'].sum()
+    traded = uni.traded_prices()
+    apple = traded[traded['ticker'] == 'AAPL'].set_index('period_date')['price']
+    assert len(apple) == len(uni.snapshots()) and 200 < apple[pd.Timestamp('2025-12-31')] < 300

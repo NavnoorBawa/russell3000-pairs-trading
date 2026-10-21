@@ -11,11 +11,11 @@
   "paper/build/figures/randomnull.svg": "66c0cb9502dc88a4568a8e51f76472a0bc91363a0113fdced73de4f8ffe0cf59",
   "paper/build/figures/rolling.svg": "3f938beac3a22b9f53fd311ba8610b4c3d0bd74a9e2bc6be32896b231325b489",
   "paper/build/figures/schedules.svg": "2b9eebb8eb1e34fddf4c08e01c8c7dc5b6ab1d7d365ce767bef4804e304b8556",
-  "paper/build/figures/snapshots.svg": "9e1f1c500a98580034757f2cc76edd1a08c00a0b5005233944fa353e3722eb6a",
+  "paper/build/figures/snapshots.svg": "b1d050652ffea048db1ceb8b5eeadba265088855ba9392ae67890dabba4499de",
   "paper/build/figures/timeline.svg": "7718e6fba61c9b995e2cf38b9c8c4ed3512552001e17590746732f8c5ce99738",
   "paper/build/figures/walkforward.svg": "88cfaab92b8d484ea7a6a5f45d8cb789f81b079e200ea4431e332e25b19716df",
   "paper/build/figures/waterfall.svg": "a5663ecf8790de358cff9fc2ac5880b4c024ad49fbd065b401092615050b3243",
-  "paper/build/paper_data.json": "03957afcfe833501fa2be83482f994bd0d96c40e2f5f5abf39673db23bd1a388",
+  "paper/build/paper_data.json": "22464e94afcb359c1d83b60698322f8c9483a21f824462650401725eb824770b",
   "paper/fonts/IBMPlexMono-Regular.ttf": "884b41e7d9a8c0da2ab93b4dbb8b40a79d9089d4125c2bcb9e12dccdae68c5d4",
   "paper/fonts/IBMPlexSans-Italic.ttf": "dfb110b92a0c71bfcf84cb40e8e1cb0c37043556a5160bd2d3d910de4faabaf5",
   "paper/fonts/IBMPlexSans-Medium.ttf": "fe65f4a5bfdd7782de90619f60c9e43f846ecb1f9aecffdd8066a5b54d2aae40",
@@ -24,10 +24,10 @@
   "paper/fonts/IBMPlexSerif-Italic.ttf": "d8f43ba4ecefa3c2606a6e608e7f7f1f708e98c5d5e9e4586390e9ea5af148a3",
   "paper/fonts/IBMPlexSerif-Regular.ttf": "cf9b95014c561adb3215a83a2121071db032a9e6482e5064839eb2da7bf08630",
   "paper/fonts/IBMPlexSerif-SemiBold.ttf": "b81d99aed4f0534734303aee4dc606f15e9adc26f37a4b3b1ca8dff65c4e8461",
-  "paper/main.typ": "e5c0051a27be8b0c04afe56359dcd4333faaeb089f06c1f6379c19f015b90570",
+  "paper/main.typ": "56a197a097573122a1a98e17a394ba873aa387c157ffabf22012e6146a615e92",
   "paper/references.bib": "07fadcefd047402260498acc81c6287909c26a54214647be0a2aa2151a298593"
  },
- "pdf_sha256": "c6b7e169d7c9445a1f58e7280487cea02d07dfb7803b690e2f4830dc71ae01fe",
+ "pdf_sha256": "9acaacd4966d382b586eba3dd630fd7df3e4a17bb96e88d1c0c98fbf493c4563",
  "tools": {
   "matplotlib": "3.10.1",
   "typst": "0.15.0"

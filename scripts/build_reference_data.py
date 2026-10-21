@@ -17,12 +17,16 @@ registrant (industry changes are rare) and the directory lists today's venue.
 
 Raw downloads are cached under data/raw/ (sec/, french/, nasdaqtrader/); a cached file is
 reused unless --refresh, and --offline never touches the network. EDGAR requests carry
-SEC_USER_AGENT and stay under 10 per second.
+SEC_USER_AGENT and stay under 10 per second. The ticker list also depends on the v32
+universe file (--marketcap, data/marketcap.csv, not under data/raw/): the build stops when
+it is missing, unless --no-marketcap leaves its tickers out, and logs its SHA-256 and
+ticker count.
 
-usage: python scripts/build_reference_data.py [--offline] [--refresh]
+usage: python scripts/build_reference_data.py [--offline] [--refresh] [--marketcap PATH | --no-marketcap]
 """
 import argparse
 import csv
+import hashlib
 import io
 import json
 import pathlib
@@ -98,25 +102,35 @@ FF49_SECTOR_ETF = {
     'Other': None,    # French's catch-all; only its listed SIC ranges are assigned below
 }
 
-# SIC codes whose GICS sector differs from their FF49 industry's (inclusive ranges).
+# SIC codes whose GICS sector differs from their FF49 industry's (inclusive ranges), by the
+# same rule: the sector holding most of the code's market value.
 SECTOR_ETF_SIC_OVERRIDES = (
     (1531, 1531, 'XLY'),   # operative builders: GICS Homebuilding
     (3826, 3826, 'XLV'),   # laboratory analytical instruments: GICS Life Sciences Tools & Services
+    (4400, 4400, 'XLY'),   # water transportation, by value the cruise lines: GICS Hotels, Restaurants & Leisure
+    (4700, 4700, 'XLY'),   # transportation services, by value the online travel agencies: GICS Hotels, Restaurants & Leisure
     (4950, 4959, 'XLI'),   # sanitary services: GICS Environmental & Facilities Services
     (4960, 4961, 'XLU'),   # steam and air-conditioning supply: GICS Utilities
     (4970, 4971, 'XLU'),   # irrigation systems: GICS Water Utilities
     (4990, 4991, 'XLU'),   # cogeneration: GICS Independent Power Producers
+    (5047, 5047, 'XLV'),   # medical, dental and hospital equipment wholesale: GICS Health Care Distributors
+    (5122, 5122, 'XLV'),   # drug wholesale: GICS Health Care Distributors
+    (5140, 5149, 'XLP'),   # grocery wholesale: GICS Food Distributors
     (5330, 5331, 'XLP'),   # variety stores: GICS Consumer Staples Merchandise Retail (2023)
     (5399, 5399, 'XLP'),   # warehouse clubs and general merchandise: GICS Consumer Staples Merchandise Retail
     (5410, 5411, 'XLP'),   # grocery stores: GICS Food Retail
     (5910, 5912, 'XLP'),   # drug stores: GICS Drug Retail
     (6324, 6324, 'XLV'),   # hospital and medical service plans: GICS Managed Health Care
     (6798, 6798, 'XLRE'),  # real estate investment trusts: GICS Real Estate (Equity REITs)
+    (7370, 7370, 'XLC'),   # computer programming and data processing, by value Alphabet and Meta: GICS Interactive Media
+    (7389, 7389, 'XLF'),   # business services n.e.c., by value the card networks and processors: GICS Financials (2023)
+    (8731, 8731, 'XLV'),   # commercial biological research, contract research organisations: GICS Life Sciences Tools
 )
 
 # nasdaqtraded.txt 'Listing Exchange' codes.
 VENUES = {'N': 'NYSE', 'Q': 'Nasdaq', 'A': 'NYSE American', 'P': 'NYSE Arca', 'Z': 'Cboe BZX', 'V': 'IEX',
           'M': 'NYSE Texas', 'F': 'TXSE'}
+
 
 def _cached(path, url, offline, refresh, fetch=None):
     path = pathlib.Path(path)
@@ -228,12 +242,14 @@ def submission_summary(blob):
 
 
 def study_tickers(universe_dir, marketcap_csv):
-    """Every ticker in a committed IWV snapshot or in the v32 universe file."""
+    """Every ticker in a committed IWV snapshot or in the v32 universe file (None: left out;
+    a path that does not exist raises FileNotFoundError, so a missing file never silently
+    shrinks the table)."""
     tickers = set()
     for path in sorted(pathlib.Path(universe_dir).glob('iwv_*.csv')):
         with open(path, newline='') as f:
             tickers.update(r['ticker'] for r in csv.DictReader(f) if r['ticker'])
-    if pathlib.Path(marketcap_csv).exists():
+    if marketcap_csv is not None:
         with open(marketcap_csv, newline='') as f:
             tickers.update(normalise_ticker(r.get('Symbol') or r.get('Ticker')) for r in csv.DictReader(f))
     tickers.discard('')
@@ -288,7 +304,9 @@ def main(argv=None):
     ap.add_argument('--refresh', action='store_true', help='download every source again')
     ap.add_argument('--raw-dir', default=str(ROOT / 'data' / 'raw'))
     ap.add_argument('--reference-dir', default=str(ROOT / 'reference'))
-    ap.add_argument('--marketcap', default=str(ROOT / 'data' / 'marketcap.csv'))
+    ap.add_argument('--marketcap', default=str(ROOT / 'data' / 'marketcap.csv'),
+                    help='the v32 universe file, whose tickers industry_ff49.csv also covers')
+    ap.add_argument('--no-marketcap', action='store_true', help='leave the v32 universe file out')
     args = ap.parse_args(argv)
     raw, ref = pathlib.Path(args.raw_dir), pathlib.Path(args.reference_dir)
 
@@ -298,7 +316,17 @@ def main(argv=None):
     if sorted(names) != list(range(1, 50)) or set(FF49_SECTOR_ETF) != {v[0] for v in names.values()}:
         raise SystemExit('Siccodes49.zip does not define the 49 industries FF49_SECTOR_ETF expects')
 
-    tickers = study_tickers(ref / 'universe', args.marketcap)
+    marketcap = None if args.no_marketcap else pathlib.Path(args.marketcap)
+    if marketcap is not None and not marketcap.is_file():
+        raise SystemExit(f'{marketcap} not found: industry_ff49.csv also covers the v32 universe file '
+                         '(pass --marketcap PATH, or --no-marketcap to leave its tickers out)')
+    tickers = study_tickers(ref / 'universe', marketcap)
+    if marketcap is None:
+        print('v32 universe file: left out (--no-marketcap)', flush=True)
+    else:
+        n_file = len(study_tickers(ref / 'no-such-dir', marketcap))
+        print(f'v32 universe file: {marketcap} (sha256 {hashlib.sha256(marketcap.read_bytes()).hexdigest()}, '
+              f'{n_file} tickers)', flush=True)
     ciks = ticker_ciks(_cached(raw / 'sec' / 'company_tickers.json', COMPANY_TICKERS_URL, args.offline,
                                args.refresh, fetch=sec_get))
     wanted = sorted({ciks[t] for t in tickers if t in ciks})

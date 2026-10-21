@@ -372,3 +372,44 @@ def test_a_short_top_up_changes_nothing_and_a_rerun_retries(tmp_path, monkeypatc
     with pytest.raises(RuntimeError, match='NOT changed'):
         dp.load_or_fetch_data(syms + new, max_workers=1)
     assert sorted(asked) == new                                  # retried, not recorded as final
+
+
+def _vendor_frame(traded, factor, dividend_drift=0.0):
+    """A cached frame whose Close_PIT is the traded price times `factor` (a share-basis change
+    after the cache's last date) and lowered by later dividends (`dividend_drift` per bar)."""
+    idx = pd.bdate_range('2021-01-04', periods=len(traded), tz='America/New_York')
+    div = np.exp(-dividend_drift * np.arange(len(traded))[::-1])
+    close = traded * factor * div
+    return pd.DataFrame({'Close': close, 'Close_PIT': close, 'Volume': 1e6 / factor,
+                         'Volume_PIT': 1e6 / factor}, index=idx)
+
+
+def test_anchoring_removes_a_later_share_basis_factor():
+    # $2 stock, 1-for-30 reverse split after the cache's last date: the vendor shows $60
+    traded = 2.0 * np.exp(np.cumsum(np.random.default_rng(3).normal(0, 0.01, 300)))
+    df = _vendor_frame(traded, 30.0)
+    days = df.index.tz_localize(None)
+    quarter_ends = pd.DatetimeIndex(['2021-03-31', '2021-06-30', '2021-10-02', '2021-12-31'])  # one a Saturday
+    pos = [days.searchsorted(d, side='right') - 1 for d in quarter_ends]
+    out = _P.anchor_point_in_time(df, pd.Series(traded[pos], index=quarter_ends))
+    np.testing.assert_allclose(out['Close_PIT'].to_numpy(), traded)          # before the first date too
+    np.testing.assert_allclose(out['Volume_PIT'].to_numpy(), 1e6)
+    np.testing.assert_allclose((out['Close_PIT'] * out['Volume_PIT']).to_numpy(),
+                               (df['Close_PIT'] * df['Volume_PIT']).to_numpy())     # dollar volume unchanged
+    assert out['Close'].equals(df['Close']) and df['Close_PIT'].iloc[0] > 5.0 > out['Close_PIT'].mean()
+
+
+def test_anchoring_steps_at_each_snapshot_and_skips_unusable_dates():
+    traded = np.full(200, 50.0)
+    df = _vendor_frame(traded, 1.0, dividend_drift=0.001)                     # dividends lower the past
+    days = df.index.tz_localize(None)
+    anchors = pd.Series([50.0, 50.0, 50.0, 50.0],
+                        index=[days[60], days[120], pd.Timestamp('2030-01-01'), pd.Timestamp('2019-01-01')])
+    out = _P.anchor_point_in_time(df, anchors)
+    pit = out['Close_PIT'].to_numpy()
+    assert pit[60] == pytest.approx(50.0) and pit[120] == pytest.approx(50.0)
+    ratio = pit / df['Close_PIT'].to_numpy()
+    assert np.allclose(ratio[:61], ratio[60]) and np.allclose(ratio[61:120], ratio[60])   # the latest date <= bar
+    assert np.allclose(ratio[120:], ratio[120]) and ratio[60] > ratio[120] > 1.0
+    assert _P.anchor_point_in_time(df, pd.Series([50.0], index=[pd.Timestamp('2030-01-01')])) is df
+    assert _P.anchor_point_in_time(df, pd.Series(dtype=float)) is df

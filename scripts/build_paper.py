@@ -719,7 +719,7 @@ METRICS = {
     'paper.v32_financing_bp': '.0', 'paper.v33_formation_years': '.0',
     'paper.iwv.n': '.0', 'paper.iwv.equity_min': ',.0', 'paper.iwv.equity_max': ',.0',
     'paper.iwv.unmapped_min_pct': '.1%', 'paper.iwv.unmapped_max_pct': '.1%',
-    'paper.iwv_unmapped_first_pct': '.1%', 'paper.iwv_unmapped_last_pct': '.1%',
+    'paper.iwv_unmapped_first_pct': '.2%', 'paper.iwv_unmapped_last_pct': '.2%',
     'paper.beta_below_one': '.0', 'paper.long_trades': '.0', 'paper.short_trades': '.0',
     'paper.long_net_long': '.0', 'paper.short_net_short': '.0', 'paper.boot_resamples': ',.0',
     'paper.boot_block_main': '.0', 'paper.boot_block_oos': '.0', 'paper.diff_oos': '.2', 'paper.diff_oos_p': '.3',

@@ -212,6 +212,9 @@ class CompleteFixedRussell3000TradingSystem:
         # Survivorship, measured: at each formation date, the point-in-time members and how
         # many of them (and how much index weight) have no free price history.
         self.universe_coverage_log: List[Dict] = []
+        # How far anchoring Close_PIT to N-PORT's prices moved the point-in-time members
+        # (_anchor_point_in_time_prices; None when unused).
+        self.price_anchor_summary: Optional[Dict] = None
         # v32: per-pair Kalman state (lp1, lp2, beta, alpha, spread) on the pair's common
         # trading dates. It is a deterministic function of the two price series, so it is
         # computed once and shared by re-selection, both backtests and the label builder
@@ -1952,10 +1955,22 @@ class CompleteFixedRussell3000TradingSystem:
                                f"short: {short}. Delete {self.calendar.macro_cache} (if it exists) and re-run "
                                "to fetch them again.")
 
+    def _anchor_point_in_time_prices(self) -> None:
+        """Close_PIT and Volume_PIT anchored to N-PORT's price of each member on each IWV
+        snapshot date (data_processor.anchor_point_in_time): the vendor's later share-basis
+        changes and dividends no longer move the $5 screen or the per-share cost terms."""
+        summary = EnhancedRussell3000DataProcessor.anchor_all(self.processed_data, self.pit_universe.traded_prices())
+        self.price_anchor_summary = summary
+        logger.info(f"Point-in-time prices anchored to N-PORT for {summary['anchored']} symbols; "
+                    f"{summary['median_ratio_beyond_10pct']} moved by more than 10% "
+                    f"(largest: {summary['largest'][:5]})")
+
     def load_study_data(self) -> None:
         """Universe, price cache and macro data, then the run's provenance block."""
         symbols = self._study_symbols()
         self.processed_data = self.data_processor.load_or_fetch_data(symbols)
+        if self.pit_universe is not None:
+            self._anchor_point_in_time_prices()
         self.macro_data = self.data_processor.load_macro_data()
         if self.profile.regime_gate:
             self._check_macro_coverage()
