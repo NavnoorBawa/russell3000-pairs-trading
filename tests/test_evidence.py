@@ -70,14 +70,19 @@ def _factors(n=500, seed=3):
 def test_factor_attribution_finds_a_planted_reversal_loading_and_cash():
     f = _factors()
     rng = np.random.default_rng(4)
+    # The engine's daily returns are already in excess of cash (equity earns no interest and
+    # the long-short book finances itself), so the planted series is the excess return and
+    # factor_attribution_multi uses it as given (includes_cash_return=False): no RF added
+    # here, none subtracted there, and an alpha near zero, far below the bill rate.
     excess = 0.5 * f['ST_Rev'].to_numpy() + rng.normal(0, 0.002, len(f))
-    total = excess + f['RF'].to_numpy()                      # the engine reports total returns
     dates = [d.date().isoformat() for d in f.index[:-20]] + ['2099-01-02']   # one day past the data
-    rets = list(total[:-20]) + [0.0]
+    rets = list(excess[:-20]) + [0.0]
     out = factor_block({'daily_dates': dates, 'daily_returns': rets}, f, {'vintage': '202608'})
     main = out['main']
     assert main['factors']['ST_Rev']['beta'] == pytest.approx(0.5, abs=0.03)
-    assert abs(main['factors']['Mom']['beta']) < 0.05 and abs(main['alpha_tstat']) < 3
+    assert abs(main['factors']['Mom']['beta']) < 0.05
+    assert main['rf_subtracted'] is False
+    assert abs(main['alpha_ann']) < 0.03 < 252 * 0.0002 and abs(main['alpha_tstat']) < 1
     assert main['days_after_factor_data'] == 1
     assert out['cash']['tbill_return_pct'] == pytest.approx(((1.0002) ** (len(f) - 20) - 1) * 100)
     assert out['source'] == {'vintage': '202608'}

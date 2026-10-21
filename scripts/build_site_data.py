@@ -32,7 +32,10 @@ of the file and the page shows that section as pending, with the reason):
     {dev}/stats_battery.json               power report and DSR curve (scripts/stats_battery.py)
     {dev}/anatomy.json                     evidence layer (see ANATOMY_KEYS)
     results/variant_family/declaration.json, snooping.json   data-snooping tests
-    results/residual_dev/headline_metrics.json               Avellaneda-Lee arm
+    results/residual_dev/residual_statarb.json, MANIFEST.json   Avellaneda-Lee arm, as
+                                                             scripts/publish_run.py publishes
+                                                             scripts/run_residual_statarb.py's
+                                                             export
     results/holdout2026/evaluation.json                      pre-registered 2026 holdout
                                                              (scripts/evaluate_holdout.py)
     results/validation/synthetic_validation.json             known-answer checks
@@ -685,13 +688,44 @@ def facts(res, dev):
 # Other study arms (optional sources)
 # ──────────────────────────────────────────────────────────────────────────────
 
-def headline_summary(h):
-    """The few numbers of another run's headline JSON the page shows (same schema)."""
-    return {'sharpe': _get(h, 'main', 'sharpe'), 'ret_pct': _get(h, 'main', 'total_return_pct'),
-            'trades': _get(h, 'main', 'trades'), 'lo': _get(h, 'significance', 'main', 'boot_lo'),
-            'hi': _get(h, 'significance', 'main', 'boot_hi'), 'p': _get(h, 'significance', 'main', 'hac_p'),
-            'period': [_get(h, 'main', 'period_start'), _get(h, 'main', 'period_end')],
-            'commit': _get(h, 'run_config', 'git_commit')}
+RESIDUAL_EXPORT = 'residual_statarb.json'          # scripts/run_residual_statarb.py --out
+
+
+def load_residual(src, directory):
+    """The Avellaneda-Lee arm's export as scripts/publish_run.py publishes it, or None.
+
+    Pending (None) until `directory` holds both the export and the MANIFEST.json that lists
+    it. An export whose sha256 is not the one its manifest lists is not the published file,
+    and one that is not a complete run of the registered arm on the development calendar is
+    not what the page labels it: either stops the build.
+    """
+    directory = pathlib.Path(directory)
+    export, manifest_path = directory / RESIDUAL_EXPORT, directory / 'MANIFEST.json'
+    if not (export.is_file() and manifest_path.is_file()):
+        return None
+    manifest = src.load(manifest_path)
+    listed = _get(manifest, 'files', RESIDUAL_EXPORT, 'sha256')
+    if listed != _sha256(export):
+        raise ValueError(f'{export} is not the file {manifest_path} lists (sha256 {listed}); publish it again '
+                         'with scripts/publish_run.py')
+    doc = src.load(export)
+    calendar = _get(doc, 'run_config', 'study', 'calendar', 'name')
+    if calendar != 'dev' or doc.get('complete') is not True or doc.get('non_default_switches'):
+        raise ValueError(f'{export} is not a complete run of the registered arm on the dev calendar (calendar '
+                         f'{calendar}, complete {doc.get("complete")}, switches {doc.get("non_default_switches")})')
+    return doc
+
+
+def residual_summary(doc):
+    """The numbers of the residual arm the page and the paper show: the net Sharpe with its
+    block-bootstrap 95% interval and Newey-West p (the export's significance battery, the
+    one the pairs headline carries), total return in %, trades, period and commit."""
+    s, sig = doc.get('summary') or {}, doc.get('significance') or {}
+    ret = s.get('total_return')
+    return {'sharpe': _r(s.get('sharpe'), 2), 'ret_pct': _r(None if ret is None else 100 * ret, 2),
+            'trades': doc.get('total_trades'), 'lo': _r(sig.get('boot_lo'), 2), 'hi': _r(sig.get('boot_hi'), 2),
+            'p': _r(sig.get('hac_p'), 3), 'period': [s.get('start'), s.get('end')],
+            'commit': _get(doc, 'run_config', 'git_commit')}
 
 
 def holdout_section(evaluation):
@@ -778,7 +812,7 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
     anatomy = src.load(dev / 'anatomy.json') or {}
     declaration = src.load(results_root / 'variant_family' / 'declaration.json')
     snoop = src.load(results_root / 'variant_family' / 'snooping.json')
-    residual = src.load(results_root / 'residual_dev' / 'headline_metrics.json')
+    residual = load_residual(src, results_root / 'residual_dev')
     holdout = src.load(results_root / 'holdout2026' / 'evaluation.json')
     known = src.load(results_root / 'validation' / 'synthetic_validation.json')
 
@@ -853,7 +887,7 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
         },
         'dev': dev_out,
         'holdout': holdout_section(holdout),
-        'residual': headline_summary(residual) if residual else None,
+        'residual': residual_summary(residual) if residual else None,
         'validation': validation(known),
     }
     return study

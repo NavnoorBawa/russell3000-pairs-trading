@@ -160,7 +160,8 @@ run_step v32 "$CACHES $V32" s3
 run_step residual "$CACHES $RESIDUAL" s2
 
 # 4. The registered test: one-sided HAC t per strategy, Holm across the three, on inputs
-#    checked to be these runs (one commit, one cache, the calendar, the profiles).
+#    checked to be these runs (one commit, one cache, the calendar, the profiles and the
+#    residual arm's parameters).
 evaluate() {
     mkdir -p "$RES"
     "$PY" scripts/evaluate_holdout.py --calendar $CAL --expect-commit "$HEAD_COMMIT" \
@@ -194,7 +195,7 @@ LOGS
 unchanged
 STEP=register
 "$PY" scripts/register_trial.py --name $NAME ${PREREG_COMMIT:+--prereg-commit "$PREREG_COMMIT"} \
-    --head "$HEAD_COMMIT" --run $RES/v33_pairs --run $RES/v32_pairs \
+    --head "$HEAD_COMMIT" --run $RES/v33_pairs --run $RES/v32_pairs --run $RES/residual \
     --evaluation $RES/evaluation.json ${NOTE:+--note "$NOTE"}
 "$PY" scripts/trial_attempts.py completed "$NAME"
 echo "complete: $RES/ (commit results/ now)"

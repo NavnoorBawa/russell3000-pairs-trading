@@ -53,11 +53,12 @@ the last real close); every leg is marked to market daily on adjusted closes, so
 are in the P&L as in A&L's equation for E_t; costs are booked on fill days; positions still
 open when the data ends close at the last bar (exit_reason 'end_of_data').
 
-Costs. Each stock execution pays the repository cost model's one-way leg cost
-(transaction_costs.calculate_leg_cost: per-share commission on point-in-time shares,
-half-spread by 20-day dollar-ADV bucket, square-root impact on the stock's 20-day dollar
-ADV and daily volatility, both as of the fill day); a short stock leg pays the model's
-borrow fee over its calendar holding period, booked at the exit fill. The net ETF trade
+Costs: the cost model of the pairs arm S1 (study_config profile v33, s1_cost_model). Each
+stock execution pays its one-way leg cost (transaction_costs.calculate_leg_cost: per-share
+commission on point-in-time shares, half-spread by 20-day dollar-ADV bucket, square-root
+impact on the stock's 20-day dollar ADV and daily volatility, both as of the fill day, as
+the pairs engine reads them); a short stock leg pays the profile's borrow fee (0.38%/yr)
+over its calendar holding period, booked at the exit fill. The net ETF trade
 of each day is costed with the same function at an effectively unlimited ADV
 (ETF_ASSUMED_ADV_DOLLARS): the half-spread falls in the model's top bucket (0.75 bp; the
 sector SPDRs quote a one-cent spread, 0.3-2.5 bp of a $40-$300 price) and impact is below
@@ -65,36 +66,56 @@ sector SPDRs quote a one-cent spread, 0.3-2.5 bp of a $40-$300 price) and impact
 counts, and the per-share commission on them, are in the closes' adjusted units: an ETF
 split inside the data inflates the pre-split count (twofold for a 2:1 split), which
 overstates a cost component of a few tenths of a bp of ETF notional. A net short ETF
-position accrues the same borrow fee daily. No prime-broker financing spread and no
-interest on cash are modelled.
+position accrues the same borrow fee daily. No prime-broker financing spread (S1's
+profile sets it to zero; s1_cost_model refuses one) and no interest on cash are modelled.
+
+Universe: S1's rule. On each ranking day (the first signal day and every
+universe_rebalance_days-th trading day after it) the candidates are the point-in-time
+Russell 3000 members, the holdings of the IWV snapshot in force on that day
+(universe.PITUniverse.members_asof, as trading_system._formation_members reads them at
+S1's formations), with a real bar and a point-in-time close >= min_price on that day; the
+universe_size most liquid (500, S1's max_universe) by mean point-in-time dollar volume
+over the trailing universe_lookback_days form the universe until the next ranking day.
+A name outside the snapshot in force can never enter, and neither can a member the price
+cache has no history for (the survivorship gap, reported per snapshot by the run
+script). As for S1, a snapshot is in force from its report-period date although N-PORT
+reports are filed 53-62 days later: it stands in for the index membership FTSE Russell
+had already published. S1 ranks on its own formation window with its pair screens
+(pair_selector.find_quality_pairs); what the arms share is the membership source and the
+size. Without a membership callable the ranking runs over every name of the price dict
+(the synthetic tests; a price dict built from a current constituent list omits names
+delisted before it, survivorship that flatters mean reversion).
 
 Deviations from A&L, each declared before any run: t+1 fills (A&L fill on the signal
 close); the repository cost model instead of a flat 5 bp per side; the 11 SPDR sector
-ETFs (A&L's Table 3 has 15 sector ETFs); the universe (default: the 500 most liquid
-names with a sector ETF, by trailing point-in-time dollar volume with price >= $5,
-re-ranked every 21 trading days on data up to that day; A&L trade all US stocks above
-$1bn market cap); a fixed position_frac rather than A&L's leverage target (Lambda_t =
-2/100 for "2+2" leverage). The default universe ranks the names of the price dict it is
-given; the study's price cache holds the constituents of a 2025 universe file, so names
-delisted before then are missing (survivorship, which flatters mean reversion). A
-point-in-time membership callable can be passed as `universe`.
+ETFs (A&L's Table 3 has 15 sector ETFs); the universe above (A&L trade all US stocks
+above $1bn market cap); a fixed position_frac rather than A&L's leverage target
+(Lambda_t = 2/100 for "2+2" leverage). The first development run ranked the names of
+data/marketcap.csv and paid v32's 0.25% borrow fee; the point-in-time universe and S1's
+fee replaced them afterwards because the pre-registration requires S1's universe rule and
+cost model for this arm, not because of that run's result.
 
 The stock -> ETF map is an argument. Two readers are provided: ff49_sector_etf_map (SIC
--> Fama-French 49 industry -> SPDR, reference/industry_ff49.csv) and
-nasdaq_sector_etf_map (the Nasdaq 'Sector' column of data/marketcap.csv).
+-> Fama-French 49 industry -> SPDR, reference/industry_ff49.csv, the committed map the
+study runs use; universe.sector_etf_map reads the same file) and nasdaq_sector_etf_map
+(the Nasdaq 'Sector' column of data/marketcap.csv).
 """
 
 from dataclasses import asdict, dataclass
-from typing import Callable, Dict, List, Mapping, Optional, Sequence
+from typing import Callable, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from pairs_trading.config import pd, np, logging
 from pairs_trading.json_export import calculate_max_drawdown_from_returns
-from pairs_trading.significance import annualized_sharpe, hac_tstat_mean
+from pairs_trading.significance import (
+    annualized_sharpe, block_bootstrap_sharpe_ci, hac_tstat_mean, probabilistic_sharpe_ratio,
+)
+from pairs_trading.study_config import PROFILES, _hash
 from pairs_trading.transaction_costs import EnhancedPrimeFundTransactionCostModel
 
 logger = logging.getLogger(__name__)
 
 TRADING_DAYS_PER_YEAR = 252
+S1_PROFILE = 'v33'          # the pairs arm whose universe rule and cost model this arm shares
 
 # Nasdaq-screener sector (data/marketcap.csv 'Sector') -> SPDR sector ETF. The Nasdaq
 # taxonomy is not GICS: 'Telecommunications' also holds network-equipment makers (CSCO,
@@ -145,6 +166,25 @@ class ResidualStatArbParams:
     min_price: float = 5.0
     adv_days: int = 20                   # cost-model ADV and volatility window (as data_processor)
     initial_capital: float = 100_000_000.0
+
+    def config_hash(self) -> str:
+        """Fingerprint of the parameters, as study_config hashes a profile: the registered
+        arm runs ResidualStatArbParams(), and its exports carry this hash."""
+        return _hash(asdict(self))
+
+
+def s1_cost_model() -> EnhancedPrimeFundTransactionCostModel:
+    """The cost model of the pairs arm S1: its profile's borrow fee and prime-broker spread.
+
+    The residual book charges no financing carry, so a profile with a non-zero
+    prime-broker spread (v32's 0.5%/yr) is refused rather than silently undercharged.
+    """
+    profile = PROFILES[S1_PROFILE]
+    if profile.pb_financing_spread:
+        raise ValueError(f"profile {S1_PROFILE} charges a prime-broker spread of "
+                         f"{profile.pb_financing_spread}; the residual book does not model financing")
+    return EnhancedPrimeFundTransactionCostModel(borrow_rate=profile.borrow_rate,
+                                                 pb_financing_spread=profile.pb_financing_spread)
 
 
 def nasdaq_sector_etf_map(path: str = 'data/marketcap.csv') -> Dict[str, str]:
@@ -276,24 +316,29 @@ class LiquidityUniverse:
     """Default universe: the `size` most liquid stocks, re-ranked every `rebalance_every` days.
 
     On a ranking day d (the anchor and every rebalance_every-th trading day before or
-    after it), a stock is eligible if it has a real bar on d with point-in-time close
-    >= min_price; eligible stocks are ranked by their mean point-in-time dollar volume
-    over the trailing `lookback` trading days ending on d (at least `min_history` days
-    with data), ties broken by symbol. Only data dated <= d is used. A query for date t
-    returns the membership of the latest ranking day <= t (empty before the first one).
+    after it), a stock is eligible if it is a member on d (`members(d)`, the point-in-time
+    membership in force on d; every stock of the market when None) and has a real bar on
+    d with point-in-time close >= min_price; eligible stocks are ranked by their mean
+    point-in-time dollar volume over the trailing `lookback` trading days ending on d (at
+    least `min_history` days with data), ties broken by symbol. Only data dated <= d is
+    used. A query for date t returns the membership of the latest ranking day <= t (empty
+    before the first one). `log` records each ranking day used: its date, the members
+    with prices and a sector ETF, the eligible and the selected counts.
     """
 
     def __init__(self, market: ResidualMarket, size: int = 500, rebalance_every: int = 21,
                  lookback: int = 252, min_price: float = 5.0, min_history: int = 61,
-                 anchor=None):
+                 anchor=None, members: Optional[Callable[[pd.Timestamp], Iterable[str]]] = None):
         self.market = market
         self.size = int(size)
         self.rebalance_every = int(rebalance_every)
         self.min_price = float(min_price)
+        self.members = members
         anchor_ts = market.dates[0] if anchor is None else pd.Timestamp(anchor)
         self.anchor_k = int(market.dates.searchsorted(anchor_ts, side='left'))
         self._mean_dv = _rolling(market.dollar_volume, lookback, min_history, 'mean')
         self._members: Dict[int, List[str]] = {}
+        self.log: Dict[int, Dict] = {}
 
     def ranking_day(self, date) -> int:
         """Calendar row of the latest ranking day <= `date` (-1 if there is none)."""
@@ -307,9 +352,16 @@ class LiquidityUniverse:
         """Membership ranked on calendar row r."""
         if r not in self._members:
             dv = self._mean_dv[r]
-            ok = np.isfinite(dv) & (self.market.close_pit[r] >= self.min_price)
+            member = np.ones(len(self.market.symbols), dtype=bool)
+            if self.members is not None:
+                pit = set(self.members(self.market.dates[r]))
+                member = np.array([s in pit for s in self.market.symbols], dtype=bool)
+            with np.errstate(invalid='ignore'):
+                ok = member & np.isfinite(dv) & (self.market.close_pit[r] >= self.min_price)
             ranked = sorted((-dv[i], self.market.symbols[i]) for i in np.flatnonzero(ok))
             self._members[r] = sorted(sym for _, sym in ranked[:self.size])
+            self.log[r] = {'date': str(self.market.dates[r].date()), 'members': int(member.sum()),
+                           'eligible': int(ok.sum()), 'selected': len(self._members[r])}
         return self._members[r]
 
     def __call__(self, date) -> List[str]:
@@ -485,7 +537,7 @@ def simulate_residual_book(market: ResidualMarket, signals: ResidualSignals,
                    it run off under the exit rule until the data ends.
     Returns the raw result dict (see run_residual_statarb).
     """
-    cost_model = cost_model or EnhancedPrimeFundTransactionCostModel()
+    cost_model = cost_model or s1_cost_model()
     T, N = market.close.shape
     J = len(market.etfs)
     last_entry_k = T - 1 if last_entry_k is None else int(last_entry_k)
@@ -764,9 +816,17 @@ def summarise_residual_book(raw: Dict, dates: pd.DatetimeIndex) -> Dict:
         'annual_stock_turnover': traded['stock'] / avg_equity * per_year,
         'annual_etf_turnover': traded['etf_net'] / avg_equity * per_year,
     }
+    # The pairs headline's significance battery (significance_report), on the net series.
+    ci = block_bootstrap_sharpe_ci(r, periods=TRADING_DAYS_PER_YEAR) if n_days > 1 else {}
+    significance = {
+        'ann_sharpe': summary['sharpe'], 'hac_t': hac_net['tstat'], 'hac_p': hac_net['pvalue'],
+        'psr': probabilistic_sharpe_ratio(r, 0.0, TRADING_DAYS_PER_YEAR)['psr'] if n_days > 1 else None,
+        'boot_lo': ci.get('lo'), 'boot_hi': ci.get('hi'),
+    }
     return {
         'daily_dates': [str(d.date()) for d in daily['dates']],
-        'daily_returns': list(r),
+        'daily_net_returns': list(r),
+        'daily_returns': list(r),                  # the same net series, the pairs engine's key
         'daily_gross_returns': list(g),
         'daily_gross_pnl': list(daily['gross_pnl']),
         'daily_costs': list(daily['costs']),
@@ -778,9 +838,11 @@ def summarise_residual_book(raw: Dict, dates: pd.DatetimeIndex) -> Dict:
         'daily_long_positions': list(daily['long_positions']),
         'daily_short_positions': list(daily['short_positions']),
         'trades': records,
+        'total_trades': len(records),
         'costs': costs,
         'turnover': turnover,
         'summary': summary,
+        'significance': significance,
         'rejects': dict(raw['rejects']),
     }
 
@@ -800,13 +862,14 @@ SPEC = {
     'execution': 'signal at the close of t, fill at the close of t+1, shares fixed from the t close; '
                  'stock notional position_frac x equity hedged with -beta x notional of the sector ETF, '
                  'ETF hedges netted daily',
-    'costs': 'transaction_costs.calculate_leg_cost per stock execution (20-day dollar ADV and volatility '
-             'at the fill) + borrow on short stock legs; net ETF trades through the same function at '
-             'ETF_ASSUMED_ADV_DOLLARS (top spread bucket, impact ~0) + borrow on net short ETF positions',
-    'universe': 'default: the universe_size most liquid names of the price dict with a sector ETF, by mean '
-                'point-in-time dollar volume over the trailing universe_lookback_days, price >= min_price, '
-                're-ranked every universe_rebalance_days on data up to that day; a price dict built from a '
-                'current constituent list omits names delisted before it (survivorship)',
+    'costs': "S1's cost model (profile v33): transaction_costs.calculate_leg_cost per stock execution "
+             '(20-day dollar ADV and volatility at the fill) + borrow on short stock legs; net ETF trades '
+             'through the same function at ETF_ASSUMED_ADV_DOLLARS (top spread bucket, impact ~0) + borrow on '
+             'net short ETF positions',
+    'universe': "S1's rule: on each ranking day (the first signal day, then every universe_rebalance_days) the "
+                'point-in-time members in force that day (the IWV snapshot) with a sector ETF and price >= '
+                'min_price, the universe_size most liquid by mean point-in-time dollar volume over the trailing '
+                'universe_lookback_days; without a membership source, every name of the price dict',
 }
 
 
@@ -814,20 +877,33 @@ def run_residual_statarb(prices: Mapping[str, pd.DataFrame], sector_closes: Mapp
                          sector_map: Mapping[str, str], start, end,
                          universe: Optional[Callable[[pd.Timestamp], Sequence[str]]] = None,
                          params: ResidualStatArbParams = ResidualStatArbParams(),
-                         cost_model: Optional[EnhancedPrimeFundTransactionCostModel] = None) -> Dict:
+                         cost_model: Optional[EnhancedPrimeFundTransactionCostModel] = None,
+                         members: Optional[Callable[[pd.Timestamp], Iterable[str]]] = None) -> Dict:
     """Backtest the A&L ETF residual strategy; new positions are signalled on [start, end].
+
+    The daily series starts on the first trading day >= start with a zero return (orders
+    signalled at that close fill at the next one) and runs until the last position has
+    closed, at the latest the last bar of the data.
 
     prices        : processed price dict {symbol: DataFrame} (adjusted 'Close'; 'Close_PIT',
                     'Volume_PIT' for the dollar-volume screen and the cost inputs).
     sector_closes : {ETF: Series of closes}, e.g. macro_data['sectors'].
-    sector_map    : {symbol: ETF} (e.g. nasdaq_sector_etf_map()).
+    sector_map    : {symbol: ETF} (e.g. ff49_sector_etf_map()).
     universe      : callable date -> eligible symbols, using data up to that date only;
                     default LiquidityUniverse(params.universe_size, ...) anchored at `start`.
-    Returns a dict with daily_dates, daily_returns (net), daily_gross_returns, daily
-    exposures and position counts, trades, costs (by type, stock and ETF), turnover,
-    summary metrics, universe and signal diagnostics, and the strategy spec.
+    cost_model    : default s1_cost_model().
+    members       : callable date -> point-in-time members in force on that date (e.g.
+                    universe.PITUniverse(...).members_asof), the default universe's gate on
+                    each ranking day; None ranks every name. Not combinable with `universe`.
+    Returns a dict with daily_dates, daily_net_returns (also as daily_returns),
+    daily_gross_returns, daily exposures and position counts, trades and total_trades,
+    costs (by type, stock and ETF), turnover, summary metrics and the significance
+    battery, universe and signal diagnostics, the parameters and their hash, and the
+    strategy spec.
     """
-    cost_model = cost_model or EnhancedPrimeFundTransactionCostModel()
+    if universe is not None and members is not None:
+        raise ValueError('pass a membership source for the default universe, or a universe, not both')
+    cost_model = cost_model or s1_cost_model()
     market = ResidualMarket.from_prices(prices, sector_closes, sector_map, adv_days=params.adv_days)
     dates = market.dates
     T = len(dates)
@@ -839,7 +915,7 @@ def run_residual_statarb(prices: Mapping[str, pd.DataFrame], sector_closes: Mapp
         universe = LiquidityUniverse(market, size=params.universe_size,
                                      rebalance_every=params.universe_rebalance_days,
                                      lookback=params.universe_lookback_days, min_price=params.min_price,
-                                     min_history=params.window + 1, anchor=dates[first_k])
+                                     min_history=params.window + 1, anchor=dates[first_k], members=members)
     col = {s: i for i, s in enumerate(market.symbols)}
     in_universe = np.zeros(market.close.shape, dtype=bool)
     unknown = set()
@@ -861,7 +937,7 @@ def run_residual_statarb(prices: Mapping[str, pd.DataFrame], sector_closes: Mapp
     out = summarise_residual_book(raw, dates)
 
     rows = slice(first_k, first_k + len(out['daily_dates']))
-    members = in_universe[rows].sum(axis=1)
+    n_members = in_universe[rows].sum(axis=1)
     accepted = (signals.accepted & in_universe)[rows].sum(axis=1)
     estimable = (signals.estimable & in_universe)[rows].sum(axis=1)
     with np.errstate(invalid='ignore'):
@@ -870,17 +946,22 @@ def run_residual_statarb(prices: Mapping[str, pd.DataFrame], sector_closes: Mapp
         'mapped_symbols': len(market.symbols),
         'symbols_ever_in_universe': int(in_universe.any(axis=0).sum()),
         'unknown_symbols_skipped': len(unknown),
-        'mean_members': float(members.mean()) if members.size else 0.0,
+        'mean_members': float(n_members.mean()) if n_members.size else 0.0,
         'etfs': list(market.etfs),
+        'point_in_time': members is not None,
+        'rankings': [universe.log[r] for r in sorted(getattr(universe, 'log', {}))
+                     if first_k <= r < rows.stop],
     }
     out['signal_diagnostics'] = {
-        'mean_estimable_fraction': float(np.mean(estimable / np.maximum(members, 1))) if members.size else None,
-        'mean_accepted_fraction': float(np.mean(accepted / np.maximum(members, 1))) if members.size else None,
+        'mean_estimable_fraction': float(np.mean(estimable / np.maximum(n_members, 1))) if n_members.size else None,
+        'mean_accepted_fraction': float(np.mean(accepted / np.maximum(n_members, 1))) if n_members.size else None,
         'median_kappa_accepted': float(np.nanmedian(kappa_u)) if np.isfinite(kappa_u).any() else None,
     }
     out['params'] = asdict(params)
+    out['params_hash'] = params.config_hash()
     out['spec'] = dict(SPEC, etf_assumed_adv_dollars=ETF_ASSUMED_ADV_DOLLARS,
-                       borrow_rate=float(cost_model.gc_borrow_rate))
+                       borrow_rate=float(cost_model.gc_borrow_rate),
+                       pb_financing_spread=float(cost_model.pb_financing_spread))
     out['signals'] = signals
     out['market'] = market
     return out

@@ -16,7 +16,8 @@ when a run is not from --head or not from a clean tree, or when a published expo
 usage: python scripts/register_trial.py --name NAME [--run DIR ...] [--evaluation FILE]
                                         [--prereg-commit SHA] [--head SHA] [--note TEXT]
        python scripts/register_trial.py --name NAME --check-new
-DIR is a run's output or results/ directory (with headline_metrics.json).
+DIR is a run's output or results/ directory: a pairs run's (with headline_metrics.json) or
+the residual arm's (with residual_statarb.json).
 """
 import argparse
 import datetime as dt
@@ -28,6 +29,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 REGISTRY = ROOT / 'results' / 'trial_registry.jsonl'
+RESIDUAL_FILE = 'residual_statarb.json'          # scripts/run_residual_statarb.py's export
 
 from trial_attempts import ATTEMPTS, read_attempts  # noqa: E402
 
@@ -46,8 +48,32 @@ def read_registry(path: pathlib.Path = REGISTRY) -> list:
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
+def residual_summary(directory: pathlib.Path) -> dict:
+    """run_summary of the residual arm, whose export is its own headline."""
+    doc = json.loads((directory / RESIDUAL_FILE).read_text())
+    rc = doc.get('run_config') or {}
+    study, s = rc.get('study') or {}, doc.get('summary') or {}
+    return {
+        'dir': str(directory.resolve().relative_to(ROOT)) if directory.resolve().is_relative_to(ROOT)
+        else str(directory),
+        'git_commit': rc.get('git_commit'), 'git_dirty': rc.get('git_dirty'),
+        'run_timestamp_utc': rc.get('run_timestamp_utc'),
+        'strategy': study.get('strategy'), 'params_hash': study.get('params_hash'),
+        'calendar': (study.get('calendar') or {}).get('name'), 'calendar_hash': study.get('calendar_hash'),
+        'non_default_switches': doc.get('non_default_switches'),
+        'price_cache_sha256': ((rc.get('data') or {}).get('price_cache') or {}).get('sha256'),
+        'complete': doc.get('complete'),
+        'main': {'period_start': s.get('start'), 'period_end': s.get('end'),
+                 'total_return_pct': None if s.get('total_return') is None else 100 * s['total_return'],
+                 'sharpe': s.get('sharpe'), 'trades': doc.get('total_trades')},
+        'oos': None,
+    }
+
+
 def run_summary(directory: pathlib.Path) -> dict:
     """What the registry keeps of one run: provenance and the headline numbers."""
+    if not (directory / 'headline_metrics.json').exists() and (directory / RESIDUAL_FILE).exists():
+        return residual_summary(directory)
     doc = json.loads((directory / 'headline_metrics.json').read_text())
     rc = doc.get('run_config') or {}
     study = rc.get('study') or {}

@@ -4,8 +4,10 @@
 A run writes to its output directory (git-ignored, overwritten by the next run). Publishing
 copies its JSON exports there unchanged, adds a cleaned copy of the run log (progress bars
 removed, absolute paths made relative) and writes MANIFEST.json: every file's sha256 and
-size, and the run's provenance (commit, profile, calendar, data fingerprint) read from its
-headline export. The site and the paper are built only from results/.
+size, and the run's provenance (commit, profile or strategy, calendar, data fingerprint)
+read from its headline: headline_metrics.json for a pairs run, the export itself
+(residual_statarb.json) for the residual arm. The site and the paper are built only from
+results/.
 
 A destination that already holds files is refused, so a later run never mixes its files
 with an earlier one's; --replace empties it first. A run whose headline marks it
@@ -23,6 +25,8 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PROGRESS = re.compile(r'it/s|s/it|pair/s|symbol/s|\| *\d+/\d+ \[')
+# The file that carries a run's provenance, complete flag and switches, by kind of run.
+HEADLINE_FILES = ('headline_metrics.json', 'residual_statarb.json')
 
 
 def sha256(path: pathlib.Path) -> str:
@@ -45,8 +49,8 @@ def publish(src: pathlib.Path, name: str, log: pathlib.Path = None, replace: boo
     files = sorted(p for p in src.glob('*.json') if p.is_file())
     if not files:
         raise SystemExit(f"no JSON exports in {src}")
-    src_head = src / 'headline_metrics.json'
-    if src_head.exists() and not variant:
+    src_head = next((src / n for n in HEADLINE_FILES if (src / n).exists()), None)
+    if src_head is not None and not variant:
         h = json.loads(src_head.read_text())
         if h.get('complete') is False or h.get('non_default_switches'):
             raise SystemExit(f"{src} is incomplete or a sensitivity variant (non-default switches "
@@ -61,8 +65,8 @@ def publish(src: pathlib.Path, name: str, log: pathlib.Path = None, replace: boo
         shutil.copy2(p, dest / p.name)
     if log is not None:
         (dest / 'run.log').write_text(clean_log(log.read_text(errors='replace')))
-    headline = dest / 'headline_metrics.json'
-    rc = json.loads(headline.read_text()).get('run_config', {}) if headline.exists() else {}
+    headline = dest / src_head.name if src_head is not None else None
+    rc = json.loads(headline.read_text()).get('run_config', {}) if headline is not None else {}
     manifest = {
         'name': name,
         'run_config': {k: rc.get(k) for k in ('package_version', 'git_commit', 'git_dirty',

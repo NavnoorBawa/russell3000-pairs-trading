@@ -2,14 +2,20 @@
 
 Formulas (A&L Appendix eq. 21, centred s-score eq. 22) against hand-computed values and an
 independent statsmodels fit; causality (decisions dated <= t are unchanged when every
-price and volume after t changes); t+1 fills; the universe gate, the run-off after `end`
-and missing bars; known answers on synthetic markets (a planted OU residual must give a
-large positive gross edge, a random-walk residual none); ETF hedge netting, exposures and
-cost accounting on hand-built books; the run script's sector-map choice and provenance.
+price and volume after t changes, with and without the point-in-time gate); t+1 fills;
+the universe gate, the run-off after `end` and missing bars; known answers on synthetic
+markets (a planted OU residual must give a large positive gross edge, a random-walk
+residual none); ETF hedge netting, exposures and cost accounting on hand-built books;
+S1's cost model and point-in-time membership rule (a non-member never enters; the
+membership changes only where a snapshot takes effect); the run script on a study
+calendar laid out from synthetic caches (the calendar's bounds, the export the evaluator
+reads, nothing fetched, refusals of incomplete or foreign caches and of other code).
 """
+import hashlib
 import importlib.util
 import json
 import os
+import pickle
 import subprocess
 import sys
 
@@ -18,18 +24,20 @@ import pandas as pd
 import pytest
 import statsmodels.api as sm
 
-from pairs_trading.json_export import _atomic_write_json, non_default_switches
+from pairs_trading.json_export import _atomic_write_json
 from pairs_trading.residual_statarb import (
     ETF_ASSUMED_ADV_DOLLARS, LiquidityUniverse, ResidualMarket, ResidualSignals, ResidualStatArbParams,
     centred_s_scores, ff49_sector_etf_map, nasdaq_sector_etf_map, ou_from_ar1, ou_residual_fit, rolling_ou_fits,
-    run_residual_statarb, simulate_residual_book, summarise_residual_book,
+    run_residual_statarb, s1_cost_model, simulate_residual_book, summarise_residual_book,
 )
-from pairs_trading.synthetic import make_residual_market, perturb_after
+from pairs_trading.study_config import CALENDARS, PROFILES
+from pairs_trading.synthetic import make_residual_market, perturb_after, write_reference
 from pairs_trading.transaction_costs import EnhancedPrimeFundTransactionCostModel
+from pairs_trading.universe import PITUniverse, sector_etf_map
 
 START, END = '2021-07-01', '2023-12-31'
-SCRIPT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'scripts',
-                      'run_residual_statarb.py')
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCRIPT = os.path.join(REPO, 'scripts', 'run_residual_statarb.py')
 
 
 def _script():
@@ -219,38 +227,63 @@ def test_ff49_sector_map_reads_the_sector_etf_column_and_skips_blanks(tmp_path):
     assert ff49_sector_etf_map(str(path))['NA'] == 'XLY'
 
 
-def test_run_script_prefers_the_industry_file_and_records_which_map_it_used(tmp_path, monkeypatch):
+def test_run_script_reads_the_committed_sector_map_and_records_it(tmp_path, monkeypatch):
+    """The registered arm reads reference/industry_ff49.csv through universe.sector_etf_map,
+    with its sha256; a missing file stops the run (no fallback), and any other map is a
+    variant."""
     mod = _script()
+    mapping, info = mod.load_sector_map()
+    committed = os.path.join(REPO, 'reference', 'industry_ff49.csv')
+    assert mapping == sector_etf_map() and info['registered'] is True
+    assert info['file']['path'] == 'reference/industry_ff49.csv'
+    with open(committed, 'rb') as fh:
+        assert info['file']['sha256'] == hashlib.sha256(fh.read()).hexdigest()
+    assert info['source'].startswith('ff49_sic') and info['n_symbols'] == len(mapping)
+    assert mod.load_sector_map(committed)[1]['registered'] is True
+    with pytest.raises(FileNotFoundError, match='industry_ff49.csv'):
+        mod.load_sector_map(reference_dir=tmp_path)
+
+    other = tmp_path / 'industry_ff49.csv'
+    other.write_text(_FF49_CSV)
+    mapping, info = mod.load_sector_map(str(other))
+    assert mapping == {'AAPL': 'XLK', 'BRK-B': 'XLF', 'O': 'XLRE'} and info['registered'] is False
+    assert info['etf_counts'] == {'XLF': 1, 'XLK': 1, 'XLRE': 1} and info['file']['path'] == 'industry_ff49.csv'
+    assert mod.load_sector_map(reference_dir=tmp_path)[1]['registered'] is True    # that directory's own map
     (tmp_path / 'data').mkdir()
     (tmp_path / 'data' / 'marketcap.csv').write_text('Symbol,Name,MarketCap,Sector,Industry\n'
                                                       'AAPL,Apple,1,Technology,x\nO,Realty,1,Finance,x\n')
     monkeypatch.chdir(tmp_path)
-    mapping, info = mod.load_sector_map()                       # no industry file: Nasdaq sectors
+    mapping, info = mod.load_sector_map('nasdaq')
     assert mapping == {'AAPL': 'XLK', 'O': 'XLF'} and info['source'].startswith('nasdaq_sector')
-    assert info['file']['path'] == 'marketcap.csv' and len(info['file']['sha256']) == 64
-
-    (tmp_path / 'reference').mkdir()
-    (tmp_path / 'reference' / 'industry_ff49.csv').write_text(_FF49_CSV)
-    mapping, info = mod.load_sector_map()                       # industry file present: preferred
-    assert mapping == {'AAPL': 'XLK', 'BRK-B': 'XLF', 'O': 'XLRE'} and info['source'].startswith('ff49_sic')
-    assert info['n_symbols'] == 3 and info['etf_counts'] == {'XLF': 1, 'XLK': 1, 'XLRE': 1}
-    assert mod.load_sector_map('nasdaq')[1]['source'].startswith('nasdaq_sector')
-    assert mod.load_sector_map(str(tmp_path / 'reference' / 'industry_ff49.csv'))[0] == mapping
+    assert info['registered'] is False
 
 
 def test_run_script_has_a_working_cli():
     r = subprocess.run([sys.executable, SCRIPT, '--help'], capture_output=True, text=True, timeout=120)
-    assert r.returncode == 0 and '--sector-map' in r.stdout and '--universe-size' in r.stdout
+    assert r.returncode == 0 and '--calendar' in r.stdout and '--universe-size' in r.stdout
+    assert '--start' not in r.stdout and '--end' not in r.stdout       # the calendar fixes both
 
 
-def test_run_config_records_the_close_fill_whatever_pairs_fill_says(ou_run, tmp_path, monkeypatch):
+def test_run_config_records_the_close_fill_and_the_calendar(ou_run, tmp_path, monkeypatch):
     # PAIRS_FILL switches the pairs engine only; this strategy always fills at the next close
+    mod = _script()
     monkeypatch.chdir(tmp_path)                            # no price cache here to fingerprint
     monkeypatch.setenv('PAIRS_FILL', 'open')
-    cfg = _script().residual_run_config(ou_run[3], {}, {'source': 'test'})
-    assert cfg['effective'] == {'fill': 'close'} and non_default_switches(cfg) == []
-    assert cfg['sector_map'] == {'source': 'test'}
+    params = ResidualStatArbParams()
+    cfg = mod.residual_run_config(ou_run[3], {'study': mod.residual_study(CALENDARS['dev'], params)},
+                                  {'source': 'test', 'registered': True})
+    assert cfg['effective'] == {'fill': 'close', 'calendar': 'dev'}
+    assert cfg['study']['calendar_hash'] == CALENDARS['dev'].config_hash()
+    assert cfg['study']['params_hash'] == params.config_hash() and cfg['study']['profile'] is None
+    assert cfg['sector_map'] == {'source': 'test', 'registered': True}
     assert cfg['data']['backtest_start'] == ou_run[3]['daily_dates'][0]
+    assert mod.residual_switches(cfg, params, cfg['sector_map']) == []
+    # what makes a run a variant of the registered arm
+    monkeypatch.setenv('PAIRS_SKIP_REPROCESS', '1')
+    cfg = mod.residual_run_config(ou_run[3], {'study': mod.residual_study(CALENDARS['dev'], params)},
+                                  {'registered': False, 'file': {'path': 'x.csv'}})
+    assert mod.residual_switches(cfg, ResidualStatArbParams(universe_size=300), cfg['sector_map'], ['ZZZ']) == [
+        'universe_size=300', 'sector_map=x.csv', 'PAIRS_SKIP_REPROCESS=1', 'never_fetched_members=1']
 
 
 # ── causality and execution timing ───────────────────────────────────────────────
@@ -260,10 +293,15 @@ def _decision(t):
             t['sigma_eq'], t['notional'], t['shares'], t['etf_shares'])
 
 
-@pytest.mark.parametrize('cutoff', ['2022-06-15', '2023-03-01'])
-def test_decisions_up_to_t_ignore_all_data_after_t(cutoff):
+@pytest.mark.parametrize('cutoff, gated', [('2022-06-15', False), ('2023-03-01', False), ('2022-06-15', True)])
+def test_decisions_up_to_t_ignore_all_data_after_t(cutoff, gated, tmp_path):
     frames, etfs, smap, _ = make_residual_market(seed=11, residual='ou')
-    base = run_residual_statarb(frames, etfs, smap, START, END)
+    members = None
+    if gated:                               # the point-in-time gate, with snapshots on both sides of t
+        names = sorted(smap)
+        snaps = {'2021-03-31': names[2:], '2022-03-31': names[1:], '2022-09-30': names[:-3]}
+        members = PITUniverse(write_reference(tmp_path / 'reference', snaps)).members_asof
+    base = run_residual_statarb(frames, etfs, smap, START, END, members=members)
     cut = pd.Timestamp(cutoff)
     rng = np.random.default_rng(5)
     etfs_p = {}
@@ -272,7 +310,7 @@ def test_decisions_up_to_t_ignore_all_data_after_t(cutoff):
         after = v.index > cut
         v[after] = v[after].to_numpy() * np.exp(np.cumsum(rng.normal(0, 0.03, int(after.sum()))))
         etfs_p[e] = v
-    pert = run_residual_statarb(perturb_after(frames, cutoff), etfs_p, smap, START, END)
+    pert = run_residual_statarb(perturb_after(frames, cutoff), etfs_p, smap, START, END, members=members)
 
     rows = base['market'].dates <= cut
     assert rows.sum() > 300 and (~rows).sum() > 100
@@ -580,8 +618,217 @@ def test_cost_accounting_sums_on_a_full_run(ou_run):
 def test_results_export_as_strict_json(ou_run, tmp_path):
     path = _atomic_write_json(_script().export_payload(ou_run[3], {'git_commit': None}), tmp_path / 'r.json')
     with open(path) as fh:
-        doc = json.load(fh)
-    assert {'daily_dates', 'daily_returns', 'daily_gross_returns', 'daily_gross_exposure', 'daily_open_positions',
-            'trades', 'costs', 'turnover', 'summary', 'params', 'spec', 'run_config'} <= set(doc)
+        doc = json.load(fh, parse_constant=pytest.fail)
+    assert {'daily_dates', 'daily_net_returns', 'daily_returns', 'daily_gross_returns', 'daily_gross_exposure',
+            'daily_open_positions', 'total_trades', 'trades', 'costs', 'turnover', 'summary', 'significance',
+            'params', 'params_hash', 'spec', 'complete', 'non_default_switches', 'run_config'} <= set(doc)
     assert 'signals' not in doc and 'market' not in doc
-    assert len(doc['trades']) == len(ou_run[3]['trades'])
+    assert doc['total_trades'] == len(doc['trades']) == len(ou_run[3]['trades'])
+    assert doc['daily_net_returns'] == doc['daily_returns'] and doc['complete'] is True
+    sig = doc['significance']
+    assert sig['ann_sharpe'] == doc['summary']['sharpe'] and sig['hac_p'] == doc['summary']['hac_p_net']
+    assert sig['boot_lo'] < sig['ann_sharpe'] < sig['boot_hi'] and 0.5 < sig['psr'] <= 1
+
+
+# ── S1's cost model and point-in-time universe ──────────────────────────────────
+
+def test_the_default_cost_model_is_s1s(ou_run, monkeypatch):
+    cm = s1_cost_model()
+    v33 = PROFILES['v33']
+    assert (cm.gc_borrow_rate, cm.pb_financing_spread) == (v33.borrow_rate, v33.pb_financing_spread) == (0.0038, 0.0)
+    res = ou_run[3]
+    assert (res['spec']['borrow_rate'], res['spec']['pb_financing_spread']) == (0.0038, 0.0)
+    short = next(t for t in res['trades'] if t['side'] == 'short')
+    assert short['costs']['borrow'] == pytest.approx(
+        cm.calculate_borrow_cost(abs(short['shares']) * short['entry_price'], short['symbol'], short['calendar_days']))
+    # this book models no financing carry, so it refuses a profile that charges one
+    import dataclasses
+    from pairs_trading import residual_statarb
+    monkeypatch.setitem(residual_statarb.PROFILES, 'v33', dataclasses.replace(v33, pb_financing_spread=0.005))
+    with pytest.raises(ValueError, match='prime-broker'):
+        s1_cost_model()
+
+
+SNAP_DATES = ('2021-03-31', '2022-06-30', '2022-12-30')
+
+
+def _pit_market(tmp_path, seed=0):
+    """make_residual_market with three membership snapshots: names[0] is never a member,
+    names[1] joins on 2022-06-30, names[2] leaves on 2022-12-30."""
+    frames, etfs, smap, _ = make_residual_market(seed=seed, residual='ou')
+    names = sorted(smap)
+    outsider, joiner, leaver = names[:3]
+    snaps = {SNAP_DATES[0]: [n for n in names if n not in (outsider, joiner)],
+             SNAP_DATES[1]: [n for n in names if n != outsider],
+             SNAP_DATES[2]: [n for n in names if n not in (outsider, leaver)]}
+    pit = PITUniverse(write_reference(tmp_path / 'reference', snaps))
+    return frames, etfs, smap, pit, (outsider, joiner, leaver)
+
+
+def test_a_name_outside_the_point_in_time_membership_never_enters(tmp_path):
+    frames, etfs, smap, pit, (outsider, _, _) = _pit_market(tmp_path)
+    frames[outsider] = frames[outsider].assign(Volume=frames[outsider]['Volume'] * 100)   # by far the most liquid
+    params = ResidualStatArbParams(universe_size=10)          # liquidity binds
+    gated = run_residual_statarb(frames, etfs, smap, START, END, params=params, members=pit.members_asof)
+    free = run_residual_statarb(frames, etfs, smap, START, END, params=params)
+    col = gated['market'].symbols.index(outsider)
+    first_k = int(gated['market'].dates.searchsorted(pd.Timestamp(START)))
+    assert free['signals'].in_universe[first_k:, col].all()          # ungated, it ranks first every day
+    assert not gated['signals'].in_universe[:, col].any()
+    assert outsider in {t['symbol'] for t in free['trades']}
+    assert outsider not in {t['symbol'] for t in gated['trades']}
+    assert gated['universe']['point_in_time'] and not free['universe']['point_in_time']
+    for row in gated['universe']['rankings']:                       # every ranking: members only, 10 chosen
+        assert row['members'] == len(pit.members_asof(row['date'])) and row['selected'] == 10
+
+
+@pytest.mark.parametrize('every', [1, 21])
+def test_point_in_time_membership_changes_only_where_a_snapshot_takes_effect(tmp_path, every):
+    """With the size not binding, the universe is the snapshot in force on each ranking day:
+    it changes on the first ranking day on or after a snapshot's period date and on no
+    other day (with daily ranking, on the snapshot dates themselves)."""
+    frames, etfs, smap, pit, (_, joiner, leaver) = _pit_market(tmp_path)
+    res = run_residual_statarb(frames, etfs, smap, START, END, members=pit.members_asof,
+                               params=ResidualStatArbParams(universe_rebalance_days=every))
+    market, inu = res['market'], res['signals'].in_universe
+    names = np.array(market.symbols)
+    first_k = int(market.dates.searchsorted(pd.Timestamp(START)))
+    rows = range(first_k, len(market.dates))
+    changes = [k for k in rows[1:] if (inu[k] != inu[k - 1]).any()]
+    takes_effect = [next(k for k in rows if (k - first_k) % every == 0 and market.dates[k] >= pd.Timestamp(d))
+                    for d in SNAP_DATES[1:]]
+    assert changes == takes_effect
+    if every == 1:
+        assert [str(market.dates[k].date()) for k in changes] == list(SNAP_DATES[1:])
+    for k in rows:
+        ranking_day = market.dates[first_k + every * ((k - first_k) // every)]
+        assert set(names[inu[k]]) == set(pit.members_asof(ranking_day))
+    joined, left = market.symbols.index(joiner), market.symbols.index(leaver)
+    assert not inu[first_k:takes_effect[0], joined].any() and inu[takes_effect[0]:, joined].all()
+    assert inu[first_k:takes_effect[1], left].all() and not inu[takes_effect[1]:, left].any()
+    assert all(pd.Timestamp(t['signal_date']) >= market.dates[takes_effect[0]]
+               for t in res['trades'] if t['symbol'] == joiner)
+
+
+# ── the run script on a study calendar (synthetic caches, nothing fetched) ──────
+
+CAL = CALENDARS['rehearsal2025']
+COMMIT = 'c' * 40
+SNAPSHOTS = ('2024-09-30', '2024-12-31', '2025-03-31', '2025-06-30', '2025-09-30')
+
+
+def _calendar_layout(root, monkeypatch, extend_past_end=False):
+    """A synthetic market laid out as the rehearsal2025 calendar's caches under `root`, with
+    point-in-time snapshots in which names[0] is never a member, and the run's environment:
+    `root` as the working directory, its reference/ as the committed one, a clean tree at
+    COMMIT, and every network fetch an error."""
+    from pairs_trading import data_processor, json_export, universe
+    from pairs_trading.synthetic import write_calendar_caches
+    end = '2025-10-31' if extend_past_end else CAL.data_end
+    frames, etfs, smap, _ = make_residual_market(seed=5, residual='ou', start='2022-01-03', end=end)
+    names = sorted(smap)
+    vix = pd.Series(20.0, index=next(iter(etfs.values())).index)
+    write_calendar_caches(root, CAL, frames, {'VIX': vix, 'sectors': etfs})
+    write_reference(root / 'reference', {d: names[1:] for d in SNAPSHOTS}, sector_etf=smap)
+    monkeypatch.setattr(universe, 'REFERENCE_DIR', root / 'reference')
+    monkeypatch.setattr(json_export, '_git_state', lambda: (COMMIT, False))
+    monkeypatch.setattr(json_export, '_START_PROVENANCE', {})
+
+    def no_fetch(*args, **kwargs):
+        raise AssertionError('the residual arm fetched data')
+    monkeypatch.setattr(data_processor.EnhancedRussell3000DataProcessor, '_download_history', no_fetch)
+    monkeypatch.setattr(data_processor.EnhancedRussell3000DataProcessor, '_fetch_many', no_fetch)
+    monkeypatch.chdir(root)
+    return names
+
+
+def test_a_calendar_run_trades_inside_the_calendar_and_exports_the_registered_record(tmp_path, monkeypatch):
+    names = _calendar_layout(tmp_path, monkeypatch)
+    out = tmp_path / 'out' / 'residual_statarb.json'
+    assert _script().main(['--calendar', 'rehearsal2025', '--out', str(out)]) == 0
+    doc = json.loads(out.read_text(), parse_constant=pytest.fail)
+
+    # the calendar's bounds: first signal on backtest_start (a zero-return session), last on data_end
+    days = doc['daily_dates']
+    assert days[0] == CAL.backtest_start and days[-1] == CAL.data_end
+    assert len(days) == len(pd.bdate_range(CAL.backtest_start, CAL.data_end))
+    assert doc['daily_net_returns'][0] == doc['daily_gross_returns'][0] == 0.0
+    assert doc['daily_gross_exposure'][0] == 0.0 and doc['daily_open_positions'][0] == 0
+    trades = doc['trades']
+    assert doc['total_trades'] == len(trades) > 50
+    assert min(t['signal_date'] for t in trades) >= CAL.backtest_start
+    assert all(t['signal_date'] < t['entry_date'] <= t['exit_date'] <= CAL.data_end for t in trades)
+    assert {t['exit_date'] for t in trades if t['exit_reason'] == 'end_of_data'} <= {CAL.data_end}
+    assert names[0] not in {t['symbol'] for t in trades}                     # never a member
+    rankings = doc['universe']['rankings']
+    assert rankings[0]['date'] == CAL.backtest_start and len(rankings) == -(-len(days) // 21)
+    for row in rankings:                    # the snapshot in force on each ranking day, its members
+        assert row['snapshot'] == max(d for d in SNAPSHOTS if d <= row['date'])
+        assert row['members'] == row['selected'] == len(names) - 1
+    gaps = doc['universe_by_formation']     # one survivorship record per snapshot that governs
+    assert [g['snapshot'] for g in gaps] == sorted({row['snapshot'] for row in rankings})
+    assert all(g['missing'] == 0 and g['members'] == len(names) - 1 for g in gaps)
+
+    # the record the evaluator and the publisher read
+    assert doc['complete'] is True and doc['non_default_switches'] == []
+    rc = doc['run_config']
+    assert (rc['git_commit'], rc['git_dirty']) == (COMMIT, False)
+    assert rc['study']['calendar']['name'] == 'rehearsal2025' and rc['study']['calendar_hash'] == CAL.config_hash()
+    assert rc['study']['params_hash'] == ResidualStatArbParams().config_hash() == doc['params_hash']
+    assert rc['effective'] == {'fill': 'close', 'calendar': 'rehearsal2025'}
+    for key, path in (('price_cache', CAL.price_cache), ('macro_cache', CAL.macro_cache),
+                      ('universe_file', 'reference/universe/index.json')):
+        with open(tmp_path / path, 'rb') as fh:
+            assert rc['data'][key]['sha256'] == hashlib.sha256(fh.read()).hexdigest(), key
+    assert rc['sector_map']['registered'] is True and len(rc['sector_map']['file']['sha256']) == 64
+    assert rc['universe']['snapshots'][0]['period_date'] == '2024-12-31'
+    assert rc['data']['backtest_start'] == CAL.backtest_start and rc['data']['data_end'] == CAL.data_end
+
+
+def test_the_run_script_fetches_nothing_and_stops_on_what_the_caches_lack(tmp_path, monkeypatch, caplog):
+    from pairs_trading import universe
+    names = _calendar_layout(tmp_path, monkeypatch)
+    mod = _script()
+    out = tmp_path / 'r.json'
+    args = ['--calendar', 'rehearsal2025', '--out', str(out)]
+
+    # a member the price cache never attempted: the data step has not run for this universe
+    smap = universe.sector_etf_map()
+    write_reference(tmp_path / 'other', {d: names[1:] + ['NEWCO'] for d in SNAPSHOTS}, sector_etf=smap)
+    monkeypatch.setattr(universe, 'REFERENCE_DIR', tmp_path / 'other')
+    assert mod.main(args) == 2 and 'never fetched 1' in caplog.text and '--fetch-only' in caplog.text
+    assert not out.exists()
+    monkeypatch.setenv('PAIRS_ALLOW_PARTIAL_FETCH', '1')                   # a declared, recorded variant
+    assert mod.main(args) == 0
+    doc = json.loads(out.read_text())
+    assert doc['non_default_switches'] == ['PAIRS_ALLOW_PARTIAL_FETCH=1', 'never_fetched_members=1']
+    assert doc['run_config']['data']['never_fetched_members'] == ['NEWCO']
+    monkeypatch.delenv('PAIRS_ALLOW_PARTIAL_FETCH')
+    monkeypatch.setattr(universe, 'REFERENCE_DIR', tmp_path / 'reference')
+    out.unlink()
+
+    # a sector ETF that stops before the last price date
+    with open(tmp_path / CAL.macro_cache, 'rb') as fh:
+        macro = pickle.load(fh)
+    macro['sectors']['XLC'] = macro['sectors']['XLC'].iloc[:-5]
+    with open(tmp_path / CAL.macro_cache, 'wb') as fh:
+        pickle.dump(macro, fh)
+    caplog.clear()
+    assert mod.main(args) == 2 and 'lacks closes' in caplog.text and "['XLC']" in caplog.text
+    # no macro cache at all
+    os.remove(tmp_path / CAL.macro_cache)
+    caplog.clear()
+    assert mod.main(args) == 2 and 'never fetches' in caplog.text
+    assert not out.exists()
+
+
+def test_the_run_script_refuses_a_cache_of_another_period_and_other_code(tmp_path, monkeypatch, caplog):
+    _calendar_layout(tmp_path, monkeypatch, extend_past_end=True)        # bars after data_end
+    mod = _script()
+    args = ['--calendar', 'rehearsal2025', '--out', str(tmp_path / 'r.json')]
+    assert mod.main(args) == 2 and 'another period' in caplog.text
+    _calendar_layout(tmp_path, monkeypatch)
+    monkeypatch.setenv('PAIRS_EXPECTED_COMMIT', 'e' * 40)                # the runbook's commit check
+    caplog.clear()
+    assert mod.main(args) == 2 and 'PAIRS_EXPECTED_COMMIT' in caplog.text
+    assert not (tmp_path / 'r.json').exists()

@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from pairs_trading.residual_statarb import ResidualStatArbParams
 from pairs_trading.study_config import CALENDARS, PROFILES
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -59,11 +60,18 @@ def _pairs_export(directory, net, profile='v33', calendar='holdout2026', commit=
     return directory
 
 
-def _residual_export(path, net, commit=COMMIT, dates=DATES):
+def _residual_export(path, net, commit=COMMIT, dates=DATES, calendar='holdout2026', cache='ab' * 32,
+                     params=ResidualStatArbParams(), switches=()):
+    """The fields of scripts/run_residual_statarb.py's export that the evaluator reads."""
+    study = {'strategy': 'avellaneda_lee', 'profile': None, 'calendar': {'name': calendar},
+             'calendar_hash': CALENDARS[calendar].config_hash(), 'params_hash': params.config_hash()}
     with open(path, 'w') as f:
         json.dump({'daily_dates': list(dates), 'daily_net_returns': [float(x) for x in net], 'total_trades': 0,
-                   'run_config': {'git_commit': commit, 'git_dirty': False,
-                                  'study': {'calendar': {'name': 'holdout2026'}}}}, f)
+                   'daily_open_positions': [0] * len(dates),
+                   'summary': {'avg_gross_exposure': 0.25, 'max_gross_exposure': 0.5},
+                   'complete': True, 'non_default_switches': list(switches),
+                   'run_config': {'git_commit': commit, 'git_dirty': False, 'study': study,
+                                  'data': {'price_cache': {'sha256': cache}}}}, f)
     return path
 
 
@@ -113,6 +121,8 @@ def test_every_strategy_gets_the_promised_report(tmp_path):
     assert s['v33_pairs']['random_pair']['percentile'] == 40.0
     assert s['avellaneda_lee']['vs_gatev']['source'] == 'v33 run'
     assert s['avellaneda_lee']['vs_gatev']['n_common_days'] == 200
+    assert s['avellaneda_lee']['exposure'] == {'avg_gross_pct_of_equity': 25.0, 'max_gross_pct_of_equity': 50.0,
+                                               'days_with_open_positions': 0}
 
 
 def test_the_baseline_comparison_reproduces_the_in_run_test():
@@ -138,9 +148,14 @@ def test_the_baseline_comparison_reproduces_the_in_run_test():
     (dict(v32={'complete': False}), 'complete'),
     (dict(v32={'switches': ['PAIRS_RANKER=gbm']}), 'non-default'),
     (dict(v32={'dates': DATES[1:] + ['2026-10-19']}), 'trading dates differ'),
-    (dict(v32={'cache': 'cd' * 32}), 'different price caches'),
+    (dict(v32={'cache': 'cd' * 32}), 'one price cache'),
     (dict(residual=False), 'registered'),
     (dict(nan=True), 'not all finite'),
+    (dict(res={'calendar': 'rehearsal2025'}), 'avellaneda_lee: calendar rehearsal2025'),
+    (dict(res={'commit': 'd' * 40}), 'one commit'),
+    (dict(res={'cache': 'cd' * 32}), 'one price cache'),
+    (dict(res={'params': ResidualStatArbParams(position_frac=0.01)}), 'avellaneda_lee: parameter hash'),
+    (dict(res={'switches': ['PAIRS_ALLOW_PARTIAL_FETCH=1']}), 'avellaneda_lee: complete True, non-default'),
 ])
 def test_inputs_that_are_not_the_registered_runs_are_refused(tmp_path, capsys, change, needle):
     rng = np.random.default_rng(4)
@@ -149,7 +164,7 @@ def test_inputs_that_are_not_the_registered_runs_are_refused(tmp_path, capsys, c
     if change.get('nan'):
         net32[17] = np.nan
     v32 = _pairs_export(tmp_path / 'v32', net32, profile='v32', **change.get('v32', {}))
-    res = _residual_export(tmp_path / 'res.json', rng.normal(0, 0.004, 200))
+    res = _residual_export(tmp_path / 'res.json', rng.normal(0, 0.004, 200), **change.get('res', {}))
     args = _args(tmp_path, v33, v32, res)
     if change.get('residual') is False:
         args = args[:4] + args[6:]
@@ -207,10 +222,16 @@ dates = [str(x.date()) for x in pd.bdate_range(cal.backtest_start, cal.data_end)
 rng = np.random.default_rng(len(args.profile or 'r'))
 net = rng.normal(0, 0.004, len(dates))
 if kind == 'residual':
+    from pairs_trading.residual_statarb import ResidualStatArbParams
     p = pathlib.Path(args.out); p.parent.mkdir(parents=True, exist_ok=True)
+    study = {'strategy': 'avellaneda_lee', 'profile': None, 'calendar': {'name': cal.name},
+             'calendar_hash': cal.config_hash(), 'params_hash': ResidualStatArbParams().config_hash()}
+    cache = hashlib.sha256(open(cal.price_cache, 'rb').read()).hexdigest()
     p.write_text(json.dumps({'daily_dates': dates, 'daily_net_returns': list(net), 'total_trades': 3,
+                             'summary': {'sharpe': 0.1, 'total_return': 0.01}, 'complete': True,
+                             'non_default_switches': [],
                              'run_config': {'git_commit': os.environ['PAIRS_EXPECTED_COMMIT'], 'git_dirty': False,
-                                            'study': {'calendar': {'name': cal.name}}}}))
+                                            'study': study, 'data': {'price_cache': {'sha256': cache}}}}))
     sys.exit(0)
 if args.fetch_only:
     with open(cal.price_cache, 'a') as f:
@@ -322,6 +343,8 @@ def test_the_runbook_records_a_crash_resumes_and_runs_once(frozen_repo):
     assert again == ['-m pairs_trading.main --profile v32 --calendar holdout2026 --output-dir outputs/holdout2026_v32']
     reg = [json.loads(x) for x in (repo / 'results' / 'trial_registry.jsonl').read_text().splitlines()]
     assert [x['name'] for x in reg] == ['holdout2026'] and reg[0]['prereg_commit'] == head
+    assert [r.get('profile') or r.get('strategy') for r in reg[0]['runs']] == ['v33', 'v32', 'avellaneda_lee']
+    assert all(r['git_commit'] == head and r['calendar'] == 'holdout2026' for r in reg[0]['runs'])
     assert [(a['attempt'], a['event']) for a in reg[0]['attempts'] if a['event'] in ('start', 'failed')] == \
         [(1, 'start'), (1, 'failed'), (2, 'start')]
     evaluation = json.loads((repo / 'results' / 'holdout2026' / 'evaluation.json').read_text())
@@ -425,3 +448,134 @@ def test_pin_check_follows_pep440_local_labels():
     assert cp.mismatches(lines, have) == ['pandas 2.2.2 (pinned 2.2.3)', 'scipy None (pinned 1.15.2)']
     assert cp.mismatches(['torch==2.13.0+cu121'], have) == ['torch 2.13.0+cpu (pinned 2.13.0+cu121)']
     assert cp.mismatches(['torch==2.13.0+cpu'], have) == []
+
+
+# ── the three arms for real, on a synthetic market laid out as a calendar's caches ──
+
+CAL = CALENDARS['rehearsal2025']
+
+
+@pytest.fixture(scope='module')
+def three_arms(tmp_path_factory):
+    """S1 (v33) and S3 (v32) through run_complete_system and S2 through its script, each the
+    code the runbook runs, on one synthetic market written as the rehearsal2025 calendar's
+    price and macro caches: planted cointegrated pairs and sector-ETF residuals, point-in-time
+    snapshots and an industry map in a stand-in reference/ directory, a clean tree at COMMIT.
+    Returns the directory holding out_v33/, out_v32/ and out_residual/."""
+    from pairs_trading import json_export, universe
+    from pairs_trading.synthetic import make_market, make_residual_market, write_calendar_caches, write_reference
+    from pairs_trading.trading_system import CompleteFixedRussell3000TradingSystem
+    root = tmp_path_factory.mktemp('arms')
+    frames, macro, _ = make_market(n_pairs=6, n_noise=4, seed=21, start='2022-01-03', end=CAL.data_end)
+    rframes, rsectors, rmap, _ = make_residual_market(seed=3, start='2022-01-03', end=CAL.data_end)
+    frames.update(rframes)
+    macro['sectors'].update({e: c.reindex(macro['VIX'].index) for e, c in rsectors.items()})
+    write_calendar_caches(root, CAL, frames, macro)
+    names = sorted(frames)
+    pd.DataFrame({'Symbol': names}).to_csv(root / 'data' / 'marketcap.csv', index=False)      # S3's universe
+    write_reference(root / 'reference', {d: names for d in ('2024-09-30', '2024-12-31', '2025-03-31', '2025-06-30')},
+                    sector_etf={**{n: 'XLI' for n in names if n.startswith('S')}, **rmap},
+                    industry={n: 'Banks' if n.startswith('S') else 'Chips' for n in names})
+    mp = pytest.MonkeyPatch()
+    try:
+        mp.setattr(universe, 'REFERENCE_DIR', root / 'reference')
+        mp.setattr(json_export, '_git_state', lambda: (COMMIT, False))
+        mp.chdir(root)
+        mp.setenv('MPLBACKEND', 'Agg')
+        mp.setenv('PAIRS_CALENDAR', CAL.name)
+        for profile in ('v33', 'v32'):
+            mp.setenv('PAIRS_PROFILE', profile)
+            mp.setenv('PAIRS_OUTPUT_DIR', str(root / f'out_{profile}'))
+            json_export.record_start_provenance()
+            results = CompleteFixedRussell3000TradingSystem(initial_capital=100_000_000).run_complete_system()
+            assert not results.get('pipeline_errors')
+        mp.delenv('PAIRS_PROFILE')
+        mp.delenv('PAIRS_OUTPUT_DIR')
+        assert _load('run_residual_statarb').main(
+            ['--calendar', CAL.name, '--out', str(root / 'out_residual' / 'residual_statarb.json')]) == 0
+    finally:
+        json_export._START_PROVENANCE.clear()
+        mp.undo()
+    return root
+
+
+def _three_args(root, residual=None, commit=COMMIT):
+    return ['--calendar', CAL.name, '--expect-commit', commit, '--pairs', f'v33_pairs={root / "out_v33"}',
+            '--pairs', f'v32_pairs={root / "out_v32"}',
+            '--residual', str(residual or root / 'out_residual' / 'residual_statarb.json'),
+            '--out', str(root / 'evaluation.json')]
+
+
+def test_the_evaluator_accepts_real_exports_of_all_three_arms(three_arms):
+    root = three_arms
+    assert ev.main(_three_args(root)) == 0
+    rep = json.loads((root / 'evaluation.json').read_text(), parse_constant=pytest.fail)
+    assert sorted(rep['strategies']) == sorted(ev.REGISTERED) and rep['family'] == ['v33_pairs', 'avellaneda_lee']
+    assert rep['inputs']['period_matches_calendar'] is True
+    doc = json.loads((root / 'out_residual' / 'residual_statarb.json').read_text())
+    al = rep['strategies']['avellaneda_lee']
+    assert al['period'] == [CAL.backtest_start, CAL.data_end] and al['days'] == len(doc['daily_dates'])
+    assert al['trades'] == doc['total_trades'] > 50
+    assert al['exposure']['avg_gross_pct_of_equity'] == pytest.approx(100 * doc['summary']['avg_gross_exposure'])
+    assert al['exposure']['days_with_open_positions'] == sum(1 for n in doc['daily_open_positions'] if n)
+    assert al['vs_gatev']['source'] == 'out_v33 run' and al['vs_gatev']['n_common_days'] == al['days']
+    assert al['random_pair']['percentile'] is not None
+    assert [g['snapshot'] for g in al['universe_by_formation']][0] == '2024-12-31'
+    prov = rep['inputs']['runs']['avellaneda_lee']['provenance']
+    assert (prov['git_commit'], prov['calendar'], prov['params_hash']) == (
+        COMMIT, CAL.name, ResidualStatArbParams().config_hash())
+    caches = {r['provenance']['price_cache_sha256'] for r in rep['inputs']['runs'].values()}
+    assert len(caches) == 1                  # one data step: every arm read the same price cache
+    days = {k: v['period'] for k, v in rep['strategies'].items()}
+    assert len({tuple(p) for p in days.values()}) == 1
+
+
+@pytest.mark.parametrize('edit, needle', [
+    (lambda d: d['run_config']['study']['calendar'].update(name='dev'), 'avellaneda_lee: calendar dev'),
+    (lambda d: d['run_config']['study'].update(calendar_hash='0' * 12), 'avellaneda_lee: calendar hash'),
+    (lambda d: d['run_config'].update(git_commit='d' * 40), 'one commit'),
+    (lambda d: d['run_config'].update(git_dirty=True), 'avellaneda_lee: git_dirty'),
+    (lambda d: d['run_config']['study'].update(params_hash='0' * 12), 'avellaneda_lee: parameter hash'),
+    (lambda d: d.update(non_default_switches=['universe_size=300']), 'avellaneda_lee: complete'),
+    (lambda d: d['run_config']['data']['price_cache'].update(sha256='0' * 64), 'one price cache'),
+    (lambda d: d.update(daily_dates=d['daily_dates'][1:] + ['2025-10-20']), 'avellaneda_lee: trading dates'),
+])
+def test_the_evaluator_refuses_a_residual_export_that_is_not_the_registered_run(three_arms, tmp_path, capsys,
+                                                                                 edit, needle):
+    doc = json.loads((three_arms / 'out_residual' / 'residual_statarb.json').read_text())
+    edit(doc)
+    altered = tmp_path / 'residual_statarb.json'
+    altered.write_text(json.dumps(doc))
+    args = _three_args(three_arms, residual=altered)
+    args[args.index('--out') + 1] = str(tmp_path / 'evaluation.json')
+    assert ev.main(args) == 2
+    assert needle in capsys.readouterr().err
+    assert not (tmp_path / 'evaluation.json').exists()
+
+
+def test_the_real_residual_export_is_refused_at_another_commit(three_arms, tmp_path, capsys):
+    args = _three_args(three_arms, commit='e' * 40)
+    args[args.index('--out') + 1] = str(tmp_path / 'evaluation.json')
+    assert ev.main(args) == 2 and 'expected commit' in capsys.readouterr().err
+
+
+def test_the_residual_export_is_published_and_registered_like_a_pairs_run(three_arms, tmp_path):
+    pr, rt = _load('publish_run'), _load('register_trial')
+    pr.ROOT = rt.ROOT = tmp_path
+    dest = pr.publish(three_arms / 'out_residual', 'holdout/residual')
+    manifest = json.loads((dest / 'MANIFEST.json').read_text())
+    assert manifest['run_config']['git_commit'] == COMMIT and manifest['study']['strategy'] == 'avellaneda_lee'
+    assert manifest['study']['calendar']['name'] == CAL.name
+    assert manifest['price_cache']['sha256'] == json.loads(
+        (three_arms / 'out_residual' / 'residual_statarb.json').read_text())['run_config']['data']['price_cache']['sha256']
+    summary = rt.run_summary(dest)
+    assert (summary['strategy'], summary['calendar'], summary['git_commit'], summary['complete']) == (
+        'avellaneda_lee', CAL.name, COMMIT, True)
+    assert summary['main']['period_start'] == CAL.backtest_start and summary['main']['trades'] > 50
+    variant = tmp_path / 'variant'
+    variant.mkdir()
+    doc = json.loads((three_arms / 'out_residual' / 'residual_statarb.json').read_text())
+    doc['non_default_switches'] = ['position_frac=0.01']
+    (variant / 'residual_statarb.json').write_text(json.dumps(doc))
+    with pytest.raises(SystemExit, match='variant'):
+        pr.publish(variant, 'holdout/variant')

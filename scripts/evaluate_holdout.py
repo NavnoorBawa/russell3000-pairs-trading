@@ -22,11 +22,12 @@ S1 (v33) run, built on the same point-in-time universe rule. A statistic a serie
 have (a strategy that never trades has no Sharpe standard error) is null.
 
 The inputs are checked before anything is computed, and a failed check exits non-zero
-without a report: the calendar, each pairs run's profile and calendar hash against
-study_config, complete runs without non-default switches from a clean tree, one commit
-for every run (--expect-commit), one price cache for the pairs runs, finite returns on
-identical trading dates inside the calendar, and, on the holdout, exactly the three
-registered strategies.
+without a report: each run's calendar and calendar hash against study_config, each pairs
+run's profile hash and the residual run's parameter hash against the code
+(residual_statarb.ResidualStatArbParams), complete runs without non-default switches from
+a clean tree, one commit for every run (--expect-commit), one price cache for every run,
+finite returns on identical trading dates inside the calendar, and, on the holdout,
+exactly the three registered strategies.
 
 usage: python scripts/evaluate_holdout.py --pairs v33=DIR --pairs v32=DIR --residual FILE
                                           [--calendar holdout2026] [--expect-commit SHA]
@@ -47,6 +48,7 @@ sys.path.insert(0, str(ROOT))
 
 from pairs_trading.benchmark import empirical_percentile  # noqa: E402
 from pairs_trading.power import power_report  # noqa: E402
+from pairs_trading.residual_statarb import ResidualStatArbParams  # noqa: E402
 from pairs_trading.significance import (  # noqa: E402
     align_return_series, annualized_sharpe, block_bootstrap_sharpe_ci, hac_tstat_mean,
     lo_annualized_sharpe, probabilistic_sharpe_ratio, sharpe_difference_test,
@@ -182,18 +184,34 @@ def load_pairs_run(directory: pathlib.Path) -> dict:
                            'non_default_switches': head.get('non_default_switches'),
                            'price_cache_sha256': ((rc.get('data') or {}).get('price_cache') or {}).get('sha256')},
             'files': {p.name: _sha256(p) for p in (path, head_path) if p.exists()},
-            'commit': rc.get('git_commit')}
+            'commit': rc.get('git_commit'), 'kind': 'pairs'}
 
 
 def load_residual_run(path: pathlib.Path) -> dict:
+    """The residual arm's export (scripts/run_residual_statarb.py): one JSON file that is
+    its own headline (complete, non_default_switches, run_config)."""
     doc = json.loads(path.read_text())
     rc = doc.get('run_config') or {}
+    study = rc.get('study') or {}
+    summary = doc.get('summary') or {}
+    gross_exposure = summary.get('avg_gross_exposure'), summary.get('max_gross_exposure')
     return {'dates': doc['daily_dates'], 'net': doc['daily_net_returns'],
             'gross': doc.get('daily_gross_returns'), 'trades': doc.get('total_trades'),
+            'exposure': {'avg_gross_pct_of_equity': None if gross_exposure[0] is None else 100 * gross_exposure[0],
+                         'max_gross_pct_of_equity': None if gross_exposure[1] is None else 100 * gross_exposure[1],
+                         'days_with_open_positions': sum(1 for n in doc.get('daily_open_positions') or [] if n)},
+            'universe_by_formation': doc.get('universe_by_formation'),
             'provenance': {'git_commit': rc.get('git_commit'), 'git_dirty': rc.get('git_dirty'),
-                           'calendar': ((rc.get('study') or {}).get('calendar') or {}).get('name')},
+                           'run_timestamp_utc': rc.get('run_timestamp_utc'),
+                           'strategy': study.get('strategy'),
+                           'params_hash': study.get('params_hash'),
+                           'calendar': (study.get('calendar') or {}).get('name'),
+                           'calendar_hash': study.get('calendar_hash'),
+                           'complete': doc.get('complete'),
+                           'non_default_switches': doc.get('non_default_switches'),
+                           'price_cache_sha256': ((rc.get('data') or {}).get('price_cache') or {}).get('sha256')},
             'files': {path.name: _sha256(path)},
-            'commit': rc.get('git_commit')}
+            'commit': rc.get('git_commit'), 'kind': 'residual'}
 
 
 def check_runs(runs: dict, calendar: str = HOLDOUT, expect_commit: str = None) -> list:
@@ -209,31 +227,33 @@ def check_runs(runs: dict, calendar: str = HOLDOUT, expect_commit: str = None) -
         bad.append(f"the runs are not from one commit: {commits}")
     elif expect_commit and set(commits.values()) != {expect_commit}:
         bad.append(f"the runs are from {commits}, not the expected commit {expect_commit}")
-    caches = {k: v['provenance'].get('price_cache_sha256') for k, v in runs.items()
-              if 'profile_hash' in (v.get('provenance') or {})}
-    if len(set(caches.values())) > 1:
-        bad.append(f"the pairs runs read different price caches: {caches}")
+    caches = {k: (v.get('provenance') or {}).get('price_cache_sha256') for k, v in runs.items()}
+    if None in caches.values() or len(set(caches.values())) > 1:
+        bad.append(f"the runs did not read one price cache: {caches}")
     first = None
     for k, v in runs.items():
         p = v.get('provenance') or {}
-        pairs = 'profile_hash' in p                  # a pairs run: its study block is complete
         net = np.asarray(v['net'], dtype=float)
         dates = _days(v['dates'])
         if net.size == 0 or not np.all(np.isfinite(net)) or len(dates) != net.size:
             bad.append(f"{k}: {net.size} daily net returns ({len(dates)} dates), not all finite or not one per date")
         if p.get('git_dirty') is not False:
             bad.append(f"{k}: git_dirty is {p.get('git_dirty')}, not false")
-        if (pairs or p.get('calendar') is not None) and p.get('calendar') != calendar:
+        if p.get('calendar') != calendar:
             bad.append(f"{k}: calendar {p.get('calendar')}, not {calendar}")
-        if pairs:
+        if p.get('calendar_hash') != cal.config_hash():
+            bad.append(f"{k}: calendar hash {p.get('calendar_hash')}, study_config's is {cal.config_hash()}")
+        if v.get('kind') == 'residual':
+            if p.get('params_hash') != ResidualStatArbParams().config_hash():
+                bad.append(f"{k}: parameter hash {p.get('params_hash')}, the residual arm's is "
+                           f"{ResidualStatArbParams().config_hash()}")
+        else:
             profile = PROFILES.get(p.get('profile'))
             if profile is None or p.get('profile_hash') != profile.config_hash():
                 bad.append(f"{k}: profile {p.get('profile')} hash {p.get('profile_hash')} is not study_config's")
-            if p.get('calendar_hash') != cal.config_hash():
-                bad.append(f"{k}: calendar hash {p.get('calendar_hash')}, study_config's is {cal.config_hash()}")
-            if p.get('complete') is not True or p.get('non_default_switches'):
-                bad.append(f"{k}: complete {p.get('complete')}, non-default switches "
-                           f"{p.get('non_default_switches')}")
+        if p.get('complete') is not True or p.get('non_default_switches'):
+            bad.append(f"{k}: complete {p.get('complete')}, non-default switches "
+                       f"{p.get('non_default_switches')}")
         if dates and not (cal.backtest_start <= dates[0] and dates[-1] <= cal.data_end):
             bad.append(f"{k}: trading dates {dates[0]} -> {dates[-1]} outside the calendar's "
                        f"{cal.backtest_start} -> {cal.data_end}")

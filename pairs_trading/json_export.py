@@ -417,8 +417,10 @@ def build_run_config(results: Optional[Dict] = None, system_info: Optional[Dict]
     be tied to a commit, a fill convention, a seed or a data snapshot — and the README's
     figures drifted from the code for weeks unnoticed. `system_info` may carry
     'total_symbols_processed', 'pairs_selected', 'data_start', 'data_end', 'study' (the
-    study_config.describe record of the run's profile and calendar), 'price_cache',
-    'macro_cache' and 'universe_file' (the file defining the universe).
+    study_config.describe record of the run's profile and calendar; a strategy that is not
+    a pairs profile, the residual arm, gives its own record with 'profile': None and a
+    'calendar'), 'price_cache', 'macro_cache' and 'universe_file' (the file defining the
+    universe).
 
     With record_start_provenance called at the start of the run, git_commit is the commit
     the run started from, and a commit or tracked-file edit since then makes the run dirty
@@ -431,7 +433,7 @@ def build_run_config(results: Optional[Dict] = None, system_info: Optional[Dict]
     study = info.get('study')
     if not study:
         study = describe_study(get_profile(), get_calendar())
-    profile = study['profile']
+    profile = study.get('profile')
     data_file = info.get('price_cache') or data_file
     commit, dirty = _git_state()
     start = dict(_START_PROVENANCE)
@@ -455,7 +457,7 @@ def build_run_config(results: Optional[Dict] = None, system_info: Optional[Dict]
             'use_transformer_ranker': profile['ranker'] == 'transformer',
             'reselect': profile['reselect'],
             'regime_gate': profile['regime_gate'],
-        },
+        } if profile else {'profile': None, 'calendar': study['calendar']['name']},
         'study': study,
         'data': {
             'data_start': _date_str(info.get('data_start')),
