@@ -88,6 +88,14 @@ jobs:
         # numpy/scipy/pandas/statsmodels untouched.
         run: pip install pytest pytest-cov ruff arch hypothesis
 
+      - name: Install the paper compiler (pinned job only)
+        # The paper (paper/pairs_study.pdf) is built by scripts/build_paper.py with the typst
+        # Python package; its tests compile it and require the committed PDF, data and figures
+        # to be byte-identical to a fresh build. That holds only with the pinned matplotlib, so
+        # the 'latest' job leaves typst out and those tests skip there.
+        if: matrix.install == 'requirements'
+        run: pip install "typst==0.15.0"
+
       - name: Dependency vulnerability scan (pip-audit)
         # CodeQL analyses source code; it does not look at the dependency manifest.
         # v32: two passes. (1) The environment this job installed: every transitive
