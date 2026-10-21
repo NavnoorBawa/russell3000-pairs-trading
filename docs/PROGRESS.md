@@ -3076,3 +3076,146 @@ enter the pair search (44,850 pairs, 35,491 past the correlation screen).
 Conclusion: the same as v31.1, now on code that passes known-answer, causality and
 accounting tests — no detectable edge after realistic execution and costs. Still open:
 `scripts/parameter_sensitivity.py` (PBO) and the ranker-off / open-fill sensitivity runs.
+
+---
+
+## v33 — The design to be pre-registered, the evidence layer, a second family (2026-10-21)
+
+**Outcome.** The v33 design has no detectable edge on the development period, before or after
+costs, and the evidence layer shows why: the cointegration the selection finds does not persist
+beyond chance, so the rule's in-sample edge on its own pairs is gone out of sample and the spreads
+it trades behave like random walks. A second strategy family (Avellaneda–Lee residual reversion)
+agrees. The decisive test, a pre-registered run on 2026 data, is sealed: no daily price history
+of any security for dates after 2025-12-31 has been requested, and the fetch code refuses such a
+request until the registered commit unseals it. The pre-registration is not filed yet.
+
+The numbers below are markers (`<!--m:KEY-->`) of the published run, results/v33_dev, and of
+assets/study.json built from it; they were checked with
+`python scripts/check_published_numbers.py --files docs/PROGRESS.md --allow-missing-markers`
+when this entry was written.
+
+### Why v33
+
+Every version so far was designed on 2020–2025, so the development period cannot test the
+design; only data that played no part in it can. v33 therefore fixes a design, freezes it with
+its test and decision rule before any 2026 price is fetched, and runs it once. Before freezing,
+v32's design was corrected where it was wrong for reasons that do not depend on its returns, and
+the study gained the measurements that explain a null instead of only reporting it.
+
+### The design: seven fields changed from v32
+
+All seven were fixed in `study_config.PROFILES['v33']` before the first v33 run. The first
+registered v33 run (`v33_dev_explore`, 2026-10-20) and the published run carry the same profile
+hash, `d54d21314c22`, so no design field changed after a v33 result was seen.
+
+| Field | v32 | v33 | Why |
+|---|---|---|---|
+| Universe | 3,000 largest US stocks by market cap on 2026-10-18, back-filled | Russell 3000 members as held by IWV in SEC N-PORT filings, the snapshot in force at each formation | today's largest names are survivors chosen with hindsight; point-in-time membership makes the survivorship gap measurable |
+| Names searched | 300 most liquid | 500 most liquid | the residual-reversion literature's universe size; both families trade the same names |
+| Candidate pairs | any two names | two names in one Fama–French 49 industry | an economic link is the premise of convergence (Do & Faff 2010); fewer tests, more power for the multiple-testing correction |
+| Re-formation | the 2022 pool re-tested every 90 trading days | the whole selection re-run every 126 trading days on the trailing three years | v32's pool could only shrink, and its 126-day re-test could not tell broken pairs from healthy ones |
+| Regime gate | VIX and dispersion scaling, hard stop | off (a declared variant) | fitted on windows now inside the test period; it blocked v32's entries on <!--m:study.v32.gate_blocked_days-->248<!--/m--> of <!--m:study.v32.days-->628<!--/m--> days |
+| Ranking | learned classifier | signal strength × pair quality (the learned ranker is a declared variant) | v32's ranker had no out-of-sample skill (AUC <!--m:study.v32.ranker_auc|3-->0.514<!--/m-->) |
+| Borrow, financing | 25 bp borrow + 50 bp financing on the short half | one 0.38% fee on the short notional | the two charges double-count the cost of shorting; 0.38% is the median buy-side fee |
+
+Entry, exit and stop thresholds (1.8, 0.5, +1.5), next-day close fills and the rest of the cost
+model are unchanged.
+
+### What was built
+
+- **Point-in-time universe** (`universe.py`, `scripts/build_pit_universe.py`, `reference/universe/`):
+  IWV's quarterly N-PORT holdings, mapped to tickers with OpenFIGI, N-PORT's reported tickers and
+  issuer successions, and every changed or indirect mapping checked against N-PORT's own value per
+  share. The survivorship gap is reported at every formation: <!--m:study.dev.facts.gap_first_pct-->3.33<!--/m-->%
+  of index weight at the first formation and <!--m:study.dev.facts.gap_last_pct-->1.08<!--/m-->% at the last.
+- **Price anchoring** (`data_processor.anchor_point_in_time`): the vendor back-applies later
+  splits and dividends to the whole history, so point-in-time price levels are rescaled to
+  N-PORT's price at each snapshot date; the median rescaling exceeded 10% for
+  <!--m:study.dev.facts.anchor_moved-->732<!--/m--> of <!--m:study.dev.facts.anchor_symbols-->2,538<!--/m-->
+  symbols. Returns are unaffected.
+- **Study profiles and calendars** (`study_config.py`): the v32 and v33 designs on one engine,
+  the dev, rehearsal and holdout calendars, hashes recorded in every export, and the seal on 2026
+  data in code (`assert_unsealed`).
+- **An exact, faster Engle–Granger** (`fast_coint.py`): statsmodels' test re-implemented in
+  numpy, the same statistic to rounding.
+- **The evidence layer** (`anatomy.py`, `evidence.py`, `scripts/anatomy_of_the_null.py`):
+  implementation shortfall from the signal close to net, the exit race against random-walk and
+  OU nulls, in-sample to out-of-sample decay, cointegration persistence (Clegg 2014),
+  half-life drift, capacity, the cash comparison, eight-factor attribution, power and Sharpe
+  hurdles (`power.py`).
+- **Cost scenarios** (`scripts/cost_sensitivity.py`): impact Y = 0.6 and 1.0, borrow at 1% and
+  3%, books of $10M, $1B and $5B, each a full re-run of the backtest.
+- **A second strategy family** (`residual_statarb.py`, `scripts/run_residual_statarb.py`):
+  Avellaneda and Lee (2010) sector-ETF residual reversion with the paper's parameters and
+  declared deviations, on the pairs strategy's universe rule, fills and costs.
+- **The holdout protocol** (`scripts/run_holdout.sh`, `scripts/evaluate_holdout.py`): checks
+  before any data, one run per arm, every attempt on record, a crash-fix rule, Holm across the
+  two tested arms; rehearsed on 2025 data.
+- **Data-snooping tests over a declared family** (`snooping.py`, `scripts/variant_family.py`,
+  `results/variant_family/declaration.json`): a 27-point threshold grid and 11 toggles declared
+  on 2026-10-20 before any variant ran; the run is in progress.
+- **The trial registry** (`results/trial_registry.jsonl`, append-only) and the runbook
+  `scripts/run_dev_studies.sh`.
+- **The site** reads every committed artefact (`scripts/build_site_data.py`); the paper's v33
+  edition is in preparation.
+
+### The result (development run of 2026-10-21, commit 7442705)
+
+| Measure | v33 | v32 (published) |
+|---|---|---|
+| Main backtest, net Sharpe [95%] | <!--m:main.sharpe-->−0.06<!--/m--> [<!--m:significance.main.boot_lo-->−1.29<!--/m-->, <!--m:significance.main.boot_hi-->+1.16<!--/m-->] | <!--m:study.v32.main.sharpe-->−0.07<!--/m--> [<!--m:study.v32.main.lo-->−1.39<!--/m-->, <!--m:study.v32.main.hi-->+1.23<!--/m-->] |
+| Main backtest, net return; trades | <!--m:main.total_return_pct-->−0.39%<!--/m-->; <!--m:main.trades-->213<!--/m--> | <!--m:study.v32.main.ret_pct-->−0.30%<!--/m-->; <!--m:study.v32.main.trades-->161<!--/m--> |
+| Walk-forward, net Sharpe [95%] | <!--m:oos.pooled_sharpe-->−1.04<!--/m--> [<!--m:significance.oos_daily.boot_lo-->−2.09<!--/m-->, <!--m:significance.oos_daily.boot_hi-->+0.05<!--/m-->] | <!--m:study.v32.oos.sharpe-->−0.33<!--/m--> [<!--m:study.v32.oos.lo-->−1.49<!--/m-->, <!--m:study.v32.oos.hi-->+0.86<!--/m-->] |
+| Gross / cost bp per trade (gross t) | <!--m:study.dev.facts.gross_bp-->−7.9<!--/m--> / <!--m:study.dev.facts.cost_bp-->16.1<!--/m--> (<!--m:study.dev.facts.gross_t-->−0.25<!--/m-->) | <!--m:study.v32.gross_bp-->+11.4<!--/m--> / <!--m:study.v32.cost_bp-->12.5<!--/m--> (<!--m:study.v32.gross_t-->0.37<!--/m-->) |
+| Gatev distance method, Sharpe | <!--m:benchmarks.gatev.sharpe-->−0.80<!--/m--> | <!--m:study.v32.gatev_sharpe-->+0.07<!--/m--> |
+| Avellaneda–Lee, net Sharpe [95%] | <!--m:study.residual.sharpe-->−0.28<!--/m--> [<!--m:study.residual.lo-->−1.47<!--/m-->, <!--m:study.residual.hi-->+0.93<!--/m-->] | — |
+| One-sided 95% upper bound on the main Sharpe | <!--m:study.dev.facts.sharpe_ucb-->0.92<!--/m--> | — |
+
+What the evidence layer shows:
+
+- Gross P&L of $<!--m:study.dev.facts.gross_usd_k-->1,520.1<!--/m-->k against
+  $<!--m:study.dev.facts.cost_usd_k-->1,907.4<!--/m-->k of costs; net breaks even at
+  <!--m:study.dev.facts.break_even_x-->0.80<!--/m-->× the modelled costs, and the gross is itself not
+  significant.
+- Pairs cointegrated in one year are cointegrated the next at the base rate:
+  <!--m:study.dev.facts.pers_count-->370<!--/m--> of <!--m:study.dev.facts.pers_of-->7,334<!--/m--> against
+  <!--m:study.dev.facts.pers_expected-->403.4<!--/m--> expected (z = <!--m:study.dev.facts.pers_z-->−1.71<!--/m-->).
+- The same rule on the same pairs: <!--m:study.dev.facts.decay_form_bp-->+64.7<!--/m--> bp a trade in
+  sample (t = <!--m:study.dev.facts.decay_form_t-->8.35<!--/m-->), <!--m:study.dev.facts.decay_oos_bp-->−12.6<!--/m-->
+  bp out of sample (t = <!--m:study.dev.facts.decay_oos_t-->−1.17<!--/m-->).
+- Exit race: <!--m:study.dev.facts.er_targets-->72<!--/m--> targets and
+  <!--m:study.dev.facts.er_stops-->77<!--/m--> stops; a random-walk spread expects
+  <!--m:study.dev.facts.er_rw_expected-->65.9<!--/m--> targets, the selected mean reversion
+  <!--m:study.dev.facts.er_ou_expected-->121.0<!--/m--> (z = <!--m:study.dev.facts.er_ou_z-->−10.73<!--/m-->).
+- The book loads on short-term reversal (t = <!--m:study.dev.facts.st_rev_t_main-->4.01<!--/m-->) and
+  leaves an eight-factor alpha of <!--m:study.dev.facts.ff_alpha_main_pct-->−0.51<!--/m-->% a year.
+
+### Notes, unflattering ones included
+
+- **An exploratory v33 run was seen first.** `v33_dev_explore` (2026-10-20, uncommitted code, the
+  first point-in-time build) had a main Sharpe of <!--m:study.trials.1.sharpe-->−0.51<!--/m--> and a
+  walk-forward Sharpe of <!--m:study.trials.1.oos_sharpe-->+0.13<!--/m-->. Between it and the published
+  run the universe was reviewed and rebuilt, price levels were anchored to N-PORT, and code the
+  profile does not record changed; the design did not (same hash). The positive walk-forward did
+  not survive, and it stays in the registry.
+- **The v33 walk-forward is not an independent test.** With no model to refit it is the main
+  backtest's rule started on 2023-02-14 instead of 2023-07-03. Over their
+  <!--m:study.dev.facts.wf_common_days-->621<!--/m--> common days the two series correlate at
+  <!--m:study.dev.facts.wf_common_corr-->0.50<!--/m--> and their Sharpe ratios are
+  <!--m:study.dev.facts.wf_common_sharpe_main-->−0.09<!--/m--> and
+  <!--m:study.dev.facts.wf_common_sharpe_oos-->−0.82<!--/m-->: the 30% gross cap binds, so the path
+  depends on the start date. The walk-forward is also close to significantly negative (Wald upper
+  bound <!--m:study.dev.facts.oos_ucb-->−0.15<!--/m-->, eight-factor alpha t =
+  <!--m:study.dev.facts.ff_alpha_oos_t-->−2.25<!--/m-->).
+- **Cost scenarios change the trades.** Each scenario is a full re-run, and the trade count runs
+  from <!--m:study.dev.cost_sensitivity.trades_min-->213<!--/m--> to
+  <!--m:study.dev.cost_sensitivity.trades_max-->273<!--/m-->: positions are a share of equity (scaled by
+  recent outcomes and drawdown), the 30% gross cap binds, and the loss cool-off follows net P&L.
+  The anatomy re-prices the headline trades under the same assumptions for the fixed-trade view.
+- **The random-pair control's levels are on committed capital.** Its 5th-percentile path ends at
+  <!--m:study.dev.facts.random_p05_end|1-->−92.3<!--/m-->%: unhedged random pairs traded with the
+  distance rule can lose most of their committed capital. The comparison is its Sharpe
+  distribution, which does not depend on the basis.
+- **Still open:** the declared variant family (running); the pre-registration (to be filed, with
+  the price-fetch manifest of the development cache published beside the run); the paper's v33
+  edition; the `residual_dev` registry line was written without its run record.

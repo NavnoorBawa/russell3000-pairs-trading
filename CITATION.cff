@@ -2,15 +2,16 @@ cff-version: 1.2.0
 message: "If you reference this work, please cite it as below."
 title: "Russell 3000 Statistical Arbitrage — Pairs Trading Research System"
 abstract: >-
-  A cointegration pairs-trading research system over the Russell 3000: formation-period
-  pair selection with point-in-time screens, a two-state Kalman hedge ratio, next-day
-  fills with a per-stock cost model, a continuous walk-forward simulation, statistical
-  significance testing (Probabilistic and Deflated Sharpe, Newey-West, block bootstrap,
-  probability of backtest overfitting) and Gatev-distance / random-pair baselines run on
-  the same footing. Version 32 rebuilt the engine after a full audit and is validated on
-  synthetic markets with known answers. Its 2026-10-18 study run finds no edge:
-  negative and not significant in sample and out of sample, no different from the
-  baselines, and a learned ranker with no out-of-sample skill.
+  A cointegration pairs-trading study of the Russell 3000 built to be falsified: point-in-time
+  index membership from SEC N-PORT filings, same-industry pairs re-formed every six months,
+  a two-state Kalman hedge ratio, next-day fills with a per-stock cost model, significance and
+  power under non-normal autocorrelated returns, Gatev-distance and random-pair baselines, an
+  evidence layer that explains the result trade by trade, a second strategy family
+  (Avellaneda-Lee residual reversion) and a trial registry. The v33 design finds no detectable
+  edge on 2023-2025, before or after costs: the cointegration it selects does not persist beyond
+  chance, its in-sample edge vanishes out of sample, and its spreads behave like random walks;
+  the second family agrees. A pre-registered test on 2026 data is sealed until its protocol is
+  filed. Validated on synthetic markets with known answers.
 authors:
   - family-names: Bawa
     given-names: Navnoor
