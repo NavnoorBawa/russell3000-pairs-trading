@@ -345,6 +345,36 @@ def test_later_results_fill_their_exhibits_and_tables(inputs):
     assert paper['claims']['residual_pending'] is False
 
 
+def test_the_residual_arm_must_be_the_published_export_study_json_was_built_from(tmp_path):
+    """The paper prints the residual arm from study.json only when that file was built from the
+    published export (results/residual_dev/residual_statarb.json) and the export is unchanged."""
+    root = tmp_path / 'repo'
+    study = json.loads((REPO / 'assets' / 'study.json').read_text(encoding='utf-8'))
+    for rel in study['meta']['sources']:
+        if (REPO / rel).is_file():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(REPO / rel, root / rel)
+    (root / 'assets').mkdir()
+
+    def write(study_):
+        (root / 'assets' / 'study.json').write_text(json.dumps(study_), encoding='utf-8')
+
+    study['residual'] = {'sharpe': 0.31, 'ret_pct': 1.2, 'trades': 5400, 'lo': -0.9, 'hi': 1.5, 'p': 0.31,
+                         'period': ['2023-07-03', '2025-12-31'], 'commit': 'abc'}
+    write(study)
+    with pytest.raises(bp.PaperDataError, match='residual'):
+        bp.load_inputs(root)
+    export = root / 'results' / 'residual_dev' / 'residual_statarb.json'
+    export.parent.mkdir(parents=True)
+    export.write_text('{"summary": {}}', encoding='utf-8')
+    study['meta']['sources']['results/residual_dev/residual_statarb.json'] = bp._sha256(export)
+    write(study)
+    assert bp.load_inputs(root)['residual_path'] == 'results/residual_dev/residual_statarb.json'
+    export.write_text('{"summary": {"sharpe": 9.9}}', encoding='utf-8')
+    with pytest.raises(bp.PaperDataError, match='changed after'):
+        bp.load_inputs(root)
+
+
 def test_unknown_or_unprintable_sections_stop_the_build(inputs):
     inp = copy.deepcopy(inputs)
     inp['study']['dev']['new_section'] = [1, 2, 3]

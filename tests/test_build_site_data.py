@@ -264,13 +264,35 @@ def _evaluation():
                            'v33_pairs': arm(0.8, 0.15, 0.45)}}
 
 
-def test_optional_arms_fill_their_sections(tmp_path, v32_res):
-    """The holdout evaluation and the residual headline JSON replace the sealed/pending states."""
+@pytest.fixture(scope='module')
+def residual_export(tmp_path_factory):
+    """A real export of the residual arm (scripts/run_residual_statarb.py's payload) on a
+    synthetic market, in an output directory of its own."""
+    from pairs_trading.json_export import _atomic_write_json
+    from pairs_trading.residual_statarb import run_residual_statarb
+    from pairs_trading.synthetic import make_residual_market
+    frames, etfs, smap, _ = make_residual_market(seed=0)
+    res = run_residual_statarb(frames, etfs, smap, '2021-07-01', '2023-12-31')
+    out = tmp_path_factory.mktemp('out_residual')
+    rc = {'git_commit': 'f' * 40, 'git_dirty': False, 'run_timestamp_utc': '2026-10-20T00:00:00+00:00',
+          'study': {'strategy': 'avellaneda_lee', 'calendar': {'name': 'dev'}}}
+    _atomic_write_json(_load('run_residual_statarb').export_payload(res, rc), out / 'residual_statarb.json')
+    return out
+
+
+def _publish_residual(tmp_path, out):
+    """results/residual_dev/ under tmp_path, as scripts/publish_run.py writes it."""
+    pr = _load('publish_run')
+    pr.ROOT = tmp_path
+    return pr.publish(out, 'residual_dev')
+
+
+def test_optional_arms_fill_their_sections(tmp_path, v32_res, residual_export):
+    """The holdout evaluation and the published residual export replace the sealed/pending states."""
     root = tmp_path / 'results'
-    for arm in ('holdout2026', 'residual_dev'):
-        (root / arm).mkdir(parents=True)
+    (root / 'holdout2026').mkdir(parents=True)
     (root / 'holdout2026' / 'evaluation.json').write_text(json.dumps(_evaluation()), encoding='utf-8')
-    shutil.copy(V32 / 'headline_metrics.json', root / 'residual_dev' / 'headline_metrics.json')
+    published = _publish_residual(tmp_path, residual_export)
     study = bsd.build(_run_dir(tmp_path, v32_res), results_root=root)
     holdout = study['holdout']
     assert holdout['status'] == 'complete' and holdout['alpha'] == 0.05
@@ -280,11 +302,48 @@ def test_optional_arms_fill_their_sections(tmp_path, v32_res):
         ('v33_pairs', 'H1'), ('avellaneda_lee', 'H2'), ('v32_pairs', None)]
     v33 = holdout['arms'][0]
     assert (v33['sharpe'], v33['lo'], v33['hi'], v33['p_holm'], v33['edge']) == (0.8, -0.7, 2.3, 0.45, False)
-    headline = json.loads((V32 / 'headline_metrics.json').read_text(encoding='utf-8'))
-    assert study['residual']['sharpe'] == headline['main']['sharpe']
+    doc = json.loads((published / 'residual_statarb.json').read_text(encoding='utf-8'))
+    s, sig = doc['summary'], doc['significance']
+    assert study['residual'] == {
+        'sharpe': round(s['sharpe'], 2), 'ret_pct': round(100 * s['total_return'], 2), 'trades': doc['total_trades'],
+        'lo': round(sig['boot_lo'], 2), 'hi': round(sig['boot_hi'], 2), 'p': round(sig['hac_p'], 3),
+        'period': [s['start'], s['end']], 'commit': 'f' * 40}
+    assert {p.split('/')[-1] for p in study['meta']['sources'] if 'residual_dev' in p} == {
+        'residual_statarb.json', 'MANIFEST.json'}
     sealed = bsd.build(V32, results_root=tmp_path / 'nothing')
     assert sealed['holdout'] == {'status': 'sealed', 'calendar_start': '2026-01-02'}
     assert sealed['residual'] is None and sealed['validation'] is None
+
+
+def test_the_residual_arm_is_read_only_as_published(tmp_path, v32_res, residual_export):
+    """Pending until results/residual_dev/ holds the export and its MANIFEST.json; an export
+    that is not the file the manifest lists stops the build."""
+    root = tmp_path / 'results'
+    (root / 'residual_dev').mkdir(parents=True)
+    shutil.copy(residual_export / 'residual_statarb.json', root / 'residual_dev' / 'residual_statarb.json')
+    run = _run_dir(tmp_path, v32_res)
+    assert bsd.build(run, results_root=root)['residual'] is None                   # no manifest: unpublished
+    shutil.rmtree(root / 'residual_dev')
+    published = _publish_residual(tmp_path, residual_export)
+    doc = json.loads((published / 'residual_statarb.json').read_text(encoding='utf-8'))
+    doc['summary']['sharpe'] = 9.9
+    (published / 'residual_statarb.json').write_text(json.dumps(doc), encoding='utf-8')
+    with pytest.raises(ValueError, match='is not the file'):
+        bsd.build(run, results_root=root)
+    # the page labels the arm a development-period run of the registered design
+    for key, value in (('run_config', {'study': {'calendar': {'name': 'rehearsal2025'}}}),
+                       ('non_default_switches', ['position_frac=0.01'])):
+        shutil.rmtree(root / 'residual_dev')
+        doc = json.loads((residual_export / 'residual_statarb.json').read_text(encoding='utf-8'))
+        doc[key] = value
+        other = tmp_path / f'out_{key}'
+        other.mkdir()
+        (other / 'residual_statarb.json').write_text(json.dumps(doc), encoding='utf-8')
+        pr = _load('publish_run')
+        pr.ROOT = tmp_path
+        pr.publish(other, 'residual_dev', variant=True)
+        with pytest.raises(ValueError, match='dev calendar'):
+            bsd.build(run, results_root=root)
 
 
 def test_holdout_strategies_the_runbook_does_not_name_are_kept():

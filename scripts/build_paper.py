@@ -203,6 +203,12 @@ def load_inputs(root=ROOT):
     if results is None:
         raise PaperDataError('assets/study.json lists no full results export among its sources')
     _, declaration = source(r'variant_family/declaration\.json$')
+    # The residual arm's numbers come from its published export (results/residual_dev/,
+    # scripts/publish_run.py), which must be the file study.json was built from.
+    residual_path, residual = source(r'residual_dev/residual_statarb\.json$')
+    if study.get('residual') is not None and residual is None:
+        raise PaperDataError('assets/study.json has a residual arm but lists no published '
+                             'residual_dev/residual_statarb.json among its sources')
     # The run's price-fetch manifest (what share of the universe has prices, and why the
     # rest has none) sits beside the results export; the site does not read it.
     manifest_path = root / results_path.rsplit('/', 1)[0] / 'price_fetch_manifest.json'
@@ -213,6 +219,7 @@ def load_inputs(root=ROOT):
     return {'study': study, 'study_sha256': _sha256(study_path),
             'headline': json.loads(headline_path.read_text(encoding='utf-8')), 'headline_path': rel,
             'results': results, 'results_path': results_path, 'declaration': declaration,
+            'residual_path': residual_path,
             'universe_index': universe,
             'universe_index_sha256': _sha256(index_path) if universe is not None else None,
             'fetch_manifest': fetch,

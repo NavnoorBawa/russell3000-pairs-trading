@@ -13,7 +13,16 @@ SNxx names are unrelated random walks.
 `make_residual_market` builds the known-answer market of the sector-ETF residual strategy
 (pairs_trading/residual_statarb.py): stocks = beta x sector ETF + a planted OU or
 random-walk residual.
+
+`write_calendar_caches` and `write_reference` put a synthetic market on disk in the files
+a study run reads (a calendar's price cache with its fetch manifest and its macro cache;
+the point-in-time membership snapshots and the industry map of reference/), so the
+pipeline, the residual arm's script and the holdout evaluator run end to end offline.
 """
+import json
+import pathlib
+import pickle
+
 import numpy as np
 import pandas as pd
 
@@ -170,3 +179,53 @@ def build_system(frames, macro, pairs=None, half_life=8.0, quality=0.8, capital=
     system.selected_pairs = list(pairs)
     system.spread_data = {p: system._pair_spread(*p) for p in pairs}
     return system
+
+
+def write_calendar_caches(root, calendar, frames, macro):
+    """Write `frames` as `calendar`'s price cache under `root`, with a fetch manifest that
+    records every symbol as fetched over the calendar's period, and `macro` as its macro
+    cache: the files python -m pairs_trading.main --fetch-only leaves for a calendar."""
+    root = pathlib.Path(root)
+    price, macro_path = root / calendar.price_cache, root / calendar.macro_cache
+    price.parent.mkdir(parents=True, exist_ok=True)
+    macro_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(price, 'wb') as f:
+        pickle.dump(dict(sorted(frames.items())), f)
+    manifest = {'start': calendar.data_start, 'end': calendar.data_end, 'fetched_at': 'synthetic',
+                'yfinance_version': 'synthetic', 'cached_symbols': sorted(frames),
+                'outcomes': {s: 'ok' for s in sorted(frames)}}
+    (root / calendar.price_cache.replace('.pkl', '_manifest.json')).write_text(json.dumps(manifest))
+    with open(macro_path, 'wb') as f:
+        pickle.dump(macro, f)
+    return price, macro_path
+
+
+def write_reference(root, snapshots, sector_etf=None, industry=None):
+    """A reference directory in the committed format (pairs_trading/universe.py).
+
+    snapshots  : {period_date: [tickers]}, written as IWV holdings with equal weights
+                 (universe/index.json and universe/iwv_<period_date>.csv; filed 56 days
+                 after the period date).
+    sector_etf : {ticker: SPDR}; industry: {ticker: Fama-French 49 short name}; together
+                 industry_ff49.csv (a ticker in either map gets a row).
+    """
+    root = pathlib.Path(root)
+    (root / 'universe').mkdir(parents=True, exist_ok=True)
+    entries = []
+    for n, (period, tickers) in enumerate(sorted(snapshots.items())):
+        tickers = sorted(tickers)
+        rows = ['ticker,cusip,isin,name,weight'] + [
+            f'{t},{n:03d}{i:05d}0,US{n:03d}{i:05d}00,{t} Inc,{1.0 / len(tickers)!r}' for i, t in enumerate(tickers)]
+        (root / 'universe' / f'iwv_{period}.csv').write_text('\n'.join(rows) + '\n')
+        filed = str((pd.Timestamp(period) + pd.Timedelta(days=56)).date())
+        entries.append({'period_date': period, 'filing_date': filed, 'accession': f'0000000000-00-{n:06d}',
+                        'file': f'iwv_{period}.csv', 'n_holdings': len(tickers), 'n_equity': len(tickers),
+                        'n_mapped': len(tickers), 'mapped_value_share': 1.0})
+    (root / 'universe' / 'index.json').write_text(json.dumps(
+        {'fund': 'synthetic', 'sealed_from': '2026-01-01', 'sealed': [], 'snapshots': entries}, indent=1))
+    sector_etf, industry = sector_etf or {}, industry or {}
+    rows = ['ticker,cik,sic,ff49,ff49_name,sector_etf,entity_type'] + [
+        f'{t},{i + 1},6022,45,{industry.get(t, "")},{sector_etf.get(t, "")},operating'
+        for i, t in enumerate(sorted(set(sector_etf) | set(industry)))]
+    (root / 'industry_ff49.csv').write_text('\n'.join(rows) + '\n')
+    return root

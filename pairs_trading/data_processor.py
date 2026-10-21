@@ -46,6 +46,8 @@ class EnhancedRussell3000DataProcessor:
         self.universe_cached_fraction: Optional[float] = None   # cached symbols / universe
         # Universe symbols the vendor has no history for (delisted): survivorship, measured.
         self.universe_not_found_fraction: Optional[float] = None
+        # Wanted symbols a cache-only load found never fetched (load_cached_data).
+        self.never_fetched: List[str] = []
 
         logger.info("ENHANCED Russell 3000 Data Processor initialized")
 
@@ -489,15 +491,20 @@ class EnhancedRussell3000DataProcessor:
                 "with that environment (see requirements.txt); to rebuild from Yahoo "
                 "instead, move the file aside and re-run.") from e
 
-    def load_macro_data(self) -> Dict:
+    def load_macro_data(self, fetch: bool = True) -> Dict:
         """VIX and sector-ETF closes for the regime gate and macro features.
 
         Returns {'VIX': Series, 'sectors': {etf: Series}} with tz-naive indexes, cached in
         self.macro_file (one file per study calendar). v32: the cache is written only when
         VIX and every sector ETF were fetched — a failed fetch used to be cached permanently
         as empty, which silently switched the regime gate off (missing VIX defaults to "calm").
+        fetch=False reads the cache only: a missing cache raises FileNotFoundError.
         """
         macro_file = self.macro_file
+        if not fetch and not os.path.exists(macro_file):
+            raise FileNotFoundError(f"{macro_file} not found; this run reads the macro cache and never fetches. "
+                                    "Fill it first (python -m pairs_trading.main --fetch-only, the holdout "
+                                    "runbook's data step).")
         if os.path.exists(macro_file):
             macro = self._load_pickle_or_raise(macro_file)
             ends = [_last_day(s.index) for s in [macro.get('VIX', pd.Series(dtype=float)),
@@ -771,6 +778,48 @@ class EnhancedRussell3000DataProcessor:
         os.replace(tmp_manifest, manifest_path)
         logger.info(f"Top-up: {len(fetched)}/{len(missing)} fetched; cache and manifest rewritten")
         return merged
+
+    def load_cached_data(self, symbols: List[str]) -> Dict[str, pd.DataFrame]:
+        """The price cache restricted to `symbols`, as load_or_fetch_data returns it, fetching nothing.
+
+        For a run that only reads the caches another step filled (the residual arm of the
+        holdout runbook, whose data step fetches for every arm): no fetch when the cache is
+        missing and no top-up of symbols it never attempted. The cache must belong to this
+        calendar (_check_cache_period) and pass the coverage rule (_check_cache_coverage);
+        a wanted symbol its manifest has no outcome for stops the run, unless
+        PAIRS_ALLOW_PARTIAL_FETCH=1 (then a recorded variant without those symbols, listed
+        in self.never_fetched).
+        """
+        if not os.path.exists(self.data_file):
+            raise FileNotFoundError(f"{self.data_file} not found; this run reads the price cache and never "
+                                    "fetches. Fill it first (python -m pairs_trading.main --fetch-only, the "
+                                    "holdout runbook's data step).")
+        saved_data = self._load_pickle_or_raise(self.data_file)
+        self._check_cache_period(saved_data)
+        wanted = set(symbols)
+        manifest_path = self.data_file.replace('.pkl', '_manifest.json')
+        try:
+            with open(manifest_path) as f:
+                outcomes = json.load(f).get('outcomes')
+        except (OSError, ValueError, AttributeError):
+            outcomes = None                    # judged by _check_cache_coverage below
+        self.never_fetched = sorted(s for s in wanted if s not in saved_data
+                                    and isinstance(outcomes, dict) and s not in outcomes)
+        if self.never_fetched:
+            msg = (f"{self.data_file} never fetched {len(self.never_fetched)} of the {len(wanted)} symbols "
+                   f"this run needs ({', '.join(self.never_fetched[:10])}"
+                   f"{', ...' if len(self.never_fetched) > 10 else ''})")
+            if os.environ.get('PAIRS_ALLOW_PARTIAL_FETCH') != '1':
+                raise RuntimeError(f"{msg}. This run never fetches: fill the cache first (python -m "
+                                   "pairs_trading.main --profile v33 --fetch-only on this calendar, the holdout "
+                                   "runbook's data step), or set PAIRS_ALLOW_PARTIAL_FETCH=1 to run without "
+                                   "them as a sensitivity variant.")
+            logger.warning(f"{msg}; PAIRS_ALLOW_PARTIAL_FETCH=1: running without them")
+        self._check_cache_coverage(wanted, saved_data.keys())
+        subset = {s: saved_data[s] for s in sorted(saved_data) if s in wanted}
+        logger.info(f"Loaded {len(subset)} of {len(wanted)} wanted symbols from {self.data_file} "
+                    f"({len(saved_data)} cached)")
+        return self._reprocess_cached_indicators(subset)
 
     def load_or_fetch_data(self, symbols: List[str], max_workers: int = 4) -> Dict[str, pd.DataFrame]:
         """Load the price cache (restricted to `symbols`), or fetch and cache it.
