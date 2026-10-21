@@ -1,0 +1,63 @@
+{
+ "files": {
+  "residual_statarb.json": {
+   "bytes": 14949148,
+   "sha256": "7bc4562bf017ce2bb31763ea97effa7e98049abbdd74a27faf452147aed2b222"
+  },
+  "run.log": {
+   "bytes": 1739,
+   "sha256": "ee7076a25c5f3b8c8fd4f5e6ae5c2506bd3415e41b518192f977bf529d837a8f"
+  }
+ },
+ "name": "residual_dev",
+ "price_cache": {
+  "mtime_utc": "2026-10-21T06:14:48+00:00",
+  "path": "data/enhanced_russell_3000_data.pkl",
+  "sha256": "3a9a93cc2ea9352e7e43319307ec9039cf0bd4f35c06939dc5a956c619c0a7be",
+  "size_bytes": 1233745259
+ },
+ "run_config": {
+  "effective": {
+   "calendar": "dev",
+   "fill": "close"
+  },
+  "git_commit": "744270556ba6d688e95bee8d7d88608c7c656c55",
+  "git_dirty": false,
+  "package_version": "32.0.0",
+  "run_timestamp_utc": "2026-10-21T06:37:34+00:00"
+ },
+ "study": {
+  "calendar": {
+   "backtest_start": "2023-07-01",
+   "data_end": "2025-12-31",
+   "data_start": "2020-01-01",
+   "macro_cache": "data/macro_data.pkl",
+   "model_train_end": "2023-06-30",
+   "name": "dev",
+   "price_cache": "data/enhanced_russell_3000_data.pkl",
+   "selection_cutoff": "2022-12-31",
+   "walk_forward": true
+  },
+  "calendar_hash": "0bcc31796bad",
+  "params": {
+   "adv_days": 20,
+   "initial_capital": 100000000.0,
+   "kappa_min": 8.4,
+   "position_frac": 0.005,
+   "s_close_long": 0.5,
+   "s_close_short": 0.75,
+   "s_open": 1.25,
+   "universe_rebalance_days": 21,
+   "universe_size": 500,
+   "universe_window_days": 1095,
+   "window": 60
+  },
+  "params_hash": "2d50e388fb12",
+  "profile": null,
+  "shares_with_profile": {
+   "name": "v33",
+   "what": "point-in-time universe rule, t+1 close fills, cost model"
+  },
+  "strategy": "avellaneda_lee"
+ }
+}

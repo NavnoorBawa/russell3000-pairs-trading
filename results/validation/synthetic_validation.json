@@ -1,0 +1,323 @@
+{
+  "edge": {
+    "runs": [
+      {
+        "seed": 1000,
+        "trades": 468,
+        "net_return_pct": 20.928,
+        "net_sharpe": 3.504
+      },
+      {
+        "seed": 1001,
+        "trades": 456,
+        "net_return_pct": 21.563,
+        "net_sharpe": 3.372
+      },
+      {
+        "seed": 1002,
+        "trades": 470,
+        "net_return_pct": 18.102,
+        "net_sharpe": 3.06
+      },
+      {
+        "seed": 1003,
+        "trades": 470,
+        "net_return_pct": 19.484,
+        "net_sharpe": 3.443
+      },
+      {
+        "seed": 1004,
+        "trades": 484,
+        "net_return_pct": 22.641,
+        "net_sharpe": 3.689
+      },
+      {
+        "seed": 1005,
+        "trades": 461,
+        "net_return_pct": 22.465,
+        "net_sharpe": 3.66
+      },
+      {
+        "seed": 1006,
+        "trades": 462,
+        "net_return_pct": 18.283,
+        "net_sharpe": 3.254
+      },
+      {
+        "seed": 1007,
+        "trades": 467,
+        "net_return_pct": 29.293,
+        "net_sharpe": 4.474
+      },
+      {
+        "seed": 1008,
+        "trades": 476,
+        "net_return_pct": 20.786,
+        "net_sharpe": 3.406
+      },
+      {
+        "seed": 1009,
+        "trades": 478,
+        "net_return_pct": 22.328,
+        "net_sharpe": 3.542
+      }
+    ],
+    "pooled_gross_per_trade": {
+      "trades": 4692,
+      "mean_gross_bp": 82.61578975886289,
+      "se_bp": 2.373298471502938,
+      "t": 34.81053510582881
+    },
+    "median_net_sharpe": 3.4735,
+    "hedge_ratio_abs_error_median": 0.03204781417012231,
+    "hedge_ratio_abs_error_p90": 0.07375165080346362,
+    "pass": true
+  },
+  "forced_null": {
+    "runs": [
+      {
+        "seed": 2000,
+        "trades": 528,
+        "net_return_pct": 0.912,
+        "net_sharpe": 0.177
+      },
+      {
+        "seed": 2001,
+        "trades": 548,
+        "net_return_pct": -4.677,
+        "net_sharpe": -0.924
+      },
+      {
+        "seed": 2002,
+        "trades": 548,
+        "net_return_pct": -5.387,
+        "net_sharpe": -1.038
+      },
+      {
+        "seed": 2003,
+        "trades": 533,
+        "net_return_pct": 1.424,
+        "net_sharpe": 0.267
+      },
+      {
+        "seed": 2004,
+        "trades": 554,
+        "net_return_pct": -2.878,
+        "net_sharpe": -0.522
+      },
+      {
+        "seed": 2005,
+        "trades": 546,
+        "net_return_pct": 0.093,
+        "net_sharpe": 0.023
+      },
+      {
+        "seed": 2006,
+        "trades": 566,
+        "net_return_pct": -10.587,
+        "net_sharpe": -2.264
+      },
+      {
+        "seed": 2007,
+        "trades": 543,
+        "net_return_pct": -1.297,
+        "net_sharpe": -0.231
+      },
+      {
+        "seed": 2008,
+        "trades": 524,
+        "net_return_pct": -5.033,
+        "net_sharpe": -0.995
+      },
+      {
+        "seed": 2009,
+        "trades": 560,
+        "net_return_pct": -5.59,
+        "net_sharpe": -1.075
+      }
+    ],
+    "pooled_gross_per_trade": {
+      "trades": 5450,
+      "mean_gross_bp": 1.7343958627465583,
+      "se_bp": 2.663783040929527,
+      "t": 0.6511025245289275
+    },
+    "pass": true
+  },
+  "selection": {
+    "runs": [
+      {
+        "seed": 3000,
+        "market": "planted",
+        "pairs_tested": 276,
+        "planted": 6,
+        "planted_found": 6,
+        "other_pairs_selected": 0
+      },
+      {
+        "seed": 3000,
+        "market": "no_cointegration",
+        "pairs_tested": 276,
+        "planted": 0,
+        "planted_found": 0,
+        "other_pairs_selected": 1
+      },
+      {
+        "seed": 3001,
+        "market": "planted",
+        "pairs_tested": 276,
+        "planted": 6,
+        "planted_found": 6,
+        "other_pairs_selected": 0
+      },
+      {
+        "seed": 3001,
+        "market": "no_cointegration",
+        "pairs_tested": 276,
+        "planted": 0,
+        "planted_found": 0,
+        "other_pairs_selected": 0
+      },
+      {
+        "seed": 3002,
+        "market": "planted",
+        "pairs_tested": 276,
+        "planted": 6,
+        "planted_found": 6,
+        "other_pairs_selected": 2
+      },
+      {
+        "seed": 3002,
+        "market": "no_cointegration",
+        "pairs_tested": 276,
+        "planted": 0,
+        "planted_found": 0,
+        "other_pairs_selected": 3
+      },
+      {
+        "seed": 3003,
+        "market": "planted",
+        "pairs_tested": 276,
+        "planted": 6,
+        "planted_found": 6,
+        "other_pairs_selected": 2
+      },
+      {
+        "seed": 3003,
+        "market": "no_cointegration",
+        "pairs_tested": 276,
+        "planted": 0,
+        "planted_found": 0,
+        "other_pairs_selected": 2
+      },
+      {
+        "seed": 3004,
+        "market": "planted",
+        "pairs_tested": 276,
+        "planted": 6,
+        "planted_found": 6,
+        "other_pairs_selected": 8
+      },
+      {
+        "seed": 3004,
+        "market": "no_cointegration",
+        "pairs_tested": 276,
+        "planted": 0,
+        "planted_found": 0,
+        "other_pairs_selected": 7
+      },
+      {
+        "seed": 3005,
+        "market": "planted",
+        "pairs_tested": 276,
+        "planted": 6,
+        "planted_found": 6,
+        "other_pairs_selected": 0
+      },
+      {
+        "seed": 3005,
+        "market": "no_cointegration",
+        "pairs_tested": 276,
+        "planted": 0,
+        "planted_found": 0,
+        "other_pairs_selected": 3
+      },
+      {
+        "seed": 3006,
+        "market": "planted",
+        "pairs_tested": 276,
+        "planted": 6,
+        "planted_found": 6,
+        "other_pairs_selected": 5
+      },
+      {
+        "seed": 3006,
+        "market": "no_cointegration",
+        "pairs_tested": 276,
+        "planted": 0,
+        "planted_found": 0,
+        "other_pairs_selected": 1
+      },
+      {
+        "seed": 3007,
+        "market": "planted",
+        "pairs_tested": 276,
+        "planted": 6,
+        "planted_found": 6,
+        "other_pairs_selected": 5
+      },
+      {
+        "seed": 3007,
+        "market": "no_cointegration",
+        "pairs_tested": 276,
+        "planted": 0,
+        "planted_found": 0,
+        "other_pairs_selected": 3
+      },
+      {
+        "seed": 3008,
+        "market": "planted",
+        "pairs_tested": 276,
+        "planted": 6,
+        "planted_found": 6,
+        "other_pairs_selected": 4
+      },
+      {
+        "seed": 3008,
+        "market": "no_cointegration",
+        "pairs_tested": 276,
+        "planted": 0,
+        "planted_found": 0,
+        "other_pairs_selected": 2
+      },
+      {
+        "seed": 3009,
+        "market": "planted",
+        "pairs_tested": 276,
+        "planted": 6,
+        "planted_found": 6,
+        "other_pairs_selected": 7
+      },
+      {
+        "seed": 3009,
+        "market": "no_cointegration",
+        "pairs_tested": 276,
+        "planted": 0,
+        "planted_found": 0,
+        "other_pairs_selected": 4
+      }
+    ],
+    "planted_recall": 1.0,
+    "unrelated_pairs_selected_per_planted_market": 3.3,
+    "pairs_selected_per_null_market": 2.6,
+    "worst_market_false_positive_rate": 0.02962962962962963,
+    "pass": true
+  },
+  "all_pass": true,
+  "seeds": 10,
+  "trade_range": [
+    "2021-01-01",
+    "2025-12-31"
+  ],
+  "elapsed_s": 96.8
+}
