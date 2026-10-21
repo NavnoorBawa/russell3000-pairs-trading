@@ -1190,8 +1190,9 @@ def _sig_battery(b: Dict) -> Dict:
     }
 
 
-# The headline configuration: every PAIRS_* switch at its default. A run with any other
-# value is a sensitivity variant (non_default_switches), which the publishing scripts refuse.
+# The headline configuration: every PAIRS_* switch that changes what a run computes at its
+# default (PAIRS_N_JOBS does not). A run with any other value is a sensitivity variant
+# (non_default_switches), which the publishing scripts refuse.
 HEADLINE_SEED = 42                                  # pairs_trading.main.DEFAULT_SEED
 FLAG_SWITCHES = ('PAIRS_DEMO_UNIVERSE', 'PAIRS_SKIP_REPROCESS', 'PAIRS_ALLOW_PARTIAL_FETCH')
 MIN_UNIVERSE_COVERAGE = 0.90                        # data_processor.MIN_FETCH_COVERAGE

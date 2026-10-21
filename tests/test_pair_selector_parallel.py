@@ -6,8 +6,8 @@ identical, value for value and type for type, whatever the number of workers; th
 is split into a few tasks that each carry only their own symbols' data.
 """
 import itertools
-import os
 
+import joblib
 import numpy as np
 import pandas as pd
 import pytest
@@ -214,7 +214,9 @@ def test_a_failing_later_test_keeps_the_pairs_p_value(market):
 
 def test_n_jobs_switch(monkeypatch):
     monkeypatch.delenv('PAIRS_N_JOBS', raising=False)
-    assert resolve_n_jobs() == min(4, os.cpu_count() or 1)
+    assert resolve_n_jobs() == min(4, joblib.cpu_count())
+    monkeypatch.setattr(pair_selector, 'cpu_count', lambda: 2)     # e.g. a 2-CPU container quota
+    assert resolve_n_jobs() == 2
     monkeypatch.setenv('PAIRS_N_JOBS', '3')
     assert resolve_n_jobs() == 3
     assert FixedPrimeFundPairSelector().n_jobs == 3
@@ -244,3 +246,13 @@ def test_same_industry_search_is_identical_for_any_number_of_workers(market):
     assert all(industry[a] == industry[b] for a, b in p1)
     n_candidates = len(s1.candidate_pairs(s1.last_quality_symbols))
     assert s1.fdr_diagnostic['pairs_tested'] <= n_candidates < len(symbols) * (len(symbols) - 1) // 2
+
+
+def test_worker_count_is_recorded_but_does_not_make_a_variant(monkeypatch, tmp_path):
+    """PAIRS_N_JOBS is in the provenance block, and a run with any value is a headline run."""
+    from pairs_trading import json_export
+    for value in ('1', '2', '16'):
+        monkeypatch.setenv('PAIRS_N_JOBS', value)
+        run_config = json_export.build_run_config(data_file=str(tmp_path / 'no_cache.pkl'))
+        assert run_config['env']['PAIRS_N_JOBS'] == value
+        assert json_export.non_default_switches(run_config) == []
