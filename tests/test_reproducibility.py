@@ -8,6 +8,7 @@ decision or export, and every random draw comes from a seeded generator; this te
 end-to-end proof.
 """
 import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -31,28 +32,49 @@ SCRIPT = textwrap.dedent("""
     r = CompleteFixedRussell3000TradingSystem(profile='v32').run_complete_system()
     trades = [[t['pair'], str(t['date']), str(t['exit_date']), t['exit_reason'], repr(t['net_pnl_pct'])]
               for t in r['trades']]
-    payload = json.dumps({{'trades': trades, 'daily': [repr(x) for x in r['daily_returns']],
-                          'wf': r['walk_forward'].get('stitched_total_return_pct'),
-                          'gatev': [repr(x) for x in r['benchmarks']['distance_method']['daily_returns']]}})
+    parts = {{'trades': trades, 'daily': [repr(x) for x in r['daily_returns']],
+             'wf': r['walk_forward'].get('stitched_total_return_pct'),
+             'gatev': [repr(x) for x in r['benchmarks']['distance_method']['daily_returns']]}}
+    payload = json.dumps(parts)
+    json.dump(parts, open(sys.argv[1], 'w'))
     print(hashlib.sha256(payload.encode()).hexdigest(), len(trades))
 """)
 
 
-def _run(hash_seed: str, threads: str) -> str:
+def _run(hash_seed: str, threads: str, dump: str) -> str:
     env = {k: v for k, v in os.environ.items() if not k.startswith('PAIRS_')}
     env.update({'PYTHONHASHSEED': hash_seed, 'OMP_NUM_THREADS': threads, 'MKL_NUM_THREADS': threads,
                 'OPENBLAS_NUM_THREADS': threads, 'PAIRS_USE_TRANSFORMER': '0', 'MPLBACKEND': 'Agg',
                 'TQDM_DISABLE': '1'})
-    out = subprocess.run([sys.executable, '-c', SCRIPT.format(root=ROOT)], env=env, cwd=ROOT,
+    out = subprocess.run([sys.executable, '-c', SCRIPT.format(root=ROOT), dump], env=env, cwd=ROOT,
                          capture_output=True, text=True, timeout=900)
     assert out.returncode == 0, out.stderr[-2000:]
     return out.stdout.strip().splitlines()[-1]
 
 
-def test_full_pipeline_is_bit_reproducible_across_processes():
-    a = _run('0', '1')
-    b = _run('12345', '2')
+def _first_differences(x: dict, y: dict) -> list:
+    """Per component, the first index (or the value) where two runs' payloads differ."""
+    out = []
+    for key in x:
+        u, v = x[key], y[key]
+        if u == v:
+            continue
+        if isinstance(u, list) and isinstance(v, list):
+            i = next((k for k, (p, q) in enumerate(zip(u, v)) if p != q), min(len(u), len(v)))
+            out.append(f"{key}: lengths {len(u)}/{len(v)}, first difference at {i}: "
+                       f"{u[i] if i < len(u) else None!r} vs {v[i] if i < len(v) else None!r}")
+        else:
+            out.append(f"{key}: {u!r} vs {v!r}")
+    return out
+
+
+def test_full_pipeline_is_bit_reproducible_across_processes(tmp_path):
+    a = _run('0', '1', str(tmp_path / 'a.json'))
+    b = _run('12345', '2', str(tmp_path / 'b.json'))
     digest, n_trades = a.split()
     assert int(n_trades) > 10
-    assert a == b, f"{a} != {b}"
+    if a != b:
+        diffs = _first_differences(json.loads((tmp_path / 'a.json').read_text()),
+                                   json.loads((tmp_path / 'b.json').read_text()))
+        raise AssertionError(f"{a} != {b}:\n  " + '\n  '.join(diffs))
     assert len(digest) == 64 and digest != hashlib.sha256(b'').hexdigest()

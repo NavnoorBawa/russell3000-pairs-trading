@@ -71,6 +71,12 @@ def _selection_key(profile) -> tuple:
 
 
 def run(out_dir: pathlib.Path, only=None) -> None:
+    from threadpoolctl import threadpool_limits
+    with threadpool_limits(limits=1, user_api='blas'):     # as run_complete_system
+        _run(out_dir, only)
+
+
+def _run(out_dir: pathlib.Path, only=None) -> None:
     from pairs_trading.study_config import get_calendar, get_profile
     from pairs_trading.trading_system import CompleteFixedRussell3000TradingSystem
 

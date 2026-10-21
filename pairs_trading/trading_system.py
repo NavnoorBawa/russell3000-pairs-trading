@@ -35,6 +35,8 @@ Engine contract (v32). Each rule is exercised by the test suite (tests/test_engi
 import os
 from typing import Dict, List, Optional, Tuple
 
+from threadpoolctl import threadpool_limits
+
 from pairs_trading.config import pd, np, logging, SECTOR_ETFS
 from pairs_trading.data_processor import EnhancedRussell3000DataProcessor
 from pairs_trading.pair_selector import FixedPrimeFundPairSelector
@@ -2042,7 +2044,18 @@ class CompleteFixedRussell3000TradingSystem:
         return test_spreads, pair_windows, last_test
 
     def run_complete_system(self):
-        """Run the full study: selection, backtest, walk-forward, diagnostics, exports."""
+        """Run the full study: selection, backtest, walk-forward, diagnostics, exports.
+
+        BLAS runs single-threaded for the whole study (threadpoolctl). A multi-threaded BLAS
+        splits a reduction across threads, so the same inputs can round differently under
+        different thread settings, and a statistic at a threshold can then flip a
+        decision. The study's parallelism is the pair search's worker processes, which
+        already use one BLAS thread each; torch's OpenMP threads are not affected.
+        """
+        with threadpool_limits(limits=1, user_api='blas'):
+            return self._run_complete_system()
+
+    def _run_complete_system(self):
         logger.info("Starting Russell 3000 pairs-trading study")
         self.load_study_data()
         test_spreads, pair_windows, last_test = self.prepare_study()
