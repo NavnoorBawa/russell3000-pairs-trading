@@ -285,8 +285,8 @@ and size.
   32 trials are a lower bound; v33's changes were chosen after v32's results on this same period
   were seen; an exploratory v33 run was seen before the published one (it is in the trial
   registry); and the second family ran under two earlier universe rules, the second changed
-  after a review measured the P&L of the names the change removes (not in the registry; the page
-  discloses them). The pre-registered holdout addresses it, and the declared variant family
+  after a review measured the P&L of the names the change removes (registered after the fact as
+  `residual_earlier_rules`). The pre-registered holdout addresses it, and the declared variant family
   measures it: no variant beats cash, even before the search is allowed for, or the distance
   method on a Sharpe scale, and parameter choice on the family would overfit.
 - **The 2026 test is sealed, not prospective.** The test period ended before the pre-registration

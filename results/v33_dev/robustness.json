@@ -2,7 +2,7 @@
   "schema": 1,
   "builder": "scripts/robustness_checks.py",
   "code": {
-    "git_commit": "59f7f3ee5a652d55d170a370ba002fcf5cda961c",
+    "git_commit": "22925ab20880d9db0333c6691e09075228cbf433",
     "git_dirty": false,
     "seed": 42,
     "pythonhashseed": "0"
@@ -401,7 +401,7 @@
   "persistence": {
     "definition": "Clegg (2014) persistence, the anatomy's table (pairs_trading.anatomy.cointegration_persistence) with only the set of pairs changed. For each calendar year Y of 2020-2024 and for Y + 1: a pair is tested if its daily return correlation in that year is at least the selector's screen (0.25) and both legs have at least 200 common days; it is cointegrated in the year if the two-direction Engle-Granger test on the year's log closes gives Bonferroni p < 0.05. The year's base rate is the share of its tested pairs that are cointegrated. 'Still cointegrated' is the share of the pairs cointegrated in Y that test p < 0.05 on Y + 1's data (no correlation screen in Y + 1; pairs without 200 common days in Y + 1 are untestable and counted apart). Two references: alpha = 0.05 is the nominal rate of a test at its size under no cointegration, and the base rate of Y + 1 is the model-free one (if cointegration in Y carried no information about Y + 1, the conditional share would equal it). Pairs share legs, so the binomial intervals overstate the precision. Prices: the study's loaded price cache (Close and Returns; the point-in-time anchoring does not change Close).",
     "candidate_sets": {
-      "first_formation": "The pairs S1's first pair search tested: the point-in-time Russell 3000 members on 2022-12-31 with price history (>= 100 bars to the cutoff) that pass S1's screen (>= 300 bars, mean point-in-time price >= $5 and dollar volume >= $10M, annualised volatility 5-80%, < 10% missing closes), the 500 most liquid of them, and of those every pair in the same Fama-French 49 industry. The universe is fixed at the cutoff for every year (the anatomy's 300-name table uses the same cutoff), so 2020-2021 are seen through a universe chosen on data to 2022.",
+      "first_formation": "The candidate pairs of S1's first pair search (the search tested those of them passing its common-days and formation-window correlation screens): the point-in-time Russell 3000 members on 2022-12-31 with price history (>= 100 bars to the cutoff) that pass S1's screen (>= 300 bars, mean point-in-time price >= $5 and dollar volume >= $10M, annualised volatility 5-80%, < 10% missing closes), the 500 most liquid of them, and of those every pair in the same Fama-French 49 industry. The universe is fixed at the cutoff for every year (the anatomy's 300-name table uses the same cutoff), so 2020-2021 are seen through a universe chosen on data to 2022.",
       "union_of_formations": "The union of the candidate pairs of every formation of the run (the first and each full re-selection on its trailing 1,095-day window, each with that date's point-in-time members), tested on the same years."
     },
     "formations": [

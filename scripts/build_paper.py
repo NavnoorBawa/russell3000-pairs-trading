@@ -1322,6 +1322,8 @@ def tables(data, m):
                    f"{fmt(family['sharpe_worst'], '.2')} to {fmt(family['sharpe_best'], '+.2')}",
                    f"{fmt(family['ret_worst_pct'], '.2')} to {fmt(family['ret_best_pct'], '+.2')}",
                    f"{family['trades_min']}–{family['trades_max']}", '—']
+        elif t.get('sharpe') is None and t.get('profile') is None and t['name'] == 'residual_earlier_rules':
+            row = [t['name'], 'Avellaneda–Lee, superseded rules · dev, 2025', '—', '—', '—', '—', '—']
         else:
             design_cal = f"{t.get('profile') or 'v32'} · {t.get('calendar') or 'dev'}".replace(
                 'rehearsal2025', '2025').replace('avellaneda_lee', 'Avellaneda–Lee')

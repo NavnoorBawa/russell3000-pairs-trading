@@ -3316,14 +3316,13 @@ Two reviews of the integrated site, paper and README found two factual errors an
 overstatements; every fix uses the committed data.
 
 - **The trial record was overstated.** "7 trials and 10 runs" counted table rows: the registry
-  holds <!--m:study.registry.recorded_runs-->8<!--/m--> run records
-  in <!--m:study.registry.trials-->7<!--/m--> trials, and the 10 rows add one for the second family's published run and one for the 38-variant
-  family. "Every run whose result was seen is in the registry" was false: the start-date, half and
+  then held 8 run records in 7 trials, and the 10 rows added one for the second family's
+  published run and one for the 38-variant family. "Every run whose result was seen is in the registry" was false: the start-date, half and
   cost-scenario re-runs are not registered, and the second family ran under two earlier universe
   rules (the v32 universe file; then point-in-time members ranked on dollar volume without S1's
   screens, on the development and rehearsal calendars), changed after a review measured the P&L
-  of the names S1's screens remove. Those runs are now disclosed on the page and in the paper; they
-  are not registered (an append to the registry is the owner's decision).
+  of the names S1's screens remove. Those runs are now disclosed on the page and in the paper, and
+  were then registered after the fact as `residual_earlier_rules` (the eighth trial).
 - **S2's net per trade was mislabelled.** The mean
   trade's <!--m:study.dev.facts.s2c_net_mean_bp-->−4.54<!--/m--> bp is net of the stock
   legs' <!--m:study.residual.stock_cost_bp-->9.89<!--/m--> bp only; the ETF

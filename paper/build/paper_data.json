@@ -441,8 +441,8 @@
   "paper.sched_worst_ret": "−7.12%",
   "paper.schedules_lose_word": "five",
   "paper.schedules_n_word": "five",
-  "paper.trials_n": "10",
-  "paper.trials_word": "ten",
+  "paper.trials_n": "11",
+  "paper.trials_word": "11",
   "paper.trl_power_ratio": "2.3",
   "paper.universe_top": "500",
   "paper.v32_borrow_bp": "25",
@@ -865,8 +865,8 @@
   "study.dev.snooping.results.trades_min": "144",
   "study.dev.snooping.toggles": "11",
   "study.registry.recorded_runs": "8",
-  "study.registry.rows": "10",
-  "study.registry.trials": "7",
+  "study.registry.rows": "11",
+  "study.registry.trials": "8",
   "study.residual.avg_gross_x": "1.2×",
   "study.residual.avg_positions": "181",
   "study.residual.cost_bp": "11.30",
@@ -952,7 +952,7 @@
   "headline_sha256": "b09f239032db62196602447e8d1d780286b5c2674e8e85d02062beab946d0fb1",
   "paper_date": "2026-10-21",
   "run_dir": "results/v33_dev",
-  "study_sha256": "ffd4dea755617e06234d22bfb16b192204376962ab229b241e665b1eabc86cd6",
+  "study_sha256": "db651f994e9565880b87a21d0581ed433b8d1393307d9bfae9b5141532127de7",
   "universe_index_sha256": "2afd0cb6a7a7b79e08e6d45a5fc78f7ac6d43903c3cafbde1a042bf048883c3c"
  },
  "pending": {
@@ -1251,7 +1251,7 @@
    ],
    [
     "Site data",
-    "assets/study.json, sha256 ffd4dea755617e06234d22bfb16b192204376962ab229b241e665b1eabc86cd6"
+    "assets/study.json, sha256 db651f994e9565880b87a21d0581ed433b8d1393307d9bfae9b5141532127de7"
    ],
    [
     "Universe",
@@ -1817,7 +1817,7 @@
    ],
    [
     "results/trial_registry.jsonl",
-    "e320f0e53dd6d12cda05bbf851bfef2f127bab6560aca6f717439357555b4ef4"
+    "55264f8fc1ac7210d2d29e1d27fe967ce68a6c6c378dea0958c119637c8be699"
    ],
    [
     "results/v32_dev/headline_metrics.json",
@@ -1853,7 +1853,7 @@
    ],
    [
     "results/v33_dev/robustness.json",
-    "f27c2705c2b3f7003d36a5d2fb50186f5e1a873dd0cc8c11f1094cafa39a18f6"
+    "7a6163821040cb1e47f276d779fd04b5ebe60caaf1a85ab6eb4c2a1198da906b"
    ],
    [
     "results/validation/synthetic_validation.json",
@@ -1885,7 +1885,7 @@
    ],
    [
     "index.html",
-    "325f2bba8ed00e7f0ea85698b682580299fd9cb3f57d44d0cbcce86f8413d16b"
+    "66c2e5962b92ee1661e9ace83944fafe9fd44d76df0d22ae42e29e124741ea08"
    ]
   ],
   "spec": [
@@ -2109,6 +2109,15 @@
     "−1.69 to +0.21",
     "−9.63 to +1.14",
     "144–333",
+    "—"
+   ],
+   [
+    "residual_earlier_rules",
+    "Avellaneda–Lee, superseded rules · dev, 2025",
+    "—",
+    "—",
+    "—",
+    "—",
     "—"
    ]
   ],
