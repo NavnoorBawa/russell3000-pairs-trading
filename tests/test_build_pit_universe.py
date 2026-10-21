@@ -486,6 +486,19 @@ def test_map_new_identifiers_vets_and_keeps_mapping_dates(tmp_path, monkeypatch)
     stale = {'000000AA1': old, '000000ZZ9': old}
     got = b._map_new_identifiers(parsed_all, stale, path, args, prune=True)
     assert list(got) == ['000000AA1'] and list(b.read_map(path)) == ['000000AA1']
+    # a price-check rejection is applied and written, the mapping date kept; a rebuild is a no-op
+    path.unlink()
+    monkeypatch.setattr(b, 'REJECTED_MAPPINGS', {'000000AA1': ('AAA', 'another security in a test of the map write')})
+    mapped = dict(_resolve(_figi(('AAA', 'UN')), reported='AAA'), matched_by='reported ticker', mapped_on='2026-01-02')
+    n = len(asked)
+    got = b._map_new_identifiers(parsed_all, {'000000AA1': mapped}, path, args)
+    assert len(asked) == n                                                        # no OpenFIGI query
+    assert got['000000AA1'] == dict(mapped, status='reused', ticker=None,
+                                    note='AAA is another security in a test of the map write')
+    assert b.read_map(path) == got
+    path.unlink()
+    assert b._map_new_identifiers(parsed_all, dict(got), path, args) == got and not path.exists()
+
 
 
 # --- the whole build, offline ----------------------------------------------------------------
@@ -558,6 +571,55 @@ def test_the_sealed_build_writes_outside_the_committed_tree(tmp_path, monkeypatc
     assert (dest / 'iwv_2026-03-31.csv').read_text().splitlines()[1].startswith('AAA,')
     from pairs_trading.universe import PITUniverse
     assert str(PITUniverse(dest.parent).snapshot_asof('2026-07-07').date()) == '2026-03-31'
+
+
+def test_the_online_sealed_build_maps_new_identifiers_into_its_own_map(tmp_path, monkeypatch):
+    """The holdout's production path (scripts/run_holdout.sh, no --offline): the sealed
+    filing's new CUSIP is mapped into DIR's copy of the map, the price check's verdicts are
+    applied there, and the committed map and index stay byte for byte as they were."""
+    raw, out, dest = _raw_cache(tmp_path), tmp_path / 'out', tmp_path / 'holdout' / 'universe'
+    _map(out)
+    b.main(['--offline', '--raw-dir', str(raw), '--out-dir', str(out)])
+    _sealed_xml(raw)
+    xml = raw / '0000000000-26-000004.xml'
+    xml.write_bytes(xml.read_bytes().replace(b'000000AA1', b'000000ZZ5').replace(b'US000000AA11', b'US000000ZZ51'))
+    committed = {p.name: p.read_bytes() for p in out.iterdir()}
+
+    def sec_get(url):
+        raise AssertionError(f'no download expected: {url}')
+
+    asked = []
+
+    def query(jobs, entries, map_path, response_cache, api_key=None, refresh=False, reported=None):
+        asked.append(list(jobs))
+        for sid, id_type in jobs:
+            entries[sid] = _resolve(_figi(('ZZZ', 'US')), id_type)
+        b.write_map(entries, map_path)
+
+    monkeypatch.setattr(b, 'assert_unsealed', lambda end: None)
+    monkeypatch.setattr(b, 'sec_get', sec_get)
+    monkeypatch.setattr(b, 'query_openfigi', query)
+    monkeypatch.setattr(b, 'REJECTED_MAPPINGS', {'000000BB7': ('BBB-A', 'another security in a test of the holdout')})
+    args = ['--include-sealed', '--sealed-out', str(dest), '--raw-dir', str(raw), '--out-dir', str(out),
+            '--openfigi-cache', str(tmp_path / 'figi.json')]
+    assert b.main(args) == 0
+    assert asked == [[('000000ZZ5', 'ID_CUSIP')]]                                # only the new identifier
+    held = b.read_map(dest / 'cusip_ticker_map.json')
+    assert held['000000ZZ5']['ticker'] == 'ZZZ'
+    assert (held['000000BB7']['status'], held['000000BB7']['ticker']) == ('reused', None)
+    assert {p.name: p.read_bytes() for p in out.iterdir()} == committed           # reference/ untouched
+    for name in ('iwv_2020-03-31.csv', 'iwv_2020-06-30.csv'):
+        assert (dest / name).read_bytes() == committed[name]
+    rows = (dest / 'iwv_2026-03-31.csv').read_text().splitlines()
+    assert rows[1].startswith('ZZZ,000000ZZ5,') and any(r.startswith(',000000BB7,') for r in rows)
+    # the guards of the sealed build
+    with pytest.raises(SystemExit, match='must not be the committed reference directory'):
+        b.main(['--include-sealed', '--sealed-out', str(out), '--raw-dir', str(raw), '--out-dir', str(out)])
+    for bad in (['--sealed-out', str(dest)], ['--include-sealed', '--sealed-out', str(dest), '--reresolve'],
+                ['--include-sealed', '--sealed-out', str(dest), '--remap-missing']):
+        with pytest.raises(SystemExit, match='needs --include-sealed'):
+            b.main(bad + ['--raw-dir', str(raw), '--out-dir', str(out)])
+    assert {p.name: p.read_bytes() for p in out.iterdir()} == committed
 
 
 def test_the_rehearsal_rebuilds_committed_snapshots_byte_for_byte(tmp_path):
