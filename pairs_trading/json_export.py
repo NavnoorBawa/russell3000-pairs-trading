@@ -476,6 +476,8 @@ def build_run_config(results: Optional[Dict] = None, system_info: Optional[Dict]
             'price_cache': file_fingerprint(data_file),
             'macro_cache': file_fingerprint(info['macro_cache']) if info.get('macro_cache') else None,
             'universe_file': file_fingerprint(info['universe_file']) if info.get('universe_file') else None,
+            # Close_PIT anchored to N-PORT's price on each snapshot date (None: not anchored)
+            'price_anchor': info.get('price_anchor'),
         },
         'versions': {
             'python': platform.python_version(),

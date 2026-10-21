@@ -307,6 +307,9 @@ def main(argv=None) -> int:
             start_date=calendar.data_start, end_date=calendar.data_end,
             data_file=calendar.price_cache, macro_file=calendar.macro_cache)
         prices = processor.load_cached_data(symbols)
+        # S1's point-in-time price levels (trading_system._anchor_point_in_time_prices): the
+        # $5 screen and the per-share costs read Close_PIT anchored to N-PORT's prices
+        anchor = EnhancedRussell3000DataProcessor.anchor_all(prices, pit.traded_prices())
         macro = processor.load_macro_data(fetch=False)
         check_sector_closes(macro.get('sectors') or {}, sector_map, prices, calendar)
     except (FileNotFoundError, RuntimeError, ValueError) as e:
@@ -335,6 +338,7 @@ def main(argv=None) -> int:
         'universe_cached_fraction': processor.universe_cached_fraction,
         'universe_not_found_fraction': processor.universe_not_found_fraction,
     }, sector_info, universe_info)
+    run_config['data']['price_anchor'] = anchor
     if processor.never_fetched:
         run_config['data']['never_fetched_members'] = list(processor.never_fetched)
     switches = residual_switches(run_config, params, sector_info, processor.never_fetched)

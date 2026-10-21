@@ -891,6 +891,7 @@ def test_a_calendar_run_trades_inside_the_calendar_and_exports_the_registered_re
     assert [s['period_date'] for s in rc['universe']['snapshots']] == ['2024-12-31', '2025-03-31', '2025-06-30']
     assert rc['universe']['known_by'] == CAL.data_end and rc['universe']['reference_root'] == 'reference'
     assert rc['data']['backtest_start'] == CAL.backtest_start and rc['data']['data_end'] == CAL.data_end
+    assert set(rc['data']['price_anchor']) == {'anchored', 'median_ratio_beyond_10pct', 'largest'}
 
 
 def test_the_run_script_fetches_nothing_and_stops_on_what_the_caches_lack(tmp_path, monkeypatch, caplog):
@@ -1069,3 +1070,24 @@ def test_the_registered_parameters_are_a_and_l_s_and_s1_s(tmp_path, monkeypatch,
     out = tmp_path / 'r.json'
     assert mod.main(['--calendar', CAL.name, '--out', str(out)]) == 2
     assert 'not the registered residual arm' in caplog.text and not out.exists()
+
+
+def test_the_run_script_anchors_point_in_time_prices_as_s1_does(tmp_path, monkeypatch):
+    """S2's $5 screen and per-share costs read the same Close_PIT as S1's: the cached prices
+    anchored to N-PORT's price of each member on each snapshot date (trading_system's
+    _anchor_point_in_time_prices), with the same PITUniverse.traded_prices()."""
+    _calendar_layout(tmp_path, monkeypatch)
+    from pairs_trading import data_processor, universe
+    seen = []
+    original = data_processor.EnhancedRussell3000DataProcessor.anchor_all
+
+    def spy(data, traded):
+        seen.append((sorted(data), traded.copy()))
+        return original(data, traded)
+
+    monkeypatch.setattr(data_processor.EnhancedRussell3000DataProcessor, 'anchor_all', staticmethod(spy))
+    out = tmp_path / 'out' / 'residual_statarb.json'
+    assert _script().main(['--calendar', CAL.name, '--out', str(out)]) == 0
+    assert len(seen) == 1
+    expected = universe.PITUniverse(universe.reference_root(CAL)).traded_prices()
+    pd.testing.assert_frame_equal(seen[0][1].reset_index(drop=True), expected.reset_index(drop=True))

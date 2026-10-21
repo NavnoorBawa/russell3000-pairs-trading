@@ -1984,7 +1984,8 @@ class CompleteFixedRussell3000TradingSystem:
             'universe_file': self._universe_file(),
             'universe_coverage': getattr(self.data_processor, 'universe_coverage', None),
             'universe_cached_fraction': getattr(self.data_processor, 'universe_cached_fraction', None),
-            'universe_not_found_fraction': getattr(self.data_processor, 'universe_not_found_fraction', None)}))
+            'universe_not_found_fraction': getattr(self.data_processor, 'universe_not_found_fraction', None),
+            'price_anchor': self.price_anchor_summary}))
 
     def share_loaded_data(self, other: 'CompleteFixedRussell3000TradingSystem') -> None:
         """Use another system's loaded universe, prices and macro data (same calendar).
@@ -2182,6 +2183,7 @@ class CompleteFixedRussell3000TradingSystem:
             'universe_coverage': getattr(self.data_processor, 'universe_coverage', None),
             'universe_cached_fraction': getattr(self.data_processor, 'universe_cached_fraction', None),
             'universe_not_found_fraction': getattr(self.data_processor, 'universe_not_found_fraction', None),
+            'price_anchor': self.price_anchor_summary,
             'study': describe_study(self.profile, self.calendar),
             'price_cache': self.calendar.price_cache,
             'macro_cache': self.calendar.macro_cache,
