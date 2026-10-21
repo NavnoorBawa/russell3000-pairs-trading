@@ -1,0 +1,4 @@
+       v33_pairs: 199 days, net -2.10%, Sharpe -1.05, t -0.96, p(one-sided) 0.831, Holm p 1.000
+       v32_pairs: 199 days, net -0.44%, Sharpe -1.07, t -1.07, p(one-sided) 0.858, descriptive, not tested
+  avellaneda_lee: 199 days, net -0.92%, Sharpe -0.17, t -0.20, p(one-sided) 0.577, Holm p 1.000
+-> results/rehearsal2025/evaluation.json

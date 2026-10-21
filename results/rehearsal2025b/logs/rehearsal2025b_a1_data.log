@@ -1,0 +1,62 @@
+2026-10-21 12:51:56,492 - INFO - ENHANCED Russell 3000 Data Processor initialized
+2026-10-21 12:51:56,493 - INFO - Pair selector initialised
+2026-10-21 12:51:56,493 - INFO - Signal-quality ranker initialised
+2026-10-21 12:51:56,493 - INFO - ADAPTIVE Prime Fund Position Sizer - Risk Scaled
+2026-10-21 12:51:56,493 - INFO - ADAPTIVE Risk Manager - Volatility & Profit Protection
+2026-10-21 12:51:56,493 - INFO - Transaction cost model: per-share commission, ADV-bucket spread, per-stock sqrt impact, GC borrow, PB carry
+2026-10-21 12:51:56,493 - INFO - Russell 3000 pairs-trading system initialised: profile v33, calendar rehearsal2025
+2026-10-21 12:51:56,563 - INFO - Point-in-time universe: 2732 distinct members across 4 IWV snapshots (2024-12-31 -> 2025-09-30)
+2026-10-21 12:51:56,582 - INFO - Pair selector initialised
+2026-10-21 12:51:56,582 - INFO - Fetching fresh data for 2732 symbols
+
+2026-10-21 13:00:19,309 - INFO - 30 symbols failed transiently; one more pass, one at a time, after 30s
+
+2026-10-21 13:09:27,395 - INFO - Second pass: 0/30 recovered
+2026-10-21 13:09:27,399 - INFO - Fetched 2454/2732 symbols; 30 fetch errors/empties (98.9% fetch coverage); manifest outcome counts: {'ok': 2454, 'not_found': 214, 'error:HTTPError': 29, 'invalid': 17, 'short': 17, 'empty': 1}
+2026-10-21 13:09:31,052 - INFO - Price cache written to data/rehearsal2025_prices.pkl (manifest: data/rehearsal2025_prices_manifest.json)
+2026-10-21 13:09:40,124 - INFO - Point-in-time prices anchored to N-PORT for 2454 symbols; 550 moved by more than 10% (largest: [['BYND', 0.0333], ['BKNG', 25.5927], ['ADV', 0.04], ['AGL', 0.04], ['ALIT', 0.0524]])
+2026-10-21 13:09:40,124 - INFO - Fetching macro data: ['^VIX', 'XLK', 'XLC', 'XLF', 'XLV', 'XLY', 'XLP', 'XLE', 'XLI', 'XLB', 'XLU', 'XLRE']
+2026-10-21 13:09:40,670 - INFO -   ^VIX: 952 days (2022-01-03 -> 2025-10-17)
+2026-10-21 13:09:41,219 - INFO -   XLK: 952 days (2022-01-03 -> 2025-10-17)
+2026-10-21 13:09:41,782 - INFO -   XLC: 952 days (2022-01-03 -> 2025-10-17)
+2026-10-21 13:09:42,349 - INFO -   XLF: 952 days (2022-01-03 -> 2025-10-17)
+2026-10-21 13:09:42,856 - INFO -   XLV: 952 days (2022-01-03 -> 2025-10-17)
+2026-10-21 13:09:43,325 - INFO -   XLY: 952 days (2022-01-03 -> 2025-10-17)
+2026-10-21 13:09:43,852 - INFO -   XLP: 952 days (2022-01-03 -> 2025-10-17)
+2026-10-21 13:09:44,479 - INFO -   XLE: 952 days (2022-01-03 -> 2025-10-17)
+2026-10-21 13:09:45,009 - INFO -   XLI: 952 days (2022-01-03 -> 2025-10-17)
+2026-10-21 13:09:45,649 - INFO -   XLB: 952 days (2022-01-03 -> 2025-10-17)
+2026-10-21 13:09:46,145 - INFO -   XLU: 952 days (2022-01-03 -> 2025-10-17)
+2026-10-21 13:09:46,782 - INFO -   XLRE: 952 days (2022-01-03 -> 2025-10-17)
+2026-10-21 13:09:46,785 - INFO - Macro data cached to data/rehearsal2025_macro.pkl
+2026-10-21 13:09:48,874 - INFO - RUN CONFIG: version 33.0.0 | commit 6aaf7efb1eb0 | 2026-10-21T13:09:46+00:00 UTC
+2026-10-21 13:09:48,874 - INFO -   switches: {'PAIRS_PROFILE': 'v33', 'PAIRS_CALENDAR': 'rehearsal2025', 'PYTHONHASHSEED': '0', 'PAIRS_EXPECTED_COMMIT': '6aaf7efb1eb074cdb4e2137f961112ba62234c51'} | effective: {'profile': 'v33', 'calendar': 'rehearsal2025', 'fill': 'close', 'ranker': 'none', 'use_transformer_ranker': False, 'reselect': 'full', 'regime_gate': False}
+2026-10-21 13:09:48,874 - INFO -   data: None -> None, backtest None -> None, 2454 symbols, None pairs
+2026-10-21 13:09:48,875 - INFO -   price cache: data/rehearsal2025_prices.pkl, 667.3 MB, mtime 2026-10-21T13:09:29+00:00, sha256 d89c7ae6a66c4c63
+2026-10-21 13:09:48,875 - INFO -   versions: {'python': '3.12.3', 'numpy': '1.26.4', 'pandas': '2.2.3', 'torch': '2.13.0+cpu', 'scipy': '1.15.2', 'statsmodels': '0.14.4'}
+2026-10-21 13:09:51,427 - INFO - ENHANCED Russell 3000 Data Processor initialized
+2026-10-21 13:09:51,427 - INFO - Pair selector initialised
+2026-10-21 13:09:51,427 - INFO - Signal-quality ranker initialised
+2026-10-21 13:09:51,427 - INFO - ADAPTIVE Prime Fund Position Sizer - Risk Scaled
+2026-10-21 13:09:51,428 - INFO - ADAPTIVE Risk Manager - Volatility & Profit Protection
+2026-10-21 13:09:51,428 - INFO - Transaction cost model: per-share commission, ADV-bucket spread, per-stock sqrt impact, GC borrow, PB carry
+2026-10-21 13:09:51,428 - INFO - Russell 3000 pairs-trading system initialised: profile v32, calendar rehearsal2025
+2026-10-21 13:09:51,437 - INFO - Loaded data/marketcap.csv with 3000 rows
+2026-10-21 13:09:51,449 - INFO - Universe: 2999 symbols (1 rows removed as missing/invalid/duplicate); sample ['A', 'AA', 'AAL', 'AAOI', 'AAON', 'AAP', 'AAPL', 'AAT', 'ABAT', 'ABBV']
+2026-10-21 13:09:51,450 - INFO - Loading saved data from data/rehearsal2025_prices.pkl
+2026-10-21 13:09:53,988 - INFO - Loaded 2454 symbols from saved data
+2026-10-21 13:09:54,110 - INFO - Top-up: 742 universe symbols were never fetched; fetching 2022-01-01 -> 2025-10-17
+
+2026-10-21 13:18:44,101 - INFO - 101 symbols failed transiently; one more pass, one at a time, after 30s
+
+2026-10-21 13:49:51,849 - INFO - Second pass: 0/101 recovered
+2026-10-21 13:49:59,127 - INFO - Top-up: 546/742 fetched; cache and manifest rewritten
+2026-10-21 13:49:59,129 - INFO - Restricted the cache to the universe file: 2775 of 3000 cached symbols are in the universe
+2026-10-21 13:49:59,129 - INFO - 224 universe symbols have no cached prices (failed or never fetched) and are excluded
+2026-10-21 13:51:13,803 - INFO - Recomputed indicators from cached OHLCV for 2775 symbols (0 left as-is) — removes the pre-v31 bfill look-ahead
+2026-10-21 13:51:13,967 - INFO - Loaded cached macro data: VIX (952 days) + 11 sector ETFs
+2026-10-21 13:51:16,651 - INFO - RUN CONFIG: version 33.0.0 | commit 6aaf7efb1eb0 | 2026-10-21T13:51:14+00:00 UTC
+2026-10-21 13:51:16,651 - INFO -   switches: {'PAIRS_PROFILE': 'v32', 'PAIRS_CALENDAR': 'rehearsal2025', 'PYTHONHASHSEED': '0', 'PAIRS_EXPECTED_COMMIT': '6aaf7efb1eb074cdb4e2137f961112ba62234c51'} | effective: {'profile': 'v32', 'calendar': 'rehearsal2025', 'fill': 'close', 'ranker': 'transformer', 'use_transformer_ranker': True, 'reselect': 'pool', 'regime_gate': True}
+2026-10-21 13:51:16,652 - INFO -   data: None -> None, backtest None -> None, 2775 symbols, None pairs
+2026-10-21 13:51:16,652 - INFO -   price cache: data/rehearsal2025_prices.pkl, 810.0 MB, mtime 2026-10-21T13:49:57+00:00, sha256 981147dd281711e4
+2026-10-21 13:51:16,652 - INFO -   versions: {'python': '3.12.3', 'numpy': '1.26.4', 'pandas': '2.2.3', 'torch': '2.13.0+cpu', 'scipy': '1.15.2', 'statsmodels': '0.14.4'}
