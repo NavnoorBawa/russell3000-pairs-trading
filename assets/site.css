@@ -195,7 +195,7 @@ h1 { font: 500 39px/1.14 var(--serif); letter-spacing: -.015em; margin: 0 0 14px
 .bottom-line { background: var(--surface); padding: 4px 24px 20px; }
 .bottom-line p { font-size: 16px; line-height: 1.6; max-width: 75ch; }
 .bottom-line p + p { margin-top: 10px; }
-.bl-full { border: 1px solid var(--rule); background: var(--surface); margin: 20px 0 8px; }
+.bl-full { border: 1px solid var(--rule); background: var(--surface); margin: -8px 0 20px; }
 .bl-full > summary { cursor: pointer; padding: 14px 24px; color: var(--ink-2); }
 .bl-full > summary:hover .bl-title { color: var(--ink); }
 .bl-full .bl-title { display: inline; }
@@ -343,6 +343,126 @@ html:not(.js) .ex-data, .exhibit.is-pending .ex-data { display: none; }
 .tle-when { color: var(--ink-2); font: 500 13px/1.6 var(--sans); font-variant-numeric: tabular-nums; }
 .tle-what { color: var(--ink); max-width: 80ch; }
 .tl-events li.is-key .tle-when, .tl-events li.is-key .tle-what { font-weight: 600; }
+
+/* ── hero: "the answer at a glance" (index.html #answer, built by scripts/build_hero.py) ──
+   A static interval chart in HTML and CSS: one table row per estimate, three columns
+   (label, track, values). The generator writes each row's positions as inline custom
+   properties, in percent of the track: --x the estimate, --lo and --hi the 95% interval,
+   --ub the one-sided upper bound; the table carries --zero. Marks are drawn with borders,
+   not backgrounds, so they print without "background graphics" and keep their shapes in
+   forced-colors mode. Colour roles: --series-1 v33 pairs, --series-2 Gatev, --series-3
+   Avellaneda–Lee, neutral for the descriptive arm; shape is the second channel (circle,
+   square, diamond; hollow for before costs and for the descriptive arm). Text is always in
+   ink tokens. No script. */
+.hero {
+  position: relative; margin: 6px 0 28px; padding-top: 14px; border-top: 1px solid var(--rule);
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.hero::before { content: ""; position: absolute; top: -1px; left: 0; width: 36px; border-top: 2px solid var(--ink); }
+.hero .hz-label { font: 600 11.5px/1.2 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin: 0 0 6px; }
+.hero .hz-title { font: 600 19px/1.35 var(--sans); letter-spacing: -.003em; color: var(--ink); max-width: 46ch; margin: 0 0 4px; text-wrap: balance; }
+.hero .hz-sub { font-size: 14px; line-height: 1.45; color: var(--ink-2); max-width: 80ch; margin: 0; }
+.hero .hz-legend { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 13px; line-height: 1.4; color: var(--ink-2); margin: 10px 0 0; }
+.hero .hz-lgg { display: inline-flex; flex-wrap: wrap; gap: 4px 20px; }
+.hero .hz-lg { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.hero .hz-note { font-size: 13px; line-height: 1.5; color: var(--ink-2); max-width: 96ch; margin: 8px 0 0; }
+
+/* the table: fixed columns, so every track has the same width and lines up with the axis */
+.hz {
+  --hz-l: 212px; --hz-v: 252px; --hz-row: 40px;
+  width: 100%; table-layout: fixed; border-collapse: collapse; margin: 0;
+  font-size: 14px; line-height: 1.2; font-variant-numeric: tabular-nums;
+}
+.hz .hz-col-l { width: var(--hz-l); }
+.hz .hz-col-v { width: var(--hz-v); }
+.hz th, .hz td { padding: 0; border: 0; text-align: left; vertical-align: middle; font-weight: 400; }
+
+/* axis: the header row's track cell holds the tick labels and tick marks */
+.hz .hz-axis > * { height: 38px; vertical-align: bottom; }
+.hz .hz-ax { position: relative; border-bottom: 1px solid var(--axis); }
+.hz .hz-t { position: absolute; left: var(--t); bottom: 10px; transform: translateX(-50%); font-size: 12px; line-height: 1; color: var(--ink-2); white-space: nowrap; }
+.hz .hz-t::after { content: ""; position: absolute; left: 50%; bottom: -10px; height: 5px; margin-left: -.5px; border-left: 1px solid var(--axis); }
+.hz .hz-valhead { padding: 0 0 10px 18px; font-size: 12.5px; line-height: 1; color: var(--ink-2); white-space: nowrap; }
+
+/* groups */
+.hz .hz-grp th { padding: 15px 0 4px; font: 600 11.5px/1.3 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.hz tbody + tbody .hz-grp th { border-top: 1px solid var(--rule); padding-top: 13px; }
+
+/* rows */
+.hz .hz-r > * { height: var(--hz-row); }
+.hz .hz-r > th { padding-right: 16px; color: var(--ink); vertical-align: top; padding-top: calc((var(--hz-row) - 1.2em) / 2); }
+.hz .hz-r > th a { color: inherit; text-decoration: underline; text-decoration-color: var(--rule-2); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.hz .hz-r > th a:hover { text-decoration-color: currentColor; }
+/* a qualifier hangs below its label, whose first line stays level with the marks and values */
+.hz .hz-q { display: block; font-size: 12px; line-height: 1.25; color: var(--ink-3); margin-bottom: -8px; }
+.hz .hz-v { padding-left: 18px; font-size: 13.5px; color: var(--ink-2); white-space: nowrap; }
+.hz .hz-e { display: inline-block; min-width: 2.85em; text-align: right; color: var(--ink); font-weight: 600; }
+.hz .hz-i { color: var(--ink-2); }
+.hz .hz-p { margin-left: .6em; color: var(--ink-2); }
+
+/* the marks: zero rule, interval, upper-bound tick, estimate (later marks paint on top) */
+.hz .hz-tr { position: relative; color: var(--hz-c, var(--neutral-series)); }
+.hz .hz-tr::before { content: ""; position: absolute; top: 0; bottom: 0; left: var(--zero); margin-left: -.5px; border-left: 1px solid var(--ink-3); }
+.hz-ci, .hz-ub, .hz-pt { position: absolute; top: 50%; box-sizing: border-box; }
+.hz-ci { left: var(--lo); width: calc(var(--hi) - var(--lo)); height: 0; margin-top: -1px; border-top: 2px solid; }
+.hz-ub { left: var(--ub); width: 0; height: 14px; margin: -7px 0 0 -1px; border-left: 2px solid var(--ink); }
+.hz-pt { left: var(--x); width: 10px; height: 10px; margin: -5px 0 0 -5px; border: 5px solid; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--paper); }
+.hz-sq .hz-pt { border-radius: 1px; }    /* 10 px, as the circle: whole-pixel borders leave no gap */
+.hz-dia .hz-pt { width: 8px; height: 8px; margin: -4px 0 0 -4px; border-width: 4px; border-radius: 0; transform: rotate(45deg); }
+.hz-hollow .hz-pt { border-width: 2px; background: var(--paper); }
+.hz-dashed .hz-ci { border-top-style: dashed; }
+.hz-s1 { --hz-c: var(--series-1); }
+.hz-s2 { --hz-c: var(--series-2); }
+.hz-s3 { --hz-c: var(--series-3); }
+.hz-nu { --hz-c: var(--neutral-series); }
+.hz-ink { --hz-c: var(--ink-2); }
+
+/* legend keys reuse the marks, in a small box */
+.hz-k { --x: 50%; --lo: 0%; --hi: 100%; --ub: 50%; position: relative; display: inline-block; width: 12px; height: 14px; flex: none; color: var(--hz-c, var(--ink-2)); }
+.hz-k.hz-dashed { width: 26px; }
+
+/* phones and narrow windows: label and values on one line, the full-width track below */
+@media screen and (max-width: 760px) {
+  .hz { --hz-row: 22px; display: block; }
+  .hz thead, .hz tbody { display: block; }
+  .hz colgroup { display: none; }
+  .hz tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
+  .hz .hz-axis > * { height: auto; }
+  .hz .hz-axis > th:first-child { display: none; }
+  .hz .hz-axis .hz-valhead { grid-column: 1 / -1; grid-row: 1; padding: 6px 0 4px; text-align: right; }
+  .hz .hz-axis .hz-ax { grid-column: 1 / -1; grid-row: 2; height: 30px; }
+  .hz .hz-grp th { grid-column: 1 / -1; padding: 14px 0 0; }
+  .hz tbody + tbody .hz-grp th { padding-top: 12px; }
+  .hz .hz-r > th, .hz .hz-r > .hz-v { height: auto; padding: 8px 0 2px; align-self: start; }
+  .hz .hz-r > th { grid-column: 1; grid-row: 1; }
+  .hz .hz-r > .hz-v { grid-column: 2; grid-row: 1; text-align: right; font-size: 13px; }
+  .hz .hz-r > .hz-tr { grid-column: 1 / -1; grid-row: 2; height: var(--hz-row); }
+  .hz .hz-q { margin-bottom: 0; }
+  .hero .hz-title { font-size: 17.5px; }
+  .hero .hz-sub { font-size: 13.5px; }
+  .hero .hz-legend, .hero .hz-lgg { font-size: 12.5px; gap: 4px 16px; }
+}
+
+@media screen and (max-width: 520px) {
+  .hz .hz-p { display: block; margin: 2px 0 0; }      /* the Holm p-value under its interval */
+}
+
+@media (forced-colors: active) {
+  .hz .hz-tr, .hz-k { color: CanvasText; }
+  .hz .hz-ax, .hz .hz-t::after, .hz-ub, .hz .hz-tr::before { border-color: CanvasText; }
+}
+
+@media print {
+  .hero { break-inside: avoid; page-break-inside: avoid; margin: 0 0 16px; }
+  .hz { --hz-l: 46mm; --hz-v: 54mm; --hz-row: 8mm; font-size: 8.5pt; }
+  .hero .hz-title { font-size: 12pt; }
+  .hero .hz-sub, .hero .hz-legend, .hero .hz-note { font-size: 8.5pt; }
+  .hz .hz-v, .hz .hz-valhead, .hz .hz-t { font-size: 8.5pt; }
+  .hz .hz-q { font-size: 7.5pt; }
+  .hz .hz-r > th { padding-right: 12px; }
+  .hz .hz-v, .hz .hz-valhead { padding-left: 14px; }
+  .hz .hz-r > th a { text-decoration: none; }
+}
 
 /* ── reproduce, history, footer ───────────────────────────────────────────── */
 .repro { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 32px; align-items: start; }

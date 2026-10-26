@@ -135,7 +135,6 @@ def apply(page):
 
 def unlinked(page):
     """References left as plain text inside <main> (what --check reports)."""
-    sections, exhibits = section_ids(page), exhibit_ids(page)
     a, b = page.index('<main'), page.index('</main>')
     found = []
     stack = []
