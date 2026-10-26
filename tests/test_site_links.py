@@ -70,3 +70,12 @@ def test_bare_number_links_are_named_in_full():
     # "Exhibit 2, 6" links its 6 as "Exhibit 6" for a screen reader
     for m in re.finditer(r'<a([^>]*)>(\d+)</a>', PAGE):
         assert 'aria-label=' in m.group(1), m.group(0)
+
+
+def test_prereg_timeline_is_current_and_states_only_the_pages_dates():
+    import build_prereg_timeline as tl
+    assert tl.main(['--check']) == 0
+    a, b = PAGE.index(tl.BEGIN), PAGE.index(tl.END)
+    rest = re.sub(r'<[^>]+>', '', PAGE[:a] + PAGE[b:])
+    for phrase in tl.PHRASES:
+        assert phrase in rest, phrase

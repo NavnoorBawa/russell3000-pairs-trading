@@ -194,6 +194,94 @@
   <h2 id="h-holdout"><a class="secno" href="#holdout" aria-label="Section 1, link to this section">1</a>The pre-registered 2026 test <span class="status-pill">Complete</span></h2>
   <p class="inbrief"><span class="ib-k">In brief</span> Neither null is rejected. Over <span data-metric="study.holdout.arms.0.days">200</span> days S1, the v33 pairs design, returned <span data-metric="study.holdout.arms.0.ret_pct">+0.08</span>% net (Sharpe <span data-metric="study.holdout.arms.0.sharpe">+0.05</span>) and S2, Avellaneda–Lee, <span data-metric="study.holdout.arms.1.ret_pct">−1.59</span>% (Sharpe <span data-metric="study.holdout.arms.1.sharpe">−0.27</span>), with Holm-adjusted p-values of <span data-metric="study.holdout.arms.0.p_holm">0.955</span> and <span data-metric="study.holdout.arms.1.p_holm">0.955</span>; with <span data-metric="study.dev.facts.ho_power_1">16</span>% power against a Sharpe ratio of 1, that is not evidence that the edge is zero.</p>
   <p class="lede">Every design choice in this study was made on 2020–2025 data, over 33 versions, so the development period cannot test those choices. The pre-registered confirmatory test ran on daily prices that no part of the code or its caches had held before it: those of the <span data-metric="study.dev.facts.ho_days">200</span> trading days from 2 January to 19 October 2026. That period had ended before the filing, and the project was developed during it, from version 8 to version 33: the test is sealed, not prospective, and the designers' general knowledge of 2026 markets cannot be sealed. No daily price history of any security for dates after 31 December 2025 was fetched into the project's code, caches or files before the filing (network checks that asked for one stock's five-day chart discarded the answer unread), and from commit a1c76db of 20 October 2026, five hours after the 2026 calendar was added to the code, the fetch code refused such a request until the registered commit unsealed it; the other 2026 information the project received (each security's latest price and 52-week high and low in the vendor's responses, the market values and last sale prices of the stock screener behind the v32 universe file, identity data, factor files that include the short-term reversal factor, and the rate, VIX and industry series, ETF pages, index changes, short-interest and ticker lists that surveys of free data sources downloaded) is listed in <a class="xref" href="#threats">Section 11</a> and in the pre-registration. The record that no such price history was fetched begins with the repository's first commit (12 June 2026, version 25): every committed version of the fetch code ended its requests at 31 December 2025 until the 2026 calendar was added. Versions 8 to 24, developed from 20 February 2026, left no code or session logs; only the engineering log covers them, and it records their price data ending on 30 December 2025. The protocol was filed first, on 26 October 2026; the runbook then ran the three arms and the evaluation, every attempt is on record (run record, below), and the result is published in full, as the protocol requires.</p>
+<!-- prereg-timeline:begin -->
+  <figure class="exhibit ex-diagram ex-unnumbered" id="prereg-timeline">
+    <figcaption class="ex-head">
+      <a class="ex-label" href="#prereg-timeline">Timeline</a>
+      <span class="ex-title">Developed during the test period; filed before any of its daily prices were fetched</span>
+      <span class="ex-sub">2026, and the record from the v32 run to the filing</span>
+    </figcaption>
+    <div class="dg-wrap">
+<svg class="dg dg-wide" viewBox="0 0 880 179" role="img" aria-labelledby="tlp-w-t tlp-w-d" focusable="false">
+<title id="tlp-w-t">The 2026 test period and the project's development</title>
+<desc id="tlp-w-d">The test period runs from 2 Jan to 19 Oct 2026, 200 trading days. The project was developed during it: versions 8 to 24 from 20 Feb, known only from the engineering log, and versions 25 to 33 in git from 12 Jun. The protocol was filed on 26 Oct 2026, after the period ended and before any of its daily prices were fetched, and the test ran once the same day.</desc>
+<defs><pattern id="tlp-w-hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect class="tlp-hatch-bg" width="5" height="5"/><line class="tlp-hatch" x1="0" y1="0" x2="0" y2="5"/></pattern></defs>
+<text class="dg-t" x="6" y="20">Test period<tspan class="dg-s" dx="8">2026 daily prices, 2 Jan to 19 Oct: 200 trading days, none fetched into the project before the filing</tspan></text>
+<rect class="tl-hold is-done" x="8.9" y="28" width="828.0" height="10" rx="2"/>
+<text class="dg-t" x="6" y="70">Development<tspan class="dg-s" dx="8">versions 8 to 24 from 20 Feb, engineering log only (hatched); versions 25 to 33 in git from 12 Jun</tspan></text>
+<rect class="tlp-log" x="148.8" y="78" width="319.8" height="10" rx="2" fill="url(#tlp-w-hatch)"/>
+<rect class="tlp-git" x="468.6" y="78" width="388.3" height="10" rx="2"/>
+<path class="tlp-bracket" d="M148.8,94 V100 H836.9 V94"/>
+<line class="tlp-guide" x1="836.9" x2="836.9" y1="40" y2="94"/>
+<text class="tlp-ov-t" x="148.8" y="117">Developed during the test period: the test is sealed, not prospective</text>
+<line class="tlp-file" x1="856.9" x2="856.9" y1="24" y2="129"/>
+<text class="dg-t" x="856.9" y="143" text-anchor="end">26 Oct: filed, then run once</text>
+<line class="dg-axis" x1="6" x2="874" y1="157" y2="157"/>
+<line class="dg-axis" x1="6.0" x2="6.0" y1="157" y2="161"/>
+<text class="dg-m" x="9.0" y="172">Jan 2026</text>
+<line class="dg-axis" x1="94.5" x2="94.5" y1="157" y2="161"/>
+<text class="dg-m" x="97.5" y="172">Feb</text>
+<line class="dg-axis" x1="174.5" x2="174.5" y1="157" y2="161"/>
+<text class="dg-m" x="177.5" y="172">Mar</text>
+<line class="dg-axis" x1="263.0" x2="263.0" y1="157" y2="161"/>
+<text class="dg-m" x="266.0" y="172">Apr</text>
+<line class="dg-axis" x1="348.6" x2="348.6" y1="157" y2="161"/>
+<text class="dg-m" x="351.6" y="172">May</text>
+<line class="dg-axis" x1="437.1" x2="437.1" y1="157" y2="161"/>
+<text class="dg-m" x="440.1" y="172">Jun</text>
+<line class="dg-axis" x1="522.8" x2="522.8" y1="157" y2="161"/>
+<text class="dg-m" x="525.8" y="172">Jul</text>
+<line class="dg-axis" x1="611.3" x2="611.3" y1="157" y2="161"/>
+<text class="dg-m" x="614.3" y="172">Aug</text>
+<line class="dg-axis" x1="699.8" x2="699.8" y1="157" y2="161"/>
+<text class="dg-m" x="702.8" y="172">Sep</text>
+<line class="dg-axis" x1="785.5" x2="785.5" y1="157" y2="161"/>
+<text class="dg-m" x="788.5" y="172">Oct</text>
+<line class="dg-axis" x1="874.0" x2="874.0" y1="157" y2="161"/>
+</svg>
+<svg class="dg dg-compact" viewBox="0 0 360 195" role="img" aria-labelledby="tlp-c-t tlp-c-d" focusable="false">
+<title id="tlp-c-t">The 2026 test period and the project's development</title>
+<desc id="tlp-c-d">The test period runs from 2 Jan to 19 Oct 2026, 200 trading days. The project was developed during it: versions 8 to 24 from 20 Feb, known only from the engineering log, and versions 25 to 33 in git from 12 Jun. The protocol was filed on 26 Oct 2026, after the period ended and before any of its daily prices were fetched, and the test ran once the same day.</desc>
+<defs><pattern id="tlp-c-hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect class="tlp-hatch-bg" width="5" height="5"/><line class="tlp-hatch" x1="0" y1="0" x2="0" y2="5"/></pattern></defs>
+<text class="dg-t" x="6" y="20">Test period<tspan class="dg-s" dx="6">2 Jan to 19 Oct, 200 days</tspan></text>
+<rect class="tl-hold is-done" x="7.1" y="28" width="332.0" height="10" rx="2"/>
+<text class="dg-t" x="6" y="70">Development<tspan class="dg-s" dx="6">versions 8 to 33</tspan></text>
+<rect class="tlp-log" x="63.2" y="78" width="128.2" height="10" rx="2" fill="url(#tlp-c-hatch)"/>
+<rect class="tlp-git" x="191.4" y="78" width="155.7" height="10" rx="2"/>
+<path class="tlp-bracket" d="M63.2,94 V100 H339.1 V94"/>
+<line class="tlp-guide" x1="339.1" x2="339.1" y1="40" y2="94"/>
+<text class="tlp-ov-t" x="63.2" y="117">Developed during the test period:</text>
+<text class="tlp-ov-t" x="63.2" y="133">sealed, not prospective</text>
+<line class="tlp-file" x1="347.1" x2="347.1" y1="24" y2="145"/>
+<text class="dg-t" x="347.1" y="159" text-anchor="end">26 Oct: filed, then run once</text>
+<line class="dg-axis" x1="6" x2="354" y1="173" y2="173"/>
+<line class="dg-axis" x1="6.0" x2="6.0" y1="173" y2="177"/>
+<text class="dg-m" x="9.0" y="188">Jan 2026</text>
+<line class="dg-axis" x1="41.5" x2="41.5" y1="173" y2="177"/>
+<line class="dg-axis" x1="73.5" x2="73.5" y1="173" y2="177"/>
+<line class="dg-axis" x1="109.0" x2="109.0" y1="173" y2="177"/>
+<text class="dg-m" x="112.0" y="188">Apr</text>
+<line class="dg-axis" x1="143.4" x2="143.4" y1="173" y2="177"/>
+<line class="dg-axis" x1="178.9" x2="178.9" y1="173" y2="177"/>
+<line class="dg-axis" x1="213.2" x2="213.2" y1="173" y2="177"/>
+<text class="dg-m" x="216.2" y="188">Jul</text>
+<line class="dg-axis" x1="248.7" x2="248.7" y1="173" y2="177"/>
+<line class="dg-axis" x1="284.2" x2="284.2" y1="173" y2="177"/>
+<line class="dg-axis" x1="318.5" x2="318.5" y1="173" y2="177"/>
+<text class="dg-m" x="321.5" y="188">Oct</text>
+<line class="dg-axis" x1="354.0" x2="354.0" y1="173" y2="177"/>
+</svg>
+    </div>
+<ol class="tl-events" aria-label="The October 2026 record">
+  <li><span class="tle-when">18 Oct 2026</span> <span class="tle-what">v32 published</span></li>
+  <li><span class="tle-when">20 Oct 2026, 18:04 UTC</span> <span class="tle-what">From commit <a class="commit" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/commit/a1c76db7310e7ece051a8ce52c4b458c19c7071f"><code>a1c76db</code></a>, five hours after the 2026 calendar was added to the code, the fetch code refuses any daily price history after 31 December 2025 until the registered commit unseals it</span></li>
+  <li><span class="tle-when">21 Oct 2026, 06:19 UTC</span> <span class="tle-what">The v33 development run</span></li>
+  <li><span class="tle-when">22 Oct 2026, 17:29 UTC</span> <span class="tle-what">By this time the working storage outside git (price caches, raw downloads and the original v32 universe file) has been lost, when its container was recycled</span></li>
+  <li class="is-key"><span class="tle-when">26 Oct 2026</span> <span class="tle-what">A universe file for S3 is rebuilt from the v32 development run's price-fetch manifest; the protocol is filed (<a class="commit" href="https://github.com/NavnoorBawa/russell3000-pairs-trading/commit/7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5"><code>7c7d3f9</code></a>); the runbook then runs the three arms and the evaluation in one attempt, and the trial is registered</span></li>
+</ol>
+    <p class="ex-note">The test period had ended before the filing, so the test is sealed, not prospective; and because the project was developed during it, the designers' general knowledge of 2026 markets cannot be sealed. The other 2026 information the project received is listed in <a class="xref" href="#threats">Section 11</a>.</p>
+  </figure>
+<!-- prereg-timeline:end -->
   <div class="tbl-wrap" role="region" aria-label="Pre-registered hypotheses" tabindex="0">
     <table class="tbl tbl-holdout" data-holdout-filled>
       <caption>The arms of the pre-registration, filed on 26 October 2026 (commit 7c7d3f9) before any 2026 daily price history was fetched into the project. Test: one-sided Newey–West t on the daily net returns, Holm-adjusted across H1 and H2 at a familywise 5%. S3 is reported with the same statistics and tested in no family: its universe is ranked on market values inside the test period. Net return: compounded over the holdout’s days. Upper bound: the one-sided 95% upper confidence bound on the Sharpe ratio. Each decision is the evaluation’s own.</caption>

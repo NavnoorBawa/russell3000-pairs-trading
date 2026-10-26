@@ -329,6 +329,20 @@ html:not(.js) .ex-data, .exhibit.is-pending .ex-data { display: none; }
 .tl-main { fill: var(--series-1); }
 .tl-hold { fill: none; stroke: var(--series-3); stroke-width: 1.5; }
 .tl-hold.is-done { fill: var(--series-3); }
+/* the pre-registration timeline (Section 1): development drawn over the test period */
+.tlp-bracket { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.tlp-guide { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 2 3; }
+.tlp-ov-t { fill: var(--ink); font-size: 12.5px; font-weight: 600; }
+.tlp-git { fill: var(--ink-2); }
+.tlp-log { stroke: var(--ink-2); stroke-width: 1; }
+.tlp-hatch-bg { fill: var(--surface); }
+.tlp-hatch { stroke: var(--ink-2); stroke-width: 1.6; }
+.tlp-file { stroke: var(--ink); stroke-width: 1.5; }
+.tl-events { list-style: none; padding: 0; margin: 14px 0 4px; border-top: 1px solid var(--rule); font-size: 14px; line-height: 1.5; }
+.tl-events li { display: grid; grid-template-columns: 11.5rem minmax(0, 1fr); gap: 4px 16px; padding: 8px 0; border-bottom: 1px solid var(--rule); }
+.tle-when { color: var(--ink-2); font: 500 13px/1.6 var(--sans); font-variant-numeric: tabular-nums; }
+.tle-what { color: var(--ink); max-width: 80ch; }
+.tl-events li.is-key .tle-when, .tl-events li.is-key .tle-what { font-weight: 600; }
 
 /* ── reproduce, history, footer ───────────────────────────────────────────── */
 .repro { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 32px; align-items: start; }
@@ -413,6 +427,7 @@ pre { background: var(--sunk); color: var(--ink); border: 1px solid var(--rule);
   .ex-title { font-size: 16.5px; }
   .dg-wide { display: none; }
   .dg-compact { display: block; }
+  .tl-events li { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .tbl th, .tbl td { padding: 8px 9px; }
   .tbl-spec tbody th { width: auto; white-space: normal; }
   .threats td:nth-child(2) { white-space: normal; }
