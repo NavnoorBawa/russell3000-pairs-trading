@@ -32,9 +32,9 @@ name, market value, sector, industry). The committed files are unchanged, but `-
 longer rebuild them byte for byte. `data/marketcap.csv` was rebuilt on 2026-10-26 from the
 committed `results/v32_dev/price_fetch_manifest.json`, whose `outcomes` hold the 2,999 valid
 symbols the loader kept from the original (`EnhancedRussell3000DataProcessor.load_symbols`
-validates, de-duplicates and sorts them; the 3,000th row was dropped). The rebuilt file has one
-column, `Symbol`, and no market values; the loader returns the same 2,999 symbols from it, so
-S3's universe and the holdout's fetch list are unchanged. `holdout_inputs.sha256` pins the
+validates, de-duplicates and sorts them; it dropped one row, the symbol `NAN`, which it treats as
+missing). The rebuilt file has one column, `Symbol`, and no market values; the loader returns the
+same 2,999 symbols from it, so S3's universe and the holdout's fetch list are unchanged. `holdout_inputs.sha256` pins the
 rebuilt file:
 
 ```bash
