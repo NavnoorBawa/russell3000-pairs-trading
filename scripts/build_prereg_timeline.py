@@ -28,6 +28,9 @@ BEGIN, END = '<!-- prereg-timeline:begin -->', '<!-- prereg-timeline:end -->'
 
 # Dates stated in the page's text (Section 1's lede, the v32 comparison table, the run record,
 # the registry note and the run manifest); the test checks each phrase is on the page.
+# The fetch guard's commit, in full, so the figure builds the same without git history (CI's
+# checkout is shallow); the registered commit comes from assets/study.json.
+FETCH_GUARD = 'a1c76db7310e7ece051a8ce52c4b458c19c7071f'
 DEV_LOG_FROM = dt.date(2026, 2, 20)       # "Versions 8 to 24, developed from 20 February 2026"
 GIT_FROM = dt.date(2026, 6, 12)           # "the repository's first commit (12 June 2026, version 25)"
 EVENTS = [
@@ -55,7 +58,7 @@ def facts():
     return {
         'start': _d(h['calendar_start']), 'end': _d(h['calendar_end']),
         'days': h['arms'][0]['days'],
-        'run': _d(p['completed_utc']), 'commit': p['registered_commit'][:7],
+        'run': _d(p['completed_utc']), 'commit': p['registered_commit'][:7], 'commit_full': p['registered_commit'],
         'registered': _d(p['registry']['registered_utc']),
     }
 
@@ -175,7 +178,7 @@ def block():
         'information the project received is listed in <a class="xref" href="#threats">Section 11</a>.</p>',
         '  </figure>',
         END,
-    ]), {})
+    ]), {FETCH_GUARD[:7]: FETCH_GUARD, F['commit']: F['commit_full']})
 
 
 def main(argv=None):
