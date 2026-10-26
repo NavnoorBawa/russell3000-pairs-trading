@@ -20,9 +20,10 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    # The suite runs in ~3 minutes; 15 bounds a hung install or a wedged test
-    # instead of inheriting GitHub's 360-minute default.
-    timeout-minutes: 15
+    # The suite runs in about 12 to 15 minutes (the paper is compiled once for each
+    # outcome the 2026 holdout could have had); 40 bounds a hung install or a wedged
+    # test instead of inheriting GitHub's 360-minute default.
+    timeout-minutes: 40
     env:
       MPLBACKEND: Agg            # headless matplotlib
     strategy:
