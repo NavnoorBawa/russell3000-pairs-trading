@@ -42,8 +42,10 @@
 }
 </script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%231d4f91'/%3E%3Cpath d='M6 21 L12 15 L17 18 L26 9' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preload" href="assets/fonts/IBMPlexSerif-Medium.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/fonts/IBMPlexSans-Regular.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="assets/fonts/IBMPlexSerif-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/IBMPlexSans-Medium.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/IBMPlexSans-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/site.css">
 <script src="assets/theme-init.js"></script>
 <script defer src="assets/vendor/d3-7.9.0.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i"></script>
@@ -57,10 +59,12 @@
 <header class="topbar">
   <div class="topbar-in">
     <a class="brand" href="#top">Russell 3000 pairs study</a>
+    <button class="where" id="where" type="button" hidden><span class="where-n"></span><span class="where-t">Contents</span><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg></button>
     <nav class="toplinks" aria-label="Project">
       <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">Code</a>
       <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/tree/main/results">Data</a>
-      <button class="theme-btn" id="theme-toggle" type="button" aria-pressed="false"><span class="ind" aria-hidden="true"></span>Dark theme</button>
+      <button class="theme-btn" id="verify-toggle" type="button" title="Check every number on this page against the data it comes from" hidden><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2"/><path d="M5.2 8.2l1.9 1.9 3.8-4"/></svg><span class="lbl">Check the numbers</span></button>
+      <button class="theme-btn" id="theme-toggle" type="button" aria-pressed="false"><span class="ind" aria-hidden="true"></span><span class="lbl">Dark theme</span></button>
     </nav>
   </div>
 </header>
