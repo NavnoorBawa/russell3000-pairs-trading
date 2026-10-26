@@ -14,6 +14,7 @@ the network.
 | `universe/cusip_ticker_map.json` | CUSIP (or ISIN) -> US ticker, with the FIGI, OpenFIGI name, exchange code, how it was matched (`cusip`/`isin`, `share class`, `name`, `reported ticker`, `price check`) and mapping date | `scripts/build_pit_universe.py` | OpenFIGI `/v3/mapping` |
 | `industry_ff49.csv` | `ticker, cik, sic, ff49, ff49_name, sector_etf, entity_type` for every ticker in a snapshot or in `data/marketcap.csv` | `scripts/build_reference_data.py` | SEC `company_tickers.json` and submissions API; Ken French `Siccodes49.zip` |
 | `listing_venue.csv` | `ticker, venue, etf_flag, as_of` for every non-test issue | `scripts/build_reference_data.py` | Nasdaq Trader `nasdaqtraded.txt` |
+| `holdout_inputs.sha256` | the SHA-256 of the git-ignored input the holdout runbook reads, `data/marketcap.csv`, checked by `scripts/run_holdout.sh` (`sha256sum --check --strict`) | by hand | the file itself (see below) |
 
 ```bash
 python scripts/build_pit_universe.py      # EDGAR + OpenFIGI (about 40 min without an OpenFIGI key)
@@ -21,6 +22,28 @@ python scripts/build_pit_universe.py --remap-missing   # re-ask OpenFIGI for eve
 python scripts/build_pit_universe.py --reresolve       # resolve those again from the cached OpenFIGI answers (a rule changed)
 python scripts/build_reference_data.py    # EDGAR submissions for ~5,000 registrants (~12 min); reads data/marketcap.csv
 python scripts/build_pit_universe.py --offline && python scripts/build_reference_data.py --offline
+```
+
+**The original inputs were lost.** The working storage of the session that built these files,
+`data/` included, was lost when its container was recycled (by 2026-10-22 at 17:29 UTC): the raw
+downloads under `data/raw/` and the original `data/marketcap.csv` (Nasdaq screener, 2026-10-18,
+SHA-256 `34661d82644fd36d80b91f4a129cc8435afcbf69faf6a61b89977a461197ca3e`, 3,000 rows: symbol,
+name, market value, sector, industry). The committed files are unchanged, but `--offline` can no
+longer rebuild them byte for byte. `data/marketcap.csv` was rebuilt on 2026-10-26 from the
+committed `results/v32_dev/price_fetch_manifest.json`, whose `outcomes` hold the 2,999 valid
+symbols the loader kept from the original (`EnhancedRussell3000DataProcessor.load_symbols`
+validates, de-duplicates and sorts them; the 3,000th row was dropped). The rebuilt file has one
+column, `Symbol`, and no market values; the loader returns the same 2,999 symbols from it, so
+S3's universe and the holdout's fetch list are unchanged. `holdout_inputs.sha256` pins the
+rebuilt file:
+
+```bash
+python - <<'PY'
+import json
+syms = sorted(json.load(open('results/v32_dev/price_fetch_manifest.json'))['outcomes'])
+open('data/marketcap.csv', 'w').write('Symbol\n' + ''.join(s + '\n' for s in syms))
+PY
+sha256sum --check reference/holdout_inputs.sha256
 ```
 
 Rules and caveats:
