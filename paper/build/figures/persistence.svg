@@ -27,38 +27,38 @@ z
     <g id="xtick_1">
      <g id="line2d_1"/>
      <g id="text_1">
-      <text style="font-size: 6.4px; font-family: 'IBM Plex Sans'; text-anchor: middle; fill: #52514e" x="50.116535" y="93.636" transform="rotate(-0 50.116535 93.636)">’20→’21</text>
+      <text style="font-size: 6.4px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: middle; fill: #52514e" x="50.116535" y="93.636" transform="rotate(-0 50.116535 93.636)">’20→’21</text>
      </g>
     </g>
     <g id="xtick_2">
      <g id="line2d_2"/>
      <g id="text_2">
-      <text style="font-size: 6.4px; font-family: 'IBM Plex Sans'; text-anchor: middle; fill: #52514e" x="79.894631" y="93.636" transform="rotate(-0 79.894631 93.636)">’21→’22</text>
+      <text style="font-size: 6.4px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: middle; fill: #52514e" x="79.894631" y="93.636" transform="rotate(-0 79.894631 93.636)">’21→’22</text>
      </g>
     </g>
     <g id="xtick_3">
      <g id="line2d_3"/>
      <g id="text_3">
-      <text style="font-size: 6.4px; font-family: 'IBM Plex Sans'; text-anchor: middle; fill: #52514e" x="109.672727" y="93.636" transform="rotate(-0 109.672727 93.636)">’22→’23</text>
+      <text style="font-size: 6.4px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: middle; fill: #52514e" x="109.672727" y="93.636" transform="rotate(-0 109.672727 93.636)">’22→’23</text>
      </g>
     </g>
     <g id="xtick_4">
      <g id="line2d_4"/>
      <g id="text_4">
-      <text style="font-size: 6.4px; font-family: 'IBM Plex Sans'; text-anchor: middle; fill: #52514e" x="139.450823" y="93.636" transform="rotate(-0 139.450823 93.636)">’23→’24</text>
+      <text style="font-size: 6.4px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: middle; fill: #52514e" x="139.450823" y="93.636" transform="rotate(-0 139.450823 93.636)">’23→’24</text>
      </g>
     </g>
     <g id="xtick_5">
      <g id="line2d_5"/>
      <g id="text_5">
-      <text style="font-size: 6.4px; font-family: 'IBM Plex Sans'; text-anchor: middle; fill: #52514e" x="169.228919" y="93.636" transform="rotate(-0 169.228919 93.636)">’24→’25</text>
+      <text style="font-size: 6.4px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: middle; fill: #52514e" x="169.228919" y="93.636" transform="rotate(-0 169.228919 93.636)">’24→’25</text>
      </g>
     </g>
     <g id="xtick_6">
      <g id="line2d_6"/>
      <g id="text_6">
-      <text style="font-size: 6.4px; font-family: 'IBM Plex Sans'; fill: #52514e" transform="translate(187.953515 93.636)">Traded,</text>
-      <text style="font-size: 6.4px; font-family: 'IBM Plex Sans'; fill: #52514e" transform="translate(192.206515 100.5992)">after</text>
+      <text style="font-size: 6.4px; font-family: 'IBM Plex Sans', sans-serif; fill: #52514e" transform="translate(187.953515 93.636)">Traded,</text>
+      <text style="font-size: 6.4px; font-family: 'IBM Plex Sans', sans-serif; fill: #52514e" transform="translate(192.206515 100.5992)">after</text>
      </g>
     </g>
    </g>
@@ -71,7 +71,7 @@ L 216.680315 86.4
      </g>
      <g id="line2d_8"/>
      <g id="text_7">
-      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: end; fill: #52514e" x="27.954331" y="88.916" transform="rotate(-0 27.954331 88.916)">0</text>
+      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: end; fill: #52514e" x="27.954331" y="88.916" transform="rotate(-0 27.954331 88.916)">0</text>
      </g>
     </g>
     <g id="ytick_2">
@@ -82,7 +82,7 @@ L 216.680315 67.245793
      </g>
      <g id="line2d_10"/>
      <g id="text_8">
-      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: end; fill: #52514e" x="27.954331" y="69.761793" transform="rotate(-0 27.954331 69.761793)">2</text>
+      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: end; fill: #52514e" x="27.954331" y="69.761793" transform="rotate(-0 27.954331 69.761793)">2</text>
      </g>
     </g>
     <g id="ytick_3">
@@ -93,7 +93,7 @@ L 216.680315 48.091585
      </g>
      <g id="line2d_12"/>
      <g id="text_9">
-      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: end; fill: #52514e" x="27.954331" y="50.607585" transform="rotate(-0 27.954331 50.607585)">4</text>
+      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: end; fill: #52514e" x="27.954331" y="50.607585" transform="rotate(-0 27.954331 50.607585)">4</text>
      </g>
     </g>
     <g id="ytick_4">
@@ -104,7 +104,7 @@ L 216.680315 28.937378
      </g>
      <g id="line2d_14"/>
      <g id="text_10">
-      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: end; fill: #52514e" x="27.954331" y="31.453378" transform="rotate(-0 27.954331 31.453378)">6</text>
+      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: end; fill: #52514e" x="27.954331" y="31.453378" transform="rotate(-0 27.954331 31.453378)">6</text>
      </g>
     </g>
     <g id="ytick_5">
@@ -115,11 +115,11 @@ L 216.680315 9.78317
      </g>
      <g id="line2d_16"/>
      <g id="text_11">
-      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: end; fill: #52514e" x="27.954331" y="12.29917" transform="rotate(-0 27.954331 12.29917)">8</text>
+      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: end; fill: #52514e" x="27.954331" y="12.29917" transform="rotate(-0 27.954331 12.29917)">8</text>
      </g>
     </g>
     <g id="text_12">
-     <text style="font-size: 7px; font-family: 'IBM Plex Sans'; text-anchor: middle; fill: #52514e" x="18.390112" y="46.08" transform="rotate(-90 18.390112 46.08)">Still cointegrated, %</text>
+     <text style="font-size: 7px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: middle; fill: #52514e" x="18.390112" y="46.08" transform="rotate(-90 18.390112 46.08)">Still cointegrated, %</text>
     </g>
    </g>
    <g id="line2d_17">
@@ -181,7 +181,7 @@ z
 " clip-path="url(#pc64ab63911)" style="fill: #2a78d6"/>
    </g>
    <g id="text_13">
-    <text style="font-size: 6.3px; font-family: 'IBM Plex Sans'; text-anchor: end; fill: #52514e" x="213.896063" y="35.254481" transform="rotate(-0 213.896063 35.254481)">chance, 5%</text>
+    <text style="font-size: 6.3px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: end; fill: #52514e" x="213.896063" y="35.254481" transform="rotate(-0 213.896063 35.254481)">chance, 5%</text>
    </g>
    <g id="line2d_18">
     <path d="M 39.396421 24.670983

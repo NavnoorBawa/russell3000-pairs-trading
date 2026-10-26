@@ -79,3 +79,12 @@ def test_prereg_timeline_is_current_and_states_only_the_pages_dates():
     rest = re.sub(r'<[^>]+>', '', PAGE[:a] + PAGE[b:])
     for phrase in tl.PHRASES:
         assert phrase in rest, phrase
+
+
+def test_every_chart_has_a_static_figure_for_readers_without_javascript():
+    figs = re.findall(r'<figure class="exhibit[^"]*" id="(ex-\d+)" data-exhibit="(\w+)"[^>]*>(.*?)</figure>', PAGE, flags=re.S)
+    assert figs
+    for ex, name, body in figs:
+        m = re.search(r'<noscript><img class="ex-static" src="(paper/build/figures/(\w+)\.svg)" width="\d+" height="\d+"', body)
+        assert m, ex
+        assert m.group(2) == name and (ROOT / m.group(1)).exists(), ex

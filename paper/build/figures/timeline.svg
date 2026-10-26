@@ -36,7 +36,7 @@ L 0 2.5
       </g>
      </g>
      <g id="text_1">
-      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: middle; fill: #52514e" x="8.909359" y="99.816" transform="rotate(-0 8.909359 99.816)">2020</text>
+      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: middle; fill: #52514e" x="8.909359" y="99.816" transform="rotate(-0 8.909359 99.816)">2020</text>
      </g>
     </g>
     <g id="xtick_2">
@@ -46,7 +46,7 @@ L 0 2.5
       </g>
      </g>
      <g id="text_2">
-      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: middle; fill: #52514e" x="72.113647" y="99.816" transform="rotate(-0 72.113647 99.816)">2021</text>
+      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: middle; fill: #52514e" x="72.113647" y="99.816" transform="rotate(-0 72.113647 99.816)">2021</text>
      </g>
     </g>
     <g id="xtick_3">
@@ -56,7 +56,7 @@ L 0 2.5
       </g>
      </g>
      <g id="text_3">
-      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: middle; fill: #52514e" x="135.145246" y="99.816" transform="rotate(-0 135.145246 99.816)">2022</text>
+      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: middle; fill: #52514e" x="135.145246" y="99.816" transform="rotate(-0 135.145246 99.816)">2022</text>
      </g>
     </g>
     <g id="xtick_4">
@@ -66,7 +66,7 @@ L 0 2.5
       </g>
      </g>
      <g id="text_4">
-      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: middle; fill: #52514e" x="198.176844" y="99.816" transform="rotate(-0 198.176844 99.816)">2023</text>
+      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: middle; fill: #52514e" x="198.176844" y="99.816" transform="rotate(-0 198.176844 99.816)">2023</text>
      </g>
     </g>
     <g id="xtick_5">
@@ -76,7 +76,7 @@ L 0 2.5
       </g>
      </g>
      <g id="text_5">
-      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: middle; fill: #52514e" x="261.208443" y="99.816" transform="rotate(-0 261.208443 99.816)">2024</text>
+      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: middle; fill: #52514e" x="261.208443" y="99.816" transform="rotate(-0 261.208443 99.816)">2024</text>
      </g>
     </g>
     <g id="xtick_6">
@@ -86,7 +86,7 @@ L 0 2.5
       </g>
      </g>
      <g id="text_6">
-      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: middle; fill: #52514e" x="324.412731" y="99.816" transform="rotate(-0 324.412731 99.816)">2025</text>
+      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: middle; fill: #52514e" x="324.412731" y="99.816" transform="rotate(-0 324.412731 99.816)">2025</text>
      </g>
     </g>
     <g id="xtick_7">
@@ -96,7 +96,7 @@ L 0 2.5
       </g>
      </g>
      <g id="text_7">
-      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans'; text-anchor: middle; fill: #52514e" x="387.44433" y="99.816" transform="rotate(-0 387.44433 99.816)">2026</text>
+      <text style="font-size: 6.8px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: middle; fill: #52514e" x="387.44433" y="99.816" transform="rotate(-0 387.44433 99.816)">2026</text>
      </g>
     </g>
    </g>
@@ -249,28 +249,28 @@ L 454.620472 89.784
 " style="fill: none; stroke: #c3c2b7; stroke-width: 0.6; stroke-linejoin: miter; stroke-linecap: square"/>
    </g>
    <g id="text_8">
-    <text style="font-size: 7px; font-family: 'IBM Plex Sans SmBld'; text-anchor: start; fill: #141413" x="4.592126" y="10.504" transform="rotate(-0 4.592126 10.504)">Formation</text>
+    <text style="font-size: 7px; font-family: 'IBM Plex Sans SmBld', sans-serif; text-anchor: start; fill: #141413" x="4.592126" y="10.504" transform="rotate(-0 4.592126 10.504)">Formation</text>
    </g>
    <g id="text_9">
-    <text style="font-size: 6.7px; font-family: 'IBM Plex Sans'; text-anchor: start; fill: #52514e" x="66.592126" y="10.483391" transform="rotate(-0 66.592126 10.483391)">initial selection on data to 31 December 2022; re-formed at six dates, every 126 trading days (ticks)</text>
+    <text style="font-size: 6.7px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: start; fill: #52514e" x="66.592126" y="10.483391" transform="rotate(-0 66.592126 10.483391)">initial selection on data to 31 December 2022; re-formed at six dates, every 126 trading days (ticks)</text>
    </g>
    <g id="text_10">
-    <text style="font-size: 7px; font-family: 'IBM Plex Sans SmBld'; text-anchor: start; fill: #141413" x="4.592126" y="30.904" transform="rotate(-0 4.592126 30.904)">Walk-forward</text>
+    <text style="font-size: 7px; font-family: 'IBM Plex Sans SmBld', sans-serif; text-anchor: start; fill: #141413" x="4.592126" y="30.904" transform="rotate(-0 4.592126 30.904)">Walk-forward</text>
    </g>
    <g id="text_11">
-    <text style="font-size: 6.7px; font-family: 'IBM Plex Sans'; text-anchor: start; fill: #52514e" x="66.592126" y="30.964" transform="rotate(-0 66.592126 30.964)">11 test windows from 14 February 2023, one continuous simulation</text>
+    <text style="font-size: 6.7px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: start; fill: #52514e" x="66.592126" y="30.964" transform="rotate(-0 66.592126 30.964)">11 test windows from 14 February 2023, one continuous simulation</text>
    </g>
    <g id="text_12">
-    <text style="font-size: 7px; font-family: 'IBM Plex Sans SmBld'; text-anchor: start; fill: #141413" x="4.592126" y="51.304" transform="rotate(-0 4.592126 51.304)">Main backtest</text>
+    <text style="font-size: 7px; font-family: 'IBM Plex Sans SmBld', sans-serif; text-anchor: start; fill: #141413" x="4.592126" y="51.304" transform="rotate(-0 4.592126 51.304)">Main backtest</text>
    </g>
    <g id="text_13">
-    <text style="font-size: 6.7px; font-family: 'IBM Plex Sans'; text-anchor: start; fill: #52514e" x="66.592126" y="51.364" transform="rotate(-0 66.592126 51.364)">entries 3 July 2023 to 31 December 2025</text>
+    <text style="font-size: 6.7px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: start; fill: #52514e" x="66.592126" y="51.364" transform="rotate(-0 66.592126 51.364)">entries 3 July 2023 to 31 December 2025</text>
    </g>
    <g id="text_14">
-    <text style="font-size: 7px; font-family: 'IBM Plex Sans SmBld'; text-anchor: start; fill: #141413" x="4.592126" y="71.704" transform="rotate(-0 4.592126 71.704)">Holdout</text>
+    <text style="font-size: 7px; font-family: 'IBM Plex Sans SmBld', sans-serif; text-anchor: start; fill: #141413" x="4.592126" y="71.704" transform="rotate(-0 4.592126 71.704)">Holdout</text>
    </g>
    <g id="text_15">
-    <text style="font-size: 6.7px; font-family: 'IBM Plex Sans'; text-anchor: start; fill: #52514e" x="66.592126" y="71.683391" transform="rotate(-0 66.592126 71.683391)">2 January 2026 to 19 October 2026; pre-registered, then run and evaluated</text>
+    <text style="font-size: 6.7px; font-family: 'IBM Plex Sans', sans-serif; text-anchor: start; fill: #52514e" x="66.592126" y="71.683391" transform="rotate(-0 66.592126 71.683391)">2 January 2026 to 19 October 2026; pre-registered, then run and evaluated</text>
    </g>
   </g>
  </g>

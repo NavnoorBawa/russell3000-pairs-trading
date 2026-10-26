@@ -1974,6 +1974,9 @@ def _svg_family(match):
     if weight and weight.group(1) in _SVG_WEIGHTS:
         style = re.sub(r'font-weight: \d+;? ?', '', style)
         style = style.replace("font-family: 'IBM Plex Sans'", f"font-family: '{_SVG_WEIGHTS[weight.group(1)]}'")
+    # a browser showing the SVG as an image (the site's figures without JavaScript) has no Plex:
+    # it falls back to a sans-serif rather than its default serif
+    style = re.sub(r"font-family: ('[^']+')(?!, sans-serif)", r"font-family: \1, sans-serif", style)
     return f'style="{style.rstrip("; ")}"'
 
 
