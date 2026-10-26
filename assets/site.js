@@ -73,6 +73,42 @@
     return {n: n ? n.textContent.trim() : '', t: t.textContent.replace(/\s+/g, ' ').trim()};
   }
 
+  // Under each section's entry: its sub-headings, and its exhibits as numbered chips. The
+  // sidebar shows them for the section being read; the sheet on phones shows them all.
+  var sectionFigs = {};
+  sections.forEach(function (s) {
+    var a = tocLinks[s.id];
+    var figs = Array.prototype.slice.call(s.querySelectorAll('figure.exhibit[id^="ex-"]'));
+    var subs = s.querySelectorAll('h3.sub-h[id]');
+    sectionFigs[s.id] = figs;
+    if (!a || (!figs.length && !subs.length)) return;
+    var box = document.createElement('div');
+    box.className = 'toc-sub';
+    subs.forEach(function (h) {
+      var l = document.createElement('a');
+      l.href = '#' + h.id;
+      var t = h.cloneNode(true);
+      t.querySelectorAll('.anchor').forEach(function (x) { x.remove(); });
+      l.textContent = t.textContent.trim();
+      box.appendChild(l);
+    });
+    if (figs.length) {
+      var row = document.createElement('p');
+      row.className = 'toc-chips';
+      figs.forEach(function (f) {
+        var lab = f.querySelector('.ex-label');
+        var name = lab ? lab.textContent.trim() : f.id;
+        var c = document.createElement('a');
+        c.href = '#' + f.id;
+        c.textContent = name.replace(/^Exhibit\s+/, '');
+        c.setAttribute('aria-label', name);
+        row.appendChild(c);
+      });
+      box.appendChild(row);
+    }
+    a.parentNode.appendChild(box);
+  });
+
   var where = document.getElementById('where');
   var sheet = null;
   if (where) {
@@ -109,7 +145,19 @@
     where.hidden = false;
   }
 
-  var currentId = null, spyFrame = null;
+  var currentId = null, spyFrame = null, currentFig = null;
+  // the exhibit being read: the last one in the section whose top has passed the reading line
+  function markExhibit(id, line) {
+    var figs = sectionFigs[id] || [], fig = null;
+    for (var i = 0; i < figs.length; i++) {
+      if (figs[i].getBoundingClientRect().top <= line) fig = figs[i].id;
+      else break;
+    }
+    if (fig === currentFig) return;
+    currentFig = fig;
+    document.querySelectorAll('.toc-chips a[aria-current]').forEach(function (a) { a.removeAttribute('aria-current'); });
+    if (fig) document.querySelectorAll('.toc-chips a[href="#' + fig + '"]').forEach(function (a) { a.setAttribute('aria-current', 'true'); });
+  }
   function keepVisible(a) {
     var box = document.querySelector('.toc');
     if (!a || !box || box.scrollHeight <= box.clientHeight + 1) return;
@@ -130,8 +178,11 @@
       if (top <= line || (atEnd && top < window.innerHeight * 0.85)) id = sections[i].id;
       else break;
     }
+    markExhibit(id, line);
     if (id === currentId) return;
     currentId = id;
+    document.querySelectorAll('.toc li.is-active, .toc-sheet li.is-active').forEach(function (li) { li.classList.remove('is-active'); });
+    document.querySelectorAll('.toc a[href="#' + id + '"], .toc-sheet a[href="#' + id + '"]').forEach(function (a) { a.parentNode.classList.add('is-active'); });
     document.querySelectorAll('.toc a[aria-current], .toc-sheet a[aria-current]').forEach(function (a) { a.removeAttribute('aria-current'); });
     document.querySelectorAll('.toc a[href="#' + id + '"], .toc-sheet a[href="#' + id + '"]').forEach(function (a) { a.setAttribute('aria-current', 'location'); });
     keepVisible(tocLinks[id]);
@@ -153,6 +204,123 @@
     var url = location.origin + location.pathname + a.hash;
     navigator.clipboard.writeText(url).then(function () { say('Link copied: ' + url); }, function () { /* not allowed: the address bar has it */ });
   });
+
+  // ── a preview of what a reference points to, on hover or keyboard focus ───
+  // Decorative (aria-hidden): the link itself is the accessible path. It shows an exhibit's
+  // label, title and, once drawn, a small copy of its chart; a section's heading and its
+  // first line; a subsection's heading.
+  var card = document.createElement('div');
+  card.className = 'xpop';
+  card.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(card);
+  var REF = 'a.xref, .ev a, .kpi-ev a, .hz a, .tle-what a.xref';
+  var cardFor = null, cardTimer = null;
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text) e.textContent = text;
+    return e;
+  }
+  function plain(node) {
+    if (!node) return '';
+    var c = node.cloneNode(true);
+    c.querySelectorAll('.anchor, .secno, .ib-k, .vh, .status-pill').forEach(function (x) { x.remove(); });
+    return c.textContent.replace(/\s+/g, ' ').trim();
+  }
+  function firstSentence(s) {
+    var m = s.match(/^.{20,}?[.;:](?=\s|$)/);
+    return m ? m[0] : s;
+  }
+  function chartCopy(fig) {
+    var svg = fig.querySelector('.ex-chart svg');
+    if (!svg) return null;
+    var c = svg.cloneNode(true), n = 0, ids = {};
+    c.querySelectorAll('[id]').forEach(function (x) { ids[x.id] = 'xp' + (++n) + '-' + x.id; x.id = ids[x.id]; });
+    if (n) {
+      c.querySelectorAll('*').forEach(function (x) {
+        Array.prototype.slice.call(x.attributes).forEach(function (at) {
+          var v = at.value.replace(/url\(#([^)]+)\)/g, function (m, id) { return ids[id] ? 'url(#' + ids[id] + ')' : m; });
+          if (at.name === 'href' && v.charAt(0) === '#' && ids[v.slice(1)]) v = '#' + ids[v.slice(1)];
+          if (v !== at.value) x.setAttribute(at.name, v);
+        });
+      });
+    }
+    c.removeAttribute('role');
+    c.removeAttribute('aria-labelledby');
+    c.removeAttribute('aria-label');
+    c.querySelectorAll('title, desc').forEach(function (x) { x.remove(); });
+    c.setAttribute('class', 'xpop-svg');
+    c.setAttribute('focusable', 'false');
+    return c;
+  }
+  function fill(target) {
+    card.replaceChildren();
+    if (target.matches('figure')) {
+      card.appendChild(el('p', 'xp-k', plain(target.querySelector('.ex-label'))));
+      card.appendChild(el('p', 'xp-t', plain(target.querySelector('.ex-title'))));
+      var sub = plain(target.querySelector('.ex-sub'));
+      if (sub) card.appendChild(el('p', 'xp-s', sub));
+      if (study && target.hasAttribute('data-exhibit')) drawIfStale(target);   // draw it now if it is far away
+      var svg = !target.classList.contains('ex-diagram') && chartCopy(target);
+      if (svg) card.appendChild(svg);
+      return true;
+    }
+    if (target.matches('section')) {
+      var h = target.querySelector('h2');
+      var num = h && h.querySelector('.secno');
+      card.appendChild(el('p', 'xp-k', 'Section' + (num ? ' ' + num.textContent.trim() : '')));
+      card.appendChild(el('p', 'xp-t', plain(h)));
+      var brief = target.querySelector('.inbrief') || target.querySelector('.lede');
+      if (brief) card.appendChild(el('p', 'xp-s', firstSentence(plain(brief))));
+      return true;
+    }
+    if (target.matches('h3, li[id]')) {
+      card.appendChild(el('p', 'xp-t', firstSentence(plain(target))));
+      return true;
+    }
+    return false;
+  }
+  function place(a) {
+    var r = a.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = window.innerHeight;
+    var w = card.offsetWidth, h = card.offsetHeight;
+    var left = Math.max(8, Math.min(r.left, vw - w - 8));
+    var top = r.bottom + 8;
+    if (top + h > vh - 8 && r.top - h - 8 >= 8) top = r.top - h - 8;
+    card.style.left = left + 'px';
+    card.style.top = Math.max(8, top) + 'px';
+  }
+  function show(a) {
+    var id = a.hash && a.hash.length > 1 ? decodeURIComponent(a.hash.slice(1)) : '';
+    var target = id && document.getElementById(id);
+    if (!target || target.contains(a)) return;
+    if (!fill(target)) return;
+    cardFor = a;
+    card.classList.add('on');
+    place(a);
+  }
+  function hide() {
+    clearTimeout(cardTimer);
+    cardFor = null;
+    card.classList.remove('on');
+  }
+  document.addEventListener('pointerover', function (e) {
+    var a = e.target.closest && e.target.closest(REF);
+    if (!a || e.pointerType !== 'mouse' || a === cardFor) return;
+    clearTimeout(cardTimer);
+    cardTimer = setTimeout(function () { show(a); }, 300);
+  });
+  document.addEventListener('pointerout', function (e) {
+    var a = e.target.closest && e.target.closest(REF);
+    if (a && !(e.relatedTarget && a.contains(e.relatedTarget))) hide();
+  });
+  document.addEventListener('focusin', function (e) {
+    var a = e.target.closest && e.target.closest(REF);
+    if (a && a.matches(':focus-visible')) show(a); else if (cardFor) hide();
+  });
+  document.addEventListener('focusout', function (e) { if (cardFor && e.target === cardFor) hide(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && cardFor) hide(); });
+  document.addEventListener('click', hide, true);
+  window.addEventListener('scroll', function () { if (cardFor) hide(); }, {passive: true});
 
   // ── checking a number against its data: assets/verify.js, loaded on first use ──
   var verifyLoading = null;
