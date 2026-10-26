@@ -1321,7 +1321,8 @@ def claims(data):
             and sn['spa_gatev']['best'] == sn['spa_gatev_unit_vol']['best'],
         'family_best_dsr_not_significant': bool(sn) and (sn.get('dsr_best') or {}).get('dsr_pct') is not None
                                            and sn['dsr_best']['dsr_pct'] < 50
-                                           and sn['dsr_best']['sharpe'] == sn['sharpe_best'],
+                                           # the same variant: its Sharpe ratio as the family's 4-decimal file has it
+                                           and abs(sn['dsr_best']['sharpe'] - sn['sharpe_best']) <= 5e-5,
         'family_few_positive': bool(sn) and sn['positive'] < 0.5 * sn['n'] and sn['sharpe_median'] < 0,
         'family_dsr_not_significant': bool(sn) and (sn.get('dsr') or {}).get('dsr_pct') is not None
                                       and sn['dsr']['dsr_pct'] < 50,

@@ -77,8 +77,9 @@ the <!--m:study.dev.facts.start_common_days-->397<!--/m--> days all twelve share
 ranks <!--m:study.dev.facts.start_common_rank-->3<!--/m-->rd
 (median <!--m:study.dev.facts.start_common_sharpe_median-->−0.47<!--/m-->).
 The pre-registered falsification test on 2026 data,
-with <!--m:study.dev.facts.ho_power_1-->16<!--/m-->% power against a true Sharpe ratio of 1, is
-run once on 2026-10-26: neither tested arm rejects zero (H1 Holm p <!--m:study.holdout.arms.0.p_holm-->0.955<!--/m-->).
+with <!--m:study.dev.facts.ho_power_1-->16<!--/m-->% power against a true Sharpe ratio of 1, stated
+in advance, was run once on 2026-10-26: neither tested arm rejects zero (Holm
+p <!--m:study.holdout.arms.0.p_holm-->0.955<!--/m--> for H1 and <!--m:study.holdout.arms.1.p_holm-->0.955<!--/m--> for H2).
 
 Every number in this file and on the page is a marker checked against the run's headline JSON
 or the site data built from it (`python scripts/check_published_numbers.py`, which fails on any
@@ -157,8 +158,10 @@ null apart trade by trade, from the committed run:
 was committed alone and pushed as commit `7c7d3f9` before any daily price history of a security
 for dates after 2025-12-31 was fetched into the project (network checks that asked for one stock's
 five-day chart discarded the answer unread). `scripts/run_holdout.sh` then ran every arm once from
-a fresh full clone at that commit, in one attempt; the exports, the evaluation, the membership,
-the price-fetch manifest, the logs and the trial's registry entry are in `results/holdout2026/`.
+a fresh full clone at that commit, in one attempt. The exports, the evaluation, the membership,
+the price-fetch manifest and the logs are in `results/holdout2026/`; the attempt's lines are in
+`results/trial_attempts.jsonl` and the trial's registry entry, `holdout2026`, is in
+`results/trial_registry.jsonl`.
 
 | Arm | Hypothesis | Net return | Net Sharpe [95% interval] | One-sided p | Holm p | Decision |
 |---|---|---:|---:|---:|---:|---|
@@ -205,7 +208,7 @@ is a falsification check: it can reject a large edge, but it cannot confirm a sm
 |---|---|
 | [`pairs_trading/`](pairs_trading/) | The system: study profiles and calendars (`study_config.py`), the point-in-time universe (`universe.py`), data and price anchoring (`data_processor.py`), pair selection with an exact numpy Engle–Granger (`pair_selector.py`, `fast_coint.py`), the engine (`trading_system.py`), costs (`transaction_costs.py`), significance, power and data-snooping tests (`significance.py`, `power.py`, `snooping.py`), baselines (`benchmark.py`), the evidence layer (`anatomy.py`, `evidence.py`) and the second family (`residual_statarb.py`) |
 | [`scripts/`](scripts/) | Runbooks (`run_dev_studies.sh`, `run_holdout.sh`), the evidence scripts, the holdout evaluator, the trial registry, the site and paper builders and the publication checker |
-| [`results/`](results/) | Every published run, with its provenance: `v33_dev/` (this study, with `anatomy.json`, `cost_sensitivity.json` and `robustness.json`), `residual_dev/` (S2), `validation/`, `v32_dev/` (the published v32 run), `variant_family/` (the declared family of variants, its runs and the data-snooping tests) and `trial_registry.jsonl` (the registered trials; the page's Section 7 lists the runs it does not hold) |
+| [`results/`](results/) | Every published run, with its provenance: `v33_dev/` (this study, with `anatomy.json`, `cost_sensitivity.json` and `robustness.json`), `residual_dev/` (S2), `validation/`, `v32_dev/` (the published v32 run), `variant_family/` (the declared family of variants, its runs and the data-snooping tests), `holdout2026/` (the pre-registered 2026 test: the three arms' exports, `evaluation.json`, the membership, the price-fetch manifest and the attempt's logs), `rehearsal2025/` and `rehearsal2025b/` (the two scripted dress rehearsals of the runbook, on 2025 data), `trial_attempts.jsonl` (every attempt of the runbook) and `trial_registry.jsonl` (the registered trials; the page's Section 7 lists the runs it does not hold) |
 | [`reference/`](reference/) | IWV N-PORT holdings snapshots, the CUSIP-to-ticker map and the industry map, with how each was built and checked |
 | [`docs/`](docs/) | `PROGRESS.md` (the full engineering log, deliberately unflattering), `EXECUTION_COSTS.md`, `FREE_RESOURCES.md` |
 | `index.html`, [`assets/`](assets/) | The research note; `assets/study.json` is built from `results/` by `scripts/build_site_data.py` |
@@ -333,12 +336,17 @@ and size.
   close to the signals of both tested arms), FRED rates and the v32 universe file were fetched in
   2026; the price API's responses carry each security's latest price and 52-week high and low
   (read by no study code; one data review stored such responses outside the repository, since
-  deleted); and adjusted price levels carry 2026 corporate actions. Two rules of the industry map
-  use 2026 information (a ticker missing from the SEC's 2026 company list has no industry; a name
-  first held in 2026 needs to be among the 3,000 largest of 18 October 2026); they are disclosed
-  in the pre-registration. None of these inputs is a 2026 daily price, factors are truncated at
-  each calendar's end, and no strategy reads them; the direction is that they may flatter the
-  holdout.
+  deleted); and adjusted price levels carry 2026 corporate actions. The stock screener behind the
+  v32 universe file also gave each stock's last sale price and volume; surveys of free data
+  sources downloaded daily VIX, rate and spread series to October 2026, French industry returns to
+  August 2026, the ETF's product pages and index changes; and one survey asked for 300 stocks' 2026
+  monthly charts to list their splits. A few of these values were displayed while files were
+  checked, and every such file was deleted, or lost with the working storage, before the filing.
+  Two rules of the industry map use 2026 information (a ticker missing from the SEC's 2026 company
+  list has no industry; a name first held in 2026 needs to be among the 3,000 largest of 18 October
+  2026); they are disclosed in the pre-registration. None of these inputs is a 2026 daily price
+  history of a traded security, factors are truncated at each calendar's end, and no strategy
+  reads the factors, rates or survey files; the direction is that they may flatter the holdout.
 - **The frozen v32 arm's universe looks ahead into 2026.** It is ranked on market values of
   18 October 2026, which is why S3 is descriptive only.
 - **Renamed securities can look delisted.** A ticker change with a new CUSIP is remapped through
@@ -387,7 +395,7 @@ Full engineering log in [docs/PROGRESS.md](docs/PROGRESS.md).
 | v30 | leakage audit: survivorship confirmed, selection-clean window tagging |
 | v31–v31.1 | pre-launch audit: inverted stop-loss, same-bar exits, future re-selections in the walk-forward; results withdrawn |
 | v32 | full audit (about 270 confirmed findings) and rebuild of the engine, accounting, walk-forward, costs, ranker, benchmarks and outputs; synthetic known-answer validation; study run of 18 Oct 2026: no detectable edge. Kept as the published record and the frozen holdout arm |
-| v33 | the design to be pre-registered: point-in-time universe, same-industry pairs, full re-formation, no regime gate or ranker, one borrow fee; the evidence layer, a second strategy family, the declared variant family and its data-snooping tests, robustness checks, the trial registry and the sealed 2026 holdout. Development run of 21 Oct 2026: no detectable edge |
+| v33 | the pre-registered design: point-in-time universe, same-industry pairs, full re-formation, no regime gate or ranker, one borrow fee; the evidence layer, a second strategy family, the declared variant family and its data-snooping tests, robustness checks, the trial registry and the 2026 holdout, pre-registered and evaluated. Development run of 21 Oct 2026: no detectable edge |
 
 ---
 

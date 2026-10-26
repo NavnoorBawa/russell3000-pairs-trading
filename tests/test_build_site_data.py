@@ -103,6 +103,23 @@ def test_build_is_deterministic_compact_and_tied_to_its_headline(v32_study):
     assert 'NaN' not in text and 'Infinity' not in text
 
 
+def test_the_file_rounds_so_the_page_rounds_once():
+    """A value kept at the precision the page shows, or one digit more, is rounded twice and
+    can move its last shown digit; the page rounds half up on the stored decimal form
+    (toLocaleString), so a value kept as -1.0545 prints as -1.055, not -1.054."""
+    from decimal import ROUND_HALF_UP, Decimal
+
+    def shown(v, dp):
+        return Decimal(str(v)).quantize(Decimal(1).scaleb(-dp), rounding=ROUND_HALF_UP)
+
+    for x, dp, want in ((-1.05447, 3, '-1.054'), (-0.4149781, 2, '-0.41'), (0.0774627, 3, '0.077'),
+                        (3.8649, 2, '3.86'), (0.1549, 2, '0.15')):
+        assert str(shown(bsd._r(x, dp), dp)) == want, (x, dp)
+        assert str(shown(bsd._r(x, dp + 1), dp)) == want, (x, dp)
+        assert str(shown(round(x, dp + 1), dp)) != want      # one more digit only: the last one moves
+    assert bsd._r(-0.0000000001) == 0.0 and bsd._r(float('nan')) is None
+
+
 # ── series ─────────────────────────────────────────────────────────────────────
 
 def test_rebuilt_exposure_reproduces_the_runs_published_figures(v32_res, v32_study):
@@ -160,14 +177,14 @@ def test_universe_coverage_by_formation():
          'missing': 211, 'missing_value_weight': 0.0182047, 'unmapped_value_weight': None}]}
     rows = bsd.universe_coverage(res)
     assert rows[0] == {'formation_date': '2022-12-31', 'snapshot': '2022-12-30', 'snapshot_filed': None, 'members': 2283,
-                       'with_prices': 2062, 'missing': 221, 'missing_weight_pct': 2.137, 'unmapped_weight_pct': 2.146,
+                       'with_prices': 2062, 'missing': 221, 'missing_weight_pct': 2.1373537, 'unmapped_weight_pct': 2.14601,
                        'missing_heaviest': [], 'unmapped_heaviest': []}
     assert rows[1]['unmapped_weight_pct'] is None
     res['universe_by_formation'][0].update({'snapshot_filed': '2023-02-24',
                                             'missing_heaviest': [['ATVI', 0.0015687], ['PXD', 0.0014391], ['HES', 0.00106], ['EA', 0.0009]]})
     row = bsd.universe_coverage(res)[0]
     assert row['snapshot_filed'] == '2023-02-24'
-    assert row['missing_heaviest'] == [['ATVI', 0.157], ['PXD', 0.144], ['HES', 0.106]]     # the three heaviest, in %
+    assert row['missing_heaviest'] == [['ATVI', 0.15687], ['PXD', 0.14391], ['HES', 0.106]]     # the three heaviest, in %
     assert bsd.universe_coverage({}) is None and bsd.universe_coverage({'universe_by_formation': []}) is None
 
 
@@ -428,16 +445,16 @@ def test_optional_arms_fill_their_sections(tmp_path, v32_res, residual_export):
         ('v33_pairs', 'H1'), ('avellaneda_lee', 'H2'), ('v32_pairs', None)]
     v33, ev = holdout['arms'][0], _json(root / 'holdout2026' / 'evaluation.json')['strategies']['v33_pairs']
     assert (v33['sharpe'], v33['lo'], v33['hi'], v33['p_holm'], v33['edge']) == (
-        round(ev['sharpe'], 4), round(ev['bootstrap_ci_95'][0], 4), round(ev['bootstrap_ci_95'][1], 4), 1.0, False)
+        bsd._r(ev['sharpe'], 4), bsd._r(ev['bootstrap_ci_95'][0], 4), bsd._r(ev['bootstrap_ci_95'][1], 4), 1.0, False)
     doc = json.loads((published / 'residual_statarb.json').read_text(encoding='utf-8'))
     s, sig = doc['summary'], doc['significance']
     r = study['residual']
     assert {k: r[k] for k in ('sharpe', 'ret_pct', 'trades', 'lo', 'hi', 'p', 'period', 'commit')} == {
-        'sharpe': round(s['sharpe'], 2), 'ret_pct': round(100 * s['total_return'], 2), 'trades': doc['total_trades'],
-        'lo': round(sig['boot_lo'], 2), 'hi': round(sig['boot_hi'], 2), 'p': round(sig['hac_p'], 3),
+        'sharpe': bsd._r(s['sharpe'], 2), 'ret_pct': bsd._r(100 * s['total_return'], 2), 'trades': doc['total_trades'],
+        'lo': bsd._r(sig['boot_lo'], 2), 'hi': bsd._r(sig['boot_hi'], 2), 'p': bsd._r(sig['hac_p'], 3),
         'period': [s['start'], s['end']], 'commit': 'f' * 40}
-    assert r['gross_sharpe'] == round(s['gross_sharpe'], 2) and r['gross_lo'] < r['gross_sharpe'] < r['gross_hi']
-    assert (r['gross_bp'], r['net_bp']) == (round(s['gross_bp_per_trade']['mean'], 2), round(s['net_bp_per_trade']['mean'], 2))
+    assert r['gross_sharpe'] == bsd._r(s['gross_sharpe'], 2) and r['gross_lo'] < r['gross_sharpe'] < r['gross_hi']
+    assert (r['gross_bp'], r['net_bp']) == (bsd._r(s['gross_bp_per_trade']['mean'], 2), bsd._r(s['net_bp_per_trade']['mean'], 2))
     assert len(r['paths']['net']) == len(doc['daily_net_returns']) and 'dates' in r['paths']   # its own calendar
     assert {p.split('/')[-1] for p in study['meta']['sources'] if 'residual_dev' in p} == {
         'residual_statarb.json', 'MANIFEST.json'}
@@ -645,15 +662,15 @@ def test_cost_scenarios_are_the_report_and_the_anatomy_side_by_side(v33_study):
     assert cs['available'] and cs['order'] == [k for k, _, _ in bsd.COST_SCENARIOS]
     for key, label, (group, value) in bsd.COST_SCENARIOS:
         row, src = cs['scenarios'][key], by_label[label]
-        assert (row['full']['trades'], row['full']['sharpe']) == (src['trades'], round(src['sharpe'], 4)), key
+        assert (row['full']['trades'], row['full']['sharpe']) == (src['trades'], bsd._r(src['sharpe'], 4)), key
     # the headline row is the run itself; the full re-runs change the trades, the re-pricing does not
     assert cs['scenarios']['headline']['full']['trades'] == res['overall_performance']['total_trades']
     assert cs['trades_min'] == min(s['trades'] for s in report['scenarios'])
     assert cs['trades_max'] == max(s['trades'] for s in report['scenarios']) > cs['trades_min']
     impact = {s['coefficient']: s for s in anatomy['gross_vs_net']['impact_sensitivity']['scenarios']}
-    assert cs['scenarios']['impact_1_0']['fixed']['sharpe'] == round(impact[1.0]['sharpe'], 4)
+    assert cs['scenarios']['impact_1_0']['fixed']['sharpe'] == bsd._r(impact[1.0]['sharpe'], 4)
     cap = {r['aum_musd']: r for r in anatomy['capacity']}
-    assert cs['scenarios']['capital_5b']['fixed']['net_bp'] == round(cap[5000.0]['net_bp'], 2)
+    assert cs['scenarios']['capital_5b']['fixed']['net_bp'] == bsd._r(cap[5000.0]['net_bp'], 2)
 
 
 def test_a_cost_report_of_another_run_stops_the_build():
@@ -676,30 +693,30 @@ def test_anatomy_facts_are_the_anatomy_numbers(v33_study):
     a, f = _json(V33 / 'anatomy.json'), v33_study['dev']['facts']
     er = a['exit_race']
     assert (f['er_targets'], f['er_stops']) == (er['targets'], er['stops'])
-    assert f['er_rw_expected'] == round(er['nulls']['random_walk']['expected_targets'], 1)
-    assert f['er_ou_expected'] == round(er['nulls']['ou']['expected_targets'], 1)
+    assert f['er_rw_expected'] == bsd._r(er['nulls']['random_walk']['expected_targets'], 1)
+    assert f['er_ou_expected'] == bsd._r(er['nulls']['ou']['expected_targets'], 1)
     form, oos = a['decay'][0], a['decay'][1]
-    assert (f['decay_form_bp'], f['decay_form_n']) == (round(form['bp'], 2), form['n'])
-    assert (f['decay_oos_bp'], f['decay_oos_t']) == (round(oos['bp'], 2), round(oos['t'], 2))
+    assert (f['decay_form_bp'], f['decay_form_n']) == (bsd._r(form['bp'], 2), form['n'])
+    assert (f['decay_oos_bp'], f['decay_oos_t']) == (bsd._r(oos['bp'], 2), bsd._r(oos['t'], 2))
     pooled = a['persistence_detail']['clegg']['pooled_still_cointegrated']
     assert (f['pers_count'], f['pers_of']) == (pooled['count'], pooled['of'])
-    assert f['pers_expected_pct'] == round(100 * pooled['expected_at_next_year_base_rates'] / pooled['of'], 2)
+    assert f['pers_expected_pct'] == bsd._r(100 * pooled['expected_at_next_year_base_rates'] / pooled['of'], 2)
     sf = a['shortfall_detail']['totals']
-    assert f['sf_paper_usd_k'] == round(sf['paper']['usd'] / 1e3, 1)
-    assert f['sf_exit_delay_loss_usd_k'] == round(sf['exit_delay']['usd'] / 1e3, 1)
+    assert f['sf_paper_usd_k'] == bsd._r(sf['paper']['usd'] / 1e3, 1)
+    assert f['sf_exit_delay_loss_usd_k'] == bsd._r(sf['exit_delay']['usd'] / 1e3, 1)
     # the shortfall closes: paper + delays = gross; gross - costs = net
     steps = {s['key']: s['usd'] for s in v33_study['dev']['shortfall']}
     assert steps['paper'] + steps['entry_delay'] + steps['exit_delay'] == pytest.approx(steps['gross'], abs=0.02)
-    assert f['cash_tbill_pct'] == round(a['cash']['tbill_return_pct'], 2)
+    assert f['cash_tbill_pct'] == bsd._r(a['cash']['tbill_return_pct'], 2)
     assert f['gross_usd_k'] == pytest.approx(a['gross_vs_net']['totals']['gross_usd'] / 1e3, abs=0.05)
 
 
 def test_evidence_facts_and_the_holdout_power(v33_study):
     ev, f = _json(V33 / RESULTS_NAME)['evidence'], v33_study['dev']['facts']
-    assert f['hurdle_hlz'] == round(ev['hurdles']['hurdles']['hlz']['sr_ann'], 4)
-    assert f['st_rev_t_main'] == round(ev['factors']['main']['factors']['ST_Rev']['tstat'], 2)
-    assert f['tbill_rf_pct'] == round(ev['factors']['cash']['tbill_return_pct'], 2)
-    assert f['oos_ucb'] == round(ev['walk_forward_oos']['upper_bound_ann'], 4)
+    assert f['hurdle_hlz'] == bsd._r(ev['hurdles']['hurdles']['hlz']['sr_ann'], 4)
+    assert f['st_rev_t_main'] == bsd._r(ev['factors']['main']['factors']['ST_Rev']['tstat'], 2)
+    assert f['tbill_rf_pct'] == bsd._r(ev['factors']['cash']['tbill_return_pct'], 2)
+    assert f['oos_ucb'] == bsd._r(ev['walk_forward_oos']['upper_bound_ann'], 4)
     assert v33_study['dev']['power']['hurdles']['hlz'] == f['hurdle_hlz']
     # what the holdout can detect, from the development returns' shape: more power at a
     # larger true Sharpe, and a stricter level needs a larger Sharpe
@@ -707,7 +724,7 @@ def test_evidence_facts_and_the_holdout_power(v33_study):
     assert f['ho_power_1'] < f['ho_power_2'] < f['ho_power_3']
     assert f['ho_mde_05'] < f['ho_mde_025'] and f['ho_mde_05_normal'] < f['ho_mde_025_normal']
     m = ev['main']
-    assert f['ho_mde_025'] == round(bsd.pw.minimum_detectable_sharpe(
+    assert f['ho_mde_025'] == bsd._r(bsd.pw.minimum_detectable_sharpe(
         0.0, bsd.HOLDOUT_SESSIONS, m['skew'], m['kurtosis'], m['rho'], alpha=0.025) * math.sqrt(252), 2)
     assert all(v is None for k, v in bsd.holdout_power_facts({}).items() if k != 'ho_days')
 
@@ -720,8 +737,8 @@ def test_path_facts_compare_the_two_series_on_their_common_days():
     common = sorted(set(main) & set(wf))
     assert pf['common_days'] == len(common)
     a, b = np.array([main[d] for d in common]), np.array([wf[d] for d in common])
-    assert pf['common_corr'] == round(float(np.corrcoef(a, b)[0, 1]), 2)
-    assert pf['common_sharpe_oos'] == round(bsd._sharpe(b / 100), 2)
+    assert pf['common_corr'] == bsd._r(float(np.corrcoef(a, b)[0, 1]), 2)
+    assert pf['common_sharpe_oos'] == bsd._r(bsd._sharpe(b / 100), 2)
     assert bsd.path_facts({})['common_days'] is None
 
 
@@ -765,16 +782,16 @@ def test_snooping_results_are_the_family_files(v33_study):
     fam = rep['family']
     assert sn['n'] == len(runs) == len(fam['members']) == v33_study['dev']['snooping']['grid_points'] + \
         v33_study['dev']['snooping']['toggles']
-    assert sn['spa_zero']['p'] == round(fam['spa_vs_zero']['pvalues']['consistent'], 4)
-    assert sn['spa_zero']['rc_p'] == round(fam['spa_vs_zero']['reality_check']['pvalue'], 4)
-    assert sn['spa_gatev']['p'] == round(fam['spa_vs_gatev']['pvalues']['consistent'], 4)
+    assert sn['spa_zero']['p'] == bsd._r(fam['spa_vs_zero']['pvalues']['consistent'], 4)
+    assert sn['spa_zero']['rc_p'] == bsd._r(fam['spa_vs_zero']['reality_check']['pvalue'], 4)
+    assert sn['spa_gatev']['p'] == bsd._r(fam['spa_vs_gatev']['pvalues']['consistent'], 4)
     assert sn['rw_rejected'] == len(fam['romano_wolf_vs_zero']['rejected'])
     assert sn['mcs_included'] == len(fam['mcs']['included'])
-    assert sn['pbo_pct'] == round(100 * rep['pbo']['pbo'], 2)
-    assert sn['effective_rank'] == round(fam['effective_trials']['effective_rank'], 2)
+    assert sn['pbo_pct'] == bsd._r(100 * rep['pbo']['pbo'], 2)
+    assert sn['effective_rank'] == bsd._r(fam['effective_trials']['effective_rank'], 2)
     sharpes = sorted(v['sharpe'] for v in runs)
-    assert sn['positive'] == sum(x > 0 for x in sharpes) and sn['sharpe_best'] == round(sharpes[-1], 4)
-    assert sn['sharpe_median'] == round(float(np.median(sharpes)), 4)
+    assert sn['positive'] == sum(x > 0 for x in sharpes) and sn['sharpe_best'] == bsd._r(sharpes[-1], 4)
+    assert sn['sharpe_median'] == bsd._r(float(np.median(sharpes)), 4)
     head = _json(V33 / 'headline_metrics.json')
     base = [v for v in sn['variants'] if v['base']]
     assert len(base) == 1 and round(base[0]['sharpe'], 2) == head['main']['sharpe']
@@ -783,7 +800,9 @@ def test_snooping_results_are_the_family_files(v33_study):
     assert sn['dsr']['n_trials'] == math.ceil(fam['effective_trials']['effective_rank'])
     assert 0 < sn['dsr']['dsr_pct'] < 100 * sn['dsr']['curve'][0]['dsr']
     # the deflation the DSR is defined for: the family's best variant, same N and variance
-    assert sn['dsr_best']['n_trials'] == sn['dsr']['n_trials'] and sn['dsr_best']['sharpe'] == sn['sharpe_best']
+    # (its Sharpe ratio recomputed from the daily returns; the family's runs.json keeps four decimals)
+    assert sn['dsr_best']['n_trials'] == sn['dsr']['n_trials']
+    assert sn['dsr_best']['sharpe'] == pytest.approx(sn['sharpe_best'], abs=5e-5)
     assert sn['dsr']['dsr_pct'] < sn['dsr_best']['dsr_pct'] < sn['dsr_best']['psr_pct']
     # PBO's loss rate beside the same splits' rate for every variant: selection makes it worse
     assert 50 < sn['pbo_base_loss_pct'] < sn['pbo_is_best_loss_pct']
@@ -825,15 +844,15 @@ def test_robustness_section_is_the_runs_robustness_json(v33_study):
     rob = _json(V33 / 'robustness.json')
     r, f = v33_study['dev']['robustness'], v33_study['dev']['facts']
     sharpes = [x['sharpe'] for x in rob['start_dates']['runs']]
-    assert [x['sharpe'] for x in r['start_dates']['runs']] == [round(x, 4) for x in sharpes]
+    assert [x['sharpe'] for x in r['start_dates']['runs']] == [bsd._r(x, 4) for x in sharpes]
     assert r['start_dates']['headline_rank'] == 1 + sum(x > sharpes[0] for x in sharpes)
-    assert f['start_sharpe_median'] == round(float(np.median(sharpes)), 4)
-    assert f['vix_diff_t'] == round(rob['regimes']['vix']['net']['last_minus_first']['nw_t'], 4)
+    assert f['start_sharpe_median'] == bsd._r(float(np.median(sharpes)), 4)
+    assert f['vix_diff_t'] == bsd._r(rob['regimes']['vix']['net']['last_minus_first']['nw_t'], 4)
     pooled = rob['persistence']['first_formation']['pooled_still_cointegrated']
     assert (f['pers_s1_count'], f['pers_s1_of']) == (pooled['count'], pooled['of'])
-    assert f['s2c_gross_month_t'] == round(rob['s2_trade_edge']['gross_bp']['entry_month']['t_clustered'], 4)
+    assert f['s2c_gross_month_t'] == bsd._r(rob['s2_trade_edge']['gross_bp']['entry_month']['t_clustered'], 4)
     # the independent-trades t is the export's, which the residual section also quotes
-    assert round(f['s2c_gross_t'], 2) == v33_study['residual']['gross_t']
+    assert bsd._r(f['s2c_gross_t'], 2) == v33_study['residual']['gross_t']
     # like for like: each later start against the published path on that start's own days
     curve = _json(V33 / RESULTS_NAME)['daily_equity_curve']
     dates = [c['date'] for c in curve]
@@ -844,13 +863,14 @@ def test_robustness_section_is_the_runs_robustness_json(v33_study):
         sub = r_pub[[run['first_day'] <= d <= run['last_day'] for d in dates]]
         assert sub.size == run['days']
         pub = sub.mean() / sub.std(ddof=1) * math.sqrt(252)
-        assert row['published_sharpe'] == round(pub, 4)
+        assert row['published_sharpe'] == bsd._r(pub, 4)
         if run['offset_trading_days'] > 0:
             gaps.append(pub - run['sharpe'])
     assert (m['of'], m['wins']) == (len(gaps), sum(g > 0 for g in gaps))
-    assert m['gap_median'] == round(float(np.median(gaps)), 4)
-    # the published start's own row: its window is the published run's, so the two agree
-    assert r['start_dates']['runs'][0]['published_sharpe'] == r['start_dates']['runs'][0]['sharpe']
+    assert m['gap_median'] == bsd._r(float(np.median(gaps)), 4)
+    # the published start's own row: its window is the published run's, so the two agree (one from
+    # the published daily returns, one from the run's own; they differ below the sixth decimal)
+    assert r['start_dates']['runs'][0]['published_sharpe'] == pytest.approx(r['start_dates']['runs'][0]['sharpe'], abs=1e-5)
     common = [x['common_window']['sharpe'] for x in rob['start_dates']['runs']]
     assert r['start_dates']['common_rank'] == f['start_common_rank'] == 1 + sum(c > common[0] for c in common)
 
@@ -933,21 +953,21 @@ def test_the_evaluated_holdout_is_the_evaluation(tmp_path):
                   'sharpe_se': s['sharpe_se'], 'ucb': s['upper_bound_95'], 'sharpe_lo2002': s['sharpe_lo2002'],
                   'mde': s['min_detectable_sharpe'], 'mde_single': s['min_detectable_sharpe_single_test'],
                   'mde_alpha': s['min_detectable_sharpe_alpha']}
-        assert {k: arm[k] for k in expect} == {k: round(v, 4) for k, v in expect.items()}
-        assert (arm['t'], arm['p_one_sided'], arm['psr_pct']) == (round(s['t'], 3), round(s['p_one_sided'], 4),
-                                                                  round(100 * s['psr'], 2))
+        assert {k: arm[k] for k in expect} == {k: bsd._r(v, 4) for k, v in expect.items()}
+        assert (arm['t'], arm['p_one_sided'], arm['psr_pct']) == (bsd._r(s['t'], 3), bsd._r(s['p_one_sided'], 4),
+                                                                  bsd._r(100 * s['psr'], 2))
         assert (arm['days'], arm['trades'], arm['period'], arm['commit']) == (s['days'], s['trades'], s['period'], RUN_COMMIT)
         assert arm['run_utc'] == ev['inputs']['runs'][arm['key']]['provenance']['run_timestamp_utc']
-        assert arm['exposure'] == {'avg_pct': round(s['exposure']['avg_gross_pct_of_equity'], 3),
-                                   'max_pct': round(s['exposure']['max_gross_pct_of_equity'], 3),
+        assert arm['exposure'] == {'avg_pct': bsd._r(s['exposure']['avg_gross_pct_of_equity'], 3),
+                                   'max_pct': bsd._r(s['exposure']['max_gross_pct_of_equity'], 3),
                                    'days_open': s['exposure']['days_with_open_positions']}
-        assert (arm['vs_gatev']['p'], arm['vs_gatev']['days']) == (round(s['vs_gatev']['pvalue'], 4),
+        assert (arm['vs_gatev']['p'], arm['vs_gatev']['days']) == (bsd._r(s['vs_gatev']['pvalue'], 4),
                                                                    s['vs_gatev']['n_common_days'])
         assert arm['random_pair']['percentile'] == s['random_pair']['percentile']
         # the survivorship gap, without the security names the report lists
         rows = s['universe_by_formation']
         assert len(arm['universe']) == len(rows)
-        assert [u['missing_weight_pct'] for u in arm['universe']] == [round(100 * u['missing_value_weight'], 3) for u in rows]
+        assert [u['missing_weight_pct'] for u in arm['universe']] == [bsd._r(100 * u['missing_value_weight'], 3) for u in rows]
         names = {n for u in rows for k in ('missing_heaviest', 'unmapped_heaviest', 'no_sector_etf_heaviest')
                  for n, _ in u.get(k) or []}
         assert not names & _strings(arm['universe'])
@@ -956,7 +976,7 @@ def test_the_evaluated_holdout_is_the_evaluation(tmp_path):
     assert all(u['no_sector_etf'] is not None for u in s2['universe']) and v33['universe'][0]['no_sector_etf'] is None
     curve = _json(REHEARSAL / 'v33_pairs' / RESULTS_NAME)['daily_equity_curve']
     assert hold['daily']['dates'] == [d['date'] for d in curve]
-    assert hold['daily']['cum']['v33_pairs'][:2] == [0.0, round(curve[1]['daily_return_pct'], 4)]
+    assert hold['daily']['cum']['v33_pairs'][:2] == [0.0, bsd._r(curve[1]['daily_return_pct'], 4)]
     for arm in hold['arms']:
         assert hold['daily']['cum'][arm['key']][-1] == pytest.approx(arm['ret_pct'], abs=1e-4)
     p = hold['provenance']
@@ -999,18 +1019,18 @@ def test_the_holdout_in_a_full_build_and_from_the_command_line(tmp_path, v32_res
         bsd.build(run, results_root=root)
 
 
-@pytest.mark.parametrize('p_holm, edge', [(0.0496, True), (0.049996, True), (0.05, False), (0.0504, False)])
+@pytest.mark.parametrize('p_holm, edge', [(0.0496, True), (0.0499999996, True), (0.05, False), (0.0504, False)])
 def test_the_decision_is_the_evaluations(tmp_path, p_holm, edge):
     """Not recomputed: edge_out_of_sample as the report states it, which must be p_holm < alpha.
     p_holm_below_alpha compares the unrounded p, so a p below alpha that the file rounds to it
-    (0.049996 -> 0.05) is still below it, and a p at alpha is not."""
+    (0.0499999996 -> 0.05) is still below it, and a p at alpha is not."""
     root = _holdout_root(tmp_path)
     _edit_evaluation(root, lambda ev: ev['strategies']['v33_pairs'].update(p_holm=p_holm, edge_out_of_sample=edge))
     hold, _ = _section(root)
     v33 = hold['arms'][0]
     assert hold['decision']['rejected'] == (['v33_pairs'] if edge else [])
     assert v33['edge'] is edge and v33['p_holm_below_alpha'] is edge
-    assert hold['decision']['arms']['v33_pairs'] == {'hypothesis': 'H1', 'edge': edge, 'p_holm': round(p_holm, 4),
+    assert hold['decision']['arms']['v33_pairs'] == {'hypothesis': 'H1', 'edge': edge, 'p_holm': bsd._r(p_holm, 4),
                                                      'p_holm_below_alpha': edge}
 
 
@@ -1331,6 +1351,11 @@ def test_every_sealed_sentence_of_the_page_has_its_complete_wording():
         for phrase in SEALED_PHRASES:
             assert phrase not in page, phrase
         assert 'Sealed</span>' not in page and '(sealed)' not in page
+        # the key figure, the hypotheses table, the result and the run record are on the page
+        # itself, for a reader without JavaScript (exhibits.js adds none of them to such a page)
+        assert 'kpi is-pending' not in page and '>sealed<' not in page and 'Sealed<' not in page
+        assert 'data-holdout-filled' in page and page.count('class="note ho-note') == 2
+        assert "if (wrap && !written) wrap.after(" in js
         return
     for e in entries:
         assert set(e) <= {'in', 'attr', 'sealed', 'done', 'cut', 'count'}, e

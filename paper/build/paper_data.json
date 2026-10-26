@@ -554,7 +554,7 @@
   "paper.ho.s3.gap_max_pct": null,
   "paper.ho.s3.gap_min_pct": null,
   "paper.ho.s3.gatev_days": "200",
-  "paper.ho.s3.gatev_diff": "−0.42",
+  "paper.ho.s3.gatev_diff": "−0.41",
   "paper.ho.s3.gatev_hi": "+2.77",
   "paper.ho.s3.gatev_lo": "−3.60",
   "paper.ho.s3.gatev_p": "0.767",
@@ -1152,7 +1152,7 @@
   "headline_sha256": "b09f239032db62196602447e8d1d780286b5c2674e8e85d02062beab946d0fb1",
   "paper_date": "2026-10-26",
   "run_dir": "results/v33_dev",
-  "study_sha256": "c431fcb1a099c2fff2e32c36506757c6331a1793ccc4d835463abc66b8a41b20",
+  "study_sha256": "cce85c433baefe94e1525da03d556ceb9affcee35918aa061bc42504993627c1",
   "universe_index_sha256": "2afd0cb6a7a7b79e08e6d45a5fc78f7ac6d43903c3cafbde1a042bf048883c3c"
  },
  "pending": {},
@@ -1432,7 +1432,7 @@
     "Arm minus Gatev, Sharpe [95% interval]",
     "+0.73 [−2.23, +3.69]",
     "+0.41 [−2.42, +3.23]",
-    "−0.42 [−3.60, +2.77]"
+    "−0.41 [−3.60, +2.77]"
    ],
    [
     "Ledoit–Wolf p of the difference, two-sided",
@@ -1662,7 +1662,7 @@
    ],
    [
     "Site data",
-    "assets/study.json, sha256 c431fcb1a099c2fff2e32c36506757c6331a1793ccc4d835463abc66b8a41b20"
+    "assets/study.json, sha256 cce85c433baefe94e1525da03d556ceb9affcee35918aa061bc42504993627c1"
    ],
    [
     "Universe",
@@ -2340,7 +2340,7 @@
    ],
    [
     "index.html",
-    "bd901655efedef619fed8459b47eeac6f1d6aacd5648a620adbb161483889abc"
+    "9f2e4c04e86207f9339db916428d0c4cbf8c4b0d5c143278b33d3ebb5b888367"
    ]
   ],
   "spec": [

@@ -185,14 +185,21 @@ ROBUSTNESS = 'robustness.json'       # {dev}/: scripts/robustness_checks.py
 # Small helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
+# The file keeps EXTRA_DP more decimals than the most a reader shows (dp), so the page and the
+# paper round each number once: rounded twice, here and where it is shown, a value can move its
+# last shown digit (-1.05447 kept as -1.0545 is shown as -1.055 at three decimals, not -1.054).
+EXTRA_DP = 4
+
+
 def _r(x, dp=4):
-    """Round for the file; None for missing or non-finite values."""
+    """Round for the file, keeping EXTRA_DP decimals beyond `dp`, the most any reader shows;
+    None for missing or non-finite values."""
     if x is None:
         return None
     x = float(x)
     if not math.isfinite(x):
         return None
-    v = round(x, dp)
+    v = round(x, dp + EXTRA_DP)
     return 0.0 if v == 0 else v          # no "-0.0" in the output
 
 

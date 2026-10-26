@@ -1836,13 +1836,14 @@
   }
 
   // ── the sealed-tense text of index.html, and its wording once the holdout is evaluated ──
-  // index.html itself is not edited when the holdout is evaluated (the sealed page must stay
-  // as it is, and the paper records its sha256): each sentence that is true only while the test
-  // is sealed is replaced here, worded as main.typ's `done` branches word it. Strict JSON between
-  // the markers (tests/test_build_site_data.py reads it): `sealed` occurs `count` times (default
-  // once) in index.html, each time inside an element `in` selects; `attr` names an attribute
-  // instead of the text; `cut` drops everything after the sealed text to the element's end;
-  // `done` is text, or parts (text, {href, text}); '{name}' is filled from holdoutWords().
+  // On a page published while the test is sealed, each sentence that is true only while it is
+  // sealed is replaced here, worded as main.typ's `done` branches word it; a page published after
+  // the test (data-holdout="complete") carries the `done` wording itself and is left alone.
+  // Strict JSON between the markers (tests/test_build_site_data.py reads it): `sealed` occurs
+  // `count` times (default once) in index.html, each time inside an element `in` selects; `attr`
+  // names an attribute instead of the text; `cut` drops everything after the sealed text to the
+  // element's end; `done` is text, or parts (text, {href, text}); '{name}' is filled from
+  // holdoutWords().
   /* holdout-text-begin */
   var HOLDOUT_TEXT = [
     {"in": "meta[name=\"description\"]", "attr": "content", "sealed": "A pre-registered test on 2026 data is sealed.",
@@ -1862,7 +1863,7 @@
     {"in": "#holdout .lede", "sealed": "was fetched into the project's code, caches or files (network",
      "done": "was fetched into the project's code, caches or files before the filing (network"},
     {"in": "#holdout .lede", "sealed": "and the fetch code refuses such a request until the registered commit unseals it;",
-     "done": "and the fetch code refused such a request until the registered commit unsealed it;"},
+     "done": "and from commit a1c76db of 20 October 2026, five hours after the 2026 calendar was added to the code, the fetch code refused such a request until the registered commit unsealed it;"},
     {"in": "#holdout .lede", "sealed": "The protocol was filed first, on 26 October 2026; each arm then runs once, and its result is published whatever it is.",
      "done": "The protocol was filed first, on 26 October 2026; the runbook then ran the three arms and the evaluation, every attempt is on record (run record, below), and the result is published in full, as the protocol requires."},
     {"in": "#holdout p.note", "sealed": "The power is stated before any 2026 daily price is seen.",
@@ -1880,7 +1881,7 @@
     {"in": "td", "sealed": "The code and caches hold no daily 2026 prices of the traded securities",
      "done": "Before the filing the code and caches held no daily 2026 prices of the traded securities"},
     {"in": "td", "sealed": "designs, test and decision rule frozen before any 2026 daily price is fetched; one run per arm, every attempt on record",
-     "done": ["designs, test and decision rule frozen before any 2026 daily price was fetched; every attempt on record (", {"href": "#holdout", "text": "Section 1"}, ")"]},
+     "done": ["designs, test and decision rule frozen before any 2026 daily price history was fetched into the project; every attempt on record (", {"href": "#holdout", "text": "Section 1"}, ")"]},
     {"in": "td", "sealed": "the trial registry and the sealed 2026 holdout.",
      "done": ["the trial registry and the 2026 holdout, pre-registered and evaluated (", {"href": "#holdout", "text": "Section 1"}, ")."]}
   ];
@@ -2022,7 +2023,7 @@
     dir.textContent = 'either way';
     var cells = [[dir], [(days ? days + ' trading days: with' : 'With') + ' returns shaped like the development period\'s, 80% power only against an annual Sharpe ratio of about ' +
       num(f.ho_mde_025, 2) + ' at Holm\'s first step, stated in advance; the Newey–West test is asymptotic, and its size at this length is a little above 5% (simulated in the pre-registration); an edge in one arm says nothing about the other'],
-      ['Power and size stated before any 2026 price was fetched; each arm\'s one-sided upper bound and minimum detectable Sharpe ratio reported (', {href: '#holdout', text: 'Section 1'}, '); Holm\'s correction across the two tested arms']];
+      ['Power and size stated in advance, from no return dated after 31 December 2025; each arm\'s one-sided upper bound and minimum detectable Sharpe ratio reported (', {href: '#holdout', text: 'Section 1'}, '); Holm\'s correction across the two tested arms']];
     tr.appendChild(head);
     cells.forEach(function (parts) {
       var td = document.createElement('td');
@@ -2034,11 +2035,12 @@
 
   function holdoutPage(S) {
     var H = holdoutDone(S);
-    if (!H || document.querySelector('.ho-note')) return false;
+    // a page published after the test carries its wording, key figure, table, result, run record,
+    // trial rows and threat itself (data-holdout="complete"): only the drawn parts are added here
+    var written = document.documentElement.getAttribute('data-holdout') === 'complete';
+    if (!H || (!written && document.querySelector('.ho-note'))) return false;
     var alpha = holdoutAlpha(H);
     var words = holdoutWords(S, H);
-    // a page published after the test carries its wording, rows and threat itself
-    var written = document.documentElement.getAttribute('data-holdout') === 'complete';
     if (!written) holdoutText(words);
     var verdict = document.querySelector('.bottom-line .verdict');
     if (verdict && words.verdict) {
@@ -2057,7 +2059,7 @@
     holdoutKpi(S, H, alpha);
     var tbl = holdoutHypotheses(H, alpha);
     var wrap = tbl && tbl.closest('.tbl-wrap');
-    if (wrap) wrap.after(holdoutResult(S, H, alpha), holdoutRun(H));
+    if (wrap && !written) wrap.after(holdoutResult(S, H, alpha), holdoutRun(H));
     var sub = document.querySelector('figure[data-exhibit="holdout"] .ex-sub');
     var a0 = H.arms[0];
     if (sub && a0.period && a0.period.length === 2) {

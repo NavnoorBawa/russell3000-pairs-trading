@@ -12,8 +12,9 @@ abstract: >-
   spreads then behave like random walks, and its pairs stay cointegrated only at about the base
   rate; the second family agrees. A family of variants declared before any of them ran contains
   none that beats cash, even before the search is allowed for, and choosing parameters on it would
-  overfit. A pre-registered falsification test on 2026 data, filed before any 2026 price was
-  fetched and run once, rejects zero for neither tested arm (Holm-adjusted p = 0.955 for each).
+  overfit. A pre-registered falsification test on 2026 data, filed before any 2026 daily price
+  history was fetched into the project and run once, rejects zero for neither tested arm
+  (Holm-adjusted p = 0.955 for each).
   Validated on synthetic markets with known answers.
 authors:
   - family-names: Bawa

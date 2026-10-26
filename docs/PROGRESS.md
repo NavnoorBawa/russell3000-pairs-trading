@@ -3079,7 +3079,7 @@ accounting tests — no detectable edge after realistic execution and costs. Sti
 
 ---
 
-## v33 — The design to be pre-registered, the evidence layer, a second family (2026-10-21)
+## v33 — The pre-registered design, the evidence layer, a second family (2026-10-21 to 2026-10-26)
 
 **Outcome.** The v33 design has no detectable edge on the development period, before or after
 costs, and the evidence layer is consistent with one mechanism: the rule's in-sample edge on its
@@ -3087,10 +3087,13 @@ own pairs is gone after formation, the spreads it trades then behave like random
 traded pairs stay cointegrated only at about the base rate. The walk-forward, the same rule
 started earlier, lost money. A second strategy family (Avellaneda–Lee residual reversion) agrees.
 The pre-registered falsification test on 2026 data, which has little power against a modest edge,
-is sealed: no daily price history of any security for dates after 2025-12-31 has been requested,
-and the fetch code refuses such a request until the registered commit unseals it. The test
-period has already ended and the project was developed during it, so the test is sealed, not
-prospective. The pre-registration is not filed yet.
+was sealed when this entry was written (2026-10-21): no daily price history of any security for
+dates after 2025-12-31 had been fetched into the project (network checks that asked for one
+stock's five-day chart discarded the answer unread), and the fetch code refused such a request
+until the registered commit unsealed it. The test period had already ended and the project was
+developed during it, so the test is sealed, not prospective. The pre-registration was filed on
+2026-10-26 (`7c7d3f9`) and the test ran once the same day: neither null is rejected ("The 2026
+holdout", below).
 
 The numbers below are markers (`<!--m:KEY-->`) of the published run, results/v33_dev, and of
 assets/study.json built from it; they were checked with
@@ -3228,8 +3231,8 @@ What the evidence layer shows:
   at <!--m:study.dev.facts.random_p05_end|1-->−92.3<!--/m-->%: unhedged random pairs traded with the
   distance rule can lose most of their committed capital. The comparison is its Sharpe distribution,
   which does not depend on the basis.
-- **Still open:** the pre-registration (to be filed); the `residual_dev` and `variant_family`
-  registry lines were written without run records.
+- **Still open** (2026-10-21): the pre-registration (filed on 2026-10-26, below); the
+  `residual_dev` and `variant_family` registry lines were written without run records.
 
 ### Review of the write-up (2026-10-21)
 
@@ -3403,6 +3406,32 @@ log, and tested on the 2025 dress rehearsal as a stand-in in 28 outcome variants
 nulls rejected, an arm without trades, a crash-fix attempt, a Holm p at the level, and others); a
 review of four lenses confirmed 20 findings, all fixed. They are committed after the result, as the
 pre-registration says. `assets/study.json` carries the evaluation, the decision, the run record and
-the daily paths, and stops the build if they contradict each other or the registry. The page now
-carries the evaluated wording itself (`index.html`, `data-holdout="complete"`), and every holdout
-number on it and in the README is a checked marker.
+the daily paths, and stops the build if they contradict each other or the registry. The page
+carries the evaluated wording, key figure, hypotheses table, result and run record itself
+(`index.html`, `data-holdout="complete"`), so a reader without JavaScript sees the result; every
+holdout number in that text and in the README is a checked marker, and Exhibit 1 is drawn from
+`assets/study.json`.
+
+**Final review (2026-10-26).** Three reviewers (numbers, wording, consistency) read everything
+published about the holdout against `results/`, git and the pre-registration; every finding was
+checked and fixed:
+
+- *Double rounding.* `assets/study.json` kept most values at the precision the page shows, or
+  one digit more, and the page rounded them again: 149 printed values on the page (holdout and
+  development exhibits alike) and one in the paper were one unit off in the last digit (S3's
+  Sharpe difference from the Gatev method printed −0.42 for −0.41498). The file now keeps four
+  decimals beyond the most any reader shows (`scripts/build_site_data.py`, `EXTRA_DP`), and the
+  page and the paper built from it print exactly what an unrounded build prints. The marked
+  numbers were never affected: `check_published_numbers.py` compares them within half a unit of
+  the shown digit, and all pass against the unrounded values. A paper claim that compared two
+  Sharpe ratios for exact equality now compares them at the 4-decimal precision of the variant
+  family's file.
+- *Claims stronger than the record.* "Before any 2026 daily price was fetched" now reads "before
+  any 2026 daily price history was fetched into the project" (network checks received five-day
+  charts and discarded them unread); the power is "stated in advance, from no return dated after
+  31 December 2025" (2026 quotes had been received); and the fetch code is said to refuse a 2026
+  request from commit `a1c76db`, five hours after `ff38599` added the 2026 calendar, as the
+  pre-registration records.
+- *Leftover sealed text.* The page's key figure and hypotheses table, the README's version
+  history and an exhibit title in the paper still read as sealed; the README located the registry entry in
+  `results/holdout2026/`, and its list of 2026 inputs and of `results/` were incomplete.
