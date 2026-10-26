@@ -54,6 +54,7 @@
 <script defer src="assets/vendor/d3-7.9.0.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i"></script>
 <script defer src="assets/vendor/plot-0.6.17.umd.min.js" integrity="sha384-JUpn2GgRr0gxU0xOBd8D8P634jhRCwobtG8G2MMEkX1RnGJ7/FJNnuukpfT+H2w1"></script>
 <script defer src="assets/exhibits.js"></script>
+<script defer src="assets/tables.js"></script>
 <script defer src="assets/site.js"></script>
 </head>
 <body id="top">
@@ -311,7 +312,7 @@
     <p class="ex-note">The test period had ended before the filing, so the test is sealed, not prospective; and because the project was developed during it, the designers' general knowledge of 2026 markets cannot be sealed. The other 2026 information the project received is listed in <a class="xref" href="#threats">Section 11</a>.</p>
   </figure>
 <!-- prereg-timeline:end -->
-  <div class="tbl-wrap" role="region" aria-label="Pre-registered hypotheses" tabindex="0">
+  <div class="tbl-wrap" id="t-holdout" role="region" aria-label="Pre-registered hypotheses" tabindex="0" data-phone="cards">
     <table class="tbl tbl-holdout" data-holdout-filled>
       <caption>The arms of the pre-registration, filed on 26 October 2026 (commit 7c7d3f9) before any 2026 daily price history was fetched into the project. Test: one-sided Newey–West t on the daily net returns, Holm-adjusted across H1 and H2 at a familywise 5%. S3 is reported with the same statistics and tested in no family: its universe is ranked on market values inside the test period. Net return: compounded over the holdout’s days. Upper bound: the one-sided 95% upper confidence bound on the Sharpe ratio. Each decision is the evaluation’s own.</caption>
       <thead><tr><th scope="col"><span class="vh">Label</span></th><th scope="col">Arm</th><th scope="col">Hypothesis</th><th scope="col" class="r">Sharpe</th><th scope="col" class="r">Net return</th><th scope="col" class="r">Upper bound</th><th scope="col" class="r">p (one-sided)</th><th scope="col" class="r">p (Holm)</th><th scope="col">Decision</th></tr></thead>
@@ -349,7 +350,7 @@
   <h2 id="h-performance"><a class="secno" href="#performance" aria-label="Section 2, link to this section">2</a>Performance in the development period</h2>
   <p class="inbrief"><span class="ib-k">In brief</span> Net of costs the book ends where it started: <span data-metric="main.total_return_pct">−0.39%</span> over <span data-metric="study.dev.facts.days">628</span> days (Sharpe <span data-metric="main.sharpe">−0.06</span>), with a maximum drawdown of <span data-metric="main.max_drawdown_pct">−4.05%</span>. The same rule started in February 2023 lost money (Sharpe <span data-metric="oos.pooled_sharpe">−1.04</span>), and the published start is a favourable path.</p>
   <p class="lede">The main backtest enters trades from 3 July 2023 to 31 December 2025 on $<span data-metric="study.dev.facts.capital_musd">100</span>M of notional capital. The start is the development calendar's, which v32 set after the label window of its ranking model (to 30 June 2023); v33 has no ranker but keeps the calendar, so that the two designs are compared on the same dates. Its pairs are formed on the point-in-time index at the end of 2022 and re-formed every 126 trading days on the trailing three years. The <span data-metric="main.trades">213</span> trades returned <span data-metric="main.total_return_pct">−0.39%</span>, with a maximum drawdown of <span data-metric="main.max_drawdown_pct">−4.05%</span> at an annualised volatility of <span data-metric="study.dev.performance.main.vol.0">2.15</span>%. The book was flat on <span data-metric="study.dev.facts.flat_days">2</span> of <span data-metric="study.dev.facts.days">628</span> days (v32's book, with its regime gate, was flat on <span data-metric="study.v32.flat_days">207</span>) and used <span data-metric="main.avg_gross_exposure_pct">26.9</span>% of capital on average, gross, against a 30% cap.</p>
-  <div class="tbl-wrap" role="region" aria-label="Performance" tabindex="0">
+  <div class="tbl-wrap" id="t-performance" role="region" aria-label="Performance" tabindex="0" data-phone="matrix">
     <table class="tbl tbl-num tbl-perf">
       <caption>Performance of the main backtest, the walk-forward and the Gatev baseline, net of costs. Annualised returns are mean daily returns × 252 with a Newey–West 95% interval; volatility intervals are circular block bootstraps with the Sharpe ratio's block length. The Gatev return is per unit of committed per-leg notional, the strategy's per unit of capital: compare Sharpe ratios across columns, not return or volatility levels.</caption>
       <thead><tr><th scope="col">Measure</th><th scope="col" class="r">Main backtest</th><th scope="col" class="r">Walk-forward</th><th scope="col" class="r">Gatev distance method</th></tr></thead>
@@ -403,7 +404,7 @@
 
   <h3 class="sub-h" id="h-start-dates">The start date <a class="anchor" href="#h-start-dates" aria-label="Link to “The start date”">#</a></h3>
   <p class="prose">Because positions are sized on current equity and the 30% cap binds, which signals the book can take depends on what it already holds, so the start date is a free parameter of the result. It was measured directly: the main backtest re-run from <span data-metric="study.dev.facts.start_n">12</span> start dates <span data-metric="study.dev.facts.start_step_days">21</span> trading days apart, with the same pairs, re-formations, rule and costs (the published start reproduces the published run to the cent). Every later start covers a shorter window, from <span data-metric="study.dev.robustness.start_dates.runs.1.days">607</span> days down to <span data-metric="study.dev.facts.start_common_days">397</span>, and misses the first months of the published one, so each is compared with the published path on its own days. On those days the published run has the higher Sharpe ratio in <span data-metric="study.dev.facts.start_matched_wins">10</span> of the <span data-metric="study.dev.facts.start_matched_of">11</span> cases (median gap <span data-metric="study.dev.facts.start_matched_gap_median">0.51</span>; its own Sharpe ratio on those windows runs from <span data-metric="study.dev.facts.start_matched_published_min">−0.34</span> to <span data-metric="study.dev.facts.start_matched_published_max">−0.01</span>): the published path is a favourable one. On the <span data-metric="study.dev.facts.start_common_days">397</span> days all twelve share, from 3 June 2024, it ranks <span data-metric="study.dev.facts.start_common_rank">3</span>rd of the twelve (<span data-metric="study.dev.robustness.start_dates.runs.0.common_sharpe">−0.08</span>, against a median of <span data-metric="study.dev.facts.start_common_sharpe_median">−0.47</span>), and the same pairs on the same days give Sharpe ratios from <span data-metric="study.dev.facts.start_common_sharpe_min">−0.74</span> to <span data-metric="study.dev.facts.start_common_sharpe_max">+0.48</span>, depending only on each run's own history: the positions it held, and the trade record and volatility that set its sizes and pair cool-offs. Unmatched, over windows of different length, the published start's Sharpe ratio of <span data-metric="study.dev.facts.start_sharpe_max">−0.06</span> is the highest of the twelve, which run down to <span data-metric="study.dev.facts.start_sharpe_min">−1.16</span> with a median of <span data-metric="study.dev.facts.start_sharpe_median">−0.65</span> (returns from <span data-metric="study.dev.facts.start_ret_min">−6.27</span>% to <span data-metric="study.dev.facts.start_ret_max">−0.39</span>%). Run as separate backtests, the first half of the entry period (to 30 September 2024) has a Sharpe ratio of <span data-metric="study.dev.facts.half1_sharpe">+0.11</span> and the second half <span data-metric="study.dev.facts.half2_sharpe">−0.85</span>; inside the continuous run the same days give <span data-metric="study.dev.facts.half1_inside_sharpe">+0.22</span> and <span data-metric="study.dev.facts.half2_inside_sharpe">−0.31</span> (the first half's separate run includes <span data-metric="study.dev.facts.half1_run_off_days">23</span> days in which its open positions run off). None of these runs is a new design, and none is a trial in the registry (<a class="xref" href="#testing">Section 7</a>).</p>
-  <div class="tbl-wrap" role="region" aria-label="Start-date sensitivity" tabindex="0">
+  <div class="tbl-wrap" id="t-start-dates" role="region" aria-label="Start-date sensitivity" tabindex="0" data-phone="matrix">
     <table class="tbl tbl-num">
       <caption>The main backtest from <span data-metric="study.dev.facts.start_n">12</span> start dates, the same pairs, rule and costs, each run to 31 December 2025. "Sharpe" covers each run's own days; "Published, same days" is the published run's Sharpe ratio on those days; "Shared" is each run's Sharpe ratio on the <span data-metric="study.dev.facts.start_common_days">397</span> days all twelve share (3 June 2024 to 31 December 2025).</caption>
       <thead><tr><th scope="col">Start</th><th scope="col" class="r">Trades</th><th scope="col" class="r">Sharpe</th><th scope="col" class="r">Published, same days</th><th scope="col" class="r">Return, %</th><th scope="col" class="r">Shared</th></tr></thead>
@@ -475,7 +476,7 @@
     <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
   </figure>
 
-  <div class="tbl-wrap" role="region" aria-label="Significance tests" tabindex="0">
+  <div class="tbl-wrap" id="t-significance" role="region" aria-label="Significance tests" tabindex="0" data-phone="matrix">
     <table class="tbl tbl-num">
       <caption>Significance tests, v33 development run of 21 October 2026.</caption>
       <thead><tr><th scope="col">Test</th><th scope="col" class="r">Main backtest</th><th scope="col" class="r">Walk-forward (daily)</th></tr></thead>
@@ -529,7 +530,7 @@
     <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
   </figure>
 
-  <div class="tbl-wrap" role="region" aria-label="Data-snooping tests" tabindex="0">
+  <div class="tbl-wrap" id="t-snooping" role="region" aria-label="Data-snooping tests" tabindex="0">
     <table class="tbl tbl-num">
       <caption>Data-snooping tests over the <span data-metric="study.dev.snooping.results.n">38</span> declared variants, development period. Cash is the benchmark of zero excess return; the Gatev series is the distance method's daily net return on the same days, per unit of committed leg notional where the variants' are per unit of capital, so only the unit-volatility comparison is like for like.</caption>
       <thead><tr><th scope="col">Test</th><th scope="col" class="r">Result</th></tr></thead>
@@ -645,7 +646,7 @@
     </figure>
   </div>
 
-  <div class="tbl-wrap" role="region" aria-label="Persistence on the strategy's candidate pairs" tabindex="0">
+  <div class="tbl-wrap" id="t-persistence" role="region" aria-label="Persistence on the strategy's candidate pairs" tabindex="0" data-phone="matrix">
     <table class="tbl tbl-num">
       <caption>Cointegration persistence on the strategy's own candidate pairs: the <span data-metric="study.dev.facts.pers_s1_pairs">5,369</span> same-industry candidate pairs of the first formation (the 500 most liquid screened members at the end of 2022; <span data-metric="fdr.pairs_tested">5,082</span> of them passed the formation window's history and correlation screens and were tested, <a class="xref" href="#testing">Section 7</a>), the test, screen and one-year windows of <a class="xref" href="#ex-13">Exhibit 13</a>. A pair is tested in a year if its returns correlate at 0.25 or more; "Cointegrated" counts the year's tested pairs with p &lt; 0.05; "still" is the share of them cointegrated the next year, against the next year's base rate (p: binomial, two-sided).</caption>
       <thead><tr><th scope="col">Years</th><th scope="col" class="r">Cointegrated</th><th scope="col" class="r">Still, next year</th><th scope="col" class="r">Base rate</th><th scope="col" class="r">p</th></tr></thead>
@@ -668,7 +669,7 @@
   <h2 id="h-execution"><a class="secno" href="#execution" aria-label="Section 5, link to this section">5</a>Execution and costs</h2>
   <p class="inbrief"><span class="ib-k">In brief</span> Under every declared cost and capacity scenario the full re-run loses money; with the trades held fixed, the Sharpe ratio crosses zero only if costs fall to <span data-metric="study.dev.facts.sharpe_break_even_x">0.83</span>× their modelled level.</p>
   <p class="lede">Every fill pays its own costs, from the stock's own liquidity on that day, and fills at the next day's close: a signal seen at the close of day t trades in the closing auction of day t+1. The average trade held <span data-metric="study.dev.facts.hold_days">15.1</span> trading days, and its larger leg was <span data-metric="study.dev.facts.adv_participation_pct">1.61</span>% of that stock's full-day dollar ADV; the closing auction trades only a fraction of a day's volume, so participation in the auction itself is higher. Annual turnover was <span data-metric="main.annual_turnover_x">9.0</span>× capital. The cost model was fixed before the run, and its uncertain parts are stressed in scenarios declared in advance.</p>
-  <div class="tbl-wrap" role="region" aria-label="Cost model" tabindex="0">
+  <div class="tbl-wrap" id="t-cost-model" role="region" aria-label="Cost model" tabindex="0" data-phone="cards">
     <table class="tbl">
       <caption>The v33 cost model against published references, and what changed from v32.</caption>
       <thead><tr><th scope="col">Component</th><th scope="col">v33 model</th><th scope="col">Reference</th><th scope="col">Change from v32</th></tr></thead>
@@ -698,7 +699,7 @@
     <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
   </figure>
 
-  <div class="tbl-wrap" role="region" aria-label="Cost and capacity scenarios" tabindex="0">
+  <div class="tbl-wrap" id="t-scenarios" role="region" aria-label="Cost and capacity scenarios" tabindex="0" data-phone="scroll">
     <table class="tbl tbl-num tbl-scen">
       <caption>Declared scenarios: the full re-run, and the headline trades re-priced under the same assumption. The headline is impact Y = 0.3, borrow 0.38% a year and a $100M book.</caption>
       <thead>
@@ -801,7 +802,7 @@
 
   <h3 class="sub-h" id="h-regimes">Regimes <a class="anchor" href="#h-regimes" aria-label="Link to “Regimes”">#</a></h3>
   <p class="prose">Do and Faff (2010) find that pairs trading performs strongly in prolonged turbulence, and the study's 30 months are a single period, so the net returns were split by the previous day's VIX close and by the previous day's cross-sectional dispersion of the 11 sector-ETF returns, each into terciles of the backtest's own days. No split separates the returns: the mean daily return is <span data-metric="study.dev.facts.vix_low_bp">−0.56</span> bp in the lowest VIX tercile (VIX below <span data-metric="study.dev.facts.vix_break_lo">14.72</span>) and <span data-metric="study.dev.facts.vix_high_bp">+0.36</span> bp in the highest (above <span data-metric="study.dev.facts.vix_break_hi">17.21</span>), a difference of <span data-metric="study.dev.facts.vix_diff_mean_bp">+0.92</span> bp a day with a Newey–West t of <span data-metric="study.dev.facts.vix_diff_t">0.74</span> (p = <span data-metric="study.dev.facts.vix_diff_p">0.46</span>); by dispersion the difference is <span data-metric="study.dev.facts.disp_diff_mean_bp">−0.35</span> bp (t = <span data-metric="study.dev.facts.disp_diff_t">−0.31</span>). The terciles are cut on the backtest's own days, so the split describes the period and is not a rule that could have been traded; the gross returns split the same way.</p>
-  <div class="tbl-wrap" role="region" aria-label="Net returns by regime" tabindex="0">
+  <div class="tbl-wrap" id="t-regimes" role="region" aria-label="Net returns by regime" tabindex="0">
     <table class="tbl tbl-num">
       <caption>Daily net returns of the main backtest by regime: terciles of the previous day's VIX close and of the previous day's dispersion of the 11 sector-ETF returns, and calendar years. Mean: bp of capital a day; Sharpe ratio annualised; t: Newey–West, 6 lags.</caption>
       <thead><tr><th scope="col">Regime</th><th scope="col" class="r">Days</th><th scope="col" class="r">Mean, bp</th><th scope="col" class="r">Sharpe</th><th scope="col" class="r">t</th></tr></thead>
@@ -845,7 +846,7 @@
     <details class="ex-data"><summary>Data table</summary><div class="ex-table" data-table></div></details>
   </figure>
 
-  <div class="tbl-wrap" role="region" aria-label="Trial registry" tabindex="0">
+  <div class="tbl-wrap" id="t-registry" role="region" aria-label="Trial registry" tabindex="0" data-phone="scroll">
     <table class="tbl tbl-num tbl-wide">
       <caption>Every registered trial, in the order registered (results/trial_registry.jsonl, append-only): <span data-metric="study.registry.trials">10</span> trials in <span data-metric="study.registry.rows">17</span> rows, one for each of the <span data-metric="study.registry.recorded_runs">14</span> run records and one each for the three trials whose line holds none (the second family's published run, the <span data-metric="study.dev.snooping.results.n">38</span> declared variants as one row, and the second family's runs under superseded universe rules). The holdout is the trial holdout2026, one row for each of its three runs.</caption>
       <thead><tr><th scope="col">Trial</th><th scope="col">Design · calendar</th><th scope="col">Commit</th><th scope="col" class="r">Sharpe</th><th scope="col" class="r">Return</th><th scope="col" class="r">Trades</th><th scope="col" class="r">Walk-forward Sharpe</th></tr></thead>
@@ -899,7 +900,7 @@
   <h2 id="h-method"><a class="secno" href="#method" aria-label="Section 9, link to this section">9</a>Design and method</h2>
   <p class="lede">Selection sees formation data only; every trading decision on day t uses data up to day t and fills on day t+1; the evidence is computed after the run. Tests change future prices and check that no past decision moves. The v33 design differs from the published v32 design in seven fields. Each change addresses a defect found in v32's design or in its development run on this same period, so the changes were made after v32's development results were seen; none re-tunes a trading threshold, and all were fixed before any v33 result was seen (the exploratory and the published v33 runs share one design hash, <a class="xref" href="#testing">Section 7</a>).</p>
 
-  <div class="tbl-wrap" role="region" aria-label="From v32 to v33" tabindex="0">
+  <div class="tbl-wrap" id="t-v32-v33" role="region" aria-label="From v32 to v33" tabindex="0" data-phone="cards">
     <table class="tbl tbl-wide">
       <caption>From v32 to v33: what changed and why. Every change was fixed in the v33 study profile before the first v33 run (<a class="xref" href="#testing">Section 7</a>); thresholds, fills and the rest of the cost model are unchanged.</caption>
       <thead><tr><th scope="col">Field</th><th scope="col">v32, as published</th><th scope="col">v33</th><th scope="col">Why</th></tr></thead>
@@ -915,7 +916,7 @@
     </table>
   </div>
 
-  <div class="tbl-wrap" role="region" aria-label="v32 and v33 results" tabindex="0">
+  <div class="tbl-wrap" id="t-v32-v33-results" role="region" aria-label="v32 and v33 results" tabindex="0" data-phone="matrix">
     <table class="tbl tbl-num">
       <caption>The published v32 run beside the v33 run, development period. v32 remains the record of what was published; it ran frozen, and is reported without a test, in the holdout (S3).</caption>
       <thead><tr><th scope="col">Measure</th><th scope="col" class="r">v32, published 18 Oct 2026</th><th scope="col" class="r">v33, this note</th></tr></thead>
@@ -1190,7 +1191,7 @@
     <div class="ex-foot"><p><span class="k">Notes</span> The main backtest and the walk-forward share <span data-metric="study.dev.facts.oos_overlap_days">621</span> of the main backtest's <span data-metric="study.dev.facts.main_days">628</span> days and trade the same pair formations: they are one experiment from two start dates, not two confirmations.</p></div>
   </figure>
 
-  <div class="tbl-wrap" role="region" aria-label="Specification" tabindex="0">
+  <div class="tbl-wrap" id="t-spec" role="region" aria-label="Specification" tabindex="0">
     <table class="tbl tbl-spec">
       <caption>Specification of the v33 design (study profile v33).</caption>
       <tbody>
@@ -1227,7 +1228,7 @@
   <h2 id="h-validation"><a class="secno" href="#validation" aria-label="Section 10, link to this section">10</a>Validation</h2>
   <p class="inbrief"><span class="ib-k">In brief</span> On synthetic markets whose answer is known, the engine finds a planted edge (<span data-metric="study.validation.edge.mean_bp">+82.6</span>&nbsp;bp a trade) and none where there is none (<span data-metric="study.validation.forced_null.mean_bp">+1.7</span>&nbsp;bp, t = <span data-metric="study.validation.forced_null.t">0.65</span>).</p>
   <p class="lede">A backtest on real data says what a strategy did, not whether the code measures what it claims. scripts/synthetic_validation.py runs the real engine, with its full cost model, on synthetic markets whose answer is known, <span data-metric="study.validation.seeds">10</span> markets per scenario; CI runs a smaller version on every push to main and on pull requests.</p>
-  <div class="tbl-wrap" role="region" aria-label="Known-answer checks" tabindex="0">
+  <div class="tbl-wrap" id="t-known-answers" role="region" aria-label="Known-answer checks" tabindex="0" data-phone="cards">
     <table class="tbl">
       <caption>Known-answer checks, results/validation/synthetic_validation.json.</caption>
       <thead><tr><th scope="col">Check</th><th scope="col">What must happen</th><th scope="col">Result</th></tr></thead>
@@ -1259,7 +1260,7 @@
 <section id="threats" class="sec" aria-labelledby="h-threats">
   <h2 id="h-threats"><a class="secno" href="#threats" aria-label="Section 11, link to this section">11</a>Threats to validity</h2>
   <p class="lede">Each limitation, which way it biases the result, how large it is, and what addresses it. Biases that flatter the strategy make the null more convincing, not less.</p>
-  <div class="tbl-wrap" role="region" aria-label="Threats to validity" tabindex="0">
+  <div class="tbl-wrap" id="t-threats" role="region" aria-label="Threats to validity" tabindex="0" data-phone="cards">
     <table class="tbl threats">
       <caption>Threats to validity of the v33 development run and the 2026 test.</caption>
       <thead><tr><th scope="col">Threat</th><th scope="col">Direction of bias</th><th scope="col">Size</th><th scope="col">Mitigation</th></tr></thead>
@@ -1290,7 +1291,7 @@
 <section id="literature" class="sec" aria-labelledby="h-literature">
   <h2 id="h-literature"><a class="secno" href="#literature" aria-label="Section 12, link to this section">12</a>Literature</h2>
   <p class="lede">Published results for the same strategy families, as reported by their authors. Most point the same way: the classic pairs edge was large before the 2000s, has shrunk since, and is small after realistic costs; where it survives, it depends on why the two prices diverged, and much of it is short-term reversal and industry momentum.</p>
-  <div class="tbl-wrap" role="region" aria-label="Literature" tabindex="0">
+  <div class="tbl-wrap" id="t-literature" role="region" aria-label="Literature" tabindex="0" data-phone="cards">
     <table class="tbl lit">
       <caption>Published results for pairs trading and residual reversion.</caption>
       <thead><tr><th scope="col">Study</th><th scope="col">Sample</th><th scope="col">Method</th><th scope="col">Reported result</th></tr></thead>
@@ -1361,7 +1362,7 @@ python3 -m http.server 8000</code></pre>
   <h2 id="h-history"><a class="secno" href="#history" aria-label="Section 14, link to this section">14</a>History and disclosures</h2>
   <details class="history">
     <summary>Version history</summary>
-    <div class="tbl-wrap" role="region" aria-label="Version history" tabindex="0">
+    <div class="tbl-wrap" id="t-history" role="region" aria-label="Version history" tabindex="0">
       <table class="tbl">
         <caption>Selected versions; docs/PROGRESS.md has the full record, deliberately unflattering.</caption>
         <thead><tr><th scope="col">Version</th><th scope="col">Change</th></tr></thead>

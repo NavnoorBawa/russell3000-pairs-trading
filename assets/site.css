@@ -351,6 +351,137 @@ html:not(.js) .ex-data, .exhibit.is-pending .ex-data { display: none; }
 .ex-table .tbl-wrap { max-height: 360px; overflow: auto; margin-bottom: 8px; }
 .ex-table thead th { position: sticky; top: 0; background: var(--paper); }
 
+/* ── tables: tools, edges, sticky columns, phone layouts (assets/tables.js) ─────────────
+   To be merged into site.css after its "tables" block. Everything here is screen-only or
+   needs JavaScript: without JavaScript, and in print, every table stays a table. */
+
+/* Copy and CSV under each table (above each exhibit data table), and the toast */
+.tbl-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin: -24px 0 30px; }
+.ex-table .tbl-tools { justify-content: flex-start; margin: 0 0 8px; }
+.ex-tables .tbl-wrap + .tbl-tools { margin-top: 16px; }
+.repro .tt-pre-tools { margin: 8px 0 0; }
+.tbl-tools button {
+  font: 500 12.5px/1 var(--sans); color: var(--ink-2); background: transparent; cursor: pointer;
+  border: 1px solid var(--rule-2); border-radius: 999px; padding: 5px 11px;
+}
+.tbl-tools button:hover { color: var(--ink); border-color: var(--ink-2); }
+.tt-count { font-variant-numeric: tabular-nums; }
+.tt-toast {
+  position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 40; transform: translateX(-50%);
+  max-width: calc(100vw - 32px); background: var(--ink); color: var(--paper); font: 500 13px/1.35 var(--sans);
+  padding: 8px 14px; border-radius: 6px; opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.tt-toast.is-on { opacity: 1; }
+.tt-toast:empty { padding: 0; }
+@media (prefers-reduced-motion: reduce) { .tt-toast { transition: none; } }
+html:not(.js) .tbl-tools, html:not(.js) .tt-toast { display: none; }
+
+@media screen {
+  /* Scroll-aware edges: a frame wider than its view shades the side that has more beyond it
+     (tables.js sets tt-l / tt-r). The shades are sticky overlays in the frame's one grid cell,
+     so they sit over sticky cells and headers; the left one starts after a sticky first column
+     (--tt-stick) and both start below the caption (--tt-cap). */
+  .tbl-wrap.tt-edges { display: grid; --tt-shade: color-mix(in srgb, var(--ink) 18%, transparent); }
+  .tbl-wrap.tt-edges.is-scrollable { box-shadow: none; }       /* replaces site.js's right-edge shadow */
+  .tbl-wrap.tt-edges > * { grid-area: 1 / 1; }
+  .tbl-wrap.tt-edges::before, .tbl-wrap.tt-edges::after {
+    content: ""; grid-area: 1 / 1; position: sticky; z-index: 4; width: 14px; margin-top: var(--tt-cap, 0px);
+    pointer-events: none; opacity: 0; transition: opacity .15s;
+  }
+  .tbl-wrap.tt-edges::before { left: var(--tt-stick, 0px); justify-self: start; background: linear-gradient(to right, var(--tt-shade), transparent); }
+  .tbl-wrap.tt-edges::after { right: 0; justify-self: end; background: linear-gradient(to left, var(--tt-shade), transparent); }
+  .tbl-wrap.tt-l::before, .tbl-wrap.tt-r::after { opacity: 1; }
+  pre.tt-edges { --tt-shade: color-mix(in srgb, var(--ink) 22%, transparent); }
+  pre.tt-l { box-shadow: inset 14px 0 10px -12px var(--tt-shade); }
+  pre.tt-r { box-shadow: inset -14px 0 10px -12px var(--tt-shade); }
+  pre.tt-l.tt-r { box-shadow: inset 14px 0 10px -12px var(--tt-shade), inset -14px 0 10px -12px var(--tt-shade); }
+
+  /* Wide tables that stay tables (data-phone="scroll") and every exhibit data table: the row
+     labels stay in view as the table scrolls sideways; ISO dates stay on one line. */
+  .tbl-wrap[data-phone="scroll"] > .tbl > tbody > tr > th:first-child,
+  .tbl-wrap[data-phone="scroll"] > .tbl > thead > tr:first-child > th:first-child,
+  .ex-table .tbl > tbody > tr > th:first-child,
+  .ex-table .tbl > thead > tr:first-child > th:first-child { position: sticky; left: 0; z-index: 1; background: var(--paper); }
+  .ex-table .tbl > thead th { z-index: 2; }
+  .ex-table .tbl > thead > tr:first-child > th:first-child { z-index: 3; }
+  .tbl th.tt-date { white-space: nowrap; }
+}
+/* the break points tables.js adds inside trial ids are for phones only */
+@media not screen, (min-width: 601px) { .tbl-wrap[data-phone="scroll"] wbr { display: none; } }
+
+@media (prefers-reduced-motion: reduce) { .tbl-wrap.tt-edges::before, .tbl-wrap.tt-edges::after { transition: none; } }
+
+/* ── phones ─────────────────────────────────────────────────────────────────────────── */
+@media screen and (max-width: 600px) {
+  pre code { font-size: 12px; }                     /* 10.75 px before: a 12 px floor */
+  .ex-table .tbl-wrap { max-height: min(70vh, 560px); }
+  .tbl-wrap[data-phone="scroll"] > .tbl-wide > tbody > tr > th:first-child { min-width: 9.5rem; }   /* trial ids break after "_" (tables.js) */
+
+  /* Prose tables as cards: one card per row, each value under its column's name */
+  html.js .tbl-wrap.tt-cards, html.js .tbl-wrap.tt-matrix { display: block; overflow: visible; box-shadow: none; }
+  html.js .tbl-wrap.tt-cards::before, html.js .tbl-wrap.tt-cards::after,
+  html.js .tbl-wrap.tt-matrix::before, html.js .tbl-wrap.tt-matrix::after { display: none; }
+  html.js .tt-cards > .tbl, html.js .tt-matrix > .tbl { display: block; min-width: 0; }
+  html.js .tt-cards > .tbl > caption, html.js .tt-matrix > .tbl > caption { display: block; position: static; max-width: none; }
+  html.js .tt-cards > .tbl > thead {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  html.js .tt-cards > .tbl > tbody { display: block; border-top: 1px solid var(--rule-2); }
+  html.js .tt-cards > .tbl > tbody > tr {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 14px;
+    padding: 12px 0 12px; border-bottom: 1px solid var(--rule);
+  }
+  html.js .tt-cards > .tbl > tbody > tr > * {
+    grid-column: 1 / -1; display: block; min-width: 0; padding: 0; border: 0; white-space: normal; text-align: left;
+  }
+  html.js .tt-cards > .tbl > tbody > tr > th { font-size: 15.5px; font-weight: 600; line-height: 1.4; }
+  html.js .tt-cards > .tbl > tbody > tr > td.r { grid-column: auto; }
+  html.js .tt-cards > .tbl > tbody > tr > td[data-label]::before {
+    content: attr(data-label); content: attr(data-label) / "";   /* not read twice: the column header names it */
+    display: block; margin: 8px 0 1px; font: 600 12px/1.35 var(--sans); letter-spacing: .05em;
+    text-transform: uppercase; color: var(--ink-3);
+  }
+
+  /* Numeric tables as a matrix: the row label above its values, one sticky header row */
+  html.js .tt-matrix > .tbl > thead {
+    display: block; position: sticky; top: var(--sticky-top, 0px); z-index: 2; background: var(--paper);
+  }
+  html.js .tt-matrix > .tbl > tbody { display: block; }
+  html.js .tt-matrix > .tbl > thead > tr, html.js .tt-matrix > .tbl > tbody > tr {
+    display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); column-gap: 6px;
+    border-bottom: 1px solid var(--rule);
+  }
+  html.js .tt-matrix > .tbl > thead > tr { border-bottom-color: var(--rule-2); }
+  html.js .tt-matrix > .tbl > thead > tr > th:first-child {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  html.js .tt-matrix > .tbl > thead > tr > th, html.js .tt-matrix > .tbl > tbody > tr > * {
+    display: block; min-width: 0; border: 0; white-space: normal;
+  }
+  /* sentence case: five columns of 'Published, same days' fit 360 px only without capitals */
+  html.js .tt-matrix > .tbl > thead > tr > th {
+    padding: 8px 0 6px; font: 600 12px/1.3 var(--sans); letter-spacing: 0; text-transform: none; hyphens: auto; overflow-wrap: break-word;
+  }
+  html.js .tt-matrix > .tbl > tbody > tr > th { grid-column: 1 / -1; padding: 10px 0 0; font-weight: 600; }
+  html.js .tt-matrix > .tbl > tbody > tr > td { padding: 2px 0 10px; }
+  html.js .tt-matrix .ci { display: block; font-size: 12px; color: var(--ink-2); }
+}
+
+/* ── touch: 44 px targets ───────────────────────────────────────────────────────────── */
+@media (pointer: coarse) {
+  .ex-data > summary { min-height: 44px; padding: 11px 0; }
+  .history > summary { min-height: 44px; padding: 9px 0; }
+  .tbl-tools button { position: relative; padding: 7px 13px; }
+  .tbl-tools button::after { content: ""; position: absolute; inset: -8px -4px; }
+}
+
+@media print {
+  .tbl-tools, .tt-toast { display: none !important; }
+  pre.tt-edges { box-shadow: none !important; }
+}
+
 /* ── diagrams (static SVG, themed by classes) ─────────────────────────────── */
 .dg-wrap { margin: 4px 0 6px; }
 .dg { width: 100%; height: auto; display: block; font-family: var(--sans); }
@@ -569,6 +700,7 @@ pre { background: var(--sunk); color: var(--ink); border: 1px solid var(--rule);
   .topbar-in, .page, .foot-in { padding-left: 16px; padding-right: 16px; }
   .topbar-in { padding-top: 4px; padding-bottom: 4px; min-height: 48px; }
   html:not(.js) .topbar { position: static; }
+  html.js { --sticky-top: 49px; }
   .toplinks { gap: 14px; }
   .brand { font-size: 12px; }
   .sec { padding-top: 40px; }
