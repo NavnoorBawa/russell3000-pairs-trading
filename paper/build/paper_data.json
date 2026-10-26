@@ -155,7 +155,7 @@
  "concordance": [
   [
    1,
-   "Net Sharpe ratio of each pre-registered arm on the 2026 holdout",
+   "Neither tested arm shows an edge in 2026: S1 +0.05, S2 −0.27, every interval spans zero, Holm p 0.955 for both",
    "ex-holdout"
   ],
   [
@@ -180,7 +180,7 @@
   ],
   [
    6,
-   "Every development-period bootstrap interval spans zero, gross or net, in both families; the main backtest excludes Sharpe ratios above 0.92, and the walk-forward's one-sided bound is below zero",
+   "Every development-period bootstrap interval spans zero, gross or net, in both families",
    "ex-forest"
   ],
   [
@@ -190,7 +190,7 @@
   ],
   [
    8,
-   "None of the 38 declared variants beats cash or the distance method, even before the search is allowed for, and deflated for the search neither the best variant's Sharpe ratio nor the design's is close to significant",
+   "None of the 38 declared variants beats cash or the distance method, even before the search is allowed for",
    "ex-dsr"
   ],
   [
@@ -2347,7 +2347,7 @@
    ],
    [
     "index.html",
-    "ae1a4b583c14c4e2ee1a62b23220766e700f8ebae056788defb48f427f2d0056"
+    "d530173e1bd6f2acc48cf65fe4cf55aa44919227b5d54d0d563adde2e9a422e3"
    ]
   ],
   "spec": [
