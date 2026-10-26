@@ -3079,7 +3079,7 @@ accounting tests — no detectable edge after realistic execution and costs. Sti
 
 ---
 
-## v33 — The pre-registered design, the evidence layer, a second family (2026-10-21 to 2026-10-26)
+## v33 — The pre-registered design, the evidence layer, a second family (2026-10-20 to 2026-10-26)
 
 **Outcome.** The v33 design has no detectable edge on the development period, before or after
 costs, and the evidence layer is consistent with one mechanism: the rule's in-sample edge on its
@@ -3114,14 +3114,14 @@ of only reporting it.
 
 All seven were fixed in `study_config.PROFILES['v33']` before the first v33 run. The first
 registered v33 run (`v33_dev_explore`, 2026-10-20) and the published run carry the same profile
-hash, `d54d21314c22`, so no design field changed after a v33 result was seen.
+hash, `d54d21314c22`, so no field of the study profile changed after a v33 result was seen.
 
 | Field | v32 | v33 | Why |
 |---|---|---|---|
 | Universe | 3,000 largest US stocks by market cap on 2026-10-18, back-filled | Russell 3000 members as held by IWV in SEC N-PORT filings, the snapshot in force at each formation | today's largest names are survivors chosen with hindsight; point-in-time membership makes the survivorship gap measurable |
 | Names searched | 300 most liquid | 500 most liquid | a size at which both strategy families trade the same liquid names |
 | Candidate pairs | any two names | two names in one Fama–French 49 industry | an economic link is the premise of convergence (Do & Faff 2010); fewer tests, more power for the multiple-testing correction |
-| Re-formation | the 2022 pool re-tested every 90 trading days | the whole selection re-run every 126 trading days on the trailing three years | v32's pool could only shrink, and its 126-day re-test could not tell broken pairs from healthy ones |
+| Re-formation | the 2022 pool re-tested every 90 trading days | the whole selection re-run every 126 trading days on the trailing three years | v32's pool could only shrink, and the 126-calendar-day check inside its re-test could not tell broken pairs from healthy ones |
 | Regime gate | VIX and dispersion scaling, hard stop | off (a declared variant) | fitted on windows now inside the test period; it blocked v32's entries on <!--m:study.v32.gate_blocked_days-->248<!--/m--> of <!--m:study.v32.days-->628<!--/m--> days |
 | Ranking | learned classifier | signal strength × pair quality (the learned ranker is a declared variant) | v32's ranker showed no skill after its training window (AUC <!--m:study.v32.ranker_auc|3-->0.514<!--/m-->) |
 | Borrow, financing | 25 bp borrow + 50 bp financing on the short half | one 0.38% fee on the short notional | the two charges double-count the cost of shorting; 0.38% is the median buy-side fee |
@@ -3392,8 +3392,8 @@ the Holm-adjusted 5% level:
 | H2 · S2, Avellaneda–Lee | −1.59% | −0.27 [−2.36, +1.81] | −0.27 | 0.608 | 0.955 | not rejected |
 | S3, v32 (descriptive) | −0.48% | −0.41 [−1.48, +1.30] | −0.50 | 0.690 | — | not tested |
 
-The test had 16% power against a true Sharpe ratio of 1, stated before the run, so this fails to
-falsify the designs without showing that their edge is zero; the one-sided 95% upper bounds are
+The test had 16% power against a true Sharpe ratio of 1, stated before the run, so not rejecting the
+nulls is not evidence that the edge is zero; the one-sided 95% upper bounds are
 1.64 (S1) and 1.38 (S2). Before costs S1 made +0.66% (Sharpe 0.31); it cannot be told from the
 Gatev distance method (difference +0.73, p 0.62) and sits at the 49th percentile of random-pair
 portfolios. The price fetch reached 2,507 of 2,704 point-in-time members (99.1% coverage under the
@@ -3435,3 +3435,38 @@ checked and fixed:
 - *Leftover sealed text.* The page's key figure and hypotheses table, the README's version
   history and an exhibit title in the paper still read as sealed; the README located the registry entry in
   `results/holdout2026/`, and its list of 2026 inputs and of `results/` were incomplete.
+
+**Second review (2026-10-26).** Five more reviewers (development numbers recomputed from
+`results/`, the holdout's statistics against the pre-registration's reporting duties, the paper as a
+document, every claim of process against git, and a skeptical read of the rendered site) reported
+51 findings; a second agent tried to refute each, and 49 were confirmed, about 38 once duplicates
+are merged. All are fixed; none changes a published result or decision:
+
+- *Wrong as printed.* The page's abbreviated price-cache hash ended `c7be` for `a7be`. The paper
+  paired the first fetch's end time with the count after the top-up; it now gives both passes.
+- *Claims stronger than the record.* "Fails to falsify the designs" now says that not rejecting
+  the nulls is not evidence of zero edge. The power note's "before any 2026 daily price was seen"
+  joins the threats row's "stated in advance, from no return dated after 31 December 2025". The
+  walk-forward's alpha rejects zero (t = −2.25), so "the one test that rejects" now names both
+  tests, and the clause on an interval that "just includes zero" names the Sharpe ratio's. The
+  survivorship gap is carried by a few large names but is far rarer among them. The anchoring
+  leaves S1's and S2's dollar volumes with later dividends. The design hash covers the study
+  profile, not the universe rebuild or the anchoring between the two v33 runs.
+- *Disclosures the page and paper lacked.* The loss of the working storage and the rebuilt v32
+  universe file (the rehearsals read `34661d82…`, the holdout `f1acb6a5…`); the record behind
+  "no 2026 daily price fetched", which begins with the first commit (2026-06-12, version 25) and
+  for versions 8 to 24 is the engineering log alone; FINRA short interest, Tiingo's ticker list,
+  SEC filing lists and the 2026 N-PORT headers among the inputs dated 2026; the screener's values
+  as of the close of 2026-10-16 at the latest; S3's own borrow fee and prime-broker spread; that
+  runs before `a1c76db` record the commit at export, not at start; the screen's 300-bar minimum
+  and means; and, in `results/README.md`, that `v32_dev/` has no manifest and that
+  `reference/README.md`'s gap table is dated before the published run.
+- *Stale or ambiguous.* The tense of S3's run and of the 2026 snapshots, the factor truncation in
+  the holdout runs, the promised split measurement, "126-day re-test" (a 126-calendar-day check
+  inside a 90-session re-test), "broader universe" (a wider pair set of fewer names), the funnel's
+  first stage (now the first formation's 2,130 members with prices), the page's "of the requested
+  symbols (2,538)", an "out of sample" label in Exhibit 13, unlabelled ex-post minimum detectable
+  Sharpe ratios, and the footer's source line.
+- *Rendering.* Table captions wider than a phone screen now wrap to the frame; a clipped
+  subtitle in Exhibit 24; dashed legend keys for Exhibit 8's dashed series; a printed copy now
+  shows the code, data and pre-registration URLs; a swallowed semicolon in the paper.

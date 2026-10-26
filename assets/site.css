@@ -185,6 +185,7 @@ h1 { font: 500 39px/1.14 var(--serif); letter-spacing: -.015em; margin: 0 0 14px
 .lg-key.ring { background: transparent !important; border: 2px solid currentColor; }   /* open dot */
 .lg-key.rule { width: 0; height: 12px; border-top: 0; border-left: 2px solid currentColor; }
 .lg-key.dash { border-top-style: dashed; }
+.lg-key.rule.dash { border-left-style: dashed; }
 .ex-chart { position: relative; min-height: 40px; }
 .ex-chart svg { display: block; overflow: visible; max-width: 100%; height: auto; }
 .ex-chart .plot-pane + .plot-pane { margin-top: 6px; }
@@ -233,6 +234,9 @@ html:not(.js) .ex-data, .exhibit.is-pending .ex-data { display: none; }
 .tbl-wrap.is-scrollable { box-shadow: inset -14px 0 10px -12px color-mix(in srgb, var(--ink) 35%, transparent); }
 .tbl { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.45; }
 .tbl caption { caption-side: top; text-align: left; font-size: 13px; color: var(--ink-2); padding: 0 0 8px; }
+/* in a frame narrower than its table, the caption wraps to the frame and stays in view as the table scrolls */
+.tbl-wrap { container-type: inline-size; }
+.tbl-wrap .tbl > caption { position: sticky; left: 0; max-width: 100cqw; }
 .tbl th, .tbl td { padding: 9px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--rule); }
 .tbl thead th { font: 600 11.5px/1.3 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); border-bottom: 1px solid var(--rule-2); white-space: nowrap; }
 .tbl tbody th { font-weight: 500; color: var(--ink); }
@@ -359,7 +363,8 @@ pre { background: var(--sunk); color: var(--ink); border: 1px solid var(--rule);
   h2, h3, .sec > h2 { break-after: avoid; page-break-after: avoid; }
   .tbl-wrap.is-scrollable { box-shadow: none; }
   .tbl-scen tbody th, .tbl-perf tbody th { min-width: 9rem; }
-  .topbar, .toc, .skip, .ex-data, .theme-btn, .mast-links { display: none !important; }
+  .topbar, .toc, .skip, .ex-data, .theme-btn { display: none !important; }
+  .mast-links a[href^="http"]::after, .site-foot a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 9pt; overflow-wrap: anywhere; }
   .page { display: block; padding: 0; max-width: none; }
   .sec { padding-top: 18px; break-before: auto; }
   .exhibit, .kpis, .bottom-line, .tbl-wrap, .manifest, .pending-card { break-inside: avoid; }

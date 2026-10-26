@@ -688,8 +688,8 @@
     return {
       nodes: [wrap],
       legend: [{label: 'Threshold grid', color: '--series-1', kind: 'dot'}, {label: 'Design toggle', color: '--series-3', kind: 'dot'},
-               {label: 'v33 design', color: '--ink', kind: 'dot'}, {label: 'Gatev baseline', color: '--series-2', kind: 'rule'},
-               {label: 'DSR, the variants’ dispersion', color: '--series-1', kind: 'line'}, {label: 'DSR, null trial variance', color: '--ink-2', kind: 'line'}],
+               {label: 'v33 design', color: '--ink', kind: 'dot'}, {label: 'Gatev baseline', color: '--series-2', kind: 'rule dash'},
+               {label: 'DSR, the variants’ dispersion', color: '--series-1', kind: 'line'}, {label: 'DSR, null trial variance', color: '--ink-2', kind: 'line dash'}],
       table: [table('The declared variants by net Sharpe ratio (development period, ' + R.days + ' days), with each one’s Romano–Wolf adjusted p-value against cash and its model-confidence-set p-value.',
         ['Rank', 'Variant', 'Sharpe', 'Return', 'Trades', 'Romano–Wolf p', 'MCS p'], [true, false, true, true, true, true, true],
         sorted.map(function (v) { return [String(v.rank), v.label + (v.base ? ' (v33 design)' : ''), signed(v.sharpe, 2), pct(v.ret_pct), String(v.trades), num(v.rw_p, 3), num(v.mcs_p, 3)]; })),
@@ -1191,7 +1191,10 @@
       var m = /^(\d{4})\D+(\d{4})$/.exec(w.window);
       return m ? '’' + m[1].slice(2) + '→’' + m[2].slice(2) : (c.narrow ? 'Traded' : 'Traded, after');
     };
-    var W = Pd.windows.map(function (w) { return Object.assign({}, w, {k: tick(w)}); });
+    // the anatomy calls the traded pairs' later window "out of sample"; this note keeps that term
+    // for the 2026 test (as in Exhibit 12)
+    var name = function (w) { return /^(\d{4})\D+(\d{4})$/.test(w.window) ? w.window : 'Traded pairs, after formation'; };
+    var W = Pd.windows.map(function (w) { return Object.assign({}, w, {k: tick(w), name: name(w)}); });
     var withBase = W.filter(function (w) { return w.base_pct !== null && w.base_pct !== undefined; });
     var ymax = Math.max.apply(null, W.map(function (w) { return Math.max(w.pct, w.base_pct || 0); }).concat([Pd.chance_pct])) * 1.18;
     var node = plot(c, {
@@ -1203,7 +1206,7 @@
         P.ruleY([Pd.chance_pct], {stroke: c.t.ink3, strokeWidth: 1, strokeDasharray: '4,3'}),
         P.tickY(withBase, {x: 'k', y: 'base_pct', stroke: c.t.ink, strokeWidth: 2}),
         tip(c, W, P.pointerX({x: 'k', y: 'pct', title: function (w) {
-          return w.window + '\n' + num(w.pct, 1) + '% of ' + w.pairs + ' pairs still cointegrated' + (w.base_pct ? '\nbase rate of the next year ' + num(w.base_pct, 1) + '%' : '');
+          return w.name + '\n' + num(w.pct, 1) + '% of ' + w.pairs + ' pairs still cointegrated' + (w.base_pct ? '\nbase rate of the next year ' + num(w.base_pct, 1) + '%' : '');
         }}))]
     });
     return {nodes: [node], label: 'Bars of the share of cointegrated pairs still cointegrated a year later, with ticks at the next year\'s base rate and a line at the 5% chance rate.',
@@ -1211,7 +1214,7 @@
                {label: 'Chance, ' + num(Pd.chance_pct, 0) + '%', color: '--ink-3', kind: 'line dash'}],
       table: table('Cointegration persistence: pairs cointegrated in one year that are cointegrated the next (chance ' + num(Pd.chance_pct, 1) + '%).',
         ['Window', 'Pairs', 'Still cointegrated', 'Next year’s base rate'], [false, true, true, true],
-        W.map(function (w) { return [w.window, String(w.pairs), num(w.pct, 1, {suffix: '%'}), w.base_pct ? num(w.base_pct, 1, {suffix: '%'}) : '–']; }))};
+        W.map(function (w) { return [w.name, String(w.pairs), num(w.pct, 1, {suffix: '%'}), w.base_pct ? num(w.base_pct, 1, {suffix: '%'}) : '–']; }))};
   };
 
   // Exhibit 14: the traded pairs' half-lives, on the formation window and after formation
@@ -1534,8 +1537,8 @@
       ['p, one-sided', function (a) { return pText(a.p_one_sided); }],
       ['p, Holm-adjusted', function (a, d) { return d.tested ? holmP(d.p, d.below, alpha) : 'not tested'; }],
       ['Decision', function (a, d) { return d.text; }],
-      ['Minimum detectable Sharpe, one-sided ' + num(100 * ma, 1) + '%', function (a) { return num(a.mde, 2); }],
-      ['Minimum detectable Sharpe, one test at 5%', function (a) { return num(a.mde_single, 2); }],
+      ['Minimum detectable Sharpe from the arm’s own returns, one-sided ' + num(100 * ma, 1) + '%', function (a) { return num(a.mde, 2); }],
+      ['Minimum detectable Sharpe from the arm’s own returns, one test at 5%', function (a) { return num(a.mde_single, 2); }],
       ['Gross exposure, mean and maximum, % of equity', function (a) {
         var e = a.exposure || {};
         return has(e.avg_pct) && has(e.max_pct) ? num(e.avg_pct, 1) + ' and ' + num(e.max_pct, 1) : '–';
@@ -1708,9 +1711,12 @@
     }
     if (keep.length) {
       var ub = keep.filter(function (x) { return has(x.a.ucb); }), noUb = keep.filter(function (x) { return !has(x.a.ucb); });
-      out.push('Not rejecting a null is not evidence that the edge is zero: with the power stated in advance (below)' +
+      var mdes = keep.filter(function (x) { return has(x.a.mde); });
+      out.push('Not rejecting a null is not evidence that the edge is zero: with the power stated in advance from S1’s development returns (below)' +
         (has(f.ho_mde_025) ? ', the test detects with 80% probability only a Sharpe ratio of about ' + num(f.ho_mde_025, 2) +
-          (has(f.ho_power_1) ? ' (its power against a Sharpe ratio of 1 is ' + num(f.ho_power_1, 0) + '%)' : '') : '') + '.' +
+          (has(f.ho_power_1) ? ' (its power against a Sharpe ratio of 1 is ' + num(f.ho_power_1, 0) + '%)' : '') +
+          (mdes.length ? ', and, from each arm’s own ' + String(H.calendar_start || '2026').slice(0, 4) + ' returns, about ' +
+            listJoin(mdes.map(function (x) { return num(x.a.mde, 2) + ' for ' + armTag(x.a); })) : '') : '') + '.' +
         (ub.length ? ' The one-sided 95% upper bound on the Sharpe ratio is ' + listJoin(ub.map(function (x) { return signed(x.a.ucb, 2) + ' for ' + armTag(x.a); })) +
           (noUb.length ? '; ' + listJoin(noUb.map(function (x) { return armTag(x.a); })) + (noUb.length > 1 ? ' have' : ' has') + ' none' : '') + '.' : ''));
     }
@@ -1866,8 +1872,8 @@
      "done": "and from commit a1c76db of 20 October 2026, five hours after the 2026 calendar was added to the code, the fetch code refused such a request until the registered commit unsealed it;"},
     {"in": "#holdout .lede", "sealed": "The protocol was filed first, on 26 October 2026; each arm then runs once, and its result is published whatever it is.",
      "done": "The protocol was filed first, on 26 October 2026; the runbook then ran the three arms and the evaluation, every attempt is on record (run record, below), and the result is published in full, as the protocol requires."},
-    {"in": "#holdout p.note", "sealed": "The power is stated before any 2026 daily price is seen.",
-     "done": "The power was stated before any 2026 daily price was seen."},
+    {"in": "#holdout p.note", "sealed": "The power is stated in advance, from no return dated after 31 December 2025.",
+     "done": "The power was stated in advance, from no return dated after 31 December 2025."},
     {"in": "#holdout p.note", "sealed": "and not rejecting the null will not show that the edge is zero",
      "done": "and not rejecting the null does not show that the edge is zero"},
     {"in": "#holdout p.note", "sealed": "so the three arms are frozen together and each runs once.",
@@ -2021,7 +2027,7 @@
     var dir = document.createElement('span');
     dir.className = 'dir dir-flat';
     dir.textContent = 'either way';
-    var cells = [[dir], [(days ? days + ' trading days: with' : 'With') + ' returns shaped like the development period\'s, 80% power only against an annual Sharpe ratio of about ' +
+    var cells = [[dir], [(days ? days + ' trading days: with' : 'With') + ' returns shaped like S1’s development returns, 80% power only against an annual Sharpe ratio of about ' +
       num(f.ho_mde_025, 2) + ' at Holm\'s first step, stated in advance; the Newey–West test is asymptotic, and its size at this length is a little above 5% (simulated in the pre-registration); an edge in one arm says nothing about the other'],
       ['Power and size stated in advance, from no return dated after 31 December 2025; each arm\'s one-sided upper bound and minimum detectable Sharpe ratio reported (', {href: '#holdout', text: 'Section 1'}, '); Holm\'s correction across the two tested arms']];
     tr.appendChild(head);
@@ -2065,7 +2071,7 @@
     if (sub && a0.period && a0.period.length === 2) {
       sub.textContent = 'Annualised, with 95% block-bootstrap intervals' + (H.daily ? ', and the cumulative net return by day' : '') + ': ' +
         (has(a0.days) ? a0.days + ' ' : '') + 'daily net returns from ' + dayOf(a0.period[0]) + ' to ' + dayOf(a0.period[1]) +
-        ', the same cost model for every arm; S3, descriptive, dashed';
+        ', the same trading-cost model for every arm (S3 keeps v32’s borrow fee and prime-broker spread); S3, descriptive, dashed';
     }
     if (!written) {
       holdoutTrials(S, H);

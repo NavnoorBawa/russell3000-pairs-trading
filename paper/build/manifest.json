@@ -26,7 +26,7 @@
   "paper/build/figures/validation.svg": "4d36d89589493c18dfddabaa0edee5f326d27660da925b88cbb5c074e3bf2e69",
   "paper/build/figures/walkforward.svg": "a750f525a9c9ec6e60dee078ca11e85b9ef8dec2979db2e11e4b8bb2dcbaf957",
   "paper/build/figures/waterfall.svg": "fc21cdb8125af70b2ffed5536c3bcc9323ed8323ca8b3a8f71cbe573add6bce2",
-  "paper/build/paper_data.json": "6c043d5d84f0f1eb262d488ad04dbe46042c3723e6dcf00034c943e91eed29eb",
+  "paper/build/paper_data.json": "3f3f69dc52921a857eeab063fb35c2643cdbc79c78417c65c4367faaa1098251",
   "paper/fonts/IBMPlexMono-Regular.ttf": "884b41e7d9a8c0da2ab93b4dbb8b40a79d9089d4125c2bcb9e12dccdae68c5d4",
   "paper/fonts/IBMPlexSans-Italic.ttf": "dfb110b92a0c71bfcf84cb40e8e1cb0c37043556a5160bd2d3d910de4faabaf5",
   "paper/fonts/IBMPlexSans-Medium.ttf": "fe65f4a5bfdd7782de90619f60c9e43f846ecb1f9aecffdd8066a5b54d2aae40",
@@ -35,10 +35,10 @@
   "paper/fonts/IBMPlexSerif-Italic.ttf": "d8f43ba4ecefa3c2606a6e608e7f7f1f708e98c5d5e9e4586390e9ea5af148a3",
   "paper/fonts/IBMPlexSerif-Regular.ttf": "cf9b95014c561adb3215a83a2121071db032a9e6482e5064839eb2da7bf08630",
   "paper/fonts/IBMPlexSerif-SemiBold.ttf": "b81d99aed4f0534734303aee4dc606f15e9adc26f37a4b3b1ca8dff65c4e8461",
-  "paper/main.typ": "8166e923de50f0e104b86c40ec9f2a58130f328603ba556d546a6bbd7adf9282",
+  "paper/main.typ": "dfedcdef5e7c885d6c018a00d68705e99f9f38baa4667c0dab963121b5fc0735",
   "paper/references.bib": "5edb9cd2a26fd4f442cda59b3a76a240ac0d70f6a823479a1f437753faf19457"
  },
- "pdf_sha256": "20159f3426d792f6bb63c3631aceb18097349d8ad8e27c9ebb359f8eeafb3d3b",
+ "pdf_sha256": "8fc5c9d32619051f0fd575b4bd533feac3b6c013c84e26746b94ddea707da666",
  "tools": {
   "matplotlib": "3.10.1",
   "typst": "0.15.0"

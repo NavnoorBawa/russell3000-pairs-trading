@@ -283,7 +283,7 @@ def test_main_typ_has_no_hand_typed_results():
     allowed = {
         # design parameters of the strategy and the tests (pairs_trading/, docs/)
         '0.002', '0.05', '0.1', '0.20', '0.25', '0.3', '0.30', '0.4', '0.5', '0.50', '0.55', '0.6', '0.75', '1.0',
-        '1.25', '1.5', '1.8', '1.96', '2.5', '126', '252', '500',
+        '1.25', '1.5', '1.8', '1.96', '2.5', '126', '252', '300', '500',     # 300: the screen's minimum bars
         '0.10',                                          # the Benjamini-Hochberg diagnostic's second level
         '404',                                           # the HTTP status of a symbol the vendor no longer serves
         # published results quoted in the text (Avellaneda and Lee 2010; Almgren et al. 2005;
@@ -293,6 +293,7 @@ def test_main_typ_has_no_hand_typed_results():
     text = _main_typ()
     text = text.replace('Russell 3000', 'Russell')                     # the index's name
     text = re.sub(r':\s*\d+%', ':', text)                              # layout arguments (width: 100%)
+    text = re.sub(r'`[^`\n]*`', '', text)                             # inline code: paths, commits, identifiers
     number = re.compile(r'(?<![\w.#])(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?![\d.]*\s*(?:pt|em|mm|cm|fr|in)\b)(?!\.\d)')
     found = set()
     for m in number.finditer(text):

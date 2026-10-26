@@ -8,7 +8,7 @@ edge per trade, the power of the Sharpe test, the rolling Sharpe, ...) is comput
 once, so the text, the charts and their data tables cannot disagree.
 
 usage:
-    python scripts/build_site_data.py              # results/v33_dev -> assets/study.json
+    python scripts/build_site_data.py              # results/ -> assets/study.json
     python scripts/build_site_data.py --check      # exit 1 if assets/study.json is stale
     python scripts/build_site_data.py --dev results/v32_dev --out /tmp/study.json   # preview
     python scripts/build_site_data.py --dev outputs/my_run --out /tmp/study.json    # preview
@@ -104,7 +104,7 @@ V32_RUN = 'v32_dev'                  # results/v32_dev: the published v32 run, t
 REGISTRY = 'trial_registry.jsonl'    # results/trial_registry.jsonl (scripts/register_trial.py)
 # The registered holdout: 2026-01-02 to 2026-10-19 (study_config.CALENDARS['holdout2026']),
 # 200 sessions on the NYSE's published 2026 holiday schedule. A design value, not a result:
-# the power the holdout has is stated from the development returns before any 2026 price.
+# the power the holdout has is stated from the development returns, no return dated after 2025-12-31.
 HOLDOUT_SESSIONS = 200
 HOLM_FIRST_ALPHA = 0.025             # Holm's first step across the two confirmatory arms
 HOLDOUT_ALTERNATIVES = (1.0, 2.0, 3.0)
@@ -875,7 +875,8 @@ def funnel(res, universe):
     fdr = res.get('fdr_diagnostic') or {}
     traded = len({t['pair'] for t in res.get('all_trades') or []})
     names = [{'stage': 'Names in the universe file', 'n': _get(universe, 'selected')},
-             {'stage': 'Names with price history', 'n': _get(res, 'run_config', 'data', 'n_symbols')}]
+             {'stage': 'Members with price history, first formation',
+              'n': ((res.get('universe_by_formation') or [{}])[0] or {}).get('with_prices')}]
     # The first three stages are the first formation's; the pairs traded come from every
     # formation that governed trading, so that bar is not a share of the stage above it
     # ('separate').
@@ -1462,7 +1463,7 @@ def residual_summary(doc, dates=None):
 
 def v32_section(src, directory):
     """The published v32 run (results/v32_dev): the history this study replaces, and the
-    design that runs frozen and descriptive (S3) in the holdout. Its headline numbers and
+    design that ran frozen and descriptive (S3) in the holdout. Its headline numbers and
     the trade-level figures the comparison quotes (gross and cost per trade, flat days, the
     days the regime gate blocked new entries); None if the directory is absent."""
     directory = pathlib.Path(directory)
@@ -1775,9 +1776,13 @@ def holdout_price_fetch(manifest, calendar=HOLDOUT_CALENDAR, sha256=None, record
         raise HoldoutRecordError(f'results/{HOLDOUT_TRIAL}/{PRICE_MANIFEST} (sha256 {sha256}) is not the price manifest '
                                  f'the attempt record last recorded ({recorded})')
     tops = manifest.get('top_ups') or []
+    # 'requested': every symbol with a fetch outcome, the top-ups' included
     return {'start': manifest.get('start'), 'end': manifest.get('end'), 'fetched_utc': manifest.get('fetched_at'),
             'top_ups': len(tops), 'last_top_up_utc': tops[-1].get('fetched_at') if tops else None,
-            'symbols': len(manifest.get('cached_symbols') or [])}
+            'symbols': len(manifest.get('cached_symbols') or []),
+            'requested': len(manifest['outcomes']) if manifest.get('outcomes') else None,
+            'top_up_attempted': sum(t.get('attempted') or 0 for t in tops),
+            'top_up_fetched': sum(t.get('fetched') or 0 for t in tops)}
 
 
 def holdout_provenance(src, directory, evaluation, registry, attempt_lines, calendar=HOLDOUT_CALENDAR):

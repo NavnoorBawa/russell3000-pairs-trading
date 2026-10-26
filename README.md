@@ -24,8 +24,8 @@ distance method (Sharpe <!--m:benchmarks.gatev.sharpe-->−0.80<!--/m-->) and fr
 same rule started in February 2023, the walk-forward, lost money:
 Sharpe <!--m:oos.pooled_sharpe-->−1.04<!--/m-->, one-sided 95% upper
 bound <!--m:study.dev.facts.oos_ucb-->−0.15<!--/m-->, eight-factor alpha t
-= <!--m:study.dev.facts.ff_alpha_oos_t-->−2.25<!--/m-->, though its two-sided interval just includes
-zero; <!--m:oos.windows_positive-->4<!--/m--> of <!--m:oos.windows-->11<!--/m--> quarterly windows
+= <!--m:study.dev.facts.ff_alpha_oos_t-->−2.25<!--/m-->, though the Sharpe ratio's two-sided
+bootstrap interval (<!--m:significance.oos_daily.boot_lo-->−2.09<!--/m--> to <!--m:significance.oos_daily.boot_hi-->+0.05<!--/m-->) just includes zero; <!--m:oos.windows_positive-->4<!--/m--> of <!--m:oos.windows-->11<!--/m--> quarterly windows
 were positive (mean <!--m:oos.avg_window_return_pct-->−0.58%<!--/m--> per window, p
 = <!--m:significance.oos_windows.p-->0.096<!--/m-->).
 
@@ -97,7 +97,7 @@ mismatch; `--write` fills them).
 | Percentile among <!--m:benchmarks.random_control.n_draws-->200<!--/m--> random-pair portfolios | <!--m:benchmarks.random_control.strategy_percentile-->37<!--/m--> | <!--m:study.v32.random_percentile-->28<!--/m--> |
 | Second family (Avellaneda–Lee): net Sharpe [95%] | <!--m:study.residual.sharpe-->−0.28<!--/m--> [<!--m:study.residual.lo-->−1.47<!--/m-->, <!--m:study.residual.hi-->+0.93<!--/m-->] | not run |
 
-v32 is kept as the published record and runs frozen, without a test, as the descriptive arm
+v32 is kept as the published record and ran frozen, without a test, as the descriptive arm
 of the holdout. The v33 design changed seven fields of v32, each made after v32's development
 results on this same period were seen and fixed before any v33 run: point-in-time index
 membership instead of today's largest stocks, the 500 most liquid names instead of 300, pairs within one Fama–French 49 industry, a full re-selection every 126
@@ -131,8 +131,8 @@ null apart trade by trade, from the committed run:
   formation half-life <!--m:study.dev.facts.er_ou_expected-->121.0<!--/m-->. Of the traded pairs'
   half-lives after formation, <!--m:study.dev.facts.hl_oos_above_max_pct-->60.8<!--/m-->% exceed
   the rule's 25-day maximum.
-- **Cointegration persists only at the base rate.** On a broader universe than v33's (the 300 most
-  liquid names of 2022, any industry, one-year windows),
+- **Cointegration persists only at the base rate.** On a wider pair set than v33's (every pair of the 300
+  most liquid names of 2022, any industry, one-year windows),
   of <!--m:study.dev.facts.pers_of-->7,334<!--/m--> pairs cointegrated in one year of
   2020–2024, <!--m:study.dev.facts.pers_count-->370<!--/m--> were cointegrated the next,
   against <!--m:study.dev.facts.pers_expected-->403.4<!--/m--> at that year's base rate, itself
@@ -157,7 +157,11 @@ null apart trade by trade, from the committed run:
 [`docs/PREREGISTRATION.md`](https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5/docs/PREREGISTRATION.md),
 was committed alone and pushed as commit `7c7d3f9` before any daily price history of a security
 for dates after 2025-12-31 was fetched into the project (network checks that asked for one stock's
-five-day chart discarded the answer unread). `scripts/run_holdout.sh` then ran every arm once from
+five-day chart discarded the answer unread). The record that no such price history was fetched begins with the
+repository's first commit (2026-06-12, version 25): every committed version of the fetch code ended its
+requests at 2025-12-31 until the 2026 calendar was added. Versions 8 to 24, developed from
+2026-02-20, left no code or session logs; only the engineering log covers them, and it records
+their price data ending on 2025-12-30. `scripts/run_holdout.sh` then ran every arm once from
 a fresh full clone at that commit, in one attempt. The exports, the evaluation, the membership,
 the price-fetch manifest and the logs are in `results/holdout2026/`; the attempt's lines are in
 `results/trial_attempts.jsonl` and the trial's registry entry, `holdout2026`, is in
@@ -172,7 +176,7 @@ the price-fetch manifest and the logs are in `results/holdout2026/`; the attempt
 Over the <!--m:study.holdout.arms.0.days-->200<!--/m--> trading days from 2026-01-02 to
 2026-10-19 neither tested arm earns a mean daily net return distinguishable from zero. The test
 had <!--m:study.dev.facts.ho_power_1-->16<!--/m-->% power against a true Sharpe ratio of 1,
-stated before the run, so this is a failure to falsify, not evidence of zero edge: it rules out
+stated before the run, so not rejecting the nulls is not evidence of zero edge: the test rules out
 Sharpe ratios above <!--m:study.holdout.arms.0.ucb-->1.64<!--/m--> for S1
 and <!--m:study.holdout.arms.1.ucb-->1.38<!--/m--> for S2 (one-sided 95% bounds).
 
@@ -183,10 +187,11 @@ cannot be sealed. The
 2026 information the project did receive (each security's latest price and 52-week high and low
 in the price vendor's responses, the market values and last sale prices of the stock screener
 behind the v32 universe file, identity data, factor files that include the short-term reversal
-factor, and the rate, VIX and industry series, ETF pages and index changes that surveys of free
+factor, and the rate, VIX and industry series, ETF pages, index changes, short-interest and ticker
+lists that surveys of free
 data sources downloaded) is listed under Known limitations and in the pre-registration. The
-project's working storage, caches and raw downloads included, was lost on 2026-10-22 when its
-container was recycled; the pre-registration says what was lost and how the one untracked input
+project's working storage, caches and raw downloads included, was lost when its
+container was recycled, by 2026-10-22 at 17:29 UTC; the pre-registration says what was lost and how the one untracked input
 the holdout reads, the v32 universe file, was rebuilt with the same symbols.
 
 | Arm | Strategy | Role |
@@ -196,7 +201,7 @@ the holdout reads, the v32 universe file, was rebuilt with the same symbols.
 | S3 | v32 as published, frozen | reported, tested in no family (its universe is ranked on market values inside 2026) |
 
 Test: one-sided Newey–West t on the daily net returns, Holm-adjusted across H1 and H2 at a
-familywise 5%. Power, stated in advance from the development returns' shape: a test at Holm's first
+familywise 5%. Power, stated in advance from the shape of S1's development returns: a test at Holm's first
 step detects with 80% probability only an annualised Sharpe ratio of
 about <!--m:study.dev.facts.ho_mde_025-->2.96<!--/m-->,
 with <!--m:study.dev.facts.ho_power_1-->16<!--/m-->% power against a true Sharpe of 1. The holdout
@@ -233,7 +238,7 @@ PYTHON=.venv/bin/python bash scripts/run_dev_studies.sh main anatomy     # or an
 PYTHONHASHSEED=0 .venv/bin/python scripts/robustness_checks.py
 
 # the site's data, and the check of every marked number in README.md and index.html
-.venv/bin/python scripts/build_site_data.py              # results/v33_dev -> assets/study.json
+.venv/bin/python scripts/build_site_data.py              # results/ -> assets/study.json
 .venv/bin/python scripts/check_published_numbers.py      # against results/v33_dev/headline_metrics.json
 
 # the pre-registered 2026 test: once, from a full clone at the registered commit
@@ -314,8 +319,8 @@ and size.
   was filed, and the project was developed during it; the designers' general knowledge of 2026
   markets cannot be sealed.
 - **The 2026 test is short, and tests two arms.** Over
-  its <!--m:study.holdout.arms.0.days-->200<!--/m--> trading days, with returns shaped like the
-  development period's, it has 80% power only against an annual Sharpe ratio of
+  its <!--m:study.holdout.arms.0.days-->200<!--/m--> trading days, with returns shaped like S1's
+  development returns, it has 80% power only against an annual Sharpe ratio of
   about <!--m:study.dev.facts.ho_mde_025-->2.96<!--/m--> at Holm's first step, stated in advance;
   the Newey–West test is asymptotic, and its size at this length is a little above 5% (simulated
   in the pre-registration); an edge in one arm would say nothing about the other.
@@ -339,16 +344,18 @@ and size.
   deleted); and adjusted price levels carry 2026 corporate actions. The stock screener behind the
   v32 universe file also gave each stock's last sale price and volume; surveys of free data
   sources downloaded daily VIX, rate and spread series to October 2026, French industry returns to
-  August 2026, the ETF's product pages and index changes; and one survey asked for 300 stocks' 2026
-  monthly charts to list their splits. A few of these values were displayed while files were
+  August 2026, the ETF's product pages and index changes, FINRA short interest to 2026-09-30, Tiingo's ticker
+  list with each ticker's last price date and SEC filing lists; and one survey asked for 300 stocks'
+  2026 monthly charts to list their splits. The EDGAR list of IWV's N-PORT filings and the header
+  pages of its two 2026 reports were downloaded too. A few of these values were displayed while files were
   checked, and every such file was deleted, or lost with the working storage, before the filing.
   Two rules of the industry map use 2026 information (a ticker missing from the SEC's 2026 company
   list has no industry; a name first held in 2026 needs to be among the 3,000 largest of 18 October
   2026); they are disclosed in the pre-registration. None of these inputs is a 2026 daily price
   history of a traded security, factors are truncated at each calendar's end, and no strategy
   reads the factors, rates or survey files; the direction is that they may flatter the holdout.
-- **The frozen v32 arm's universe looks ahead into 2026.** It is ranked on market values of
-  18 October 2026, which is why S3 is descriptive only.
+- **The frozen v32 arm's universe looks ahead into 2026.** It is ranked on market values downloaded on
+  18 October 2026 (the close of 16 October at the latest), which is why S3 is descriptive only.
 - **Renamed securities can look delisted.** A ticker change with a new CUSIP is remapped through
   N-PORT's reported tickers, issuer successions and price checks.
 - **Borrow is one fee for every name.** Specials and recalls are not modelled; 1% and 3% stress

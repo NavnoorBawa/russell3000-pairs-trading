@@ -180,7 +180,7 @@
   ],
   [
    6,
-   "Every bootstrap interval spans zero, gross or net, in both families; the main backtest excludes Sharpe ratios above 0.92, and the walk-forward's one-sided bound is below zero",
+   "Every development-period bootstrap interval spans zero, gross or net, in both families; the main backtest excludes Sharpe ratios above 0.92, and the walk-forward's one-sided bound is below zero",
    "ex-forest"
   ],
   [
@@ -275,7 +275,7 @@
   ],
   [
    25,
-   "The survivorship gap, measured: index weight without price history falls from 3.33% at the first formation to 1.08% at the last",
+   "The survivorship gap, measured: index weight without price history or a usable ticker falls from 3.33% at the first formation to 1.08% at the last",
    "ex-universe"
   ],
   [
@@ -323,6 +323,7 @@
   "ho_crash_fix": false,
   "ho_daily": true,
   "ho_failed": false,
+  "ho_fetch_topped": true,
   "ho_h1_edge": false,
   "ho_h2_edge": false,
   "ho_period_matches": true,
@@ -442,6 +443,8 @@
   "paper.ho.run.environment": "1",
   "paper.ho.run.fetch_symbols": "3,015",
   "paper.ho.run.fetched": "2026-10-26 10:20 UTC",
+  "paper.ho.run.first_ok": "2,507",
+  "paper.ho.run.first_requested": "2,704",
   "paper.ho.run.logs": "7",
   "paper.ho.run.logs_phrase": "seven files: six step logs, one environment listing and no crash-fix diff",
   "paper.ho.run.n_attempts": "1",
@@ -449,10 +452,14 @@
   "paper.ho.run.n_unfinished": "0",
   "paper.ho.run.registered": "7c7d3f904ec6",
   "paper.ho.run.registered_long": "26 October 2026",
+  "paper.ho.run.requested": "3,346",
   "paper.ho.run.started": "2026-10-26 10:06 UTC",
   "paper.ho.run.step_logs": "6",
+  "paper.ho.run.top_up_attempted": "642",
+  "paper.ho.run.top_up_ok": "508",
   "paper.ho.run.top_ups": "1",
   "paper.ho.run.top_ups_phrase": "one top-up",
+  "paper.ho.run.top_ups_when": "one top-up, at 2026-10-26 10:21 UTC",
   "paper.ho.run.until": "2026-10-26 10:27 UTC",
   "paper.ho.s1.days": "200",
   "paper.ho.s1.days_open": "198",
@@ -1152,7 +1159,7 @@
   "headline_sha256": "b09f239032db62196602447e8d1d780286b5c2674e8e85d02062beab946d0fb1",
   "paper_date": "2026-10-26",
   "run_dir": "results/v33_dev",
-  "study_sha256": "cce85c433baefe94e1525da03d556ceb9affcee35918aa061bc42504993627c1",
+  "study_sha256": "9aa22e3613a3ddcc52846eb35321443730c3ed279f4d9e18e985a04eda20b4fa",
   "universe_index_sha256": "2afd0cb6a7a7b79e08e6d45a5fc78f7ac6d43903c3cafbde1a042bf048883c3c"
  },
  "pending": {},
@@ -1250,7 +1257,7 @@
   "design": [
    [
     "Universe",
-    "The 3,000 largest US common stocks by market cap on 18 October 2026, back-filled to 2020",
+    "The 3,000 largest US common stocks by market cap as downloaded on 18 October 2026 (the close of 16 October at the latest), back-filled to 2020",
     "Russell 3000 members as held by the iShares Russell 3000 ETF in its SEC N-PORT filings, the snapshot in force at each formation",
     "Today's largest names are survivors chosen with hindsight; point-in-time membership removes that look-ahead and makes the survivorship gap a measured quantity"
    ],
@@ -1270,7 +1277,7 @@
     "Re-formation",
     "The 2022 pool re-tested every 90 trading days; pairs can drop out, none can enter",
     "The whole selection re-run every 126 trading days on the trailing three years",
-    "A pool that can only shrink goes stale, and v32's 126-day re-test had too little power to tell broken pairs from healthy ones; re-forming on a schedule is Gatev's formation-and-trading cycle"
+    "A pool that can only shrink goes stale, and the 126-calendar-day (about 87-session) check inside v32's re-test had too little power to tell broken pairs from healthy ones; re-forming on a schedule is Gatev's formation-and-trading cycle"
    ],
    [
     "Regime gate",
@@ -1662,11 +1669,11 @@
    ],
    [
     "Site data",
-    "assets/study.json, sha256 cce85c433baefe94e1525da03d556ceb9affcee35918aa061bc42504993627c1"
+    "assets/study.json, sha256 9aa22e3613a3ddcc52846eb35321443730c3ed279f4d9e18e985a04eda20b4fa"
    ],
    [
     "Universe",
-    "IWV N-PORT snapshots (reference/universe/); price history for 82.2% of the requested symbols (2,538), 14.2% no longer served (HTTP 404); fetch-coverage rule met at 98.8%"
+    "IWV N-PORT snapshots (reference/universe/); price history for 2,538 symbols (82.2% of those requested); 14.2% no longer served (HTTP 404); fetch-coverage rule met at 98.8%"
    ],
    [
     "Fetch manifest",
@@ -2340,13 +2347,13 @@
    ],
    [
     "index.html",
-    "9f2e4c04e86207f9339db916428d0c4cbf8c4b0d5c143278b33d3ebb5b888367"
+    "4e79ae4b191d5e26eb3ef659b2481089d611b6de8607a16ef98493db568e769a"
    ]
   ],
   "spec": [
    [
     "Universe",
-    "Russell 3000 members as held by the iShares Russell 3000 ETF (IWV), from its quarterly SEC N-PORT filings: the latest snapshot whose period ends on or before each formation date, used from its period date, about two months before the filing was public (IWV's holdings stand in for the index membership FTSE Russell had already published). Holdings mapped to tickers with OpenFIGI and checked against N-PORT's own value per share. Daily prices 2020–2025: price history for 82.2% of the requested symbols; 14.2% no longer served by the vendor (HTTP 404) and 3.6% failed the fetch or the data checks; the fetch-coverage rule, which counts 404s and failed data checks as resolved, is met at 98.8%. Screens on point-in-time price (at least $5, anchored to N-PORT) and dollar volume (at least $10M a day), volatility and missing data; the 500 most liquid enter the pair search."
+    "Russell 3000 members as held by the iShares Russell 3000 ETF (IWV), from its quarterly SEC N-PORT filings: the latest snapshot whose period ends on or before each formation date, used from its period date, about two months before the filing was public (IWV's holdings stand in for the index membership FTSE Russell had already published). Holdings mapped to tickers with OpenFIGI and checked against N-PORT's own value per share. Daily prices 2020–2025: price history for 82.2% of the requested symbols; 14.2% no longer served by the vendor (HTTP 404) and 3.6% failed the fetch or the data checks; the fetch-coverage rule, which counts 404s and failed data checks as resolved, is met at 98.8%. Screens on the window's length (at least 300 bars), mean point-in-time price (at least $5, anchored to N-PORT) and mean dollar volume (at least $10M a day), volatility and missing data; the 500 most liquid enter the pair search."
    ],
    [
     "Selection",

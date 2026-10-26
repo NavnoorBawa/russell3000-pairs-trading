@@ -338,7 +338,7 @@ def holdout_power(daily_net_pct, days=HOLDOUT_DAYS):
     At HOLM_FIRST_ALPHA (the level the better of the two confirmatory arms must reach) and
     at 5%, for two return shapes: the development returns' (skew, non-excess kurtosis,
     lag-1 autocorrelation; the non-normal AR(1) variance of pairs_trading.power) and
-    i.i.d. normal returns. Stated before any 2026 price is seen.
+    i.i.d. normal returns. Stated in advance, from no return dated after 2025-12-31.
     """
     r = np.asarray(daily_net_pct, dtype=float) / 100.0
     rep = pw.power_report(r, periods=PERIODS)
@@ -641,6 +641,13 @@ def holdout_derived(H):
                            if R.get('logs') else None,
             'fetched': _utc(fetch.get('fetched_utc')), 'fetch_symbols': fetch.get('symbols'),
             'top_ups': fetch.get('top_ups'), 'top_ups_phrase': _count(fetch.get('top_ups'), 'top-up'),
+            # the first fetch, then the top-ups ('one top-up, at ...'; 'two top-ups, the last at ...')
+            'requested': fetch.get('requested'),
+            'first_requested': (fetch['requested'] - (fetch.get('top_up_attempted') or 0)) if fetch.get('requested') else None,
+            'first_ok': (fetch['symbols'] - (fetch.get('top_up_fetched') or 0)) if fetch.get('symbols') is not None else None,
+            'top_up_attempted': fetch.get('top_up_attempted'), 'top_up_ok': fetch.get('top_up_fetched'),
+            'top_ups_when': (f"{_count(fetch['top_ups'], 'top-up')}, {'at' if fetch['top_ups'] == 1 else 'the last at'} "
+                             f"{_utc(fetch.get('last_top_up_utc'))}") if fetch.get('top_ups') else None,
         },
         'why': why,
     })
@@ -1059,10 +1066,11 @@ _HO_TESTED = {'p_holm_text': 'str', 'p_holm_rel': 'str'}
 _HO_RUN = {
     'n_attempts': '.0', 'n_failed': '.0', 'n_unfinished': '.0', 'crash_fix_insertions': '.0',
     'crash_fix_deletions': '.0', 'logs': '.0', 'step_logs': '.0', 'environment': '.0', 'diffs': '.0',
-    'fetch_symbols': ',.0', 'top_ups': '.0',
+    'fetch_symbols': ',.0', 'top_ups': '.0', 'requested': ',.0', 'first_requested': ',.0', 'first_ok': ',.0',
+    'top_up_attempted': ',.0', 'top_up_ok': ',.0',
     **{k: 'str' for k in ('commit', 'registered', 'attempts_phrase', 'started', 'completed', 'until',
                           'registered_long', 'crash_fix', 'crash_fix_diff', 'crash_fix_sha', 'crash_fix_files',
-                          'fetched', 'logs_phrase', 'top_ups_phrase')},
+                          'fetched', 'logs_phrase', 'top_ups_phrase', 'top_ups_when')},
 }
 HOLDOUT_METRICS = {
     **{f'paper.ho.{sid}.{k}': v for _, hyp, sid, _ in HOLDOUT_ARMS
@@ -1440,6 +1448,7 @@ def holdout_flags(H, ho):
            'ho_unfinished': R['n_unfinished'] > 0, 'ho_completed': bool(R['completed_utc']),
            'ho_all_attempts_at_registered_commit': all(x['at_registered_commit'] for x in R['attempts']),
            'ho_clean': R['clean'] is True, 'ho_price_fetch': R.get('price_fetch') is not None,
+           'ho_fetch_topped': bool((R.get('price_fetch') or {}).get('top_ups')),
            'ho_unnamed_diffs': any(not d.get('attempts') for d in R.get('crash_fix_diffs') or [])}
     for key, _, sid, _ in HOLDOUT_ARMS:
         a = arms[key]
@@ -1669,7 +1678,7 @@ def tables(data, m):
                 ['Headline JSON', f"{data['_headline_path']}, sha256 {study['meta']['headline_sha256']}"],
                 ['Site data', f"assets/study.json, sha256 {data['_study_sha256']}"],
                 ['Universe', f"IWV N-PORT snapshots (reference/universe/); price history for "
-                             f"{m['study.dev.facts.cached_pct']} of the requested symbols ({m['paper.names_prices']}), "
+                             f"{m['paper.names_prices']} symbols ({m['study.dev.facts.cached_pct']} of those requested); "
                              f"{m['study.dev.facts.not_found_pct']} no longer served (HTTP 404); fetch-coverage rule "
                              f"met at {m['study.dev.facts.coverage_pct']}"],
                 ['Fetch manifest', f"{P['run_dir']}/price_fetch_manifest.json"],
@@ -1685,8 +1694,9 @@ def tables(data, m):
     v32 = study.get('v32') or {}
     pv32, pv33 = PROFILES['v32'], PROFILES[P['design']]
     design_rows = [
-        ['Universe', f"The {m['paper.v32_universe_selected']} largest US common stocks by market cap on "
-                     f"{P['v32_universe_as_of_long']}, back-filled to {P['data_first_year']}",
+        ['Universe', f"The {m['paper.v32_universe_selected']} largest US common stocks by market cap as downloaded on "
+                     f"{P['v32_universe_as_of_long']} (the close of 16 October at the latest), back-filled to "
+                     f"{P['data_first_year']}",
          'Russell 3000 members as held by the iShares Russell 3000 ETF in its SEC N-PORT filings, the snapshot '
          'in force at each formation',
          "Today's largest names are survivors chosen with hindsight; point-in-time membership removes that "
@@ -1700,7 +1710,8 @@ def tables(data, m):
                          'pairs can drop out, none can enter',
          f'The whole selection re-run every {pv33.reselect_every} trading days on the trailing '
          f'{word(pv33.formation_calendar_days // 365)} years',
-         "A pool that can only shrink goes stale, and v32's 126-day re-test had too little power to tell broken "
+         "A pool that can only shrink goes stale, and the 126-calendar-day (about 87-session) check inside v32's re-test "
+         "had too little power to tell broken "
          "pairs from healthy ones; re-forming on a schedule is Gatev's formation-and-trading cycle"],
         ['Regime gate', 'VIX and sector-dispersion scaling, with a hard stop on new entries',
          'Off (a declared variant)',
@@ -1773,8 +1784,8 @@ def tables(data, m):
                      f"{m['study.dev.facts.not_found_pct']} no longer served by the vendor (HTTP 404) and "
                      f"{m['study.dev.facts.fetch_other_pct']} failed the fetch or the data checks; the fetch-coverage "
                      f"rule, which counts 404s and failed data checks as resolved, is met at "
-                     f"{m['study.dev.facts.coverage_pct']}. Screens on "
-                     f"point-in-time price (at least $5, anchored to N-PORT) and dollar volume (at least $10M a day), "
+                     f"{m['study.dev.facts.coverage_pct']}. Screens on the window's length (at least 300 bars), "
+                     f"mean point-in-time price (at least $5, anchored to N-PORT) and mean dollar volume (at least $10M a day), "
                      f"volatility and missing data; the {pv33.max_universe} most liquid enter the pair search."],
         ['Selection', f"Pairs within one Fama–French 49 industry (SEC SIC codes); positive return correlation ≥ 0.25; "
                       f"two-direction Engle–Granger p < 0.05 (Bonferroni across directions); half-life 4–25 days on "
