@@ -87,7 +87,14 @@
       head.className = 'toc-sheet-h';
       head.textContent = 'Contents';
       sheet.appendChild(head);
-      sheet.appendChild(list.cloneNode(true));
+      // the contents' groups and lists, with the group ids renamed so they stay unique
+      document.querySelectorAll('.toc .toc-g, .toc ol').forEach(function (el) {
+        var c = el.cloneNode(true);
+        if (c.id) c.id = 'sheet-' + c.id;
+        var by = c.getAttribute('aria-labelledby');
+        if (by) c.setAttribute('aria-labelledby', 'sheet-' + by);
+        sheet.appendChild(c);
+      });
       document.body.appendChild(sheet);
       where.popoverTargetElement = sheet;
       sheet.addEventListener('click', function (e) { if (e.target.closest('a')) sheet.hidePopover(); });
@@ -141,7 +148,7 @@
 
   // ── permalinks: a section, exhibit or table link copies its address ──────
   document.addEventListener('click', function (e) {
-    var a = e.target.closest && e.target.closest('a.anchor, a.ex-label');
+    var a = e.target.closest && e.target.closest('a.anchor, a.ex-label, a.secno');
     if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || !navigator.clipboard) return;   // the link still navigates
     var url = location.origin + location.pathname + a.hash;
     navigator.clipboard.writeText(url).then(function () { say('Link copied: ' + url); }, function () { /* not allowed: the address bar has it */ });
@@ -359,6 +366,11 @@
   var holding = null;
   function hold(el, ms) {
     if (!el) return;
+    // a target in (or that is) a closed disclosure opens it, so the link shows what it names
+    for (var d = el; d; d = d.parentElement && d.parentElement.closest('details')) {
+      if (d.tagName === 'DETAILS' && !d.open) d.open = true;
+      if (!d.parentElement) break;
+    }
     if (holding) cancelAnimationFrame(holding.frame);
     var since = Date.now(), until = since + (ms || 1600);
     var pad = parseFloat(getComputedStyle(root).scrollPaddingTop) || 0;

@@ -2048,10 +2048,10 @@
     var alpha = holdoutAlpha(H);
     var words = holdoutWords(S, H);
     if (!written) holdoutText(words);
-    var verdict = document.querySelector('.bottom-line .verdict');
+    var verdict = document.querySelector('.findings-head .verdict');
     if (verdict && words.verdict) {
       verdict.textContent = words.verdict;
-      if (verdict.closest('.bl-head')) verdict.closest('.bl-head').classList.add('is-result');
+      verdict.parentElement.classList.add('is-result');
     }
     var pill = document.querySelector('#h-holdout .status-pill');
     if (pill) pill.replaceChildren(document.createTextNode('Complete'));
