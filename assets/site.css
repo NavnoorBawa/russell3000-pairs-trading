@@ -157,6 +157,14 @@ h1 { font: 500 39px/1.14 var(--serif); letter-spacing: -.015em; margin: 0 0 14px
 .kpi.is-pending { background: var(--sunk); }
 .kpi.is-pending .kpi-value { font-size: 20px; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
 .kpi.is-pending .ico { width: 18px; height: 18px; }
+/* the evaluated holdout (exhibits.js fills these in place of the sealed text) */
+.kpi-value.is-text { font-size: 20px; color: var(--ink-2); }
+.kpi-sub + .kpi-sub { margin-top: 6px; }
+.ho-note strong { color: var(--ink); font-weight: 600; }
+.ho-result { color: var(--ink); }
+.tbl-holdout tbody th { white-space: nowrap; }
+.bl-head.is-result { flex-wrap: wrap; }
+.bl-head.is-result .verdict { white-space: normal; text-align: left; line-height: 1.25; }
 
 /* ── exhibits ─────────────────────────────────────────────────────────────── */
 .exhibit { margin: 8px 0 44px; padding-top: 14px; border-top: 1px solid var(--rule); position: relative; min-width: 0; }
@@ -184,6 +192,7 @@ h1 { font: 500 39px/1.14 var(--serif); letter-spacing: -.015em; margin: 0 0 14px
 .ex-chart svg text { font-variant-numeric: tabular-nums; }
 .ex-chart g[aria-label="tip"] text { fill: var(--ink); }
 .ex-nojs, .ex-error { font-size: 14px; color: var(--ink-2); padding: 18px 0; }
+.ex-note { font-size: 13.5px; line-height: 1.5; color: var(--ink-2); margin-top: 10px; max-width: 80ch; }
 html.js .ex-nojs { display: none; }
 .ex-foot { margin-top: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
 .ex-foot p { overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; color: var(--ink-2); max-width: 96ch; }
@@ -264,6 +273,7 @@ html:not(.js) .ex-data, .exhibit.is-pending .ex-data { display: none; }
 .tl-wf { fill: var(--series-1); opacity: .55; }
 .tl-main { fill: var(--series-1); }
 .tl-hold { fill: none; stroke: var(--series-3); stroke-width: 1.5; }
+.tl-hold.is-done { fill: var(--series-3); }
 
 /* ── reproduce, history, footer ───────────────────────────────────────────── */
 .repro { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 32px; align-items: start; }
@@ -310,7 +320,7 @@ pre { background: var(--sunk); color: var(--ink); border: 1px solid var(--rule);
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpi { padding: 12px 12px 14px; }
   .kpi-value { font-size: 24px; }
-  .kpi.is-pending .kpi-value { font-size: 17px; }
+  .kpi.is-pending .kpi-value, .kpi-value.is-text { font-size: 17px; }
   .toc ol { columns: 1; }
   .ex-grid, .ex-pair, .repro { grid-template-columns: minmax(0, 1fr); }
   .ex-title { font-size: 16.5px; }

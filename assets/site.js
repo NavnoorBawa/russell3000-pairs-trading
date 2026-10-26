@@ -184,6 +184,11 @@
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (data) {
         study = data;
+        // once the holdout is evaluated, its text (status, key figure, hypotheses table, result
+        // and run record) replaces the sealed text; while it is sealed this changes nothing
+        if (window.ExhibitPage) {
+          try { window.ExhibitPage.holdout(study); } catch (err) { console.error('The holdout text could not be filled: ' + err.message); }
+        }
         redrawAll();
         // label room is measured in the web font: draw again once it has loaded, if it had not
         if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(redrawAll);

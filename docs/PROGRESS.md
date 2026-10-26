@@ -3375,3 +3375,34 @@ overstatements; every fix uses the committed data.
   and in the input pin and its description. The site, README and paper now say the protocol is
   filed. The site's and paper's tables for the result are written after the result: the paper's
   builder stops on an evaluated holdout until they are.
+
+### The 2026 holdout (2026-10-26)
+
+`scripts/run_holdout.sh` ran once, from a fresh full clone at the registered commit `7c7d3f9`, from
+10:06 to 10:27 UTC, every step in one attempt (results in `results/holdout2026/`, committed at
+`c4930fd`). Over the 200 trading days from 2026-01-02 to 2026-10-19, neither null is rejected at
+the Holm-adjusted 5% level:
+
+| Arm | Net return | Net Sharpe [95% interval] | t | One-sided p | Holm p | Decision |
+|---|---:|---:|---:|---:|---:|---|
+| H1 · S1, v33 pairs | +0.08% | +0.05 [−1.81, +1.83] | 0.06 | 0.478 | 0.955 | not rejected |
+| H2 · S2, Avellaneda–Lee | −1.59% | −0.27 [−2.36, +1.81] | −0.27 | 0.608 | 0.955 | not rejected |
+| S3, v32 (descriptive) | −0.48% | −0.41 [−1.48, +1.30] | −0.50 | 0.690 | — | not tested |
+
+The test had 16% power against a true Sharpe ratio of 1, stated before the run, so this fails to
+falsify the designs without showing that their edge is zero; the one-sided 95% upper bounds are
+1.64 (S1) and 1.38 (S2). Before costs S1 made +0.66% (Sharpe 0.31); it cannot be told from the
+Gatev distance method (difference +0.73, p 0.62) and sits at the 49th percentile of random-pair
+portfolios. The price fetch reached 2,507 of 2,704 point-in-time members (99.1% coverage under the
+registered rule); the members without prices hold 0.80% to 0.84% of the index weight at each
+formation.
+
+**Publication.** The site and paper builders for an evaluated holdout were rewritten after the
+loss of the working storage, while the holdout ran, by agents that could not read its clone or
+log, and tested on the 2025 dress rehearsal as a stand-in in 28 outcome variants (either or both
+nulls rejected, an arm without trades, a crash-fix attempt, a Holm p at the level, and others); a
+review of four lenses confirmed 20 findings, all fixed. They are committed after the result, as the
+pre-registration says. `assets/study.json` carries the evaluation, the decision, the run record and
+the daily paths, and stops the build if they contradict each other or the registry. The page now
+carries the evaluated wording itself (`index.html`, `data-holdout="complete"`), and every holdout
+number on it and in the README is a checked marker.

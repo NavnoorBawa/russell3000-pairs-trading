@@ -78,7 +78,7 @@ ranks <!--m:study.dev.facts.start_common_rank-->3<!--/m-->rd
 (median <!--m:study.dev.facts.start_common_sharpe_median-->−0.47<!--/m-->).
 The pre-registered falsification test on 2026 data,
 with <!--m:study.dev.facts.ho_power_1-->16<!--/m-->% power against a true Sharpe ratio of 1, is
-filed on 2026-10-26 and runs once from the registered commit.
+run once on 2026-10-26: neither tested arm rejects zero (H1 Holm p <!--m:study.holdout.arms.0.p_holm-->0.955<!--/m-->).
 
 Every number in this file and on the page is a marker checked against the run's headline JSON
 or the site data built from it (`python scripts/check_published_numbers.py`, which fails on any
@@ -152,18 +152,31 @@ null apart trade by trade, from the committed run:
 
 ## The pre-registered 2026 test
 
-**Status: filed, not yet run.** The pre-registration, [`docs/PREREGISTRATION.md`](https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5/docs/PREREGISTRATION.md), was
-committed and pushed on 2026-10-26 (commit `7c7d3f9`). No daily price history of any security for
-dates after 2025-12-31 was fetched into the project's code, caches or files (network checks that
-asked for one stock's five-day chart discarded the answer unread), and the fetch code refuses such
-a request (`study_config.assert_unsealed`) unless `PAIRS_UNSEAL` names the registered commit; the
-commitment is that only the runbook sets it. `scripts/run_holdout.sh` runs each arm once from that
-commit on the <!--m:study.dev.facts.ho_days-->200<!--/m--> trading days from
-2026-01-02 to 2026-10-19, records every attempt, and publishes the result whatever it is.
+**Status: run once, on 2026-10-26. Neither null hypothesis is rejected.** The pre-registration,
+[`docs/PREREGISTRATION.md`](https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5/docs/PREREGISTRATION.md),
+was committed alone and pushed as commit `7c7d3f9` before any daily price history of a security
+for dates after 2025-12-31 was fetched into the project (network checks that asked for one stock's
+five-day chart discarded the answer unread). `scripts/run_holdout.sh` then ran every arm once from
+a fresh full clone at that commit, in one attempt; the exports, the evaluation, the membership,
+the price-fetch manifest, the logs and the trial's registry entry are in `results/holdout2026/`.
 
-That period has already ended, and the project was developed during it (versions 8 to 33). The
-test is sealed, not prospective: the project's code and caches hold no daily 2026 prices of the
-traded securities, but the designers' general knowledge of 2026 markets cannot be sealed. The
+| Arm | Hypothesis | Net return | Net Sharpe [95% interval] | One-sided p | Holm p | Decision |
+|---|---|---:|---:|---:|---:|---|
+| S1, v33 pairs | H1 | <!--m:study.holdout.arms.0.ret_pct-->+0.08<!--/m-->% | <!--m:study.holdout.arms.0.sharpe-->+0.05<!--/m--> [<!--m:study.holdout.arms.0.lo-->−1.81<!--/m-->, <!--m:study.holdout.arms.0.hi-->+1.83<!--/m-->] | <!--m:study.holdout.arms.0.p_one_sided-->0.478<!--/m--> | <!--m:study.holdout.arms.0.p_holm-->0.955<!--/m--> | not rejected |
+| S2, Avellaneda–Lee | H2 | <!--m:study.holdout.arms.1.ret_pct-->−1.59<!--/m-->% | <!--m:study.holdout.arms.1.sharpe-->−0.27<!--/m--> [<!--m:study.holdout.arms.1.lo-->−2.36<!--/m-->, <!--m:study.holdout.arms.1.hi-->+1.81<!--/m-->] | <!--m:study.holdout.arms.1.p_one_sided-->0.608<!--/m--> | <!--m:study.holdout.arms.1.p_holm-->0.955<!--/m--> | not rejected |
+| S3, v32 frozen | none (descriptive) | <!--m:study.holdout.arms.2.ret_pct-->−0.48<!--/m-->% | <!--m:study.holdout.arms.2.sharpe-->−0.41<!--/m--> [<!--m:study.holdout.arms.2.lo-->−1.48<!--/m-->, <!--m:study.holdout.arms.2.hi-->+1.30<!--/m-->] | <!--m:study.holdout.arms.2.p_one_sided-->0.690<!--/m--> | — | not tested |
+
+Over the <!--m:study.holdout.arms.0.days-->200<!--/m--> trading days from 2026-01-02 to
+2026-10-19 neither tested arm earns a mean daily net return distinguishable from zero. The test
+had <!--m:study.dev.facts.ho_power_1-->16<!--/m-->% power against a true Sharpe ratio of 1,
+stated before the run, so this is a failure to falsify, not evidence of zero edge: it rules out
+Sharpe ratios above <!--m:study.holdout.arms.0.ucb-->1.64<!--/m--> for S1
+and <!--m:study.holdout.arms.1.ucb-->1.38<!--/m--> for S2 (one-sided 95% bounds).
+
+That period had ended before the filing, and the project was developed during it (versions 8 to
+33). The test is sealed, not prospective: before the filing the project's code and caches held no
+daily 2026 prices of the traded securities, but the designers' general knowledge of 2026 markets
+cannot be sealed. The
 2026 information the project did receive (each security's latest price and 52-week high and low
 in the price vendor's responses, the market values and last sale prices of the stock screener
 behind the v32 universe file, identity data, factor files that include the short-term reversal
@@ -297,6 +310,12 @@ and size.
 - **The 2026 test is sealed, not prospective.** The test period ended before the pre-registration
   was filed, and the project was developed during it; the designers' general knowledge of 2026
   markets cannot be sealed.
+- **The 2026 test is short, and tests two arms.** Over
+  its <!--m:study.holdout.arms.0.days-->200<!--/m--> trading days, with returns shaped like the
+  development period's, it has 80% power only against an annual Sharpe ratio of
+  about <!--m:study.dev.facts.ho_mde_025-->2.96<!--/m--> at Holm's first step, stated in advance;
+  the Newey–West test is asymptotic, and its size at this length is a little above 5% (simulated
+  in the pre-registration); an edge in one arm would say nothing about the other.
 - **The path depends on the start date.** Sizing is a share of equity and the 30% cap binds, so
   the same rule on the same days gives different trades from different start dates. On each
   later start's own days the published path has the higher Sharpe ratio

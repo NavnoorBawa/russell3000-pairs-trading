@@ -5,7 +5,10 @@ artefacts the builder reads in full: the export's evidence block, anatomy.json,
 cost_sensitivity.json, the residual arm, the validation, the published v32 run and the
 trial registry. The code paths of older exports are exercised on the committed v32 run and
 on copies of it altered to carry what later exports add (the random-pair quantiles,
-point-in-time universe coverage, the daily gross/cost split, a _compact twin).
+point-in-time universe coverage, the daily gross/cost split, a _compact twin). The evaluated
+holdout is exercised on results trees whose holdout2026/ is the 2025 dress rehearsal
+(results/rehearsal2025b, calendar rehearsal2025) under the holdout's trial name, with a
+registry line and attempt lines modelled on the rehearsal's, altered for each outcome.
 """
 import copy
 import hashlib
@@ -13,6 +16,7 @@ import importlib.util
 import json
 import math
 import pathlib
+import re
 import shutil
 
 import numpy as np
@@ -277,16 +281,115 @@ def test_run_directory_errors(tmp_path, v32_res):
         bsd._results_file(d)
 
 
-def _evaluation():
-    """A report in the shape scripts/evaluate_holdout.py writes (strategy ids from run_holdout.sh)."""
-    def arm(sharpe, p, p_holm):
-        return {'days': 180, 'total_return_pct': 0.4, 'sharpe': sharpe, 'trades': 40, 't': 0.9, 'lags': 4,
-                'p_one_sided': p, 'p_holm': p_holm, 'edge_out_of_sample': p_holm < 0.05,
-                'bootstrap_ci_95': [sharpe - 1.5, sharpe + 1.5], 'upper_bound_95': sharpe + 1.2,
-                'min_detectable_sharpe': 2.6, 'period': ['2026-01-02', '2026-09-30']}
-    return {'alpha': 0.05, 'test': 'one-sided Newey-West t (mean daily net return > 0), Holm across strategies',
-            'strategies': {'v32_pairs': arm(-0.2, 0.6, 0.9), 'avellaneda_lee': arm(0.4, 0.3, 0.9),
-                           'v33_pairs': arm(0.8, 0.15, 0.45)}}
+# ── the evaluated holdout: results trees built from the 2025 dress rehearsal ───
+
+REHEARSAL = REPO / 'results' / 'rehearsal2025b'
+REHEARSAL_CALENDAR = 'rehearsal2025'
+RUN_COMMIT = '6aaf7efb1eb074cdb4e2137f961112ba62234c51'     # the rehearsal's runs
+REGISTERED = '7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5'      # a registered commit before a crash fix
+eh = _load('evaluate_holdout')
+rt = _load('register_trial')
+CRASH_DIFF = """diff --git a/pairs_trading/json_export.py b/pairs_trading/json_export.py
+index 3b1c2d4..8e9f0a1 100644
+--- a/pairs_trading/json_export.py
++++ b/pairs_trading/json_export.py
+@@ -41,7 +41,9 @@ def _to_jsonable(obj):
+     if isinstance(obj, np.integer):
+         return int(obj)
+-    if isinstance(obj, np.floating):
++    if isinstance(obj, (np.floating, float)):
++        if not np.isfinite(obj):
++            return None
+         return float(obj)
+"""
+
+
+def _rehearsal_entry():
+    lines = (REPO / 'results' / 'trial_registry.jsonl').read_text(encoding='utf-8').splitlines()
+    return next(e for e in map(json.loads, filter(None, lines)) if e['name'] == 'rehearsal2025b')
+
+
+def _attempt_lines(attempt=1, head=RUN_COMMIT, prereg=RUN_COMMIT, note=None, steps=None):
+    """One attempt modelled on rehearsal2025b's: its start line, then the steps it finished."""
+    out = []
+    for x in copy.deepcopy(_rehearsal_entry()['attempts']):
+        x.pop('note', None)
+        x.update(name='holdout2026', attempt=attempt, head=head)
+        if x['event'] == 'start':
+            x.update({k: v for k, v in (('prereg_commit', prereg), ('note', note)) if v})
+        elif steps is not None and x['step'] not in steps:
+            continue
+        out.append(x)
+    return out
+
+
+def _register(root, attempts=None, prereg=RUN_COMMIT, note=None, completed=True):
+    """The trial's line of results/trial_registry.jsonl (register_trial.py's fields, modelled on
+    rehearsal2025b's) and its lines of results/trial_attempts.jsonl, with the completion line."""
+    attempts = attempts if attempts is not None else _attempt_lines(prereg=prereg)
+    entry = dict(_rehearsal_entry(), name='holdout2026', prereg_commit=prereg, note=note, attempts=attempts,
+                 head=attempts[-1]['head'], evaluation=rt.evaluation_summary(root / 'holdout2026' / 'evaluation.json'))
+    (root / 'trial_registry.jsonl').write_text(json.dumps(entry, sort_keys=True) + '\n', encoding='utf-8')
+    done = [{'attempt': attempts[-1]['attempt'], 'event': 'completed', 'name': 'holdout2026',
+             'utc': '2026-10-21T14:03:09+00:00'}] if completed else []
+    (root / 'trial_attempts.jsonl').write_text(''.join(json.dumps(x, sort_keys=True) + '\n' for x in attempts + done),
+                                                encoding='utf-8')
+
+
+def _holdout_root(tmp_path, **register):
+    """A results tree whose holdout2026/ is the published dress rehearsal, registered as the holdout."""
+    root = tmp_path / 'results'
+    root.mkdir(exist_ok=True)
+    shutil.copytree(REHEARSAL, root / 'holdout2026')
+    _register(root, **register)
+    return root
+
+
+def _section(root, calendar=REHEARSAL_CALENDAR):
+    """The holdout section of `root` as build() makes it, and the sources it read."""
+    src = bsd.Sources(REPO, root)
+    return bsd.holdout_section(src.load(root / 'holdout2026' / 'evaluation.json'), src, root,
+                               src.load_lines(root / 'trial_registry.jsonl'), calendar), src
+
+
+def _edit_evaluation(root, edit, register=True):
+    """Change evaluation.json; then (unless not) its registry line's copy of it, as if the
+    trial had been registered with the changed file, so that only the edit is tested."""
+    path = root / 'holdout2026' / 'evaluation.json'
+    ev = _json(path)
+    edit(ev)
+    path.write_text(json.dumps(ev, indent=1), encoding='utf-8')
+    if register:
+        reg = root / 'trial_registry.jsonl'
+        entry = json.loads(reg.read_text(encoding='utf-8'))
+        entry['evaluation'] = rt.evaluation_summary(path)
+        reg.write_text(json.dumps(entry, sort_keys=True) + '\n', encoding='utf-8')
+
+
+def _flatten(root, key):
+    """`key`'s pairs run made one that never opened a position, as the evaluator reports it: a
+    zero net and gross return every day in its export (re-listed in MANIFEST.json and under the
+    evaluation's sha256), its row from evaluate_holdout.describe, and Holm's adjustment again."""
+    d = root / 'holdout2026' / bsd.HOLDOUT_EXPORTS[key][0]
+    path = d / RESULTS_NAME
+    res = _json(path)
+    for day in res['daily_equity_curve']:
+        day.update(daily_return_pct=0.0, gross_return_pct=0.0, cost_pct=0.0, open_positions=0)
+    res['overall_performance']['total_trades'] = 0
+    path.write_text(json.dumps(res), encoding='utf-8')
+    sha = hashlib.sha256(path.read_bytes()).hexdigest()
+    manifest = _json(d / 'MANIFEST.json')
+    manifest['files'][RESULTS_NAME]['sha256'] = sha
+    (d / 'MANIFEST.json').write_text(json.dumps(manifest), encoding='utf-8')
+    zeros = np.zeros(len(res['daily_equity_curve']))
+
+    def edit(ev):
+        ev['strategies'][key].update(eh.describe(zeros, zeros, 0, n_tests=len(ev['family'])))
+        ev['inputs']['runs'][key]['sha256'][RESULTS_NAME] = sha
+        adj = eh.holm({k: ev['strategies'][k]['p_one_sided'] for k in ev['family']})
+        for k in ev['family']:
+            ev['strategies'][k].update(p_holm=adj[k], edge_out_of_sample=bool(adj[k] < eh.ALPHA))
+    _edit_evaluation(root, edit)
 
 
 @pytest.fixture(scope='module')
@@ -314,19 +417,18 @@ def _publish_residual(tmp_path, out):
 
 def test_optional_arms_fill_their_sections(tmp_path, v32_res, residual_export):
     """The holdout evaluation and the published residual export replace the sealed/pending states."""
-    root = tmp_path / 'results'
-    (root / 'holdout2026').mkdir(parents=True)
-    (root / 'holdout2026' / 'evaluation.json').write_text(json.dumps(_evaluation()), encoding='utf-8')
+    root = _holdout_root(tmp_path)
     published = _publish_residual(tmp_path, residual_export)
-    study = bsd.build(_run_dir(tmp_path, v32_res), results_root=root)
+    study = bsd.build(_run_dir(tmp_path, v32_res), results_root=root, holdout_calendar=REHEARSAL_CALENDAR)
     holdout = study['holdout']
     assert holdout['status'] == 'complete' and holdout['alpha'] == 0.05
     # the registered order (H1 v33, H2 Avellaneda-Lee, then the descriptive v32 arm), whatever
     # the report's order
     assert [(a['key'], a['hypothesis']) for a in holdout['arms']] == [
         ('v33_pairs', 'H1'), ('avellaneda_lee', 'H2'), ('v32_pairs', None)]
-    v33 = holdout['arms'][0]
-    assert (v33['sharpe'], v33['lo'], v33['hi'], v33['p_holm'], v33['edge']) == (0.8, -0.7, 2.3, 0.45, False)
+    v33, ev = holdout['arms'][0], _json(root / 'holdout2026' / 'evaluation.json')['strategies']['v33_pairs']
+    assert (v33['sharpe'], v33['lo'], v33['hi'], v33['p_holm'], v33['edge']) == (
+        round(ev['sharpe'], 4), round(ev['bootstrap_ci_95'][0], 4), round(ev['bootstrap_ci_95'][1], 4), 1.0, False)
     doc = json.loads((published / 'residual_statarb.json').read_text(encoding='utf-8'))
     s, sig = doc['summary'], doc['significance']
     r = study['residual']
@@ -375,12 +477,20 @@ def test_the_residual_arm_is_read_only_as_published(tmp_path, v32_res, residual_
             bsd.build(run, results_root=root)
 
 
-def test_holdout_strategies_the_runbook_does_not_name_are_kept():
-    ev = _evaluation()
-    ev['strategies']['extra_arm'] = ev['strategies'].pop('v32_pairs')
-    arms = bsd.holdout_section(ev)['arms']
-    assert [a['key'] for a in arms] == ['v33_pairs', 'avellaneda_lee', 'extra_arm']
-    assert arms[-1]['label'] == 'extra_arm' and arms[-1]['hypothesis'] is None
+def test_holdout_strategies_the_runbook_does_not_name_are_kept(tmp_path):
+    """A rehearsal's evaluation may hold other, descriptive strategies: they follow the three
+    registered ones under their own key, with no export the page knows."""
+    root = _holdout_root(tmp_path)
+
+    def extra(ev):
+        ev['strategies']['extra_arm'] = copy.deepcopy(ev['strategies']['v32_pairs'])
+        ev['inputs']['runs']['extra_arm'] = copy.deepcopy(ev['inputs']['runs']['v32_pairs'])
+    _edit_evaluation(root, extra)
+    hold, _ = _section(root)
+    arms = hold['arms']
+    assert [a['key'] for a in arms] == ['v33_pairs', 'avellaneda_lee', 'v32_pairs', 'extra_arm']
+    assert arms[-1]['label'] == 'extra_arm' and arms[-1]['hypothesis'] is None and arms[-1]['role'] == 'descriptive'
+    assert hold['daily']['cum']['extra_arm'] is None and hold['decision']['family'] == ['v33_pairs', 'avellaneda_lee']
 
 
 def test_gross_series_gets_its_own_forest_row(v32_res):
@@ -771,3 +881,467 @@ def test_a_robustness_report_of_another_export_or_shape_stops_the_build(v33_stud
     assert _shape(skeleton) == _shape(real)
     assert all(v is None for v in bsd.robustness_facts(skeleton).values())
     assert all(v is None for v in bsd.robustness_facts(None).values())
+
+
+# ── the evaluated holdout ──────────────────────────────────────────────────────
+
+def test_the_sealed_holdout_is_unchanged(tmp_path):
+    """Until results/holdout2026/evaluation.json exists the section is the sealed stub, and the
+    attempt record is not read (the sealed build has no new source). The committed file is the
+    stub while no evaluation is committed, and the evaluated holdout once one is."""
+    assert bsd.holdout_section(None) == {'status': 'sealed', 'calendar_start': '2026-01-02'}
+    committed = _json(REPO / 'assets' / 'study.json')['holdout']
+    if (REPO / 'results' / 'holdout2026' / 'evaluation.json').is_file():
+        assert committed['status'] == 'complete' and committed['trial'] == 'holdout2026'
+    else:
+        assert committed == bsd.holdout_section(None)
+    root = tmp_path / 'results'
+    root.mkdir()
+    (root / 'trial_attempts.jsonl').write_text('{"name": "holdout2026", "event": "start"}\n', encoding='utf-8')
+    src = bsd.Sources(REPO, root)
+    assert bsd.holdout_section(None, src, root, None)['status'] == 'sealed' and src.hashes == {}
+
+
+def _strings(x):
+    if isinstance(x, dict):
+        return {s for v in x.values() for s in _strings(v)}
+    if isinstance(x, list):
+        return {s for v in x for s in _strings(v)}
+    return {x} if isinstance(x, str) else set()
+
+
+def test_the_evaluated_holdout_is_the_evaluation(tmp_path):
+    """Every arm's numbers are the evaluation's, rounded; the decision is its own; the daily
+    paths compound the published exports; the run record is the registry's and the attempts'."""
+    root = _holdout_root(tmp_path)
+    hold, src = _section(root)
+    ev = _json(root / 'holdout2026' / 'evaluation.json')
+    assert {k: hold[k] for k in ('status', 'trial', 'alpha', 'test', 'calendar', 'calendar_hash', 'calendar_start',
+                                 'calendar_end', 'period_matches_calendar', 'family')} == {
+        'status': 'complete', 'trial': 'holdout2026', 'alpha': 0.05, 'test': ev['test'], 'calendar': 'rehearsal2025',
+        'calendar_hash': ev['inputs']['calendar_hash'], 'calendar_start': '2025-01-02', 'calendar_end': '2025-10-17',
+        'period_matches_calendar': True, 'family': ['v33_pairs', 'avellaneda_lee']}
+    assert hold['decision'] == {'alpha': 0.05, 'family': ['v33_pairs', 'avellaneda_lee'], 'rejected': [], 'arms': {
+        'v33_pairs': {'hypothesis': 'H1', 'edge': False, 'p_holm': 1.0, 'p_holm_below_alpha': False},
+        'avellaneda_lee': {'hypothesis': 'H2', 'edge': False, 'p_holm': 1.0, 'p_holm_below_alpha': False}}}
+    for arm in hold['arms']:
+        s = ev['strategies'][arm['key']]
+        assert arm['role'] == s['role'] and arm['flat'] is False and arm['lags'] == s['lags'] == 4
+        ci = s['bootstrap_ci_95']
+        expect = {'sharpe': s['sharpe'], 'lo': ci[0], 'hi': ci[1], 'ret_pct': s['total_return_pct'],
+                  'gross_ret_pct': s['gross_total_return_pct'], 'gross_sharpe': s['gross_sharpe'],
+                  'sharpe_se': s['sharpe_se'], 'ucb': s['upper_bound_95'], 'sharpe_lo2002': s['sharpe_lo2002'],
+                  'mde': s['min_detectable_sharpe'], 'mde_single': s['min_detectable_sharpe_single_test'],
+                  'mde_alpha': s['min_detectable_sharpe_alpha']}
+        assert {k: arm[k] for k in expect} == {k: round(v, 4) for k, v in expect.items()}
+        assert (arm['t'], arm['p_one_sided'], arm['psr_pct']) == (round(s['t'], 3), round(s['p_one_sided'], 4),
+                                                                  round(100 * s['psr'], 2))
+        assert (arm['days'], arm['trades'], arm['period'], arm['commit']) == (s['days'], s['trades'], s['period'], RUN_COMMIT)
+        assert arm['run_utc'] == ev['inputs']['runs'][arm['key']]['provenance']['run_timestamp_utc']
+        assert arm['exposure'] == {'avg_pct': round(s['exposure']['avg_gross_pct_of_equity'], 3),
+                                   'max_pct': round(s['exposure']['max_gross_pct_of_equity'], 3),
+                                   'days_open': s['exposure']['days_with_open_positions']}
+        assert (arm['vs_gatev']['p'], arm['vs_gatev']['days']) == (round(s['vs_gatev']['pvalue'], 4),
+                                                                   s['vs_gatev']['n_common_days'])
+        assert arm['random_pair']['percentile'] == s['random_pair']['percentile']
+        # the survivorship gap, without the security names the report lists
+        rows = s['universe_by_formation']
+        assert len(arm['universe']) == len(rows)
+        assert [u['missing_weight_pct'] for u in arm['universe']] == [round(100 * u['missing_value_weight'], 3) for u in rows]
+        names = {n for u in rows for k in ('missing_heaviest', 'unmapped_heaviest', 'no_sector_etf_heaviest')
+                 for n, _ in u.get(k) or []}
+        assert not names & _strings(arm['universe'])
+    v33, s2, s3 = hold['arms']
+    assert s3['universe'] == [] and s3['p_holm'] is None and s3['edge'] is None and s3['p_holm_below_alpha'] is None
+    assert all(u['no_sector_etf'] is not None for u in s2['universe']) and v33['universe'][0]['no_sector_etf'] is None
+    curve = _json(REHEARSAL / 'v33_pairs' / RESULTS_NAME)['daily_equity_curve']
+    assert hold['daily']['dates'] == [d['date'] for d in curve]
+    assert hold['daily']['cum']['v33_pairs'][:2] == [0.0, round(curve[1]['daily_return_pct'], 4)]
+    for arm in hold['arms']:
+        assert hold['daily']['cum'][arm['key']][-1] == pytest.approx(arm['ret_pct'], abs=1e-4)
+    p = hold['provenance']
+    assert (p['commit'], p['expect_commit'], p['registered_commit'], p['at_registered_commit'], p['clean'],
+            p['crash_fix'], p['crash_fix_diffs']) == (RUN_COMMIT, RUN_COMMIT, RUN_COMMIT, True, True, None, [])
+    assert p['run_commits'] == dict.fromkeys(['v33_pairs', 'avellaneda_lee', 'v32_pairs'], RUN_COMMIT)
+    assert (p['n_attempts'], p['n_failed'], p['completed_utc']) == (1, 0, '2026-10-21T14:03:09+00:00')
+    # the registry line copies the 7 attempt lines; the file adds the completion line
+    assert (p['n_unfinished'], p['attempt_record_lines']) == (0, 8)
+    steps = ['universe', 'data', 'v33', 'v32', 'residual', 'evaluate']
+    assert p['attempts'][0]['steps_done'] == steps and p['step_attempts'] == dict.fromkeys(steps, 1)
+    assert p['registry'] == {'name': 'holdout2026', 'head': RUN_COMMIT, 'prereg_commit': RUN_COMMIT,
+                             'registered_utc': '2026-10-21T14:03:09+00:00', 'attempt_lines': 7, 'note': None}
+    assert p['logs'] == {'count': 7, 'step_logs': 6, 'environment': 1, 'diffs': 0, 'by_attempt': [
+        {'attempt': 1, 'steps': ['data', 'evaluation', 'residual', 'universe', 'v32', 'v33']}]}
+    assert (p['price_fetch']['end'], p['price_fetch']['symbols'], p['price_fetch']['top_ups']) == ('2025-10-17', 3000, 1)
+    assert {f'results/holdout2026/{f}' for f in ('evaluation.json', 'price_fetch_manifest.json',
+                                                 'v33_pairs/headline_metrics.json', 'residual/residual_statarb.json',
+                                                 f'v32_pairs/{RESULTS_NAME}', 'v32_pairs/MANIFEST.json')} | {
+        'results/trial_attempts.jsonl', 'results/trial_registry.jsonl'} <= set(src.hashes)
+    json.dumps(hold, allow_nan=False)
+
+
+def test_the_holdout_in_a_full_build_and_from_the_command_line(tmp_path, v32_res):
+    """--results points the builder at another results tree (its sources keep their results/
+    names); the evaluation must be on --holdout-calendar (default holdout2026)."""
+    root = _holdout_root(tmp_path)
+    run = _run_dir(tmp_path, v32_res)
+    study = bsd.build(run, results_root=root, holdout_calendar=REHEARSAL_CALENDAR)
+    hold = study['holdout']
+    assert hold['status'] == 'complete' and 'results/holdout2026/evaluation.json' in study['meta']['sources']
+    # the holdout's runs are the newest dated input
+    assert study['meta']['generated_utc'] == max(hold['provenance']['run_utc'].values())
+    assert [r['name'] for r in study['trials']] == ['holdout2026'] * 3 and study['registry']['trials'] == 1
+    out = tmp_path / 'study.json'
+    assert bsd.main(['--dev', str(run), '--results', str(root), '--holdout-calendar', REHEARSAL_CALENDAR,
+                     '--out', str(out)]) == 0
+    assert out.read_text(encoding='utf-8') == bsd.dumps(study)
+    with pytest.raises(bsd.HoldoutRecordError, match='calendar'):
+        bsd.build(run, results_root=root)
+
+
+@pytest.mark.parametrize('p_holm, edge', [(0.0496, True), (0.049996, True), (0.05, False), (0.0504, False)])
+def test_the_decision_is_the_evaluations(tmp_path, p_holm, edge):
+    """Not recomputed: edge_out_of_sample as the report states it, which must be p_holm < alpha.
+    p_holm_below_alpha compares the unrounded p, so a p below alpha that the file rounds to it
+    (0.049996 -> 0.05) is still below it, and a p at alpha is not."""
+    root = _holdout_root(tmp_path)
+    _edit_evaluation(root, lambda ev: ev['strategies']['v33_pairs'].update(p_holm=p_holm, edge_out_of_sample=edge))
+    hold, _ = _section(root)
+    v33 = hold['arms'][0]
+    assert hold['decision']['rejected'] == (['v33_pairs'] if edge else [])
+    assert v33['edge'] is edge and v33['p_holm_below_alpha'] is edge
+    assert hold['decision']['arms']['v33_pairs'] == {'hypothesis': 'H1', 'edge': edge, 'p_holm': round(p_holm, 4),
+                                                     'p_holm_below_alpha': edge}
+
+
+def test_both_hypotheses_rejected(tmp_path):
+    root = _holdout_root(tmp_path)
+
+    def edit(ev):
+        ev['strategies']['v33_pairs'].update(p_holm=0.012, edge_out_of_sample=True)
+        ev['strategies']['avellaneda_lee'].update(p_holm=0.031, edge_out_of_sample=True)
+    _edit_evaluation(root, edit)
+    hold, _ = _section(root)
+    assert hold['decision']['rejected'] == ['v33_pairs', 'avellaneda_lee']
+    assert [a['p_holm_below_alpha'] for a in hold['arms']] == [True, True, None]
+
+
+def _set(key, **fields):
+    return lambda ev: ev['strategies'][key].update(fields)
+
+
+def _drop(*path):
+    def edit(ev):
+        for part in ('strategies', 'inputs'):
+            (ev[part]['runs'] if part == 'inputs' else ev[part]).pop(path[0], None)
+    return edit
+
+
+@pytest.mark.parametrize('edit, match', [
+    (_set('v33_pairs', edge_out_of_sample=True), 'edge_out_of_sample is True'),
+    (_set('v33_pairs', p_holm=0.01), 'edge_out_of_sample is False'),
+    (_set('v33_pairs', p_holm=0.05, edge_out_of_sample=True), 'not below alpha'),
+    (_set('avellaneda_lee', p_holm=None), 'confirmatory but has p_holm None'),
+    (_set('avellaneda_lee', edge_out_of_sample=None), 'confirmatory but'),
+    (_set('v32_pairs', p_holm=0.3), 'descriptive but carries'),
+    (_set('v32_pairs', edge_out_of_sample=False), 'descriptive but carries'),
+    (_set('v32_pairs', role='confirmatory'), "v32_pairs: role 'confirmatory'"),
+    (_set('v33_pairs', role='descriptive'), "v33_pairs: role 'descriptive'"),
+    (lambda ev: ev.update(family=['v33_pairs']), 'family'),
+    (lambda ev: ev.update(family=['v33_pairs', 'avellaneda_lee', 'v32_pairs']), 'family'),
+    (lambda ev: ev.update(alpha=0.1), 'alpha'),
+    (_drop('avellaneda_lee'), 'lacks the registered'),
+])
+def test_a_decision_that_contradicts_the_registration_stops_the_build(tmp_path, edit, match):
+    root = _holdout_root(tmp_path)
+    _edit_evaluation(root, edit)
+    with pytest.raises(bsd.HoldoutRecordError, match=match):
+        _section(root)
+
+
+@pytest.mark.parametrize('key', ['v32_pairs', 'v33_pairs'])
+def test_an_arm_that_never_trades(tmp_path, key):
+    """A pairs run that opens no position is a result, not a crash: t = 0 and p = 0.5 (S1 tested,
+    S3 not); its Sharpe ratio is undefined (null, not the report's convention 0.0), and so are
+    the statistics the report leaves null for a series without dispersion."""
+    root = _holdout_root(tmp_path)
+    _flatten(root, key)
+    hold, _ = _section(root)
+    arm = next(a for a in hold['arms'] if a['key'] == key)
+    assert arm['flat'] is True and arm['trades'] == 0 and (arm['t'], arm['lags'], arm['p_one_sided']) == (0.0, 0, 0.5)
+    assert all(arm[k] is None for k in ('sharpe', 'lo', 'hi', 'sharpe_se', 'ucb', 'psr_pct', 'sharpe_lo2002', 'mde',
+                                        'mde_single', 'gross_sharpe'))
+    assert (arm['ret_pct'], arm['gross_ret_pct']) == (0.0, 0.0) and set(hold['daily']['cum'][key]) == {0.0}
+    assert hold['decision']['rejected'] == [] and not any(a['flat'] for a in hold['arms'] if a['key'] != key)
+    if key == 'v33_pairs':
+        assert (arm['p_holm'], arm['edge'], arm['p_holm_below_alpha']) == (1.0, False, False)
+    else:
+        assert (arm['role'], arm['p_holm'], arm['edge'], arm['p_holm_below_alpha']) == ('descriptive', None, None, None)
+    json.dumps(hold, allow_nan=False)
+
+
+def test_optional_fields_the_evaluation_lacks_are_null(tmp_path):
+    root = _holdout_root(tmp_path)
+
+    def edit(ev):
+        for s in ev['strategies'].values():
+            for k in ('psr', 'sharpe_lo2002', 'gross_sharpe', 'gross_total_return_pct', 'exposure', 'vs_gatev',
+                      'random_pair', 'universe_by_formation', 'min_detectable_sharpe_single_test'):
+                s.pop(k, None)
+    _edit_evaluation(root, edit)
+    for arm in _section(root)[0]['arms']:
+        assert all(arm[k] is None for k in ('psr_pct', 'sharpe_lo2002', 'gross_sharpe', 'gross_ret_pct', 'exposure',
+                                            'vs_gatev', 'random_pair', 'universe', 'mde_single'))
+        assert arm['sharpe'] is not None
+
+
+def test_the_attempt_record_must_be_the_registry_lines(tmp_path):
+    """results/trial_attempts.jsonl's lines for the trial are the registry line's attempts, then
+    at most the completion line; a stale, extended or edited copy stops the build."""
+    root = _holdout_root(tmp_path)
+    path = root / 'trial_attempts.jsonl'
+    lines = path.read_text(encoding='utf-8').splitlines(keepends=True)
+    for bad in (lines[:-2], lines + [lines[0]], [lines[0].replace('"attempt": 1', '"attempt": 2')] + lines[1:]):
+        path.write_text(''.join(bad), encoding='utf-8')
+        with pytest.raises(bsd.HoldoutRecordError, match='disagree'):
+            _section(root)
+    other = json.dumps({'attempt': 1, 'event': 'start', 'head': RUN_COMMIT, 'name': 'another_trial', 'utc': 'x'})
+    path.write_text(other + '\n' + ''.join(lines), encoding='utf-8')
+    assert _section(root)[0]['provenance']['n_attempts'] == 1          # another trial's lines are not this one's
+    path.write_text(''.join(lines[:-1]), encoding='utf-8')
+    p = _section(root)[0]['provenance']                                # no completion line: nothing said of it
+    assert p['completed_utc'] is None and p['attempt_record_lines'] == p['registry']['attempt_lines'] == 7
+    path.unlink()
+    with pytest.raises(bsd.HoldoutRecordError, match='missing'):
+        _section(root)
+
+
+def test_the_registry_line_must_be_this_evaluations(tmp_path):
+    root = _holdout_root(tmp_path)
+    reg = root / 'trial_registry.jsonl'
+    line = reg.read_text(encoding='utf-8')
+    entry = json.loads(line)
+    for text, match in (('', 'not one'), (line + line, 'not one'),
+                        (json.dumps(dict(entry, prereg_commit=None)) + '\n', 'no registered commit'),
+                        (json.dumps(dict(entry, head='0' * 40)) + '\n', 'not the evaluated runs'),
+                        (json.dumps(dict(entry, runs=[])) + '\n', 'not the evaluated runs')):
+        reg.write_text(text, encoding='utf-8')
+        with pytest.raises(bsd.HoldoutRecordError, match=match):
+            _section(root)
+    reg.write_text(line, encoding='utf-8')
+    _edit_evaluation(root, _set('v32_pairs', sharpe=0.5), register=False)       # edited after registration
+    with pytest.raises(bsd.HoldoutRecordError, match='another evaluation'):
+        _section(root)
+
+
+@pytest.mark.parametrize('edit, match', [
+    (lambda ev: ev['inputs']['runs']['v32_pairs']['provenance'].update(git_commit='0' * 40), 'not from one commit'),
+    (lambda ev: ev['inputs'].update(expect_commit='0' * 40), 'expected commit'),
+    (lambda ev: ev['inputs'].update(calendar='holdout2026'), 'calendar'),
+    (lambda ev: ev['inputs'].update(calendar_hash='0' * 12), 'calendar'),
+    (lambda ev: ev['inputs'].update(period_matches_calendar=False), 'period_matches_calendar'),
+    (lambda ev: ev['inputs']['runs'].pop('v32_pairs'), 'inputs list the runs'),
+])
+def test_runs_and_calendar_that_are_not_the_evaluations_stop_the_build(tmp_path, edit, match):
+    root = _holdout_root(tmp_path)
+    _edit_evaluation(root, edit)
+    with pytest.raises(bsd.HoldoutRecordError, match=match):
+        _section(root)
+
+
+def test_a_period_shorter_than_the_calendar_and_no_published_exports(tmp_path):
+    """Days inside the calendar that do not span it are reported, not refused; without the
+    published exports there is no daily series."""
+    root = _holdout_root(tmp_path)
+    for sub in ('v33_pairs', 'v32_pairs', 'residual'):
+        shutil.rmtree(root / 'holdout2026' / sub)
+
+    def edit(ev):
+        for s in ev['strategies'].values():
+            s['period'][0] = '2025-01-03'
+        ev['inputs']['period_matches_calendar'] = False
+    _edit_evaluation(root, edit)
+    hold, _ = _section(root)
+    assert hold['period_matches_calendar'] is False and hold['daily'] is None
+
+
+def test_the_daily_series_are_the_evaluated_exports(tmp_path):
+    root = _holdout_root(tmp_path)
+    hold = root / 'holdout2026'
+    shutil.rmtree(hold / 'v32_pairs')                     # not published: that arm alone has no series
+    cum = _section(root)[0]['daily']['cum']
+    assert cum['v32_pairs'] is None and cum['v33_pairs'] and cum['avellaneda_lee']
+    path = hold / 'v33_pairs' / RESULTS_NAME
+    original = path.read_bytes()
+    path.write_bytes(original + b' ')                     # not the file the evaluation read
+    with pytest.raises(bsd.HoldoutRecordError, match='not the ones the evaluation read'):
+        _section(root)
+    path.write_bytes(original)
+    (hold / 'v33_pairs' / 'MANIFEST.json').unlink()       # published without its manifest
+    with pytest.raises(bsd.HoldoutRecordError, match='MANIFEST'):
+        _section(root)
+    shutil.copy(REHEARSAL / 'v33_pairs' / 'MANIFEST.json', hold / 'v33_pairs' / 'MANIFEST.json')
+    _edit_evaluation(root, _set('v33_pairs', total_return_pct=-2.0))   # not what the export compounds to
+    with pytest.raises(bsd.HoldoutRecordError, match='the evaluation reports'):
+        _section(root)
+
+
+def test_a_failed_attempt_run_again_at_the_same_commit(tmp_path):
+    """Commitment 1: a failure outside the code is run again at the registered commit; a step an
+    earlier attempt finished is skipped and keeps that attempt's number."""
+    failed = {'attempt': 1, 'event': 'failed', 'name': 'holdout2026', 'note': 'exit 1', 'step': 'data',
+              'utc': '2026-10-21T11:30:02+00:00'}
+    root = _holdout_root(tmp_path, attempts=_attempt_lines(steps=('universe',)) + [failed] + _attempt_lines(
+        attempt=2, steps=('data', 'v33', 'v32', 'residual', 'evaluate')))
+    p = _section(root)[0]['provenance']
+    assert (p['at_registered_commit'], p['crash_fix'], p['n_attempts'], p['n_failed'], p['n_unfinished']) == (
+        True, None, 2, 1, 0)
+    assert [a['at_registered_commit'] for a in p['attempts']] == [True, True]
+    assert p['attempts'][0]['failed'] == {'step': 'data', 'note': 'exit 1', 'utc': '2026-10-21T11:30:02+00:00'}
+    assert p['step_attempts'] == {'universe': 1, 'data': 2, 'v33': 2, 'v32': 2, 'residual': 2, 'evaluate': 2}
+
+
+def _crash_fix_root(tmp_path):
+    """Attempt 1 at the registered commit fails in S1's step; attempt 2 at a crash-fix commit
+    (the runs' commit) runs every step again; the diff is published with every attempt's logs."""
+    root = tmp_path / 'results'
+    root.mkdir()
+    shutil.copytree(REHEARSAL, root / 'holdout2026')
+    diff = root / 'holdout2026' / 'logs' / f'holdout2026_crash_fix_{RUN_COMMIT[:12]}.diff'
+    diff.write_text(CRASH_DIFF, encoding='utf-8')
+    note = (f'crash fix: write a non-finite float as null; diff since {REGISTERED}: logs/{diff.name} '
+            f'(sha256 {hashlib.sha256(diff.read_bytes()).hexdigest()})')
+    failed = {'attempt': 1, 'event': 'failed', 'name': 'holdout2026', 'note': 'exit 1', 'step': 'v33',
+              'utc': '2026-10-21T12:40:31+00:00'}
+    attempts = (_attempt_lines(head=REGISTERED, prereg=REGISTERED, steps=('universe', 'data')) + [failed]
+                + _attempt_lines(attempt=2, prereg=REGISTERED, note=note))
+    _register(root, attempts, prereg=REGISTERED, note=note)
+    return root, diff, note
+
+
+def test_a_crash_fix_is_on_the_record(tmp_path):
+    root, diff, note = _crash_fix_root(tmp_path)
+    p = _section(root)[0]['provenance']
+    assert (p['commit'], p['registered_commit'], p['at_registered_commit']) == (RUN_COMMIT, REGISTERED, False)
+    assert (p['n_attempts'], p['n_failed'], p['registry']['note']) == (2, 1, note)
+    first, second = p['attempts']
+    assert (first['head'], first['at_registered_commit'], first['steps_done'], first['failed']['step']) == (
+        REGISTERED, True, ['universe', 'data'], 'v33')
+    assert (second['head'], second['at_registered_commit'], second['crash_fix']['fix'], second['crash_fix']['diff']) == (
+        RUN_COMMIT, False, 'write a non-finite float as null', diff.name)
+    assert p['crash_fix'] == second['crash_fix'] and set(p['step_attempts'].values()) == {2}
+    sha = hashlib.sha256(diff.read_bytes()).hexdigest()
+    assert p['crash_fix_diffs'] == [{'file': f'logs/{diff.name}', 'commit': RUN_COMMIT[:12], 'sha256': sha,
+                                     'bytes': len(CRASH_DIFF.encode()), 'files': ['pairs_trading/json_export.py'],
+                                     'insertions': 3, 'deletions': 1, 'attempts': [2]}]
+    assert p['logs']['diffs'] == 1
+    # a diff no attempt names was written by a step-0 check that then refused to start one
+    orphan = diff.with_name('holdout2026_crash_fix_0123456789ab.diff')
+    orphan.write_text(CRASH_DIFF, encoding='utf-8')
+    assert [d['attempts'] for d in _section(root)[0]['provenance']['crash_fix_diffs']] == [[], [2]]
+    orphan.unlink()
+    diff.write_text(CRASH_DIFF + '+    pass\n', encoding='utf-8')        # not the diff the note records
+    with pytest.raises(bsd.HoldoutRecordError, match='sha256'):
+        _section(root)
+    diff.unlink()
+    with pytest.raises(bsd.HoldoutRecordError, match='not in results/holdout2026/logs'):
+        _section(root)
+
+
+@pytest.mark.parametrize('lines, match', [
+    (_attempt_lines(note=f'crash fix: x; diff since {"0" * 40}: logs/a.diff (sha256 {"0" * 64})'), 'since the registered'),
+    (_attempt_lines(note='crash fix: a fix without its diff'), 'crash-fix note'),
+    (_attempt_lines(note=f'crash fix: x; diff since {RUN_COMMIT}: logs/a.diff (sha256 {"0" * 64})'), 'at the registered'),
+    (_attempt_lines(attempt=2), 'numbered'),
+    (_attempt_lines()[1:], 'no start line'),
+    (_attempt_lines()[:1] + [dict(_attempt_lines()[1], head='0' * 40)], 'recorded at'),
+])
+def test_an_attempt_record_that_contradicts_itself_stops_the_build(lines, match):
+    with pytest.raises(bsd.HoldoutRecordError, match=match):
+        bsd.holdout_attempts(lines, RUN_COMMIT)
+
+
+def test_an_attempt_that_stopped_without_a_failure_line(tmp_path):
+    """Killed (the runbook's EXIT trap never ran), or its failure line not written: an earlier
+    attempt with neither a failure nor a completion line stopped without recording a failure."""
+    root = _holdout_root(tmp_path, attempts=_attempt_lines(steps=('universe', 'data')) + _attempt_lines(
+        attempt=2, steps=('v33', 'v32', 'residual', 'evaluate')))
+    p = _section(root)[0]['provenance']
+    assert (p['n_attempts'], p['n_failed'], p['n_unfinished']) == (2, 0, 1)
+    assert p['attempts'][0]['failed'] is None and p['attempts'][0]['completed_utc'] is None
+
+
+def test_the_price_manifest_must_be_the_holdouts(tmp_path):
+    """The published price manifest is the calendar's cache's: its date range is the calendar's,
+    and it is the file the attempt record last recorded for it at the evaluated commit."""
+    root = _holdout_root(tmp_path)
+    path = root / 'holdout2026' / 'price_fetch_manifest.json'
+    original = path.read_bytes()
+    fetch = _section(root)[0]['provenance']['price_fetch']
+    assert (fetch['start'], fetch['end']) == ('2022-01-01', '2025-10-17')
+    shutil.copy(REPO / 'results' / 'rehearsal2025' / 'price_fetch_manifest.json', path)     # the other rehearsal's
+    with pytest.raises(bsd.HoldoutRecordError, match='not the price manifest'):
+        _section(root)
+    doc = json.loads(original)
+    path.write_text(json.dumps(dict(doc, start='2023-01-01')), encoding='utf-8')          # another calendar's range
+    with pytest.raises(bsd.HoldoutRecordError, match='not the calendar'):
+        _section(root)
+    path.unlink()                                                                           # not published: none
+    assert _section(root)[0]['provenance']['price_fetch'] is None
+
+
+def test_another_results_tree_is_never_written_over_the_committed_study(tmp_path):
+    """--results and --holdout-calendar build a preview into --out; without it (or with --check)
+    the command stops before reading anything, and assets/study.json is unchanged."""
+    committed = (REPO / 'assets' / 'study.json').read_bytes()
+    for argv in (['--results', str(tmp_path)], ['--holdout-calendar', REHEARSAL_CALENDAR],
+                 ['--results', str(tmp_path), '--out', str(REPO / 'assets' / 'study.json')],
+                 ['--results', str(tmp_path), '--check', '--out', str(tmp_path / 'study.json')]):
+        with pytest.raises(SystemExit):
+            bsd.main(argv)
+    assert (REPO / 'assets' / 'study.json').read_bytes() == committed
+
+
+def _holdout_text():
+    """The sealed sentences of index.html and their complete-state wording, from exhibits.js."""
+    js = (REPO / 'assets' / 'exhibits.js').read_text(encoding='utf-8')
+    block = js.split('/* holdout-text-begin */', 1)[1].split('/* holdout-text-end */', 1)[0].strip()
+    assert block.startswith('var HOLDOUT_TEXT = ') and block.endswith(';')
+    return json.loads(block[len('var HOLDOUT_TEXT = '):-1])
+
+
+SEALED_PHRASES = ('runs once', 'will be added as one trial', 'pre-registered, sealed', 'the sealed holdout',
+                  'the sealed 2026 holdout', 'test on 2026 data is sealed', '2026 test is sealed.')
+
+
+def test_every_sealed_sentence_of_the_page_has_its_complete_wording():
+    """While the holdout is sealed, exhibits.js replaces each sentence of index.html that is true
+    only while the test is sealed: each sealed text it names is on the page as often as it says,
+    and no replacement says the test is still to run. Once the test has run, the page carries
+    the complete wording itself (data-holdout="complete", which exhibits.js then leaves alone):
+    no sealed text of the table and no sealed phrase is left on it."""
+    page = (REPO / 'index.html').read_text(encoding='utf-8')
+    entries = _holdout_text()
+    assert len(entries) >= 15
+    if 'data-holdout="complete"' in page:
+        js = (REPO / 'assets' / 'exhibits.js').read_text(encoding='utf-8')
+        assert "getAttribute('data-holdout') === 'complete'" in js
+        for e in entries:
+            assert page.count(e['sealed']) == 0, e['sealed']
+        for phrase in SEALED_PHRASES:
+            assert phrase not in page, phrase
+        assert 'Sealed</span>' not in page and '(sealed)' not in page
+        return
+    for e in entries:
+        assert set(e) <= {'in', 'attr', 'sealed', 'done', 'cut', 'count'}, e
+        assert page.count(e['sealed']) == e.get('count', 1), e['sealed']
+        parts = e['done'] if isinstance(e['done'], list) else [e['done']]
+        done = ''.join(x if isinstance(x, str) else x['text'] for x in parts)
+        assert not re.search(r'runs once|will be added|is sealed\b|, sealed\b|refuses|is seen\b|is fetched\b', done), done
+    # every sentence on the page that speaks of the test in the future or as sealed is listed
+    # (a cut sentence runs to the end of its paragraph)
+    spans = [(m.start(), page.index('</p>', m.end()) if e.get('cut') else m.end())
+             for e in entries for m in re.finditer(re.escape(e['sealed']), page)]
+    for phrase in SEALED_PHRASES:
+        for m in re.finditer(re.escape(phrase), page):
+            assert any(a <= m.start() and m.end() <= b for a, b in spans), (phrase, page[m.start() - 60:m.end() + 60])

@@ -12,6 +12,10 @@ usage:
     python scripts/build_site_data.py --check      # exit 1 if assets/study.json is stale
     python scripts/build_site_data.py --dev results/v32_dev --out /tmp/study.json   # preview
     python scripts/build_site_data.py --dev outputs/my_run --out /tmp/study.json    # preview
+    python scripts/build_site_data.py --results /path/to/results --out /tmp/study.json   # another
+                                    # results/ tree (its v33_dev unless --dev), e.g. a copy that
+                                    # holds a holdout2026/ evaluation; --holdout-calendar names the
+                                    # calendar its evaluation must be on (default holdout2026)
 
 --dev takes any run directory (a published results/<name>/ or a run's own output
 directory). The page's text is checked against the headline JSON the file was built
@@ -51,6 +55,12 @@ of the file, or null in a section of fixed shape, and the page shows it as pendi
                                                              export
     results/holdout2026/evaluation.json                      pre-registered 2026 holdout
                                                              (scripts/evaluate_holdout.py)
+    results/holdout2026/{v33_pairs,v32_pairs,residual}/      its published exports (daily
+        MANIFEST.json and exports, price_fetch_manifest.json,  series, checked against the
+        logs/                                                evaluation's sha256), the price
+                                                             fetch and every attempt's logs
+    results/trial_attempts.jsonl                             every attempt at the holdout, read
+                                                             only once it is evaluated
     results/validation/synthetic_validation.json             known-answer checks
     results/trial_registry.jsonl                             every trial whose result was seen
 
@@ -84,6 +94,7 @@ from pairs_trading.significance import (  # noqa: E402
     _circular_block_indices, block_bootstrap_sharpe_ci, deflated_sharpe_ratio, dsr_curve as _dsr_curve,
     hac_tstat_mean, probabilistic_sharpe_ratio, trial_sharpe_variance,
 )
+from pairs_trading.study_config import CALENDARS  # noqa: E402
 from pairs_trading.universe import normalise_ticker  # noqa: E402
 
 SCHEMA = 1
@@ -143,6 +154,22 @@ FACTOR_LABELS = {'Mkt-RF': 'Market', 'SMB': 'Size (SMB)', 'HML': 'Value (HML)', 
 HOLDOUT_ARMS = (('v33_pairs', 'H1', 'v33 pairs (pre-registered design)'),
                 ('avellaneda_lee', 'H2', 'Avellaneda–Lee residual reversion'),
                 ('v32_pairs', None, 'v32 as published, frozen (descriptive)'))
+HOLDOUT_TRIAL = 'holdout2026'        # the trial run_holdout.sh registers, published in results/<name>/
+HOLDOUT_CALENDAR = 'holdout2026'     # the registered calendar (study_config.CALENDARS)
+HOLDOUT_ALPHA = 0.05                 # the registered familywise level (evaluate_holdout.ALPHA)
+ATTEMPTS = 'trial_attempts.jsonl'    # results/trial_attempts.jsonl (scripts/trial_attempts.py)
+# Where run_holdout.sh publishes each strategy's export under results/holdout2026/, and its kind.
+HOLDOUT_EXPORTS = {'v33_pairs': ('v33_pairs', 'pairs'), 'avellaneda_lee': ('residual', 'residual'),
+                   'v32_pairs': ('v32_pairs', 'pairs')}
+# The fields of each strategy that register_trial.evaluation_summary copies into the registry line.
+REGISTERED_FIELDS = ('period', 'days', 'total_return_pct', 'sharpe', 't', 'p_one_sided', 'p_holm',
+                     'edge_out_of_sample')
+# An attempt's note at a crash-fix commit (run_holdout.sh, commitment 2), and the files in logs/.
+CRASH_FIX_NOTE = re.compile(r'crash fix: (?P<fix>.*); diff since (?P<base>[0-9a-f]+): (?P<path>\S+) '
+                            r'\(sha256 (?P<sha256>[0-9a-f]{64})\)', re.S)
+CRASH_FIX_DIFF = re.compile(r'.+_crash_fix_(?P<commit>[0-9a-f]{12})\.diff')
+STEP_LOG = re.compile(r'.+_a(?P<attempt>\d+)_(?P<step>[a-z0-9]+)\.log')
+HOLDOUT_TOTAL_TOL = 1e-8             # % points: the compounded export against the report's total return
 VARIANT_FAMILY = 'variant_family'    # results/variant_family: the declared family and its tests
 # The declared toggles (results/variant_family/declaration.json) by what each one changes.
 TOGGLE_LABELS = {'regime_gate_on': 'Regime gate on', 'cusum_gate_on': 'CUSUM entry gate on',
@@ -187,18 +214,31 @@ def _sha256(path):
 
 
 class Sources:
-    """Reads JSON inputs and records each file's sha256 under its repository path."""
+    """Reads JSON inputs and records each file's sha256 under its repository path: a file
+    under `results_root` (results/ or a copy of it given with --results) as results/<path>."""
 
-    def __init__(self, root):
+    def __init__(self, root, results_root=None):
         self.root = pathlib.Path(root)
+        self.results_root = pathlib.Path(results_root) if results_root else None
         self.hashes = {}
 
     def _name(self, path):
         path = pathlib.Path(path).resolve()
+        if self.results_root is not None:
+            try:
+                return 'results/' + path.relative_to(self.results_root.resolve()).as_posix()
+            except ValueError:
+                pass
         try:
             return path.relative_to(self.root.resolve()).as_posix()
         except ValueError:
             return path.as_posix()
+
+    def record(self, path):
+        """Record a file read as bytes (not parsed here); returns its sha256."""
+        sha = _sha256(path)
+        self.hashes[self._name(path)] = sha
+        return sha
 
     def load(self, path, required=False):
         path = pathlib.Path(path)
@@ -1476,31 +1516,439 @@ def trials(lines):
     return rows
 
 
-def holdout_section(evaluation):
+# ──────────────────────────────────────────────────────────────────────────────
+# The pre-registered 2026 holdout (results/holdout2026/, once evaluated)
+# ──────────────────────────────────────────────────────────────────────────────
+
+class HoldoutRecordError(ValueError):
+    """results/holdout2026/ contradicts itself, the registry or the attempt record: the build
+    stops rather than publish a result whose record disagrees with it."""
+
+
+def _holdout_order(strategies):
+    """The registered order (H1, H2, then the descriptive S3), then any other key sorted."""
+    known = [k for k, _, _ in HOLDOUT_ARMS]
+    return [k for k in known if k in strategies] + sorted(k for k in strategies if k not in known)
+
+
+def _day(x):
+    return str(x)[:10] if x else None
+
+
+def _scaled(x, k, dp):
+    return _r(k * x, dp) if x is not None else None
+
+
+def holdout_universe(rows):
+    """An arm's survivorship gap as the evaluation reports it (universe.PITUniverse.coverage):
+    S1 at each formation, S2 for each snapshot on the first ranking day it governs (with the
+    members that have prices but no sector ETF), S3 none (its universe is the v32 file). Counts,
+    and index weights in %; the heaviest names the report lists are left out."""
+    if rows is None:
+        return None
+    return [{'formation_date': _day(u.get('formation_date')), 'snapshot': _day(u.get('snapshot')),
+             'snapshot_filed': _day(u.get('snapshot_filed')),
+             'members': u.get('members'), 'with_prices': u.get('with_prices'), 'missing': u.get('missing'),
+             'missing_weight_pct': _scaled(u.get('missing_value_weight'), 100, 3),
+             'unmapped_weight_pct': _scaled(u.get('unmapped_value_weight'), 100, 3),
+             'no_sector_etf': u.get('no_sector_etf'),
+             'no_sector_etf_weight_pct': _scaled(u.get('no_sector_etf_value_weight'), 100, 3)}
+            for u in rows]
+
+
+def holdout_arm(key, s):
+    """One strategy of the evaluation (scripts/evaluate_holdout.py), as the page and the paper show it.
+
+    `flat`: the daily net returns have no dispersion (a strategy that never trades), which the
+    report marks with a Newey-West lag of 0 (so t = 0 and p = 0.5) and the Sharpe convention 0.0
+    (significance.annualized_sharpe). Its Sharpe ratio is undefined, so it is null here (and the
+    Lo-adjusted and, when it is 0.0 too, the gross one), as are the statistics the report leaves
+    null for such a series (interval, standard error, PSR, upper bound, minimum detectable Sharpe).
+    """
+    h, label = {k: (hh, lab) for k, hh, lab in HOLDOUT_ARMS}.get(key, (None, key))
+    flat = s.get('lags') == 0 and not s.get('sharpe')
+    lo, hi = (list(s.get('bootstrap_ci_95') or []) + [None, None])[:2]
+    gross_sharpe = s.get('gross_sharpe')
+    ex, vs, rp = s.get('exposure'), s.get('vs_gatev'), s.get('random_pair')
+    return {
+        'key': key, 'hypothesis': h, 'label': label, 'role': s.get('role'), 'flat': flat,
+        'sharpe': None if flat else _r(s.get('sharpe')), 'lo': _r(lo), 'hi': _r(hi),
+        't': _r(s.get('t'), 3), 'lags': s.get('lags'), 'p_one_sided': _r(s.get('p_one_sided')),
+        'p_holm': _r(s.get('p_holm')), 'p_holm_below_alpha': None, 'edge': s.get('edge_out_of_sample'),
+        'days': s.get('days'), 'trades': s.get('trades'), 'period': s.get('period'),
+        'ret_pct': _r(s.get('total_return_pct')), 'gross_ret_pct': _r(s.get('gross_total_return_pct')),
+        'gross_sharpe': None if flat and not gross_sharpe else _r(gross_sharpe),
+        'sharpe_se': _r(s.get('sharpe_se')), 'ucb': _r(s.get('upper_bound_95')),
+        'psr_pct': _scaled(s.get('psr'), 100, 2), 'sharpe_lo2002': None if flat else _r(s.get('sharpe_lo2002')),
+        'mde': _r(s.get('min_detectable_sharpe')), 'mde_alpha': _r(s.get('min_detectable_sharpe_alpha')),
+        'mde_single': _r(s.get('min_detectable_sharpe_single_test')),
+        'exposure': {'avg_pct': _r(ex.get('avg_gross_pct_of_equity'), 3), 'max_pct': _r(ex.get('max_gross_pct_of_equity'), 3),
+                     'days_open': ex.get('days_with_open_positions')} if ex else None,
+        'vs_gatev': {'diff': _r(vs.get('diff')), 'lo': _r(vs.get('ci_lo')), 'hi': _r(vs.get('ci_hi')),
+                     'p': _r(vs.get('pvalue')), 'days': vs.get('n_common_days'),
+                     'distance_sharpe': _r(vs.get('distance_sharpe')), 'source': vs.get('source'),
+                     'universe_size': vs.get('universe_size')} if vs else None,
+        'random_pair': {'percentile': _r(rp.get('percentile'), 2), 'median_sharpe': _r(rp.get('median_sharpe')),
+                        'n_draws': rp.get('n_draws'), 'source': rp.get('source'), 'note': rp.get('note')} if rp else None,
+        'universe': holdout_universe(s.get('universe_by_formation')),
+        'commit': s.get('commit'),
+    }
+
+
+def holdout_decision(strategies, family, alpha):
+    """The registered decision as the evaluation states it: each confirmatory arm's
+    edge_out_of_sample and Holm-adjusted p, never recomputed. `p_holm_below_alpha` compares the
+    unrounded p with alpha, so a p just below alpha that rounds to it is still below it. The
+    build stops when the evaluation contradicts the registration: another alpha or family, a
+    registered arm missing, a role that is not the family's, a confirmatory arm without a
+    decision or whose decision is not p_holm < alpha, or a descriptive arm with either."""
+    hyp = {k: h for k, h, _ in HOLDOUT_ARMS}
+    registered = [k for k, h, _ in HOLDOUT_ARMS if h]
+    missing = [k for k in hyp if k not in strategies]
+    if missing:
+        raise HoldoutRecordError(f'the evaluation lacks the registered strategies {missing}')
+    if alpha != HOLDOUT_ALPHA:
+        raise HoldoutRecordError(f'the evaluation uses alpha {alpha!r}; the registered level is {HOLDOUT_ALPHA}')
+    if not isinstance(family, list) or sorted(family) != sorted(registered):
+        raise HoldoutRecordError(f'the evaluation\'s family is {family!r}; the registered family is {registered}')
+    arms = {}
+    for key in _holdout_order(strategies):
+        s = strategies[key]
+        role = 'confirmatory' if key in family else 'descriptive'
+        if s.get('role') != role:
+            raise HoldoutRecordError(f'{key}: role {s.get("role")!r}, but it is {"in" if key in family else "outside"} '
+                                     f'the family {family}')
+        p, edge = s.get('p_holm'), s.get('edge_out_of_sample')
+        if role == 'descriptive':
+            if p is not None or edge is not None:
+                raise HoldoutRecordError(f'{key} is descriptive but carries p_holm {p!r} and edge_out_of_sample {edge!r}')
+            continue
+        if not isinstance(edge, bool) or isinstance(p, bool) or not isinstance(p, (int, float)) or not math.isfinite(p):
+            raise HoldoutRecordError(f'{key} is confirmatory but has p_holm {p!r} and edge_out_of_sample {edge!r}')
+        below = float(p) < alpha
+        if edge is not below:
+            raise HoldoutRecordError(f'{key}: edge_out_of_sample is {edge} but p_holm {p!r} is '
+                                     f'{"below" if below else "not below"} alpha {alpha}')
+        arms[key] = {'hypothesis': hyp[key], 'edge': edge, 'p_holm': _r(p), 'p_holm_below_alpha': below}
+    return {'alpha': alpha, 'family': registered, 'arms': arms,
+            'rejected': [k for k in registered if arms[k]['edge']]}
+
+
+def _check_attempts(lines, registered):
+    """The trial's lines in results/trial_attempts.jsonl must be the attempts its registry line
+    copied (register_trial.py), followed at most by the 'completed' line run_holdout.sh appends
+    after registering; anything else is a stale or edited copy of one of the two records."""
+    if not registered:
+        raise HoldoutRecordError(f'the registry line of {HOLDOUT_TRIAL} records no attempt')
+    n = len(registered)
+    rest = lines[n:]
+    if lines[:n] != registered or (rest and [x.get('event') for x in rest] != ['completed']):
+        raise HoldoutRecordError(
+            f'results/{ATTEMPTS} holds {len(lines)} line(s) for {HOLDOUT_TRIAL} that are not the {n} attempt line(s) '
+            f'of its registry line (followed at most by the completion line): the two records disagree')
+
+
+def holdout_attempts(lines, prereg):
+    """Every attempt at the trial from its lines of results/trial_attempts.jsonl: the commit it
+    ran at (and whether that is the registered commit), its note, a crash fix's description and
+    diff (run_holdout.sh, commitment 2), the steps it finished, the step it failed at, and when
+    the trial completed. A step skipped because an earlier attempt at the same commit finished it
+    is not listed again."""
+    by = {}
+    for x in lines:
+        a = by.setdefault(x.get('attempt'), {'attempt': x.get('attempt'), 'head': None, 'started_utc': None,
+                                             'note': None, 'at_registered_commit': None, 'crash_fix': None,
+                                             'steps_done': [], 'failed': None, 'completed_utc': None})
+        event = x.get('event')
+        if event != 'start' and a['started_utc'] is None:
+            raise HoldoutRecordError(f'attempt {a["attempt"]!r} has no start line before its {event} line')
+        if event == 'start':
+            a.update(head=x.get('head'), started_utc=x.get('utc'), note=x.get('note'))
+        elif event == 'done':
+            if x.get('head') != a['head']:
+                raise HoldoutRecordError(f'attempt {a["attempt"]}: step {x.get("step")} recorded at {x.get("head")}, '
+                                         f'the attempt started at {a["head"]}')
+            a['steps_done'].append(x.get('step'))
+        elif event == 'failed':
+            a['failed'] = {'step': x.get('step'), 'note': x.get('note'), 'utc': x.get('utc')}
+        elif event == 'completed':
+            a['completed_utc'] = x.get('utc')
+        else:
+            raise HoldoutRecordError(f'attempt {a["attempt"]}: unknown event {event!r}')
+    out = [by[n] for n in sorted(by, key=lambda n: (n is None, n or 0))]
+    for a in out:
+        if not isinstance(a['attempt'], int) or a['started_utc'] is None or not a['head']:
+            raise HoldoutRecordError(f'attempt {a["attempt"]!r} has no start line with its commit')
+        a['at_registered_commit'] = a['head'] == prereg
+        note = a['note'] or ''
+        if note.startswith('crash fix'):
+            m = CRASH_FIX_NOTE.fullmatch(note)
+            if m is None or not prereg.startswith(m['base']):
+                raise HoldoutRecordError(f'attempt {a["attempt"]}: a crash-fix note that does not name a diff since '
+                                         f'the registered commit {prereg}: {note!r}')
+            if a['at_registered_commit']:
+                raise HoldoutRecordError(f'attempt {a["attempt"]}: a crash-fix note at the registered commit {prereg}')
+            a['crash_fix'] = {'fix': m['fix'], 'diff': pathlib.PurePosixPath(m['path']).name, 'sha256': m['sha256']}
+    if [a['attempt'] for a in out] != list(range(1, len(out) + 1)):
+        raise HoldoutRecordError(f'the attempts are numbered {[a["attempt"] for a in out]}, not 1 to {len(out)}')
+    return out
+
+
+def _diff_stats(text):
+    """Files changed and lines added and removed by a unified diff (git diff)."""
+    files, plus, minus, in_hunk = [], 0, 0, False
+    for line in text.splitlines():
+        if line.startswith('diff --git '):
+            in_hunk = False
+            if ' b/' in line:
+                files.append(line.split(' b/', 1)[1])
+        elif line.startswith('@@'):
+            in_hunk = True
+        elif in_hunk and line.startswith('+'):
+            plus += 1
+        elif in_hunk and line.startswith('-'):
+            minus += 1
+    return sorted(set(files)), plus, minus
+
+
+def holdout_logs(src, directory, attempts):
+    """What results/holdout2026/logs/ holds (run_holdout.sh publishes every attempt's step logs,
+    the environment listings and every crash-fix diff), and each crash-fix diff: the commit it
+    was written at, its sha256, the files it changes, and the attempts whose note names it. A
+    note's diff that is not published, or not with the sha256 the note records, stops the
+    build. A published diff that no attempt names was written by a step-0 check that then
+    refused to start an attempt (run_holdout.sh writes it before its other checks)."""
+    logs = directory / 'logs'
+    files = sorted(p for p in logs.iterdir() if p.is_file()) if logs.is_dir() else []
+    steps = {}
+    for p in files:
+        m = STEP_LOG.fullmatch(p.name)
+        if m:
+            steps.setdefault(int(m['attempt']), []).append(m['step'])
+    named = {}
+    for a in attempts:
+        if a['crash_fix']:
+            named.setdefault(a['crash_fix']['diff'], []).append(a)
+    diffs = []
+    for p in files:
+        m = CRASH_FIX_DIFF.fullmatch(p.name)
+        if m is None:
+            continue
+        sha = src.record(p)
+        for a in named.get(p.name, []):
+            if a['crash_fix']['sha256'] != sha or not a['head'].startswith(m['commit']):
+                raise HoldoutRecordError(f'attempt {a["attempt"]} at {a["head"]} names {p.name} with sha256 '
+                                         f'{a["crash_fix"]["sha256"]}; the published file\'s is {sha}')
+        changed, plus, minus = _diff_stats(p.read_text(encoding='utf-8', errors='replace'))
+        diffs.append({'file': f'logs/{p.name}', 'commit': m['commit'], 'sha256': sha, 'bytes': p.stat().st_size,
+                      'files': changed, 'insertions': plus, 'deletions': minus,
+                      'attempts': [a['attempt'] for a in named.get(p.name, [])]})
+    unpublished = sorted(set(named) - {p.name for p in files})
+    if unpublished:
+        raise HoldoutRecordError(f'crash-fix diffs named by the attempt record are not in results/{HOLDOUT_TRIAL}/logs/: '
+                                 f'{unpublished}')
+    return {'count': len(files), 'step_logs': sum(len(v) for v in steps.values()),
+            'environment': sum(1 for p in files if '_environment_' in p.name), 'diffs': len(diffs),
+            'by_attempt': [{'attempt': n, 'steps': sorted(steps[n])} for n in sorted(steps)]}, diffs
+
+
+def holdout_price_fetch(manifest, calendar=HOLDOUT_CALENDAR, sha256=None, recorded=None):
+    """When the holdout's prices were fetched (the price cache's manifest, as published). It must
+    be the manifest of the calendar's cache: its date range is the calendar's (data_processor
+    writes the range and refuses a cache whose manifest describes another), and its sha256 is
+    the one the attempt record last recorded for the cache's manifest at the evaluated commit
+    (`recorded`; run_holdout.sh copies that file when it publishes). Another file stops the build."""
+    if not manifest:
+        return None
+    cal = CALENDARS[calendar]
+    if (manifest.get('start'), manifest.get('end')) != (cal.data_start, cal.data_end):
+        raise HoldoutRecordError(f'results/{HOLDOUT_TRIAL}/{PRICE_MANIFEST} describes {manifest.get("start")} to '
+                                 f'{manifest.get("end")}, not the calendar {calendar} ({cal.data_start} to {cal.data_end})')
+    if recorded is not None and sha256 != recorded:
+        raise HoldoutRecordError(f'results/{HOLDOUT_TRIAL}/{PRICE_MANIFEST} (sha256 {sha256}) is not the price manifest '
+                                 f'the attempt record last recorded ({recorded})')
+    tops = manifest.get('top_ups') or []
+    return {'start': manifest.get('start'), 'end': manifest.get('end'), 'fetched_utc': manifest.get('fetched_at'),
+            'top_ups': len(tops), 'last_top_up_utc': tops[-1].get('fetched_at') if tops else None,
+            'symbols': len(manifest.get('cached_symbols') or [])}
+
+
+def holdout_provenance(src, directory, evaluation, registry, attempt_lines, calendar=HOLDOUT_CALENDAR):
+    """The run record of the holdout: the commit every run came from (one, the commit the
+    evaluator expected), whether it is the registered commit, clean trees and run times; the
+    registry line (its commit, the registered commit, when, how many attempt lines it copies);
+    every attempt from results/trial_attempts.jsonl with its failures and crash fixes, the
+    number of the trial's lines there (the registry line's, then the completion line) and the
+    earlier attempts that stopped without recording a failure; the published logs and crash-fix
+    diffs; and the price fetch. The build stops when the trial is evaluated but not registered
+    (or registered twice), the registry line records no registered commit, its commit, runs or
+    evaluation are not this evaluation's, or the attempt record disagrees with it."""
+    inputs = evaluation.get('inputs') or {}
+    strategies = evaluation.get('strategies') or {}
+    runs = inputs.get('runs') or {}
+    if sorted(runs) != sorted(strategies):
+        raise HoldoutRecordError(f'the evaluation\'s inputs list the runs {sorted(runs)}, its strategies are {sorted(strategies)}')
+    order = _holdout_order(strategies)
+    prov = {k: runs[k].get('provenance') or {} for k in order}
+    commits = {k: p.get('git_commit') for k, p in prov.items()}
+    if None in commits.values() or len(set(commits.values())) != 1:
+        raise HoldoutRecordError(f'the runs are not from one commit: {commits}')
+    commit = commits[order[0]]
+    if inputs.get('expect_commit') not in (None, commit) or any(strategies[k].get('commit') not in (None, commit) for k in order):
+        raise HoldoutRecordError(f'the evaluation expected commit {inputs.get("expect_commit")}, its runs are from {commit}')
+    lines = [e for e in registry or [] if e.get('name') == HOLDOUT_TRIAL]
+    if len(lines) != 1:
+        raise HoldoutRecordError(f'results/{HOLDOUT_TRIAL}/evaluation.json exists but results/{REGISTRY} holds '
+                                 f'{len(lines)} line(s) named {HOLDOUT_TRIAL}, not one')
+    entry = lines[0]
+    prereg = entry.get('prereg_commit')
+    if not prereg:
+        raise HoldoutRecordError(f'the registry line of {HOLDOUT_TRIAL} records no registered commit (prereg_commit)')
+    reg_runs = entry.get('runs') or []
+    if entry.get('head') != commit or not reg_runs or any(r.get('git_commit') != commit for r in reg_runs):
+        raise HoldoutRecordError(f'the registry line of {HOLDOUT_TRIAL} (head {entry.get("head")}, runs from '
+                                 f'{[r.get("git_commit") for r in reg_runs]}) is not the evaluated runs\' commit {commit}')
+    summary = {'alpha': evaluation.get('alpha'), 'test': evaluation.get('test'), 'inputs': evaluation.get('inputs'),
+               'strategies': {k: {f: v.get(f) for f in REGISTERED_FIELDS} for k, v in strategies.items()}}
+    if entry.get('evaluation') != summary:
+        raise HoldoutRecordError(f'the registry line of {HOLDOUT_TRIAL} records another evaluation than '
+                                 f'results/{HOLDOUT_TRIAL}/evaluation.json')
+    if attempt_lines is None:
+        raise HoldoutRecordError(f'results/{ATTEMPTS} is missing: the attempts cannot be checked against the registry')
+    mine = [x for x in attempt_lines if x.get('name') == HOLDOUT_TRIAL]
+    _check_attempts(mine, entry.get('attempts'))
+    attempts = holdout_attempts(mine, prereg)
+    last = attempts[-1]
+    if last['head'] != commit:
+        raise HoldoutRecordError(f'the last attempt ran at {last["head"]}, the evaluated runs are from {commit}')
+    step_attempts = {}
+    for a in attempts:
+        if a['head'] == commit:
+            step_attempts.update({step: a['attempt'] for step in a['steps_done']})
+    logs, diffs = holdout_logs(src, directory, attempts)
+    cal = CALENDARS[calendar]
+    price_key = re.sub(r'\.pkl$', '', cal.price_cache) + '_manifest.json'
+    recorded = [x['outputs'][price_key] for x in mine if x.get('event') == 'done' and x.get('head') == commit
+                and price_key in (x.get('outputs') or {})]
+    manifest_path = directory / PRICE_MANIFEST
+    price_fetch = holdout_price_fetch(src.load(manifest_path), calendar,
+                                      _sha256(manifest_path) if manifest_path.is_file() else None,
+                                      recorded[-1] if recorded else None)
+    return {
+        'commit': commit, 'run_commits': commits, 'expect_commit': inputs.get('expect_commit'),
+        'clean': all(p.get('git_dirty') is False for p in prov.values()),
+        'run_utc': {k: p.get('run_timestamp_utc') for k, p in prov.items()},
+        'registered_commit': prereg, 'at_registered_commit': commit == prereg, 'crash_fix': last['crash_fix'],
+        'registry': {'name': HOLDOUT_TRIAL, 'head': entry.get('head'), 'prereg_commit': prereg,
+                     'registered_utc': entry.get('registered_utc'), 'attempt_lines': len(entry.get('attempts')),
+                     'note': entry.get('note')},
+        'attempts': attempts, 'n_attempts': len(attempts), 'n_failed': sum(1 for a in attempts if a['failed']),
+        # an earlier attempt with no failure line stopped without recording one (killed, or its
+        # failure line could not be written); the last attempt registered the trial
+        'n_unfinished': sum(1 for a in attempts[:-1] if not a['failed']),
+        'attempt_record_lines': len(mine),
+        'completed_utc': last['completed_utc'], 'step_attempts': step_attempts,
+        'logs': logs, 'crash_fix_diffs': diffs,
+        'price_fetch': price_fetch,
+    }
+
+
+def holdout_daily(src, directory, evaluation):
+    """Each arm's cumulative net return (%) by day, from its published export: the daily net
+    returns the evaluator reads (a pairs run's daily_return_pct / 100, the residual arm's
+    daily_net_returns), compounded. An arm whose directory is not published has none (null; all
+    null: no section). A published export that its MANIFEST.json does not list, that is not the
+    file the evaluation read (its sha256 under inputs.runs), or whose days or compounded return
+    are not the evaluation's, stops the build."""
+    strategies = evaluation.get('strategies') or {}
+    runs = (evaluation.get('inputs') or {}).get('runs') or {}
+    order = _holdout_order(strategies)
+    cum, dates = {}, None
+    for key in order:
+        sub, kind = HOLDOUT_EXPORTS.get(key, (None, None))
+        d = directory / sub if sub else None
+        if d is None or not d.is_dir():
+            cum[key] = None
+            continue
+        read = runs[key].get('sha256') or {}
+        manifest = src.load(d / 'MANIFEST.json') or {}
+        listed = manifest.get('files') or {}
+        bad = [name for name, sha in read.items()
+               if not (d / name).is_file() or _get(listed, name, 'sha256') != sha or _sha256(d / name) != sha]
+        # the export the evaluator read: the residual arm's file, or a pairs run's besides its headline
+        exports = [n for n in read if (n == RESIDUAL_EXPORT if kind == 'residual' else n != 'headline_metrics.json')]
+        if bad or len(exports) != 1:
+            raise HoldoutRecordError(f'{d}: the published files {bad or sorted(read)} are not the ones the evaluation '
+                                     f'read, or not the ones its MANIFEST.json lists')
+        for name in read:
+            src.record(d / name)
+        export = d / exports[0]
+        doc = src.load(export)
+        if kind == 'residual':
+            days, net = [str(x)[:10] for x in doc['daily_dates']], [float(x) for x in doc['daily_net_returns']]
+        else:
+            curve = doc['daily_equity_curve']
+            days, net = [str(x['date'])[:10] for x in curve], [x['daily_return_pct'] / 100.0 for x in curve]
+        s = strategies[key]
+        path = (np.cumprod(1.0 + np.asarray(net, dtype=float)) - 1.0) * 100.0
+        total = (float(np.prod(1.0 + np.asarray(net, dtype=float))) - 1.0) * 100.0
+        if (not days or len(days) != s.get('days') or [days[0], days[-1]] != list(s.get('period') or [])
+                or s.get('total_return_pct') is None or abs(total - s['total_return_pct']) > HOLDOUT_TOTAL_TOL
+                or abs(path[-1] - total) > HOLDOUT_TOTAL_TOL):
+            raise HoldoutRecordError(f'{export}: {len(days)} days {days[:1]} to {days[-1:]}, total {total:.6f}%; the '
+                                     f'evaluation reports {s.get("days")} days {s.get("period")}, {s.get("total_return_pct")}%')
+        if dates is not None and days != dates:
+            raise HoldoutRecordError(f'{export}: its days are not the other arms\'')
+        dates = days
+        cum[key] = _rl(path, 4)
+    if dates is None:
+        return None
+    return {'dates': dates, 'cum': cum}
+
+
+def holdout_section(evaluation, src=None, results_root=None, registry=None, calendar=HOLDOUT_CALENDAR):
     """The pre-registered 2026 test from scripts/evaluate_holdout.py's report, or 'sealed'.
 
-    One row per strategy: the hypothesis it tests, its net Sharpe with the block-bootstrap
-    95% interval, the one-sided Newey-West test and its Holm-adjusted p-value (the decision
-    rule), and what the record could detect. Strategies the runbook does not name keep
-    their own key as a label, after the three registered ones.
+    Sealed: the calendar's first day only. Evaluated: the calendar (checked against
+    study_config's), the registered decision (holdout_decision), one row per strategy in the
+    registered order (holdout_arm; strategies the runbook does not name keep their own key as a
+    label, after the three registered ones), each arm's cumulative net return by day from its
+    published export (holdout_daily) and the run record (holdout_provenance). The paper and the
+    page take the decision from 'decision' and the arms' edge and p_holm_below_alpha only.
     """
+    cal = CALENDARS[calendar]
     if evaluation is None:
-        return {'status': 'sealed', 'calendar_start': '2026-01-02'}
+        return {'status': 'sealed', 'calendar_start': cal.backtest_start}
+    results_root = pathlib.Path(results_root) if results_root else ROOT / 'results'
+    src = src or Sources(ROOT, results_root)
+    directory = results_root / HOLDOUT_TRIAL
+    inputs = evaluation.get('inputs') or {}
     strategies = evaluation.get('strategies') or {}
-    known = {key: (h, label) for key, h, label in HOLDOUT_ARMS}
-    order = [k for k, _, _ in HOLDOUT_ARMS if k in strategies] + sorted(k for k in strategies if k not in known)
+    if inputs.get('calendar') != calendar or inputs.get('calendar_hash') != cal.config_hash():
+        raise HoldoutRecordError(f'the evaluation is on calendar {inputs.get("calendar")!r} (hash '
+                                 f'{inputs.get("calendar_hash")}), not {calendar} ({cal.config_hash()})')
+    decision = holdout_decision(strategies, evaluation.get('family'), evaluation.get('alpha'))
+    order = _holdout_order(strategies)
     arms = []
     for key in order:
-        s = strategies[key]
-        h, label = known.get(key, (None, key))
-        lo, hi = (list(s.get('bootstrap_ci_95') or []) + [None, None])[:2]
-        arms.append({'key': key, 'hypothesis': h, 'label': label, 'sharpe': _r(s.get('sharpe')), 'lo': _r(lo), 'hi': _r(hi),
-                     't': _r(s.get('t'), 3), 'p_one_sided': _r(s.get('p_one_sided')), 'p_holm': _r(s.get('p_holm')),
-                     'edge': s.get('edge_out_of_sample'), 'role': s.get('role', 'confirmatory'),
-                     'days': s.get('days'), 'trades': s.get('trades'),
-                     'ret_pct': _r(s.get('total_return_pct')), 'ucb': _r(s.get('upper_bound_95')),
-                     'mde': _r(s.get('min_detectable_sharpe')), 'period': s.get('period')})
-    return {'status': 'complete', 'alpha': evaluation.get('alpha'), 'test': evaluation.get('test'), 'arms': arms}
+        arm = holdout_arm(key, strategies[key])
+        if key in decision['arms']:
+            arm['p_holm_below_alpha'] = decision['arms'][key]['p_holm_below_alpha']
+        arms.append(arm)
+    period = strategies[order[0]].get('period') or [None, None]
+    matches = inputs.get('period_matches_calendar')
+    if not isinstance(matches, bool) or matches != (period[0] == cal.backtest_start and period[-1] == cal.data_end):
+        raise HoldoutRecordError(f'period_matches_calendar is {matches!r} for trading dates {period}, '
+                                 f'calendar {cal.backtest_start} to {cal.data_end}')
+    provenance = holdout_provenance(src, directory, evaluation, registry, src.load_lines(results_root / ATTEMPTS),
+                                    calendar)
+    for arm in arms:
+        arm['run_utc'] = provenance['run_utc'].get(arm['key'])
+    return {'status': 'complete', 'trial': HOLDOUT_TRIAL, 'alpha': evaluation.get('alpha'), 'test': evaluation.get('test'),
+            'calendar': calendar, 'calendar_hash': inputs['calendar_hash'], 'calendar_start': cal.backtest_start,
+            'calendar_end': cal.data_end, 'period_matches_calendar': matches, 'family': decision['family'],
+            'decision': decision, 'arms': arms, 'daily': holdout_daily(src, directory, evaluation),
+            'provenance': provenance}
 
 
 def _variant_label(name):
@@ -1924,11 +2372,13 @@ def validation(report):
 # Assembly
 # ──────────────────────────────────────────────────────────────────────────────
 
-def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
-    """Return the study dict built from the development run directory `dev`."""
+def build(dev=DEFAULT_DEV, results_root=None, root=ROOT, holdout_calendar=HOLDOUT_CALENDAR):
+    """Return the study dict built from the development run directory `dev`, with the study's
+    other sources from `results_root` (default results/); a holdout evaluation there must be on
+    `holdout_calendar`."""
     dev = pathlib.Path(dev)
     results_root = pathlib.Path(results_root) if results_root else pathlib.Path(root) / 'results'
-    src = Sources(root)
+    src = Sources(root, results_root)
     headline_path = dev / 'headline_metrics.json'
     headline = src.load(headline_path, required=True)
     res = src.load(_results_file(dev), required=True)
@@ -1944,10 +2394,12 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
     family_rows = src.load_csv(results_root / VARIANT_FAMILY / 'daily_returns.csv')
     rob = src.load(dev / ROBUSTNESS)
     residual = load_residual(src, results_root / 'residual_dev')
-    holdout = src.load(results_root / 'holdout2026' / 'evaluation.json')
+    holdout = src.load(results_root / HOLDOUT_TRIAL / 'evaluation.json')
     known = src.load(results_root / 'validation' / 'synthetic_validation.json')
     registry = src.load_lines(results_root / REGISTRY)
     v32 = v32_section(src, results_root / V32_RUN)
+    # before 'meta' is assembled: the holdout's exports, attempt record and diffs are sources too
+    hold = holdout_section(holdout, src, results_root, registry, holdout_calendar)
 
     run = res.get('run_config') or {}
     capital = float(_get(res, 'metadata', 'initial_capital', default=1e8))
@@ -1970,7 +2422,8 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
     fac = factor_rows(res)
     months, annual = monthly_table(res)
     rnd = _get(res, 'benchmarks', 'random_control') or {}
-    stamps = [run.get('run_timestamp_utc'), _get(residual, 'run_config', 'run_timestamp_utc')]
+    stamps = [run.get('run_timestamp_utc'), _get(residual, 'run_config', 'run_timestamp_utc'),
+              *(_get(hold, 'provenance', 'run_utc', default={}).values())]
 
     dev_out = {
         'run': {
@@ -2037,7 +2490,7 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT):
             'sources': dict(sorted(src.hashes.items())),
         },
         'dev': dev_out,
-        'holdout': holdout_section(holdout),
+        'holdout': hold,
         'residual': residual_summary(residual, daily['dates']) if residual else None,
         'validation': validation(known),
         'v32': v32,
@@ -2059,13 +2512,25 @@ def dumps(study):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    ap.add_argument('--dev', default=str(DEFAULT_DEV), metavar='RUN_DIR',
+    ap.add_argument('--dev', metavar='RUN_DIR',
                     help='development run directory: results/<name>/ or a run\'s output directory '
-                         '(default results/v33_dev)')
+                         '(default RESULTS/v33_dev)')
+    ap.add_argument('--results', metavar='RESULTS',
+                    help='the results/ tree to read: the study\'s other sources, the holdout and the registry '
+                         '(default results/)')
+    ap.add_argument('--holdout-calendar', default=HOLDOUT_CALENDAR, choices=sorted(CALENDARS),
+                    help=f'the calendar a holdout evaluation must be on (default {HOLDOUT_CALENDAR})')
     ap.add_argument('--out', default=str(DEFAULT_OUT), help='output file (default assets/study.json)')
     ap.add_argument('--check', action='store_true', help='exit 1 if the output file differs from a fresh build')
     args = ap.parse_args(argv)
-    text = dumps(build(args.dev))
+    # another results tree or calendar is a preview: never written over, or checked as, the committed file
+    if (args.results or args.holdout_calendar != HOLDOUT_CALENDAR) and (
+            args.check or pathlib.Path(args.out).resolve() == DEFAULT_OUT.resolve()):
+        ap.error('--results and --holdout-calendar build a preview into --out FILE, never over (or --check '
+                 'against) assets/study.json')
+    results_root = pathlib.Path(args.results) if args.results else None
+    dev = pathlib.Path(args.dev) if args.dev else (results_root / DEFAULT_DEV.name if results_root else DEFAULT_DEV)
+    text = dumps(build(dev, results_root=results_root, holdout_calendar=args.holdout_calendar))
     out = pathlib.Path(args.out)
     if args.check:
         current = out.read_text(encoding='utf-8') if out.exists() else None
@@ -2078,7 +2543,7 @@ def main(argv=None):
     tmp = out.with_name(out.name + '.tmp')
     tmp.write_text(text, encoding='utf-8')
     tmp.replace(out)
-    print(f'wrote {out} ({len(text.encode()) / 1024:.0f} KB) from {args.dev}')
+    print(f'wrote {out} ({len(text.encode()) / 1024:.0f} KB) from {dev}')
     return 0
 
 

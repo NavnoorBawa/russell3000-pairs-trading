@@ -11,6 +11,14 @@ number that is null prints as "pending" with its reason, never as a number. Sent
 wording depends on the data ("every interval spans zero") name a claim that is computed
 here; the compile stops if a claim the text makes is false.
 
+Once the pre-registered holdout is evaluated (study.json's 'holdout' is 'complete'), its
+results, its run record and its decision are printed from study.json alone: the decision
+is the evaluation's (each confirmatory arm's edge and Holm-adjusted p), read and checked,
+never recomputed, and a holdout block that contradicts itself stops the build
+(holdout_block). Its numbers are rounded as the site rounds them (fmt(half_up=True)); main.typ
+words the result by flags and asserts each wording with a claim, and checks that the summary
+still fits on page 1.
+
 Products (all committed; CI checks them with --check):
 
     paper/build/paper_data.json    every printed number and table cell, formatted as the
@@ -24,6 +32,10 @@ usage:
     python scripts/build_paper.py               # data, figures and PDF
     python scripts/build_paper.py --check       # exit 1 if a committed product is stale
     python scripts/build_paper.py --png DIR     # also render each page to DIR/page-N.png
+    python scripts/build_paper.py --study FILE --results DIR [--holdout-calendar NAME] --out DIR
+                                                # a paper from other site data (e.g. a stand-in
+                                                # of the evaluated holdout), built outside the
+                                                # repository, never over the committed products
 
 Deterministic: no wall-clock time (the PDF's timestamp is the paper's date, the newest
 dated input), fixed SVG ids, sorted JSON; a rebuild of unchanged inputs is byte-identical.
@@ -39,7 +51,9 @@ import json
 import math
 import pathlib
 import re
+import shutil
 import sys
+from decimal import ROUND_HALF_UP, Decimal
 
 import numpy as np
 
@@ -72,6 +86,17 @@ BOOT_SEED, BOOT_RESAMPLES = 42, 5000    # the run's own bootstrap settings (seed
 _Z95, _Z80 = 1.6448536269514722, 0.8416212335729143   # one-sided 5% test, 80% power
 HOLDOUT_DAYS = (126, 200, 252)          # six months, the registered calendar (2026-01-02 to 2026-10-19), a year
 HOLM_FIRST_ALPHA = 0.05 / 2             # Holm's first step across the two confirmatory arms
+# The pre-registered 2026 test (docs/PREREGISTRATION.md; scripts/evaluate_holdout.py). Each arm:
+# its key in the evaluation, its hypothesis (None: descriptive), the paper's id and name.
+HOLDOUT_TRIAL = 'holdout2026'
+HOLDOUT_CALENDAR = 'holdout2026'
+HOLDOUT_ALPHA = 0.05
+HOLDOUT_ARMS = (('v33_pairs', 'H1', 's1', 'S1'), ('avellaneda_lee', 'H2', 's2', 'S2'),
+                ('v32_pairs', None, 's3', 'S3'))
+HOLDOUT_RECORDS = ('results/trial_registry.jsonl', 'results/trial_attempts.jsonl')
+# the runbook's steps (trial_attempts.py) by the names the paper gives them
+HOLDOUT_STEPS = {'universe': 'universe', 'data': 'data', 'v33': 'S1', 'v32': 'S3', 'residual': 'S2',
+                 'evaluate': 'evaluation'}
 MONTHS = ('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September',
           'October', 'November', 'December')
 WORDS = ('no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten')
@@ -106,12 +131,15 @@ class PaperDataError(ValueError):
 _SPEC = re.compile(r'(?P<plus>\+?)(?P<comma>,?)\.(?P<dp>\d)(?P<suffix>.*)')
 
 
-def fmt(x, spec):
+def fmt(x, spec, half_up=False):
     """`x` formatted by `spec`, e.g. '.2', '+.2%', ',.0', '.2×'; None for a missing value.
 
     '+' writes an explicit plus on positive values; ',' groups thousands; the digit is the
     number of decimals; anything after it is a suffix. A value that rounds to zero carries
-    no sign, so '−0.00' cannot appear.
+    no sign, so '−0.00' cannot appear. `half_up` rounds as the site's num() does (assets/
+    exhibits.js, toLocaleString): half away from zero on the shortest decimal form of the
+    value (2.675 -> 2.68), not on its binary one (2.67); the holdout's numbers, which the
+    site and the paper print side by side, are rounded so.
     """
     if x is None:
         return None
@@ -124,7 +152,11 @@ def fmt(x, spec):
     if s is None:
         raise ValueError(f'bad format spec {spec!r}')
     dp = int(s['dp'])
-    body = f'{abs(x):,.{dp}f}' if s['comma'] else f'{abs(x):.{dp}f}'
+    if half_up:
+        q = Decimal(repr(abs(x))).quantize(Decimal(1).scaleb(-dp), rounding=ROUND_HALF_UP)
+        body = format(q, f',.{dp}f' if s['comma'] else f'.{dp}f')
+    else:
+        body = f'{abs(x):,.{dp}f}' if s['comma'] else f'{abs(x):.{dp}f}'
     nonzero = float(body.replace(',', '')) != 0.0
     sign = MINUS if x < 0 and nonzero else ('+' if s['plus'] and x > 0 and nonzero else '')
     return sign + body + s['suffix']
@@ -176,36 +208,54 @@ def _get(d, *path, default=None):
 # Inputs
 # ──────────────────────────────────────────────────────────────────────────────
 
-def load_inputs(root=ROOT):
+def load_inputs(root=ROOT, study_path=None, results_root=None, holdout_calendar=HOLDOUT_CALENDAR):
     """study.json, the headline JSON it was built from, and the point-in-time universe index.
 
     The headline JSON is found among study.json's own sources by its sha256, so the paper
-    can only ever pair a study file with the run it was built from.
+    can only ever pair a study file with the run it was built from. `study_path` (default
+    assets/study.json) and `results_root` (default results/, where study.json's 'results/...'
+    sources are read) let the paper be built from a study file made with
+    build_site_data.py --results; `holdout_calendar` is the calendar a completed holdout must
+    be on (the registered holdout2026). Once the holdout is evaluated, every file of its record
+    that study.json lists must be unchanged since study.json was built from it.
     """
     root = pathlib.Path(root)
-    study_path = root / 'assets' / 'study.json'
+    results_root = pathlib.Path(results_root) if results_root else root / 'results'
+    study_path = pathlib.Path(study_path) if study_path else root / 'assets' / 'study.json'
+
+    def at(rel):
+        """Where a source of study.json ('results/...' under results_root) is read."""
+        return results_root / rel[len('results/'):] if rel.startswith('results/') else root / rel
     study = json.loads(study_path.read_text(encoding='utf-8'))
     meta = study['meta']
     rel = next((p for p, h in sorted(meta['sources'].items())
                 if p.endswith('headline_metrics.json') and h == meta['headline_sha256']), None)
     if rel is None:
         raise PaperDataError('assets/study.json lists no headline JSON with its headline_sha256')
-    headline_path = root / rel
+    headline_path = at(rel)
     if not headline_path.is_file() or _sha256(headline_path) != meta['headline_sha256']:
         raise PaperDataError(f'{rel} is missing or is not the file assets/study.json was built from; '
                              'rebuild it with scripts/build_site_data.py')
     index_path = root / 'reference' / 'universe' / 'index.json'
     universe = json.loads(index_path.read_text(encoding='utf-8')) if index_path.is_file() else None
 
+    def unchanged(rel):
+        path = at(rel)
+        if not path.is_file() or _sha256(path) != meta['sources'][rel]:
+            raise PaperDataError(f'{rel} changed after assets/study.json was built from it')
+
     def source(pattern):
         """A source of study.json whose path matches, checked against the sha256 recorded there."""
         hits = [p for p in sorted(meta['sources']) if re.search(pattern, p)]
         if not hits:
             return None, None
-        path = root / hits[0]
-        if not path.is_file() or _sha256(path) != meta['sources'][hits[0]]:
-            raise PaperDataError(f'{hits[0]} changed after assets/study.json was built from it')
-        return hits[0], json.loads(path.read_text(encoding='utf-8'))
+        unchanged(hits[0])
+        return hits[0], json.loads(at(hits[0]).read_text(encoding='utf-8'))
+    # the evaluated holdout's record: its exports, evaluation, logs, the registry and the attempts
+    if (study.get('holdout') or {}).get('status') == 'complete':
+        for record in sorted(meta['sources']):
+            if record.startswith(f'results/{HOLDOUT_TRIAL}/') or record in HOLDOUT_RECORDS:
+                unchanged(record)
     # the full export of the run the headline JSON describes (its directory); study.json also
     # lists the published v32 run's export, which is history, not this run
     run_dir = rel.rsplit('/', 1)[0]
@@ -220,7 +270,8 @@ def load_inputs(root=ROOT):
         raise PaperDataError('assets/study.json has a residual arm but lists no published '
                              'residual_dev/residual_statarb.json among its sources')
     # The published v32 run's universe file: the date it was ranked (the frozen arm S3's universe).
-    v32_meta_path = root / 'results' / 'v32_dev' / 'universe_meta.json'
+    v32_meta_rel = 'results/v32_dev/universe_meta.json'
+    v32_meta_path = at(v32_meta_rel)
     v32_meta = json.loads(v32_meta_path.read_text(encoding='utf-8')) if v32_meta_path.is_file() else None
     # The site's exhibit list, for the concordance of its exhibit numbers with the paper's.
     site_path = root / 'index.html'
@@ -232,11 +283,12 @@ def load_inputs(root=ROOT):
             'universe_index': universe,
             'universe_index_sha256': _sha256(index_path) if universe is not None else None,
             'v32_universe': v32_meta,
-            'v32_universe_path': v32_meta_path.relative_to(root).as_posix() if v32_meta is not None else None,
+            'v32_universe_path': v32_meta_rel if v32_meta is not None else None,
             'v32_universe_sha256': _sha256(v32_meta_path) if v32_meta is not None else None,
             'site_exhibits': site_exhibits(site) if site is not None else None,
             'site_sha256': _sha256(site_path) if site is not None else None,
-            'preregistered': (root / 'docs' / 'PREREGISTRATION.md').is_file()}
+            'preregistered': (root / 'docs' / 'PREREGISTRATION.md').is_file(),
+            'holdout_calendar': holdout_calendar}
 
 
 # Site exhibits drawn as diagrams carry no data-exhibit name; they are matched by title.
@@ -341,6 +393,261 @@ def performance(study):
     return out
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# The pre-registered 2026 holdout (assets/study.json 'holdout', once evaluated)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _holdout_error(msg):
+    return PaperDataError(f'the holdout in assets/study.json: {msg}')
+
+
+def _finite(x):
+    return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
+
+
+def holdout_block(study, calendar=HOLDOUT_CALENDAR):
+    """The evaluated holdout of study.json, checked; None while it is sealed.
+
+    The decision is the evaluation's as scripts/build_site_data.py passes it on: each
+    confirmatory arm's edge (edge_out_of_sample) and Holm-adjusted p, with the flag that p
+    is below alpha; nothing here recomputes it. The paper stops rather than print a result
+    whose parts disagree: the decision against an arm, an edge against its flag or its p, a
+    descriptive arm with a decision, an arm without its registered role or the three arms
+    not the registered ones, the calendar against the one expected (`calendar`), the days or
+    the daily paths against the arms, the run record against itself. A registered trial whose
+    completion line is missing (the runbook stopped between registering it and appending the
+    line) is printed as such: the registry line is the record of the completed trial.
+    """
+    H = study.get('holdout') or {}
+    status = H.get('status')
+    if status == 'sealed':
+        return None
+    if status != 'complete':
+        raise _holdout_error(f'status {status!r} is neither sealed nor complete')
+    cal = CALENDARS.get(calendar)
+    if cal is None:
+        raise _holdout_error(f'no calendar {calendar!r} in study_config')
+    if H.get('trial') != HOLDOUT_TRIAL:
+        raise _holdout_error(f'trial {H.get("trial")!r}, not {HOLDOUT_TRIAL}')
+    if (H.get('calendar') != calendar or H.get('calendar_hash') != cal.config_hash()
+            or [H.get('calendar_start'), H.get('calendar_end')] != [cal.backtest_start, cal.data_end]):
+        raise _holdout_error(f'calendar {H.get("calendar")!r} ({H.get("calendar_hash")}, {H.get("calendar_start")} to '
+                             f'{H.get("calendar_end")}), not {calendar} ({cal.config_hash()}, {cal.backtest_start} to '
+                             f'{cal.data_end})')
+    family = [k for k, h, _, _ in HOLDOUT_ARMS if h]
+    D = H.get('decision') or {}
+    if H.get('alpha') != HOLDOUT_ALPHA or D.get('alpha') != HOLDOUT_ALPHA:
+        raise _holdout_error(f'alpha {H.get("alpha")!r} / {D.get("alpha")!r}, not the registered {HOLDOUT_ALPHA}')
+    if H.get('family') != family or D.get('family') != family:
+        raise _holdout_error(f'family {H.get("family")!r} / {D.get("family")!r}, not the registered {family}')
+    arms = H.get('arms') or []
+    keys = [a.get('key') for a in arms]
+    if keys != [k for k, _, _, _ in HOLDOUT_ARMS]:
+        raise _holdout_error(f'arms {keys}; the paper prints the registered arms {[k for k, *_ in HOLDOUT_ARMS]}')
+    decided = D.get('arms') or {}
+    rejected = D.get('rejected')
+    if sorted(decided) != sorted(family) or not isinstance(rejected, list):
+        raise _holdout_error(f'the decision covers {sorted(decided)} (rejected {rejected!r}), not the family {family}')
+    for a, (key, hyp, _, _) in zip(arms, HOLDOUT_ARMS):
+        role = 'confirmatory' if hyp else 'descriptive'
+        if a.get('role') != role or a.get('hypothesis') != hyp:
+            raise _holdout_error(f'{key} has role {a.get("role")!r} and hypothesis {a.get("hypothesis")!r}, '
+                                 f'not {role} {hyp}')
+        flat = a.get('flat')
+        if not isinstance(flat, bool) or (flat and (a.get('sharpe') is not None or a.get('lags') != 0)) \
+                or (not flat and not _finite(a.get('sharpe'))):
+            raise _holdout_error(f'{key}: flat {flat!r} with Sharpe {a.get("sharpe")!r} and lag {a.get("lags")!r}')
+        if not (_finite(a.get('t')) and _finite(a.get('p_one_sided')) and isinstance(a.get('days'), int)
+                and a['days'] > 0 and isinstance(a.get('trades'), int) and a['trades'] >= 0
+                and _finite(a.get('ret_pct'))):
+            raise _holdout_error(f'{key} lacks its t, one-sided p, days, trades or net return')
+        edge, p, below = a.get('edge'), a.get('p_holm'), a.get('p_holm_below_alpha')
+        if not hyp:
+            if (edge, p, below) != (None, None, None):
+                raise _holdout_error(f'{key} is descriptive but carries a decision ({edge!r}, {p!r}, {below!r})')
+            continue
+        if not isinstance(edge, bool) or not isinstance(below, bool) or not _finite(p) or not 0 <= p <= 1:
+            raise _holdout_error(f'{key} is confirmatory but has edge {edge!r}, p_holm {p!r}, below alpha {below!r}')
+        if decided[key] != {'hypothesis': hyp, 'edge': edge, 'p_holm': p, 'p_holm_below_alpha': below}:
+            raise _holdout_error(f'{key}: the decision {decided[key]} is not the arm\'s ({edge}, {p}, {below})')
+        # the flag was taken from the unrounded p; the rounded p must not contradict it
+        if edge is not below or (key in rejected) is not edge \
+                or (p > HOLDOUT_ALPHA if below else p < HOLDOUT_ALPHA):
+            raise _holdout_error(f'{key}: edge {edge}, p_holm {p}, below alpha {below}, rejected {rejected}: '
+                                 'the decision contradicts itself')
+        if edge and (flat or a['t'] <= 0):
+            raise _holdout_error(f'{key} has an edge with a t of {a["t"]} (flat {flat})')
+    if rejected != [k for k in family if decided[k]['edge']]:
+        raise _holdout_error(f'rejected {rejected}, but the arms with an edge are '
+                             f'{[k for k in family if decided[k]["edge"]]}')
+    period = arms[0].get('period')
+    if any(a.get('days') != arms[0]['days'] or a.get('period') != period for a in arms) \
+            or not isinstance(period, list) or len(period) != 2:
+        raise _holdout_error('the arms do not share their days')
+    matches = H.get('period_matches_calendar')
+    if not isinstance(matches, bool) or matches != (period == [cal.backtest_start, cal.data_end]):
+        raise _holdout_error(f'period_matches_calendar {matches!r} for trading dates {period}')
+    R = H.get('provenance') or {}
+    attempts = R.get('attempts') or []
+    commit = R.get('commit')
+    runs = R.get('run_commits') or {}
+    if not attempts or R.get('n_attempts') != len(attempts) \
+            or R.get('n_failed') != sum(1 for x in attempts if x.get('failed')) \
+            or R.get('n_unfinished') != sum(1 for x in attempts[:-1] if not x.get('failed')):
+        raise _holdout_error('the attempt counts are not the attempts\'')
+    # the trial's lines of results/trial_attempts.jsonl: those its registry line copies, then the
+    # completion line run_holdout.sh appends after registering (absent if it stopped in between)
+    copied, lines = _get(R, 'registry', 'attempt_lines'), R.get('attempt_record_lines')
+    completed = bool(attempts[-1].get('completed_utc'))
+    if attempts[-1].get('failed') or not isinstance(copied, int) or lines != copied + completed \
+            or R.get('completed_utc') != attempts[-1].get('completed_utc') \
+            or not _get(R, 'registry', 'registered_utc'):
+        raise _holdout_error('the last attempt, the registry line and the trial\'s lines in the attempt record '
+                             'disagree')
+    if not commit or sorted(runs) != sorted(keys) or set(runs.values()) != {commit} \
+            or any(a.get('commit') != commit for a in arms) or attempts[-1].get('head') != commit:
+        raise _holdout_error(f'the runs ({runs}) and the last attempt are not all from {commit}')
+    registered = R.get('registered_commit')
+    if not registered or registered != _get(R, 'registry', 'prereg_commit') \
+            or R.get('at_registered_commit') is not (commit == registered) \
+            or R.get('crash_fix') != attempts[-1].get('crash_fix'):
+        raise _holdout_error('the registered commit, the run commit and the last attempt disagree')
+    published = {d.get('file', '').rsplit('/', 1)[-1] for d in R.get('crash_fix_diffs') or []}
+    if any(x.get('crash_fix') and x['crash_fix'].get('diff') not in published for x in attempts):
+        raise _holdout_error('an attempt names a crash-fix diff that is not published')
+    daily = H.get('daily')
+    if daily is not None:
+        dates, cum = daily.get('dates') or [], daily.get('cum') or {}
+        if len(dates) != arms[0]['days'] or [dates[0], dates[-1]] != period or set(cum) - set(keys) \
+                or any(v is not None and len(v) != len(dates) for v in cum.values()):
+            raise _holdout_error('the daily paths are not the arms\' days')
+    return H
+
+
+def _p_text(p, below=None):
+    """A p-value as the paper and the site print it: three decimals rounded half up; '<0.050'
+    for a Holm-adjusted p that is below alpha but rounds to it (never '0.050' beside a
+    rejection), '<0.001' for one that rounds to zero."""
+    s = fmt(p, '.3', half_up=True)
+    if s is None:
+        return None
+    if below and s == fmt(HOLDOUT_ALPHA, '.3'):
+        return '<' + s
+    return '<0.001' if s == '0.000' else s
+
+
+def _p_rel(text):
+    """'0.008' -> '= 0.008', '<0.050' -> '< 0.050': the p-value with its relation, for prose."""
+    return None if text is None else (f'< {text[1:]}' if text.startswith('<') else f'= {text}')
+
+
+_HO_NAMES = {'v33_pairs': 'v33 pairs', 'avellaneda_lee': 'Avellaneda–Lee', 'v32_pairs': 'v32, frozen'}
+_HO_FLAT_FIELDS = ('sharpe', 'lo', 'hi', 'gross_sharpe', 'sharpe_lo2002', 'psr_pct', 'sharpe_se', 'ucb', 'mde',
+                   'mde_single')
+
+
+def _utc(ts, zone=' UTC'):
+    """'2026-10-21T14:03:09+00:00' -> '2026-10-21 14:03 UTC'."""
+    return f'{str(ts)[:10]} {str(ts)[11:16]}{zone}' if ts else None
+
+
+def _count(n, noun, plural=None):
+    """'no crash-fix diff', 'one top-up', '6 step logs': a count in words up to ten."""
+    if n is None:
+        return None
+    return f"{'no' if n == 0 else word(n)} {noun if n == 1 or n == 0 else (plural or noun + 's')}"
+
+
+def holdout_derived(H):
+    """The values the paper states about the evaluated holdout, by arm (s1, s2, s3), with the
+    run record; each p-value also as printed text (_p_text). `why` gives the reason a value
+    is null: a flat arm (no dispersion in its daily returns) has no Sharpe ratio."""
+    arms, R = H['arms'], H['provenance']
+    out, why = {}, {}
+    for a, (key, hyp, sid, label) in zip(arms, HOLDOUT_ARMS):
+        vs, rp, ex = a.get('vs_gatev') or {}, a.get('random_pair') or {}, a.get('exposure') or {}
+        gaps = [(u.get('missing_weight_pct') or 0.0) + (u.get('unmapped_weight_pct') or 0.0)
+                for u in a.get('universe') or []]
+        p_one = _p_text(a['p_one_sided'])
+        arm = {
+            'key': key, 'hyp': hyp, 'label': label, 'name': _HO_NAMES[key], 'flat': a['flat'],
+            'days': a['days'], 'trades': a['trades'], 'ret_pct': a['ret_pct'], 'gross_ret_pct': a.get('gross_ret_pct'),
+            'sharpe': a.get('sharpe'), 'lo': a.get('lo'), 'hi': a.get('hi'), 't': a['t'], 'lags': a.get('lags'),
+            'gross_sharpe': a.get('gross_sharpe'), 'sharpe_lo2002': a.get('sharpe_lo2002'), 'psr_pct': a.get('psr_pct'),
+            'sharpe_se': a.get('sharpe_se'), 'ucb': a.get('ucb'), 'mde': a.get('mde'), 'mde_single': a.get('mde_single'),
+            'exp_avg': ex.get('avg_pct'), 'exp_max': ex.get('max_pct'), 'days_open': ex.get('days_open'),
+            'gatev_diff': vs.get('diff'), 'gatev_lo': vs.get('lo'), 'gatev_hi': vs.get('hi'), 'gatev_p': vs.get('p'),
+            'gatev_sharpe': vs.get('distance_sharpe'), 'gatev_days': vs.get('days'),
+            'rp_pct': rp.get('percentile'), 'rp_median': rp.get('median_sharpe'), 'rp_draws': rp.get('n_draws'),
+            'p_one_text': p_one, 'p_one_rel': _p_rel(p_one),
+            'first_long': long_date(a['period'][0]), 'last_long': long_date(a['period'][1]),
+            # an arm with no dispersion: what it did, in words (never a number for its Sharpe ratio)
+            'flat_phrase': ('opened no position: its daily net return was zero on every day' if a['trades'] == 0
+                            else 'had no dispersion in its daily net returns'),
+            'sharpe_or': 'no position' if a['flat'] and a['trades'] == 0 else
+                         'not defined' if a['flat'] else fmt(a['sharpe'], '+.2', half_up=True),
+            'decision': ('rejected' if a['edge'] else 'not rejected') if hyp else 'not tested',
+            'universe_n': len(gaps),
+            'gap_first_pct': gaps[0] if gaps else None, 'gap_last_pct': gaps[-1] if gaps else None,
+            'gap_min_pct': min(gaps) if gaps else None, 'gap_max_pct': max(gaps) if gaps else None,
+        }
+        if hyp:
+            text = _p_text(a['p_holm'], a['p_holm_below_alpha'])
+            arm.update(p_holm_text=text, p_holm_rel=_p_rel(text))
+        if a['flat']:
+            why.update({f'paper.ho.{sid}.{f}': 'not defined (no dispersion in the daily net returns)'
+                        for f in _HO_FLAT_FIELDS})
+        if not gaps:
+            why.update({f'paper.ho.{sid}.gap_{f}_pct': 'none (no point-in-time universe for this arm)'
+                        for f in ('first', 'last', 'min', 'max')})
+        out[sid] = arm
+    attempts = R['attempts']
+    fix = R.get('crash_fix') or {}
+    diff = next((d for d in R.get('crash_fix_diffs') or [] if d['file'].endswith('/' + fix.get('diff', '\0'))), {})
+    fetch = R.get('price_fetch') or {}
+    registered_utc = _get(R, 'registry', 'registered_utc')
+    n, nf, nu = R['n_attempts'], R['n_failed'], R['n_unfinished']
+    # how the attempts ended, in words: 'one attempt'; 'two attempts: one failed and the last
+    # completed'; 'three attempts: one failed, one stopped without finishing or recording a
+    # failure and the last completed' (an earlier attempt ends in one of the two; holdout_block)
+    ends = ([f'{word(nf)} failed'] if nf else []) + (
+        [f'{word(nu)} stopped without finishing or recording a failure'] if nu else []) + [
+        'the last completed' if R['completed_utc'] else 'the last registered the trial']
+    s1 = arms[0]
+    out.update({
+        'days': s1['days'], 'first_long': long_date(s1['period'][0]), 'last_long': long_date(s1['period'][1]),
+        'calendar_start_long': long_date(H['calendar_start']), 'calendar_end_long': long_date(H['calendar_end']),
+        'rejected': [sid for key, _, sid, _ in HOLDOUT_ARMS if key in H['decision']['rejected']],
+        'run': {
+            'commit': R['commit'][:12], 'registered': R['registered_commit'][:12],
+            'n_attempts': n, 'n_failed': nf, 'n_unfinished': nu,
+            'attempts_phrase': 'one attempt' if n == 1 else
+                               f"{word(n)} attempts: {', '.join(ends[:-1])} and {ends[-1]}",
+            'started': _utc(attempts[0]['started_utc']), 'completed': _utc(R['completed_utc']),
+            # the end of the run: its completion line, or (without one) the trial's registration
+            'until': _utc(R['completed_utc']) or f'{_utc(registered_utc)}, when it registered the trial',
+            'registered_long': long_date(registered_utc) if registered_utc else None,
+            'crash_fix': fix.get('fix'), 'crash_fix_diff': fix.get('diff'),
+            'crash_fix_sha': fix.get('sha256'), 'crash_fix_files': ', '.join(diff.get('files') or []) or None,
+            'crash_fix_insertions': diff.get('insertions'), 'crash_fix_deletions': diff.get('deletions'),
+            'logs': _get(R, 'logs', 'count'), 'step_logs': _get(R, 'logs', 'step_logs'),
+            'environment': _get(R, 'logs', 'environment'), 'diffs': _get(R, 'logs', 'diffs'),
+            # what results/holdout2026/logs/ holds, in words: '7 files: 6 step logs, one environment
+            # listing and no crash-fix diff'
+            'logs_phrase': (f"{_count(_get(R, 'logs', 'count'), 'file')}: "
+                            f"{_count(_get(R, 'logs', 'step_logs'), 'step log')}, "
+                            f"{_count(_get(R, 'logs', 'environment'), 'environment listing')} and "
+                            f"{_count(_get(R, 'logs', 'diffs'), 'crash-fix diff')}")
+                           if R.get('logs') else None,
+            'fetched': _utc(fetch.get('fetched_utc')), 'fetch_symbols': fetch.get('symbols'),
+            'top_ups': fetch.get('top_ups'), 'top_ups_phrase': _count(fetch.get('top_ups'), 'top-up'),
+        },
+        'why': why,
+    })
+    why.update({f'paper.ho.run.{k}': 'none recorded' for k, v in out['run'].items() if v is None})
+    return out
+
+
 def trade_edge(trades):
     """Gross and cost per trade on one basis: dollars over traded notional (signal-day size).
 
@@ -389,9 +696,12 @@ def derived(inp):
     forest = {r['key']: r for r in dev['forest']}
     snaps = universe_snapshots(inp['universe_index'])
     power = holdout_power(dev['daily']['net'])
-    # the note's date: its newest dated input (the newest run behind study.json, or the
-    # declaration of the variant family), never the build machine's clock
-    dated = [study['meta']['generated_utc'][:10], (sn.get('declared_utc') or '')[:10]]
+    # the note's date: its newest dated input (the newest run behind study.json, the declaration
+    # of the variant family, or the holdout's registration and completion), never the build
+    # machine's clock
+    dated = [study['meta']['generated_utc'][:10], (sn.get('declared_utc') or '')[:10],
+             (_get(study, 'holdout', 'provenance', 'registry', 'registered_utc') or '')[:10],
+             (_get(study, 'holdout', 'provenance', 'completed_utc') or '')[:10]]
     paper_date = max(d for d in dated if d)
     trades = inp['results'].get('all_trades') or []
     boot = re.search(r'\((\d+) resamples, block (\d+) days\)', forest['main']['method'])
@@ -408,6 +718,7 @@ def derived(inp):
     hl = [p for p in _get(dev, 'half_lives', 'pairs', default=[]) if p.get('f') is not None]
     v32_universe = inp.get('v32_universe') or {}
     trials = study.get('trials') or []
+    evaluated = holdout_block(study, inp.get('holdout_calendar', HOLDOUT_CALENDAR))
     return {
         'paper_date': paper_date, 'paper_date_long': long_date(paper_date),
         'run_date_long': long_date(run['timestamp_utc']),
@@ -428,7 +739,7 @@ def derived(inp):
         'formation_cutoff_long': long_date(calendar.selection_cutoff),
         'formation_cutoff_short': short_date(calendar.selection_cutoff),
         'holdout_start_long': long_date(hold['calendar_start']) if hold.get('calendar_start') else None,
-        'holdout_end_long': long_date(holdout_calendar.data_end),
+        'holdout_end_long': long_date(evaluated['calendar_end'] if evaluated else holdout_calendar.data_end),
         'declared_long': long_date(sn['declared_utc']) if sn.get('declared_utc') else None,
         'best_month': month_name(best['ym']) if best else None,
         'percentile_ordinal': ordinal(dev['random_percentile']) if dev.get('random_percentile') is not None else None,
@@ -504,6 +815,8 @@ def derived(inp):
         'scenario_10m_fixed_positive': _get(scen, 'capital_10m', 'fixed', 'sharpe'),
         # the trial registry
         'trials_n': len(trials), 'trials_word': word(len(trials)),
+        # the evaluated 2026 holdout (None while sealed)
+        'ho': holdout_derived(evaluated) if evaluated else None,
     }
 
 
@@ -728,6 +1041,46 @@ METRICS = {
     'study.registry.trials': '.0', 'study.registry.recorded_runs': '.0', 'study.registry.rows': '.0',
 }
 
+# The evaluated holdout ('paper.ho.', from holdout_derived): in the paper's data only once the
+# holdout is complete, in place of the sealed placeholders 'paper.holdout.'; rounded half up
+# on the shortest decimal form, as the site rounds the same numbers (fmt). A null prints its
+# reason ('not defined' for a flat arm's Sharpe ratio); the text words such an arm by flags.
+_HO_ARM = {
+    'days': '.0', 'trades': ',.0', 'ret_pct': '+.2%', 'gross_ret_pct': '+.2%', 'sharpe': '+.2', 'lo': '+.2',
+    'hi': '+.2', 't': '.2', 'lags': '.0', 'gross_sharpe': '+.2', 'sharpe_lo2002': '+.2', 'psr_pct': '.1%',
+    'sharpe_se': '.2', 'ucb': '+.2', 'mde': '.2', 'mde_single': '.2', 'exp_avg': '.1%', 'exp_max': '.1%',
+    'days_open': '.0', 'gatev_diff': '+.2', 'gatev_lo': '+.2', 'gatev_hi': '+.2', 'gatev_p': '.3',
+    'gatev_sharpe': '+.2', 'gatev_days': '.0', 'rp_pct': '.1', 'rp_median': '+.2', 'rp_draws': '.0',
+    'gap_first_pct': '.2%', 'gap_last_pct': '.2%', 'gap_min_pct': '.2%', 'gap_max_pct': '.2%', 'universe_n': '.0',
+    **{k: 'str' for k in ('label', 'name', 'p_one_text', 'p_one_rel', 'first_long', 'last_long', 'flat_phrase',
+                          'sharpe_or', 'decision')},
+}
+_HO_TESTED = {'p_holm_text': 'str', 'p_holm_rel': 'str'}
+_HO_RUN = {
+    'n_attempts': '.0', 'n_failed': '.0', 'n_unfinished': '.0', 'crash_fix_insertions': '.0',
+    'crash_fix_deletions': '.0', 'logs': '.0', 'step_logs': '.0', 'environment': '.0', 'diffs': '.0',
+    'fetch_symbols': ',.0', 'top_ups': '.0',
+    **{k: 'str' for k in ('commit', 'registered', 'attempts_phrase', 'started', 'completed', 'until',
+                          'registered_long', 'crash_fix', 'crash_fix_diff', 'crash_fix_sha', 'crash_fix_files',
+                          'fetched', 'logs_phrase', 'top_ups_phrase')},
+}
+HOLDOUT_METRICS = {
+    **{f'paper.ho.{sid}.{k}': v for _, hyp, sid, _ in HOLDOUT_ARMS
+       for k, v in {**_HO_ARM, **(_HO_TESTED if hyp else {})}.items()},
+    **{f'paper.ho.run.{k}': v for k, v in _HO_RUN.items()},
+    'paper.ho.days': '.0',
+    **{f'paper.ho.{k}': 'str' for k in ('first_long', 'last_long', 'calendar_start_long', 'calendar_end_long')},
+}
+
+
+def metric_specs(data):
+    """The numbers of this build: METRICS, and once the holdout is evaluated its numbers in place
+    of the sealed placeholders."""
+    if data['paper'].get('ho') is None:
+        return METRICS
+    return {**{k: v for k, v in METRICS.items() if not k.startswith('paper.holdout.')}, **HOLDOUT_METRICS}
+
+
 # A null is allowed only for results that do not exist yet; its reason prints in its place.
 PENDING = {
     'paper.holdout.': 'pending (sealed until the pre-registration is filed)',
@@ -765,16 +1118,19 @@ def pending_reason(key):
 def format_metrics(data):
     """{key: formatted text or None}, {key: reason} for the None entries."""
     out, why = {}, {}
-    for key, spec in METRICS.items():
+    ho = data['paper'].get('ho') or {}
+    for key, spec in metric_specs(data).items():
         try:
             value = resolve(data, key)
         except KeyError:
             if pending_reason(key) is None:
                 raise
             value = None                   # an optional section the run does not have
-        text = (None if value is None else str(value)) if spec == 'str' else fmt(value, spec)
+        holdout = key.startswith('paper.ho.')
+        text = (None if value is None else str(value)) if spec == 'str' else fmt(value, spec, half_up=holdout)
         if text is None:
-            reason = pending_reason(key)
+            reason = (ho['why'].get(key, 'not reported (the evaluation has no value for it)') if holdout
+                      else pending_reason(key))
             if reason is None:
                 raise PaperDataError(f'{key} is null in the inputs but is not a pending result')
             why[key] = reason
@@ -992,7 +1348,63 @@ def claims(data):
         's2_clustered_not_significant': facts.get('s2c_gross_month_t') is not None
                                         and not _sig(facts['s2c_gross_month_t'])
                                         and abs(facts['s2c_gross_month_t']) < abs(res.get('gross_t') or 0),
+        # the evaluated holdout (only once it is complete)
+        **(holdout_claims(study['holdout']) if P.get('ho') else {}),
     }
+
+
+def holdout_claims(H):
+    """What the text says of the evaluated holdout, each read from the evaluation's decision
+    and checked against the arm it concerns: the text words the result by flags (flags()) and
+    asserts it here, so a sentence and the decision cannot part."""
+    arms = {a['key']: a for a in H['arms']}
+    D, R = H['decision'], H['provenance']
+    out = {}
+    for key, hyp, sid, _ in HOLDOUT_ARMS:
+        a = arms[key]
+        if hyp:
+            d = D['arms'][key]
+            out[f'ho_{hyp.lower()}_edge'] = (d['edge'] is True and a['edge'] is True and a['p_holm_below_alpha'] is True
+                                             and key in D['rejected'] and a['t'] > 0 and a['sharpe'] > 0)
+            out[f'ho_{hyp.lower()}_no_edge'] = (d['edge'] is False and a['edge'] is False
+                                                and a['p_holm_below_alpha'] is False and key not in D['rejected'])
+        else:
+            out[f'ho_{sid}_not_tested'] = (a['role'] == 'descriptive' and a['p_holm'] is None and a['edge'] is None
+                                           and key not in D['family'])
+        out[f'ho_{sid}_flat'] = a['flat'] is True and a['sharpe'] is None and a['lags'] == 0
+        out[f'ho_{sid}_ci_excludes_zero'] = not a['flat'] and a['lo'] is not None and a['lo'] > 0
+        out[f'ho_{sid}_ci_includes_zero'] = (not a['flat'] and a['lo'] is not None and a['hi'] is not None
+                                            and a['lo'] <= 0 <= a['hi'])
+    attempts = R['attempts']
+    published = {d['file'].rsplit('/', 1)[-1] for d in R.get('crash_fix_diffs') or []}
+    out.update({
+        'ho_none_rejected': D['rejected'] == [],
+        'ho_runs_one_commit': set(R['run_commits'].values()) == {R['commit']}
+                              and all(a['commit'] == R['commit'] for a in H['arms']),
+        'ho_runs_at_registered_commit': R['at_registered_commit'] is True and R['commit'] == R['registered_commit']
+                                        and R.get('crash_fix') is None,
+        'ho_single_attempt': R['n_attempts'] == 1 and R['n_failed'] == 0 and attempts[0]['failed'] is None,
+        'ho_crash_fix_published': bool(R.get('crash_fix')) and R['crash_fix']['diff'] in published
+                                  and not R['at_registered_commit'],
+        'ho_not_at_registered_commit_no_fix': R['commit'] != R['registered_commit'] and R.get('crash_fix') is None,
+        # every attempt ran at the registered commit, or (an earlier one at another) only the last
+        'ho_all_attempts_at_registered_commit': all(x['at_registered_commit'] is True
+                                                    and x['head'] == R['registered_commit'] for x in attempts),
+        'ho_last_attempt_at_registered_commit': attempts[-1]['head'] == R['registered_commit']
+                                                and not all(x['at_registered_commit'] for x in attempts),
+        # the counts the text words the attempts by: an earlier attempt failed or stopped without
+        # recording a failure, and the last registered the trial (completed, or not on record)
+        'ho_attempts_on_record': (R['n_attempts'] == len(attempts) == attempts[-1]['attempt']
+                                  and R['n_failed'] == sum(1 for x in attempts if x['failed'])
+                                  and R['n_unfinished'] == sum(1 for x in attempts[:-1] if not x['failed'])
+                                  and R['n_failed'] + R['n_unfinished'] == len(attempts) - 1
+                                  and not attempts[-1]['failed']),
+        'ho_no_completion_line': not R['completed_utc'] and bool(_get(R, 'registry', 'registered_utc'))
+                                 and R['attempt_record_lines'] == R['registry']['attempt_lines'],
+        'ho_clean': R['clean'] is True,
+        'ho_period_matches': H['period_matches_calendar'] is True,
+    })
+    return out
 
 
 def flags(data):
@@ -1010,7 +1422,30 @@ def flags(data):
             'multi_factor': bool(dev['factors'].get('multi_factor')),
             'scenarios': bool(_get(dev, 'cost_sensitivity', 'available')),
             'iwv': data['paper']['iwv'] is not None,
-            'preregistered': data['paper']['prereg_status'] == 'filed'}
+            'preregistered': data['paper']['prereg_status'] == 'filed',
+            **(holdout_flags(study['holdout'], data['paper']['ho']) if data['paper'].get('ho') else {})}
+
+
+def holdout_flags(H, ho):
+    """Which wording the evaluated holdout takes (main.typ asserts it with holdout_claims)."""
+    D, R = H['decision'], H['provenance']
+    arms = {a['key']: a for a in H['arms']}
+    out = {'ho_h1_edge': D['arms']['v33_pairs']['edge'], 'ho_h2_edge': D['arms']['avellaneda_lee']['edge'],
+           'ho_any_edge': bool(D['rejected']), 'ho_both_edge': len(D['rejected']) == len(D['family']),
+           'ho_daily': bool(H.get('daily')) and any(v for v in (H['daily'].get('cum') or {}).values()),
+           'ho_period_matches': H['period_matches_calendar'],
+           'ho_at_registered_commit': R['at_registered_commit'], 'ho_crash_fix': R.get('crash_fix') is not None,
+           'ho_single_attempt': R['n_attempts'] == 1 and R['n_failed'] == 0, 'ho_failed': R['n_failed'] > 0,
+           'ho_unfinished': R['n_unfinished'] > 0, 'ho_completed': bool(R['completed_utc']),
+           'ho_all_attempts_at_registered_commit': all(x['at_registered_commit'] for x in R['attempts']),
+           'ho_clean': R['clean'] is True, 'ho_price_fetch': R.get('price_fetch') is not None,
+           'ho_unnamed_diffs': any(not d.get('attempts') for d in R.get('crash_fix_diffs') or [])}
+    for key, _, sid, _ in HOLDOUT_ARMS:
+        a = arms[key]
+        out[f'ho_{sid}_flat'] = a['flat']
+        out[f'ho_{sid}_ci_excludes_zero'] = not a['flat'] and a['lo'] is not None and a['lo'] > 0
+        out[f'ho_{sid}_universe'] = ho[sid]['universe_n'] > 0
+    return out
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1135,10 +1570,6 @@ def tables(data, m):
                for i, w in enumerate(wins, 1)]
     holdout_power_rows = [[str(r['days']), fmt(r['mde_shape'], '.2'), fmt(r['mde_shape_05'], '.2'),
                            fmt(r['mde_normal'], '.2')] for r in P['holdout_power_rows']]
-    status = (study.get('holdout') or {}).get('status')
-    if status != 'sealed':
-        raise PaperDataError(f'the holdout is {status!r}: its per-arm results need a table the paper does '
-                             'not have yet (extend tables() before publishing them)')
     design = 'the design of this note' if P['prereg_status'] != 'filed' else 'the design of this note, pre-registered'
     hypotheses = [['H1 · S1', f'{P["design"]} pairs, {design}', 'mean daily net return > 0'],
                   ['H2 · S2', 'Avellaneda–Lee residual reversion', 'mean daily net return > 0'],
@@ -1326,9 +1757,9 @@ def tables(data, m):
             row = [t['name'], 'Avellaneda–Lee, superseded rules · dev, 2025', '—', '—', '—', '—', '—']
         else:
             design_cal = f"{t.get('profile') or 'v32'} · {t.get('calendar') or 'dev'}".replace(
-                'rehearsal2025', '2025').replace('avellaneda_lee', 'Avellaneda–Lee')
+                'rehearsal2025', '2025').replace('holdout2026', '2026').replace('avellaneda_lee', 'Avellaneda–Lee')
             row = [t['name'], design_cal, (t.get('commit') or '—') + ('*' if t.get('dirty') else ''),
-                   opt(t.get('sharpe'), '.2'), opt(t.get('ret_pct'), '.2'), opt(t.get('trades'), ',.0'),
+                   opt(t.get('sharpe'), '+.2'), opt(t.get('ret_pct'), '+.2'), opt(t.get('trades'), ',.0'),
                    opt(t.get('oos_sharpe'), '+.2')]
         trials.append(row)
     spec = [
@@ -1385,7 +1816,98 @@ def tables(data, m):
             'variants': variants, 'hypotheses': hypotheses, 'snooping': snooping, 'validation': validation,
             'manifest': manifest, 'sources': sources, 'design': design_rows, 'compare': compare, 'trials': trials,
             'spec': spec, 'performance': performance_rows, 'startdates': startdates, 'halves': halves,
-            'regimes': regimes, 'persistence_s1': pers_s1}
+            'regimes': regimes, 'persistence_s1': pers_s1,
+            **(holdout_tables(study['holdout'], P['ho']) if P.get('ho') else {})}
+
+
+def holdout_tables(H, ho):
+    """The evaluated holdout's tables, every number rounded as the site rounds it (half up):
+    the test and decision of each arm ('ho_results'), the other statistics the pre-registration
+    reports for every arm ('ho_detail', one column per arm), every attempt of the runbook
+    ('ho_record') and the survivorship gap of S1 and S2 ('ho_universe')."""
+    def f(x, spec):
+        return fmt(x, spec, half_up=True) if x is not None else '—'
+    arms = [(ho[sid], a) for (_, _, sid, _), a in zip(HOLDOUT_ARMS, H['arms'])]
+    results = []
+    for h, a in arms:
+        results.append([f"{h['hyp']} · {h['label']}" if h['hyp'] else h['label'], h['name'],
+                        f(a['days'], '.0'), f(a['trades'], ',.0'), f(a['ret_pct'], '+.2'),
+                        f(a['sharpe'], '+.2'),
+                        f"{f(a['lo'], '+.2')} to {f(a['hi'], '+.2')}" if a['lo'] is not None and a['hi'] is not None else '—',
+                        f(a['t'], '.2'), h['p_one_text'], h.get('p_holm_text') or '—',
+                        h['decision'].capitalize(), f(a['ucb'], '+.2'), f(a['mde'], '.2')])
+
+    def row(label, cells):
+        return [label, *cells]
+
+    def both(x, y, spec_x, spec_y=None):
+        return '—' if x is None and y is None else f"{f(x, spec_x)} / {f(y, spec_y or spec_x)}"
+
+    def gatev(a):
+        v = a.get('vs_gatev') or {}
+        if v.get('diff') is None:
+            return '—'
+        return f"{f(v['diff'], '+.2')} [{f(v.get('lo'), '+.2')}, {f(v.get('hi'), '+.2')}]"
+
+    def source(a):
+        src = {**(a.get('vs_gatev') or {}), **(a.get('random_pair') or {})}.get('source') or ''
+        return 'its own run' if src in ('', 'own run') else 'S1’s run'      # the evaluator's BASELINE_ARM
+    detail = [
+        row('Gross return, %', [f(a.get('gross_ret_pct'), '+.2') for _, a in arms]),
+        row('Sharpe ratio before costs', [f(a.get('gross_sharpe'), '+.2') for _, a in arms]),
+        row('Sharpe ratio, Lo (2002) annualisation', [f(a.get('sharpe_lo2002'), '+.2') for _, a in arms]),
+        row('Probabilistic Sharpe ratio, %', [f(a.get('psr_pct'), '.1') for _, a in arms]),
+        row('Standard error of the Sharpe ratio', [f(a.get('sharpe_se'), '.2') for _, a in arms]),
+        row('Minimum detectable Sharpe, one-sided 2.5% / 5%', [both(a.get('mde'), a.get('mde_single'), '.2')
+                                                               for _, a in arms]),
+        row('Newey–West lags', [f(a.get('lags'), '.0') for _, a in arms]),
+        row('Gross exposure, % of equity: average / maximum',
+            [both(_get(a, 'exposure', 'avg_pct'), _get(a, 'exposure', 'max_pct'), '.1') for _, a in arms]),
+        row('Days with open positions', [f(_get(a, 'exposure', 'days_open'), '.0') for _, a in arms]),
+        row('Gatev distance method: Sharpe ratio (common days)',
+            [f"{f(_get(a, 'vs_gatev', 'distance_sharpe'), '+.2')} ({f(_get(a, 'vs_gatev', 'days'), '.0')})"
+             if _get(a, 'vs_gatev', 'distance_sharpe') is not None else '—' for _, a in arms]),
+        row('Arm minus Gatev, Sharpe [95% interval]', [gatev(a) for _, a in arms]),
+        row('Ledoit–Wolf p of the difference, two-sided', [_p_text(_get(a, 'vs_gatev', 'p')) or '—' for _, a in arms]),
+        row('Percentile among random-pair portfolios (their median Sharpe)',
+            [f"{f(_get(a, 'random_pair', 'percentile'), '.1')} ({f(_get(a, 'random_pair', 'median_sharpe'), '+.2')})"
+             if _get(a, 'random_pair', 'percentile') is not None else '—' for _, a in arms]),
+        row('Baselines from', [source(a) for _, a in arms]),
+    ]
+    R = H['provenance']
+
+    def steps(names):
+        return ', '.join(HOLDOUT_STEPS.get(n, n) for n in names) or '—'
+    record = []
+    for i, x in enumerate(R['attempts']):
+        last = i == len(R['attempts']) - 1
+        kind = ('registered' if x['at_registered_commit'] else 'crash fix' if x.get('crash_fix') else
+                'later commit')
+        failed = x.get('failed')
+        # an earlier attempt without a failure line stopped without recording one; the last
+        # registered the trial, with its completion line or (if the runbook stopped first) without
+        ended = (f"{HOLDOUT_STEPS.get(failed['step'], failed['step'])} ({failed['note']})" if failed and failed.get('note')
+                 else HOLDOUT_STEPS.get(failed['step'], failed['step']) if failed
+                 else '—' if last else 'stopped; no failure recorded')
+        done = (_utc(x['completed_utc'], '') or
+                (f"— (registered {_utc(_get(R, 'registry', 'registered_utc'), '')})" if last else '—'))
+        record.append([str(x['attempt']), x['head'][:7], kind, _utc(x['started_utc'], ''), steps(x['steps_done']),
+                       ended, done])
+    universe = []
+    for h, a in arms:
+        for u in a.get('universe') or []:
+            universe.append([h['label'], short_date(u['formation_date']) if u.get('formation_date') else '—',
+                             short_date(u['snapshot']) if u.get('snapshot') else '—',
+                             short_date(u['snapshot_filed']) if u.get('snapshot_filed') else '—',
+                             f(u.get('members'), ',.0'), f(u.get('missing'), ',.0'),
+                             f(u.get('missing_weight_pct'), '.2'), f(u.get('unmapped_weight_pct'), '.2'),
+                             f"{f(u['no_sector_etf'], ',.0')} ({f(u.get('no_sector_etf_weight_pct'), '.2')})"
+                             if u.get('no_sector_etf') is not None else '—'])
+    # a comparison the evaluation leaves out says why (its note), in the detail table's notes
+    notes = [f"{h['label']}: {_get(a, 'random_pair', 'note')}" for h, a in arms
+             if _get(a, 'random_pair', 'percentile') is None and _get(a, 'random_pair', 'note')]
+    return {'ho_results': results, 'ho_detail': detail, 'ho_detail_notes': notes, 'ho_record': record,
+            'ho_universe': universe}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1680,7 +2202,7 @@ def fig_forest(dev, study, power, t, plt):
     """Sharpe ratios with intervals; `power` is the one-sided bound and the 80%-power Sharpe drawn."""
     color = {'main': t['series-1'], 'oos': t['series-1'], 'gatev': t['series-2'], 'diff_main': t['ink-2'],
              'diff_oos': t['ink-2'], 'random': t['neutral-series'], 'gross': t['series-1'],
-             'residual': t['series-3'], 'residual_gross': t['series-3'], 'holdout': t['series-3']}
+             'residual': t['series-3'], 'residual_gross': t['series-3']}
     rows = [dict(r, label=_wf_label(r['label'])) for r in dev['forest']]
     res = study.get('residual')
     if res and res.get('sharpe') is not None:
@@ -1689,10 +2211,6 @@ def fig_forest(dev, study, power, t, plt):
         if res.get('gross_sharpe') is not None:
             rows.append({'key': 'residual_gross', 'label': 'Avellaneda–Lee, gross of costs', 'kind': 'ci',
                          'sharpe': res['gross_sharpe'], 'lo': res['gross_lo'], 'hi': res['gross_hi']})
-    hold = study.get('holdout') or {}
-    if hold.get('status') == 'complete' and hold.get('sharpe') is not None:
-        rows.append({'key': 'holdout', 'label': 'Holdout 2026, net', 'kind': 'ci', 'sharpe': hold['sharpe'],
-                     'lo': hold['lo'], 'hi': hold['hi']})
     n = len(rows)
     fig, ax = plt.subplots(figsize=(FULL, 0.62 + 0.215 * n))
     for i, r in enumerate(rows):
@@ -2060,7 +2578,9 @@ def fig_timeline(dev, study, t, plt, preregistered=False):
     run = dev['run']
     W = dev['walk_forward']['windows']
     cal = CALENDARS['dev']
-    hold_start = (study.get('holdout') or {}).get('calendar_start')
+    hold = study.get('holdout') or {}
+    hold_start = hold.get('calendar_start')
+    evaluated = hold.get('status') == 'complete'
     forms = _formations(dev)
     fig, ax = plt.subplots(figsize=(FULL, 1.45))
     prereg = 'pre-registered' if preregistered else 'pre-registration to be filed'
@@ -2071,7 +2591,9 @@ def fig_timeline(dev, study, t, plt, preregistered=False):
                               '(ticks)' if re_forms else '')),
              ('Walk-forward', f"{len(W)} test windows from {long_date(W[0]['test_start'])}, one continuous simulation"),
              ('Main backtest', f"entries {long_date(run['period'][0])} to {long_date(run['period'][1])}"),
-             ('Holdout', f"from {long_date(hold_start)}; sealed, {prereg}" if hold_start else prereg)]
+             ('Holdout', f"{long_date(hold_start)} to {long_date(hold['calendar_end'])}; pre-registered, then run "
+                         'and evaluated' if evaluated else
+                         f"from {long_date(hold_start)}; sealed, {prereg}" if hold_start else prereg)]
     h = 0.34
     form = _dates([run['data_span'][0], cal.selection_cutoff])
     ax.barh(0, form[1] - form[0], left=form[0], height=h, color=t['ord-2'])
@@ -2085,7 +2607,10 @@ def fig_timeline(dev, study, t, plt, preregistered=False):
     first_year = int(run['data_span'][0][:4])
     last_year = int((hold_start or run['period'][1])[:4])
     x0, x1 = _dates([f'{first_year}-01-01', f'{last_year}-12-31'])
-    if hold_start:          # the holdout's last day is fixed by the calendar holdout2026
+    if evaluated:           # the evaluated holdout's calendar, as the evaluation records it
+        hs, he = _dates([hold_start, hold['calendar_end']])
+        ax.barh(3, he - hs, left=hs, height=h * 0.8, color=t['series-3'])
+    elif hold_start:        # the holdout's last day is fixed by the calendar holdout2026
         hs, he = _dates([hold_start, CALENDARS['holdout2026'].data_end])
         ax.barh(3, he - hs, left=hs, height=h * 0.8, color='white', edgecolor=t['series-3'], hatch='////', lw=0.7)
     for i, (name, desc) in enumerate(lanes):
@@ -2314,15 +2839,6 @@ def fig_capacity(dev, t, plt, width=HALF):
     return fig
 
 
-def _arms(rows, t, plt):
-    fig, ax = plt.subplots(figsize=(FULL, 0.55 + 0.27 * len(rows)))
-    _dotplot(ax, rows, t, tlabel=False)
-    _zero(ax, t, 'x')
-    ax.set_xlabel('Annualised Sharpe ratio (95% interval)')
-    fig.subplots_adjust(left=0.24, right=0.98, top=0.95, bottom=0.42 / (0.55 + 0.27 * len(rows)) + 0.02)
-    return fig
-
-
 def fig_residual(dev, study, t, plt):
     """The second family against the pairs strategy: Sharpe intervals, net and gross, and the net paths."""
     R = study.get('residual')
@@ -2375,12 +2891,116 @@ def fig_residual(dev, study, t, plt):
     return fig
 
 
-def fig_holdout(study, t, plt):
+_HO_COLOURS = {'v33_pairs': 'series-1', 'avellaneda_lee': 'series-3', 'v32_pairs': 'neutral-series'}
+
+
+def _apart(ys, gap):
+    """Label heights for end labels at `ys`, at least `gap` apart, each as near its own value as
+    that allows (in the order given)."""
+    order = sorted(range(len(ys)), key=lambda i: ys[i])
+    out = [float(ys[i]) for i in order]
+    for _ in range(100):
+        moved = False
+        for j in range(1, len(out)):
+            if out[j] - out[j - 1] < gap - 1e-12:
+                mid = (out[j] + out[j - 1]) / 2
+                out[j - 1], out[j] = mid - gap / 2, mid + gap / 2
+                moved = True
+        if not moved:
+            break
+    res = [0.0] * len(ys)
+    for k, i in enumerate(order):
+        res[i] = out[k]
+    return res
+
+
+def _exact_tick(v, _=None):
+    """A tick label that is the tick's value: as few decimals (0 to 2) as print it exactly, so a
+    tick at 2.5 never prints as '+2' nor one at 0.25 as '+0.2'."""
+    dp = next((d for d in (0, 1) if abs(v - round(v, d)) < 1e-9), 2)
+    return _signed(v, dp)
+
+
+def fig_holdout(study, ho, t, plt):
+    """The evaluated holdout: each arm's net Sharpe ratio with its 95% interval, labelled with its
+    Holm-adjusted p (S3: not tested), and the arms' cumulative net returns; an arm with no
+    dispersion in its returns has no Sharpe ratio and is labelled so, not drawn at zero."""
     H = study.get('holdout') or {}
-    if H.get('status') != 'complete' or H.get('sharpe') is None:
+    if H.get('status') != 'complete' or ho is None:
         return None
-    return _arms([{'label': 'Holdout 2026, net', 'v': H['sharpe'], 'lo': H['lo'], 'hi': H['hi'], 'color': t['series-3']}],
-                 t, plt)
+    import matplotlib.dates as mdates
+    arms = H['arms']
+    cum = (H.get('daily') or {}).get('cum') or {}
+    paths = [(a, ho[sid], cum[a['key']]) for a, (_, _, sid, _) in zip(arms, HOLDOUT_ARMS) if cum.get(a['key'])]
+    if paths:
+        fig, (ax, ax2) = plt.subplots(1, 2, figsize=(FULL, 1.9), gridspec_kw={'width_ratios': [1.0, 1.1], 'wspace': 0.5})
+    else:
+        fig, ax = plt.subplots(figsize=(FULL, 1.45))
+        ax2 = None
+    xs = [0.0]
+    for i, (a, (_, _, sid, _)) in enumerate(zip(arms, HOLDOUT_ARMS)):
+        c = t[_HO_COLOURS[a['key']]]
+        if a['flat']:
+            ax.plot([0], [i], marker='o', markersize=4.2, markerfacecolor='white', markeredgecolor=c,
+                    markeredgewidth=1.0, zorder=4)
+            ax.annotate(ho[sid]['sharpe_or'], (0, i), xytext=(6, 0), textcoords='offset points',
+                        va='center', ha='left', fontsize=6.4, color=t['ink-2'])
+            continue
+        if a['lo'] is not None and a['hi'] is not None:
+            ax.plot([a['lo'], a['hi']], [i, i], color=c, lw=1.4, solid_capstyle='butt', zorder=3)
+            xs += [a['lo'], a['hi']]
+        ax.plot([a['sharpe']], [i], marker='o', markersize=4.2, color=c, markeredgecolor='white', markeredgewidth=0.9,
+                zorder=4)
+        xs.append(a['sharpe'])
+    _zero(ax, t, 'x')
+    ax.set_yticks(range(len(arms)))
+    ax.set_yticklabels([f"{h['label']} · {h['name']}\n"
+                        + (f"Holm-adjusted p {h['p_holm_rel']}" if h['hyp'] else 'descriptive, not tested')
+                        for h in (ho[sid] for _, _, sid, _ in HOLDOUT_ARMS)], linespacing=1.25)
+    for lab in ax.get_yticklabels():
+        lab.set_color(t['ink'])
+    ax.set_ylim(len(arms) - 0.45, -0.55)
+    lo, hi = min(xs), max(xs)
+    if hi - lo < 1.0:                       # every arm flat, or a narrow spread: a readable scale
+        lo, hi = min(lo, -1.0), max(hi, 1.0)
+    pad = 0.08 * (hi - lo)
+    lo, hi = lo - pad, hi + pad
+    if any(a['flat'] for a in arms):        # room right of zero for the label of a flat arm
+        hi = max(hi, -0.55 * lo)
+    ax.set_xlim(lo, hi)
+    ax.xaxis.set_major_locator(plt.MaxNLocator(5, steps=[1, 2, 2.5, 5, 10]))
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(_exact_tick))
+    ax.set_xlabel('Annualised net Sharpe ratio (95% interval)')
+    ax.grid(axis='y', visible=False)
+    if ax2 is not None:
+        x = _dates(H['daily']['dates'])
+        _zero(ax2, t)
+        allv = [0.0]
+        ends = []
+        for k, (a, h, v) in enumerate(paths):
+            c = t[_HO_COLOURS[a['key']]]
+            # S1 on top, as the site draws it: a flat path is not hidden under another arm's
+            ax2.plot(x, v, color=c, lw=1.1, zorder=3 + len(paths) - k)
+            allv += [min(v), max(v)]
+            ends.append((v[-1], f"{h['label']} {fmt(v[-1], '+.2%', half_up=True)}", c))
+        span = (max(allv) - min(allv)) or 1.0
+        for (y, text, c), ly in zip(ends, _apart([e[0] for e in ends], 0.12 * span)):
+            _end_label(ax2, x[-1], y, text, c, t, label_y=ly)
+        ax2.set_ylim(min(allv) - 0.1 * span, max(allv) + 0.1 * span)
+        ax2.set_ylabel('Cumulative net return, %')
+        # decimal steps only, each tick labelled with the decimals it needs (never a rounded value)
+        ax2.yaxis.set_major_locator(plt.MaxNLocator(5, steps=[1, 2, 5, 10]))
+        ax2.yaxis.set_major_formatter(plt.FuncFormatter(_exact_tick))
+        years = {d[:4] for d in H['daily']['dates']}
+        ax2.xaxis.set_major_locator(mdates.MonthLocator(bymonth=(1, 3, 5, 7, 9, 11)))
+        ax2.xaxis.set_major_formatter(mdates.DateFormatter('%b' if len(years) == 1 else '%b %Y'))
+        if len(years) == 1:
+            ax2.set_xlabel(next(iter(years)))
+        ax2.margins(x=0)
+        fig.subplots_adjust(left=0.2, right=0.87, top=0.96, bottom=0.24)
+    else:
+        fig.subplots_adjust(left=0.2, right=0.98, top=0.95, bottom=0.3)
+    return fig
 
 
 def fig_validation(study, t, plt):
@@ -2529,7 +3149,7 @@ def figures(data, tokens):
         'snapshots': lambda: fig_snapshots(universe_snapshots(data['_universe_index']), tokens, plt),
         'universe': lambda: fig_universe(dev, tokens, plt),
         'residual': lambda: fig_residual(dev, study, tokens, plt),
-        'holdout': lambda: fig_holdout(study, tokens, plt),
+        'holdout': lambda: fig_holdout(study, data['paper'].get('ho'), tokens, plt),
         'validation': lambda: fig_validation(study, tokens, plt),
     }
     out = {}
@@ -2688,10 +3308,20 @@ def _rel(path):
         return pathlib.Path(path).as_posix()
 
 
-def compile_inputs():
-    """The files the PDF depends on, by repository path (fonts, the Typst source, data, figures)."""
-    files = [MAIN, BIB, DATA] + sorted(FIGURES.glob('*.svg')) + sorted(FONTS.glob('*.ttf'))
-    return {_rel(p): _sha256(p) for p in files if p.is_file()}
+def compile_inputs(main=None, bib=None, data=None, figures=None):
+    """The files the PDF depends on, by repository path (fonts, the Typst source, data, figures).
+    A copy built with --out (write_copy) names its own files as the committed ones are named,
+    'paper/...' relative to the copy, so its manifest records no path outside the repository."""
+    main, bib, data, figures = main or MAIN, bib or BIB, data or DATA, figures or FIGURES
+    files = [main, bib, data] + sorted(figures.glob('*.svg')) + sorted(FONTS.glob('*.ttf'))
+    base = pathlib.Path(main).resolve().parent
+
+    def name(p):
+        p = pathlib.Path(p).resolve()
+        if pathlib.Path(main) != MAIN and base in p.parents:
+            return 'paper/' + p.relative_to(base).as_posix()
+        return _rel(p)
+    return {name(p): _sha256(p) for p in files if p.is_file()}
 
 
 def pdf_timestamp(paper):
@@ -2699,13 +3329,16 @@ def pdf_timestamp(paper):
     return int(dt.datetime(d.year, d.month, d.day, tzinfo=dt.timezone.utc).timestamp())
 
 
-def compile_pdf(paper, output=None, fmt_='pdf', ppi=None):
+def compile_pdf(paper, output=None, fmt_='pdf', ppi=None, main=None):
+    """The compiled paper; `main` (default paper/main.typ) is compiled with its own directory's
+    parent as the root, so a copy built into --out reads its own build/ directory."""
     import typst
-    kwargs = {'root': str(ROOT), 'font_paths': [str(FONTS)], 'ignore_system_fonts': True,
-              'timestamp': pdf_timestamp(paper)}
+    main = pathlib.Path(main) if main else MAIN
+    kwargs = {'root': str(ROOT if main == MAIN else main.parent), 'font_paths': [str(FONTS)],
+              'ignore_system_fonts': True, 'timestamp': pdf_timestamp(paper)}
     if fmt_ != 'pdf':
         kwargs.update(format=fmt_, ppi=ppi)
-    return typst.compile(str(MAIN), output=str(output) if output else None, **kwargs)
+    return typst.compile(str(main), output=str(output) if output else None, **kwargs)
 
 
 def _typst_version():
@@ -2721,32 +3354,59 @@ def _mpl_version():
     return matplotlib.__version__
 
 
-def write_all(png_dir=None):
-    inp = load_inputs()
-    paper, figs = build_data(inp)
-    FIGURES.mkdir(parents=True, exist_ok=True)
-    for old in FIGURES.glob('*.svg'):
+def _write_products(paper, figs, figures, data):
+    figures.mkdir(parents=True, exist_ok=True)
+    for old in figures.glob('*.svg'):
         if old.stem not in figs:
             old.unlink()
     for name, svg in figs.items():
-        (FIGURES / f'{name}.svg').write_text(svg, encoding='utf-8')
-    DATA.write_text(dumps(paper), encoding='utf-8')
+        (figures / f'{name}.svg').write_text(svg, encoding='utf-8')
+    data.write_text(dumps(paper), encoding='utf-8')
+
+
+def write_copy(paper, figs, out):
+    """A copy of the paper's source with these data and figures, in directory `out` outside the
+    repository (out/main.typ, out/references.bib, out/build/): the main.typ to compile."""
+    base = pathlib.Path(out).resolve()
+    if base == ROOT.resolve() or ROOT.resolve() in base.parents or base in ROOT.resolve().parents:
+        raise PaperDataError(f'--out {out} is in the repository: a paper from other inputs is built outside it')
+    base.mkdir(parents=True, exist_ok=True)
+    shutil.copy(MAIN, base / 'main.typ')
+    shutil.copy(BIB, base / 'references.bib')
+    _write_products(paper, figs, base / 'build' / 'figures', base / 'build' / 'paper_data.json')
+    return base / 'main.typ'
+
+
+def write_all(png_dir=None, out=None, study=None, results=None, holdout_calendar=HOLDOUT_CALENDAR):
+    """Build the data, the figures and the PDF: the committed products by default; with `out`, a
+    copy of main.typ and its products in that directory (write_copy; out/pairs_study.pdf), from
+    the study file `study` and the results tree `results`."""
+    inp = load_inputs(ROOT, study, results, holdout_calendar)
+    paper, figs = build_data(inp)
+    if out is None:
+        main, figures, data, pdf_path, manifest_path = MAIN, FIGURES, DATA, PDF, MANIFEST
+        _write_products(paper, figs, figures, data)
+    else:
+        main = write_copy(paper, figs, out)
+        figures, data = main.parent / 'build' / 'figures', main.parent / 'build' / 'paper_data.json'
+        pdf_path, manifest_path = main.parent / 'pairs_study.pdf', main.parent / 'build' / 'manifest.json'
     if _typst_version() is None:
         print('typst is not installed (pip install -e ".[paper]"): wrote the data and figures, not the PDF',
               file=sys.stderr)
         return 1
-    pdf = compile_pdf(paper)
-    PDF.write_bytes(pdf)
-    manifest = {'inputs': compile_inputs(), 'pdf_sha256': hashlib.sha256(pdf).hexdigest(),
+    pdf = compile_pdf(paper, main=main)
+    pdf_path.write_bytes(pdf)
+    manifest = {'inputs': compile_inputs(main, main.parent / 'references.bib', data, figures),
+                'pdf_sha256': hashlib.sha256(pdf).hexdigest(),
                 'tools': {'typst': _typst_version(), 'matplotlib': _mpl_version()}}
-    MANIFEST.write_text(json.dumps(manifest, indent=1, sort_keys=True) + '\n', encoding='utf-8')
+    manifest_path.write_text(json.dumps(manifest, indent=1, sort_keys=True) + '\n', encoding='utf-8')
     if png_dir:
-        out = pathlib.Path(png_dir)
-        out.mkdir(parents=True, exist_ok=True)
-        for old in out.glob('page-*.png'):
+        pngs = pathlib.Path(png_dir)
+        pngs.mkdir(parents=True, exist_ok=True)
+        for old in pngs.glob('page-*.png'):
             old.unlink()
-        compile_pdf(paper, out / 'page-{p}.png', 'png', 110)
-    print(f'wrote {_rel(DATA)}, {len(figs)} figures and {_rel(PDF)} '
+        compile_pdf(paper, pngs / 'page-{p}.png', 'png', 110, main=main)
+    print(f'wrote {_rel(data)}, {len(figs)} figures and {_rel(pdf_path)} '
           f'({len(pdf) / 1024:.0f} KB, paper date {paper["meta"]["paper_date"]})')
     return 0
 
@@ -2795,9 +3455,23 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('--check', action='store_true', help='exit 1 if a committed product is stale')
     ap.add_argument('--png', metavar='DIR', help='also render every page to DIR/page-N.png (110 ppi)')
+    ap.add_argument('--study', metavar='FILE', help='the site data to print (default assets/study.json); '
+                    'needs --out')
+    ap.add_argument('--results', metavar='DIR', help="where the study's results/... sources are read "
+                    '(default results/); needs --out')
+    ap.add_argument('--holdout-calendar', default=HOLDOUT_CALENDAR, metavar='NAME',
+                    help=f'the calendar an evaluated holdout must be on (default {HOLDOUT_CALENDAR})')
+    ap.add_argument('--out', metavar='DIR', help='build a copy of the paper into DIR instead of the committed '
+                    'products (DIR/main.typ, DIR/build/, DIR/pairs_study.pdf)')
     args = ap.parse_args(argv)
+    if args.check and (args.study or args.results or args.out or args.holdout_calendar != HOLDOUT_CALENDAR):
+        ap.error('--check checks the committed products; it takes no --study, --results, --out or calendar')
+    if (args.study or args.results or args.holdout_calendar != HOLDOUT_CALENDAR) and not args.out:
+        ap.error('a paper from other inputs is built into --out DIR, never over the committed products')
     try:
-        return check() if args.check else write_all(args.png)
+        if args.check:
+            return check()
+        return write_all(args.png, args.out, args.study, args.results, args.holdout_calendar)
     except PaperDataError as e:
         print(f'ERROR: {e}', file=sys.stderr)
         return 2

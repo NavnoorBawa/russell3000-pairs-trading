@@ -114,12 +114,60 @@
     return [lo - span * pad, hi + span * pad];
   }
 
-  // one strategy of the evaluated 2026 holdout (scripts/evaluate_holdout.py), or null while sealed
-  function holdoutArm(S, key) {
-    var H = S.holdout;
-    if (!H || H.status !== 'complete' || !H.arms) return null;
-    return H.arms.filter(function (a) { return a.key === key && a.sharpe !== null && a.sharpe !== undefined; })[0] || null;
+  // ── the evaluated 2026 holdout (study.holdout, from scripts/evaluate_holdout.py) ──
+  // Every decision shown is the evaluation's own (holdout.decision and each arm's edge): nothing
+  // here recomputes it. A statistic the evaluation has no value for is null and prints as '–';
+  // an arm whose daily returns never vary (flat: no position opened) has no Sharpe ratio.
+  function has(x) { return x !== null && x !== undefined && isFinite(x); }
+  function holdoutDone(S) {
+    var H = S && S.holdout;
+    return H && H.status === 'complete' && H.arms && H.arms.length ? H : null;
   }
+  // one arm of the evaluated holdout, or null while it is sealed
+  function holdoutArm(S, key) {
+    var H = holdoutDone(S);
+    return H ? H.arms.filter(function (a) { return a.key === key; })[0] || null : null;
+  }
+  var ARM = {
+    v33_pairs: {tag: 'S1', name: 'v33 pairs', color: 's1', css: '--series-1'},
+    avellaneda_lee: {tag: 'S2', name: 'Avellaneda–Lee', color: 's3', css: '--series-3'},
+    v32_pairs: {tag: 'S3', name: 'v32 frozen', color: 'neutral', css: '--neutral-series', dash: true}
+  };
+  function armInfo(a) { return ARM[a.key] || {tag: a.key, name: a.label || a.key, color: 'ink2', css: '--ink-2'}; }
+  function armTag(a) { return armInfo(a).tag; }
+  function armLabel(a) { return (a.hypothesis ? a.hypothesis + ' · ' : '') + armTag(a) + ' ' + armInfo(a).name; }
+  function holdoutAlpha(H) { return has(H.alpha) ? H.alpha : (H.decision && has(H.decision.alpha) ? H.decision.alpha : 0.05); }
+  // A p-value at three decimals, as the paper prints it: one that rounds to zero prints as '<0.001'
+  function pText(p) {
+    var s = num(p, 3);
+    return has(p) && Number(s) === 0 ? '<' + num(0.001, 3) : s;
+  }
+  // A Holm p-value below alpha that rounds to alpha prints as '<0.050', never as 0.050 beside a rejection
+  function holmP(p, below, alpha) {
+    if (!has(p)) return '–';
+    var s = pText(p);
+    return below === true && Number(s) >= alpha ? '<' + num(alpha, 3) : s;
+  }
+  // the registered decision for an arm: {tested, edge (true | false | null), p, below, text}
+  function holdoutDecision(H, a) {
+    if (a.role === 'descriptive' || !a.hypothesis) return {tested: false, edge: null, text: 'Not tested (descriptive)'};
+    var d = H.decision && H.decision.arms ? H.decision.arms[a.key] : null;
+    var p = d && has(d.p_holm) ? d.p_holm : a.p_holm;
+    var below = d && typeof d.p_holm_below_alpha === 'boolean' ? d.p_holm_below_alpha : a.p_holm_below_alpha;
+    var ok = d && typeof d.edge === 'boolean' && (typeof a.edge !== 'boolean' || a.edge === d.edge);
+    return {tested: true, edge: ok ? d.edge : null, p: p, below: below, text: !ok ? '–' : d.edge ? 'Null rejected' : 'Null not rejected'};
+  }
+  function interval(lo, hi) { return has(lo) && has(hi) ? signed(lo, 2) + ' to ' + signed(hi, 2) : '–'; }
+  function sharpeText(a) { return has(a.sharpe) ? signed(a.sharpe, 2) : a.flat ? 'not defined' : '–'; }
+  function flatWhy(a) { return a.trades === 0 ? 'no position opened' : 'daily returns without variation'; }
+  var fmtLong = function (d) { return global.d3.utcFormat('%-d %B %Y')(d); };
+  function dayOf(iso) {
+    var d = iso ? parse(String(iso).slice(0, 10)) : null;
+    return d ? fmtLong(d) : '–';
+  }
+  function hex12(h) { return h ? String(h).slice(0, 12) : '–'; }
+  function listJoin(xs) { return xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]; }
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
 
   var X = {};
 
@@ -452,10 +500,21 @@
     if (S.residual && S.residual.sharpe !== null) {
       rows.push({key: 'residual', label: 'Avellaneda–Lee, net', kind: 'ci', sharpe: S.residual.sharpe, lo: S.residual.lo, hi: S.residual.hi, color: c.t.s3, method: 'block bootstrap'});
     } else pending.push({label: 'Avellaneda–Lee, net', status: 'pending: v33 run'});
+    // the holdout's S1, the pairs strategy's own design (in its colour); a flat S1 keeps its row
     var held = holdoutArm(S, 'v33_pairs');
-    if (held) {
-      rows.push({key: 'holdout', label: 'Holdout 2026, v33 pairs, net', kind: 'ci', sharpe: held.sharpe, lo: held.lo, hi: held.hi, days: held.days, color: c.t.s3, method: 'block bootstrap'});
-    } else pending.push({label: 'Holdout 2026, net', status: 'sealed'});
+    var heldLabel = held ? 'Holdout ' + String(S.holdout.calendar_start || '2026').slice(0, 4) + ', S1 v33 pairs, net' : 'Holdout 2026, net';
+    if (held && has(held.sharpe)) {
+      rows.push({key: 'holdout', label: heldLabel, kind: 'ci', sharpe: held.sharpe, lo: held.lo, hi: held.hi, days: held.days, color: c.t.s1, method: 'block bootstrap'});
+    } else pending.push({label: heldLabel, status: held ? flatWhy(held) + ': Sharpe not defined' : 'sealed'});
+    // the title and subtitle speak of the development period: once the holdout row is filled, say so
+    if (held && c.figure) {
+      var lead = 'Every bootstrap interval spans zero', t0 = c.figure.querySelector('.ex-title');
+      var sub = c.figure.querySelector('.ex-sub'), subText = 'Annualised Sharpe ratio with its 95% interval; development period, net of costs unless stated';
+      if (t0 && t0.firstChild && t0.firstChild.nodeType === 3 && t0.firstChild.nodeValue.indexOf(lead) === 0) {
+        t0.firstChild.nodeValue = 'Every development-period bootstrap interval spans zero' + t0.firstChild.nodeValue.slice(lead.length);
+      }
+      if (sub && sub.textContent === subText) sub.textContent = subText + '; the holdout row is S1 on the holdout, outside the development period';
+    }
     var labels = rows.map(function (r) { return r.label; }).concat(pending.map(function (p) { return p.label; }));
     var xdom = domainPad(rows.map(function (r) { return r.lo; }).concat(rows.map(function (r) { return r.hi; })), 0.06, [pw.mde || 0, 0]);
     var main = rows.filter(function (r) { return r.key === 'main'; });
@@ -479,7 +538,7 @@
         // pending rows say so at the frame's left edge, which stays on screen at any width
         P.text(pending, halo(c, {y: 'label', frameAnchor: 'left', text: 'status', textAnchor: 'start', dx: 2, fill: c.t.ink3, fontSize: 11.5, fontStyle: 'italic'})),
         tip(c, rows, P.pointer({x: 'sharpe', y: 'label', title: function (r) {
-          return r.label + '\nSharpe ' + signed(r.sharpe, 2) + '\n' + (r.kind === 'spread' ? '5th–95th pct ' : '95% interval ') + num(r.lo, 2) + ' to ' + signed(r.hi, 2) +
+          return r.label + '\nSharpe ' + signed(r.sharpe, 2) + '\n' + (r.kind === 'spread' ? '5th–95th pct ' : '95% interval ') + signed(r.lo, 2) + ' to ' + signed(r.hi, 2) +
             (r.p !== undefined && r.p !== null ? '\np = ' + num(r.p, 3) : '') + '\n' + r.method;
         }}))
       ].filter(Boolean)
@@ -491,7 +550,7 @@
         .concat(rows.some(function (r) { return r.key === 'residual'; }) ? [{label: 'Avellaneda–Lee', color: '--series-3', kind: 'dot'}] : []),
       table: table('Sharpe ratios and intervals. Power: ' + (pw.method || '') + '.', ['Series', 'Sharpe', 'Lower', 'Upper', 'Days', 'Interval'],
         [false, true, true, true, true, false],
-        rows.map(function (r) { return [r.label, signed(r.sharpe, 2), num(r.lo, 2), signed(r.hi, 2), r.days ? String(r.days) : '–', r.method]; })
+        rows.map(function (r) { return [r.label, signed(r.sharpe, 2), signed(r.lo, 2), signed(r.hi, 2), r.days ? String(r.days) : '–', r.method]; })
           .concat(pending.map(function (p) { return [p.label, p.status, '', '', '', '']; }))
           .concat(pw.mde ? [['Minimum detectable Sharpe (80% power)', num(pw.mde, 2), '', '', String(pw.n || ''), 'one-sided 5% test'],
                             ['One-sided 95% upper bound, main', num(pw.ucb, 2), '', '', String(pw.n || ''), 'Wald']] : []))
@@ -1286,19 +1345,28 @@
   };
 
   // Exhibits 21 and 1: summaries of the other arms against the pairs strategy
-  function armSummary(c, arms, caption) {
-    var P = global.Plot;
+  // An arm without a Sharpe ratio (status: why) keeps its row, with the reason at the frame's
+  // left edge; a dashed arm (dash) is drawn with a dashed interval; opts.values labels each dot.
+  function armSummary(c, arms, caption, opts) {
+    var P = global.Plot, o = opts || {};
+    var drawn = arms.filter(function (a) { return has(a.sharpe); }), bare = arms.filter(function (a) { return !has(a.sharpe); });
+    var solid = drawn.filter(function (a) { return !a.dash; }), dashed = drawn.filter(function (a) { return a.dash; });
     var widest = Math.max.apply(null, arms.map(function (a) { return textWidth(a.label, 12); }));
     var mL = Math.min(Math.ceil(widest) + 18, Math.floor(c.width * 0.45));
+    var title = o.title || function (a) { return a.label + '\nSharpe ' + signed(a.sharpe, 2) + ' [' + num(a.lo, 2) + ', ' + signed(a.hi, 2) + ']'; };
     var node = plot(c, {
       height: arms.length * 40 + 56, marginLeft: mL, marginRight: 20, marginTop: 10, marginBottom: 34,
-      x: {domain: domainPad(arms.map(function (a) { return a.lo; }).concat(arms.map(function (a) { return a.hi; })), 0.1, [0]), label: 'Annualised Sharpe ratio', labelArrow: 'none'},
+      // with no arm drawn (every one flat), a plain scale around zero
+      x: {domain: drawn.length ? domainPad(arms.map(function (a) { return a.lo; }).concat(arms.map(function (a) { return a.hi; })), 0.1, [0]) : [-1, 1], label: 'Annualised Sharpe ratio', labelArrow: 'none'},
       y: {domain: arms.map(function (a) { return a.label; }), label: null, padding: 0.4},
       marks: [gridX(c, {ticks: c.narrow ? 4 : 8}), axisX(c, {ticks: c.narrow ? 4 : 8, label: 'Annualised Sharpe ratio', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }}),
-        axisY(c, {fill: c.t.ink, fontSize: 12, lineWidth: (mL - 12) / 12}), zeroX(c),     // wrap only past the margin
-        P.ruleY(arms, {y: 'label', x1: 'lo', x2: 'hi', stroke: 'color', strokeWidth: 2}),
-        P.dot(arms, {x: 'sharpe', y: 'label', r: 4.5, fill: function (a) { return a.open ? c.t.paper : a.color; }, stroke: function (a) { return a.open ? a.color : c.t.paper; }, strokeWidth: 2}),
-        tip(c, arms, P.pointer({x: 'sharpe', y: 'label', title: function (a) { return a.label + '\nSharpe ' + signed(a.sharpe, 2) + ' [' + num(a.lo, 2) + ', ' + signed(a.hi, 2) + ']'; }}))]
+        axisY(c, {fill: c.t.ink, fontSize: 12, lineWidth: o.fit && widest + 18 <= mL ? Infinity : (mL - 12) / 12}), zeroX(c),     // wrap only past the margin
+        P.ruleY(solid, {y: 'label', x1: 'lo', x2: 'hi', stroke: 'color', strokeWidth: 2}),
+        dashed.length ? P.ruleY(dashed, {y: 'label', x1: 'lo', x2: 'hi', stroke: 'color', strokeWidth: 2, strokeDasharray: '5,3'}) : null,
+        P.dot(drawn, {x: 'sharpe', y: 'label', r: 4.5, fill: function (a) { return a.open ? c.t.paper : a.color; }, stroke: function (a) { return a.open ? a.color : c.t.paper; }, strokeWidth: 2}),
+        o.values && drawn.length ? P.text(drawn, halo(c, {x: 'sharpe', y: 'label', text: function (a) { return signed(a.sharpe, 2); }, dy: -12, fill: c.t.ink, fontWeight: 600, fontSize: 11.5})) : null,
+        bare.length ? P.text(bare, halo(c, {y: 'label', frameAnchor: 'left', text: 'status', textAnchor: 'start', dx: 2, fill: c.t.ink3, fontSize: 11.5, fontStyle: 'italic'})) : null,
+        tip(c, drawn, P.pointer({x: 'sharpe', y: 'label', title: title}))].filter(Boolean)
     });
     return {nodes: [node], label: 'Sharpe ratios with 95% intervals by strategy arm.',
       table: table(caption, ['Arm', 'Sharpe', 'Lower', 'Upper', 'Trades'], [false, true, true, true, true],
@@ -1340,36 +1408,670 @@
     }
     return out;
   };
-  // Exhibit 1: the evaluated holdout, one row per pre-registered strategy; also fills the
-  // hypotheses table above it (Sharpe, Holm-adjusted p, decision at the registered alpha)
+  // ── Exhibit 1: the evaluated holdout ──────────────────────────────────────
+  // Top pane: each pre-registered arm's net Sharpe ratio with its 95% block-bootstrap interval;
+  // S3, descriptive, is dashed, and an arm without a Sharpe ratio keeps its row with the reason.
+  // Bottom pane: each arm's cumulative net return by day. The hypotheses table, the key figure
+  // and the run record are text, filled once by ExhibitPage.holdout (below).
   X.holdout = function (S, c) {
-    var H = S.holdout;
-    if (!H || H.status !== 'complete' || !H.arms || !H.arms.length) return null;
-    var colour = {v33_pairs: c.t.s1, avellaneda_lee: c.t.s3, v32_pairs: c.t.neutral};
-    var short = {v33_pairs: 'v33 pairs', avellaneda_lee: 'Avellaneda–Lee', v32_pairs: 'v32 frozen'};
-    var arms = H.arms.filter(function (a) { return a.sharpe !== null && a.sharpe !== undefined; }).map(function (a) {
-      return Object.assign({}, a, {label: (a.hypothesis ? a.hypothesis + ' · ' : '') + (short[a.key] || a.label), color: colour[a.key] || c.t.ink2});
+    var H = holdoutDone(S);
+    if (!H) return null;
+    var P = global.Plot, alpha = holdoutAlpha(H);
+    var arms = H.arms.map(function (a) {
+      var info = armInfo(a);
+      return Object.assign({}, a, {label: armLabel(a), color: c.t[info.color], dash: !!info.dash,
+        status: has(a.sharpe) ? null : a.flat ? flatWhy(a) + ': Sharpe not defined' : 'Sharpe not reported'});
     });
-    var alpha = H.alpha === null || H.alpha === undefined ? 0.05 : H.alpha;
-    H.arms.forEach(function (a) {
-      var decision = a.role === 'descriptive' ? 'Not tested (descriptive)' :
-        a.p_holm === null || a.p_holm === undefined ? '–' :
-        (a.p_holm < alpha ? 'Rejects zero at ' + num(100 * alpha, 0) + '%' : 'Does not reject zero');
-      var cells = {sharpe: signed(a.sharpe, 2), p_holm: num(a.p_holm, 3), decision: decision};
-      Object.keys(cells).forEach(function (k) {
-        var td = document.querySelector('[data-holdout="' + a.key + ':' + k + '"]');
-        if (td) { td.textContent = cells[k]; td.classList.remove('muted'); }
-      });
+    var out = armSummary(c, arms, '', {values: true, fit: true, title: function (a) {
+      var d = holdoutDecision(H, a);
+      return a.label + '\nSharpe ' + signed(a.sharpe, 2) + ', 95% interval ' + interval(a.lo, a.hi) +
+        '\nNet return ' + pct(a.ret_pct) + (has(a.days) ? ' over ' + a.days + ' days' : '') +
+        '\nOne-sided p ' + pText(a.p_one_sided) + (d.tested ? ', Holm p ' + holmP(d.p, d.below, alpha) : '') + '\n' + d.text;
+    }});
+    out.legend = arms.map(function (a) {
+      var info = armInfo(a);
+      return {label: a.label + (a.role === 'descriptive' ? ', descriptive' : ''), color: info.css, kind: info.dash ? 'line dash' : 'line'};
     });
-    var out = armSummary(c, arms, 'Pre-registered 2026 holdout: ' + (H.test || '') + ', alpha ' + num(alpha, 2) + '.');
-    out.table.columns = out.table.columns.concat(['t', 'p (one-sided)', 'p (Holm)', 'Days']);
-    out.table.numeric = out.table.numeric.concat([true, true, true, true]);
-    out.table.rows = out.table.rows.map(function (row, i) {
-      var a = arms[i];
-      return row.concat([num(a.t, 2), num(a.p_one_sided, 3), num(a.p_holm, 3), a.days ? String(a.days) : '–']);
+    out.table = [holdoutTable(H, alpha)];
+    // the sealed page has no legend slot here: one is added above the chart (site.js fills it)
+    out.mount = function (chart) {
+      var fig = chart.closest('figure');
+      if (fig && !fig.querySelector('[data-legend]')) {
+        var slot = document.createElement('div');
+        slot.className = 'ex-legend';
+        slot.setAttribute('data-legend', '');
+        chart.before(slot);
+      }
+    };
+
+    var D = H.daily;
+    var series = D && D.dates && D.dates.length && D.cum ? arms.filter(function (a) {
+      var v = D.cum[a.key];
+      return v && v.length === D.dates.length;
+    }) : [];
+    out.label = 'Dot plot of the net Sharpe ratio of each pre-registered arm on the holdout, with 95% intervals' +
+      (series.length ? ', and lines of each arm’s cumulative net return by day.' : '. No daily series is published, so the cumulative net return is not drawn.');
+    if (!series.length) {
+      var note = document.createElement('p');
+      note.className = 'ex-note';
+      note.textContent = 'No daily series is published with this evaluation, so the cumulative net return of each arm is not drawn; each arm’s total is in the table above.';
+      out.nodes.push(note);
+      return out;
+    }
+    var rows = D.dates.map(function (d, i) {
+      var r = {date: parse(d), iso: d};
+      series.forEach(function (a) { r[a.key] = D.cum[a.key][i]; });
+      return r;
     });
+    var last = rows[rows.length - 1];
+    var ends = series.map(function (a) { return {y: last[a.key], text: armTag(a) + ' ' + pct(last[a.key]), color: a.color}; });
+    var h = c.narrow ? 200 : 240, mT = 18, mB = 26, mL = 46;
+    var mR = Math.ceil(Math.max.apply(null, ends.map(function (e) { return textWidth(e.text, 12, 600); }))) + 14;
+    var ydom = domainPad([].concat.apply([], series.map(function (a) { return D.cum[a.key]; })), 0.08, [0]);
+    if (ydom[1] - ydom[0] < 1) ydom = [(ydom[0] + ydom[1]) / 2 - 0.5, (ydom[0] + ydom[1]) / 2 + 0.5];   // flat paths: ticks stay distinct at 1 dp
+    // end labels at least 15px apart: placed in pixels on the pane's own scale, then mapped back
+    var span = h - mT - mB;
+    var px = function (v) { return mT + (ydom[1] - v) / (ydom[1] - ydom[0]) * span; };
+    var order = ends.slice().sort(function (a, b) { return px(a.y) - px(b.y); });
+    order.forEach(function (e, i) { e.py = Math.max(px(e.y), i ? order[i - 1].py + 15 : -Infinity); });
+    var over = order[order.length - 1].py - (h - mB);
+    order.forEach(function (e) { if (over > 0) e.py -= over; e.ty = ydom[1] - (e.py - mT) / span * (ydom[1] - ydom[0]); });
+    var lines = series.slice().reverse().map(function (a) {          // S1 drawn last, on top
+      var o = {x: 'date', y: a.key, stroke: a.color, strokeWidth: 2};
+      if (a.dash) o.strokeDasharray = '5,3';
+      return P.lineY(rows, o);
+    });
+    var pane = plot(c, {
+      height: h, marginLeft: mL, marginRight: mR, marginTop: mT, marginBottom: mB,
+      x: {type: 'utc', domain: [rows[0].date, last.date]},
+      y: {domain: ydom, label: 'Cumulative net return, %', labelArrow: 'none'},
+      marks: [gridY(c), axisY(c, {label: 'Cumulative net return, %', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }}),
+        axisX(c, {ticks: c.narrow ? 4 : 8}), zeroY(c)].concat(lines, [
+        P.dot(ends, {x: function () { return last.date; }, y: 'y', r: 4, fill: function (d) { return d.color; }, stroke: c.t.paper, strokeWidth: 2}),
+        P.text(ends, {x: function () { return last.date; }, y: 'ty', text: 'text', dx: 8, textAnchor: 'start', fill: c.t.ink, fontWeight: 600, fontSize: 12}),
+        tip(c, rows, P.pointerX({x: 'date', y: series[0].key, title: function (r) {
+          return [fmtDate(r.date)].concat(series.map(function (a) { return armTag(a) + ' ' + armInfo(a).name + ' ' + pct(r[a.key]); })).join('\n');
+        }}))])
+    });
+    out.nodes.forEach(function (n) { n.classList.add('plot-pane'); });
+    pane.classList.add('plot-pane');
+    out.nodes.push(pane);
+    out.table.push(table('Cumulative net return by day, % of capital.', ['Date'].concat(series.map(function (a) { return a.label; })),
+      [false].concat(series.map(function () { return true; })),
+      rows.map(function (r) { return [r.iso].concat(series.map(function (a) { return pct(r[a.key], 3); })); })));
     return out;
   };
+
+  // every statistic the evaluation reports for each arm, one column per arm
+  function holdoutTable(H, alpha) {
+    var A = H.arms, ma = A[0] && has(A[0].mde_alpha) ? A[0].mde_alpha : 0.025;
+    var g = function (a) { return a.vs_gatev || {}; }, rp = function (a) { return a.random_pair || {}; };
+    // the evaluator's only cross-arm source is its BASELINE_ARM, S1 (its run directory's name, e.g.
+    // 'holdout2026_v33 run'); the paper words it the same way
+    var src = function (s) { return s === 'own run' ? 'its own run' : s ? 'S1’s run' : '–'; };
+    // the gap as the development period measures it: weight without price history or a usable ticker
+    var gap = function (a) {
+      var U = (a.universe || []).map(function (u) { return (u.missing_weight_pct || 0) + (u.unmapped_weight_pct || 0); });
+      if (!U.length) return '–';
+      var f = num(U[0], 2) + '%';
+      return U.length === 1 ? f : f + ' to ' + num(U[U.length - 1], 2) + '% (' + U.length + ' entries)';
+    };
+    var R = [
+      ['Hypothesis', function (a) { return (a.hypothesis || 'none') + ' (' + (a.role || '–') + ')'; }],
+      ['First and last day', function (a) { return a.period && a.period.length === 2 ? a.period[0] + ' to ' + a.period[1] : '–'; }],
+      ['Days', function (a) { return has(a.days) ? String(a.days) : '–'; }],
+      ['Trades', function (a) { return has(a.trades) ? global.d3.format(',')(a.trades) : '–'; }],
+      ['Net return, compounded', function (a) { return pct(a.ret_pct); }],
+      ['Gross return (before costs), compounded', function (a) { return pct(a.gross_ret_pct); }],
+      ['Sharpe ratio, net', sharpeText],
+      ['95% interval (block bootstrap)', function (a) { return interval(a.lo, a.hi); }],
+      ['Sharpe ratio, gross', function (a) { return signed(a.gross_sharpe, 2); }],
+      ['Sharpe ratio, Lo (2002)', function (a) { return signed(a.sharpe_lo2002, 2); }],
+      ['Standard error of the Sharpe ratio', function (a) { return num(a.sharpe_se, 2); }],
+      ['One-sided 95% upper bound', function (a) { return signed(a.ucb, 2); }],
+      ['Probabilistic Sharpe ratio', function (a) { return has(a.psr_pct) ? num(a.psr_pct, 1) + '%' : '–'; }],
+      ['Newey–West t (lags)', function (a) { return num(a.t, 2) + (has(a.lags) ? ' (' + a.lags + ')' : ''); }],
+      ['p, one-sided', function (a) { return pText(a.p_one_sided); }],
+      ['p, Holm-adjusted', function (a, d) { return d.tested ? holmP(d.p, d.below, alpha) : 'not tested'; }],
+      ['Decision', function (a, d) { return d.text; }],
+      ['Minimum detectable Sharpe, one-sided ' + num(100 * ma, 1) + '%', function (a) { return num(a.mde, 2); }],
+      ['Minimum detectable Sharpe, one test at 5%', function (a) { return num(a.mde_single, 2); }],
+      ['Gross exposure, mean and maximum, % of equity', function (a) {
+        var e = a.exposure || {};
+        return has(e.avg_pct) && has(e.max_pct) ? num(e.avg_pct, 1) + ' and ' + num(e.max_pct, 1) : '–';
+      }],
+      ['Days with open positions', function (a) { return a.exposure && has(a.exposure.days_open) ? String(a.exposure.days_open) : '–'; }],
+      ['Sharpe difference from the Gatev distance method (95% interval)', function (a) {
+        return has(g(a).diff) ? signed(g(a).diff, 2) + ' (' + interval(g(a).lo, g(a).hi) + ')' : '–';
+      }],
+      ['Difference: two-sided p; common days', function (a) { return has(g(a).p) ? pText(g(a).p) + '; ' + (has(g(a).days) ? g(a).days : '–') : '–'; }],
+      ['Gatev distance method’s Sharpe; from', function (a) { return signed(g(a).distance_sharpe, 2) + '; ' + src(g(a).source); }],
+      ['Random pairs: percentile of the arm’s Sharpe', function (a) { return has(rp(a).percentile) ? num(rp(a).percentile, 1) : '–'; }],
+      ['Random pairs: median Sharpe (draws); from', function (a) {
+        var r = rp(a);
+        return signed(r.median_sharpe, 2) + (has(r.n_draws) ? ' (' + r.n_draws + ')' : '') + '; ' + src(r.source) + (r.note ? ' (' + r.note + ')' : '');
+      }],
+      ['Survivorship gap: index weight without prices or a usable ticker, first and last entry', gap],
+      ['Commit', function (a) { return hex12(a.commit); }]
+    ];
+    var dec = A.map(function (a) { return holdoutDecision(H, a); });
+    return table('Every statistic the evaluation reports for each arm. Test: one-sided Newey–West t of the mean daily net return, Holm-adjusted across H1 and H2 at a familywise ' +
+      num(100 * alpha, 0) + '%; S3 is descriptive, with no hypothesis, adjusted p-value or decision.',
+      ['Statistic'].concat(A.map(armLabel)), [false].concat(A.map(function () { return true; })),
+      R.map(function (r) { return [r[0]].concat(A.map(function (a, i) { return r[1](a, dec[i]); })); }));
+  }
+
+  // ── the completed holdout's text: status, key figure, hypotheses table, result, run record ──
+  // Filled once, from study.holdout alone, in place of the sealed text (site.js calls it when
+  // assets/study.json has loaded). While the holdout is sealed it changes nothing.
+  var STEP = {universe: 'universe', data: 'data', v33: 'v33 (S1)', v32: 'v32 (S3)', residual: 'residual (S2)', evaluate: 'evaluation'};
+  function stepName(s) { return STEP[s] || s; }
+  function stepList(xs) { return listJoin((xs || []).map(stepName)); }
+  // a paragraph from text, {code} and {href, text} parts
+  function para(cls, lead, parts) {
+    var p = document.createElement('p');
+    p.className = cls;
+    if (lead) {
+      var b = document.createElement('strong');
+      b.textContent = lead;
+      p.appendChild(b);
+      p.appendChild(document.createTextNode(' '));
+    }
+    parts.forEach(function (x) {
+      if (x === null || x === undefined || x === '') return;
+      if (typeof x === 'string') { p.appendChild(document.createTextNode(x)); return; }
+      var n = document.createElement(x.href ? 'a' : 'code');
+      if (x.href) n.href = x.href;
+      n.textContent = x.href ? x.text : x.code;
+      p.appendChild(n);
+    });
+    return p;
+  }
+  function familyOf(H) {
+    return (H.family || []).map(function (k) { return H.arms.filter(function (a) { return a.key === k; })[0]; }).filter(Boolean)
+      .map(function (a) { return {a: a, d: holdoutDecision(H, a)}; });
+  }
+  function holmOf(x, alpha) { return holmP(x.d.p, x.d.below, alpha); }
+  // 'Holm p = 0.008' or 'Holm p < 0.050'; in a list, '0.008' or 'below 0.050'
+  function holmIs(x, alpha) { var s = holmOf(x, alpha); return s.charAt(0) === '<' ? '< ' + s.slice(1) : '= ' + s; }
+  function holmWord(x, alpha) { var s = holmOf(x, alpha); return s.charAt(0) === '<' ? 'below ' + s.slice(1) : s; }
+  function stepsDone(xs) { return 'the ' + stepList(xs) + (xs.length === 1 ? ' step' : ' steps'); }
+
+  // the key figure: S1's net Sharpe ratio, and the decision on both hypotheses in one line
+  function holdoutKpi(S, H, alpha) {
+    var tile = document.querySelector('.kpis .kpi.is-pending');
+    if (!tile) return;
+    var a = holdoutArm(S, 'v33_pairs') || H.arms[0];
+    var year = String(H.calendar_start || '2026').slice(0, 4);
+    var label = document.createElement('p');
+    label.className = 'kpi-label';
+    label.textContent = 'Holdout ' + year + ' · ' + armTag(a) + ' net Sharpe';
+    var value = document.createElement('p');
+    value.className = 'kpi-value' + (has(a.sharpe) ? '' : ' is-text');
+    value.textContent = has(a.sharpe) ? signed(a.sharpe, 2) : a.trades === 0 ? 'No position' : 'Not defined';
+    var facts = [];
+    if (has(a.sharpe)) {
+      if (has(a.lo) && has(a.hi)) facts.push('95% CI ' + interval(a.lo, a.hi));
+      if (has(a.ucb)) facts.push('one-sided 95% bound ' + signed(a.ucb, 2));
+    } else facts.push(armInfo(a).name + ': ' + flatWhy(a) + ' (t = ' + num(a.t, 2) + ', one-sided p = ' + pText(a.p_one_sided) + ')');
+    facts.push('net return ' + pct(a.ret_pct));
+    if (has(a.days)) facts.push(a.days + ' days');
+    var fam = familyOf(H), lvl = num(100 * alpha, 0) + '%';
+    var ps = ' (Holm p: ' + fam.map(function (x) { return x.a.hypothesis + ' ' + holmOf(x, alpha); }).join(', ') + ')';
+    var rej = fam.filter(function (x) { return x.d.edge === true; });
+    var known = fam.every(function (x) { return x.d.edge === true || x.d.edge === false; });
+    var parts;
+    if (!known) parts = ['Decision not available' + ps + '.'];
+    else if (!rej.length) parts = ['Neither null rejected at ' + lvl + ps + '; given the power stated in advance, not evidence of a zero edge (', {href: '#holdout', text: 'Section 1'}, ').'];
+    else {
+      var keep = fam.filter(function (x) { return x.d.edge === false; });
+      parts = [(rej.length === fam.length ? (fam.length === 2 ? 'Both nulls' : 'Every null') : listJoin(rej.map(function (x) { return x.a.hypothesis + '’s null'; }))) +
+        ' rejected at ' + lvl + (keep.length ? ', ' + listJoin(keep.map(function (x) { return x.a.hypothesis + '’s'; })) + ' not' : '') + ps +
+        (keep.length ? '; ' + listJoin(keep.map(function (x) { return x.a.hypothesis + '’s'; })) + ' non-rejection is not evidence of a zero edge' : '') +
+        '. A sealed test, not prospective: caveats in ', {href: '#holdout', text: 'Section 1'}, '.'];
+    }
+    tile.classList.remove('is-pending');
+    tile.replaceChildren(label, value, para('kpi-sub', null, [facts.join(' · ')]), para('kpi-sub', null, parts));
+  }
+
+  // the hypotheses table: net return, upper bound and one-sided p added after the Sharpe ratio
+  function holdoutHypotheses(H, alpha) {
+    var first = document.querySelector('[data-holdout$=":sharpe"]');
+    var tbl = first && first.closest('table');
+    if (!tbl || tbl.hasAttribute('data-holdout-filled')) return tbl;
+    tbl.setAttribute('data-holdout-filled', '');
+    tbl.classList.add('tbl-holdout');
+    var ADD = [['ret_pct', 'Net return'], ['ucb', 'Upper bound'], ['p_one_sided', 'p (one-sided)']];
+    var col = Array.prototype.indexOf.call(first.parentNode.children, first);
+    var head = tbl.querySelector('thead tr');
+    var hth = head ? head.children[col] : null;
+    ADD.slice().reverse().forEach(function (k) {
+      if (hth) {
+        var th = document.createElement('th');
+        th.scope = 'col';
+        th.className = 'r';
+        th.textContent = k[1];
+        hth.after(th);
+      }
+      tbl.querySelectorAll('tbody [data-holdout$=":sharpe"]').forEach(function (sc) {
+        var td = document.createElement('td');
+        td.className = 'r';
+        td.setAttribute('data-holdout', sc.getAttribute('data-holdout').split(':')[0] + ':' + k[0]);
+        td.textContent = '–';
+        sc.after(td);
+      });
+    });
+    H.arms.forEach(function (a) {
+      var d = holdoutDecision(H, a);
+      var cells = {sharpe: sharpeText(a), ret_pct: pct(a.ret_pct), ucb: signed(a.ucb, 2), p_one_sided: pText(a.p_one_sided),
+                   p_holm: d.tested ? holmP(d.p, d.below, alpha) : '–', decision: d.text};
+      Object.keys(cells).forEach(function (k) {
+        var td = tbl.querySelector('[data-holdout="' + a.key + ':' + k + '"]');
+        if (!td) return;
+        td.textContent = cells[k];
+        td.classList.toggle('muted', cells[k] === '–' || cells[k] === 'not defined' || (k === 'decision' && !d.tested));
+      });
+    });
+    var cap = tbl.querySelector('caption');
+    if (cap) cap.appendChild(document.createTextNode(' Net return: compounded over the holdout’s days. Upper bound: the one-sided 95% upper confidence bound on the Sharpe ratio. Each decision is the evaluation’s own.'));
+    return tbl;
+  }
+
+  // the result in words: the decision, and the caveats that go with a rejection or its absence
+  function holdoutResult(S, H, alpha) {
+    var fam = familyOf(H), lvl = 'the familywise ' + num(100 * alpha, 0) + '% level';
+    var rej = fam.filter(function (x) { return x.d.edge === true; }), keep = fam.filter(function (x) { return x.d.edge === false; });
+    var name = function (x) { return x.a.hypothesis + ' (' + armTag(x.a) + ', ' + armInfo(x.a).name + ')'; };
+    var pFor = function (xs) { return listJoin(xs.map(function (x) { return holmWord(x, alpha) + ' for ' + name(x); })); };
+    var pOf = function (xs) { return xs.length === 1 ? 'Holm p ' + holmIs(xs[0], alpha) : 'Holm p ' + listJoin(xs.map(function (x) { return holmWord(x, alpha); })); };
+    var days = fam.length && has(fam[0].a.days) ? fam[0].a.days : null;
+    var out = [];
+    if (rej.length + keep.length < fam.length || !fam.length) {
+      out.push('The decision is not available in assets/study.json.');
+    } else if (!rej.length) {
+      out.push((fam.length === 2 ? 'Neither null is' : 'No null is') + ' rejected at ' + lvl + ': Holm p is ' + pFor(fam) + '.');
+    } else if (!keep.length) {
+      out.push((fam.length === 2 ? 'Both nulls are' : 'Every null is') + ' rejected at ' + lvl + ': Holm p is ' + pFor(fam) + '.');
+    } else {
+      out.push('The null of ' + listJoin(rej.map(name)) + ' is rejected at ' + lvl + ' (' + pOf(rej) + '); that of ' + listJoin(keep.map(name)) + ' is not (' + pOf(keep) + ').');
+    }
+    var f = S.dev && S.dev.facts ? S.dev.facts : {};
+    if (rej.length) {
+      // the caveats the paper and the pre-registration attach to a rejection, power among them
+      // (stated here in full unless the non-rejection below states it)
+      out.push('A rejection is evidence, at that level, that the arm’s mean daily net return over ' + (days ? 'these ' + days + ' days' : 'the holdout') +
+        ' was above zero under the engine’s fills and modelled costs; it does not show how large the edge is, that it lasted beyond the period, that it survives higher costs or a larger book, or that it holds in another period' +
+        (keep.length ? ', and it says nothing about the other arm' : '') + '. The test is sealed, not prospective: the period had ended before the protocol was filed and the project was developed during it, and the inputs dated 2026 may flatter it (Section 11). ' +
+        (rej.length === 1 && fam.length === 2 ? 'It is one test of two' : 'They are ' + (fam.length === 2 ? 'two' : fam.length) + ' tests') +
+        ' over a single period of about ten months, at a simulated size a little above the nominal level, with the power stated in advance' +
+        (!keep.length && has(f.ho_mde_025) ? ' (below: 80% only against a Sharpe ratio of about ' + num(f.ho_mde_025, 2) + ')' : '') + '.');
+    }
+    if (keep.length) {
+      var ub = keep.filter(function (x) { return has(x.a.ucb); }), noUb = keep.filter(function (x) { return !has(x.a.ucb); });
+      out.push('Not rejecting a null is not evidence that the edge is zero: with the power stated in advance (below)' +
+        (has(f.ho_mde_025) ? ', the test detects with 80% probability only a Sharpe ratio of about ' + num(f.ho_mde_025, 2) +
+          (has(f.ho_power_1) ? ' (its power against a Sharpe ratio of 1 is ' + num(f.ho_power_1, 0) + '%)' : '') : '') + '.' +
+        (ub.length ? ' The one-sided 95% upper bound on the Sharpe ratio is ' + listJoin(ub.map(function (x) { return signed(x.a.ucb, 2) + ' for ' + armTag(x.a); })) +
+          (noUb.length ? '; ' + listJoin(noUb.map(function (x) { return armTag(x.a); })) + (noUb.length > 1 ? ' have' : ' has') + ' none' : '') + '.' : ''));
+    }
+    H.arms.filter(function (a) { return a.flat; }).forEach(function (a) {
+      out.push(armTag(a) + ' ' + (a.trades === 0 ? 'opened no position' : 'has daily returns without variation') + ': its net return is ' + pct(a.ret_pct) +
+        ' and its Sharpe ratio is not defined' + (a.hypothesis ? '; the registered test gives it t = ' + num(a.t, 2) + ' and p = ' + pText(a.p_one_sided) : '') + '.');
+    });
+    var desc = H.arms.filter(function (a) { return a.role === 'descriptive' || !a.hypothesis; });
+    if (desc.length) out.push(listJoin(desc.map(armTag)) + (desc.length > 1 ? ' are reported without a test and enter' : ' is reported without a test and enters') + ' no decision.');
+    return para('note ho-note ho-result', 'Result.', [out.join(' ')]);
+  }
+
+  // the run record: commits, tree, dates, attempts and failures, crash fix, logs, registry
+  function holdoutRun(H) {
+    var P = H.provenance;
+    if (!P) return para('note ho-note', 'Run record.', ['No run record is published with this evaluation.']);
+    var out = [], keys = H.arms.map(function (a) { return a.key; });
+    var rc = P.run_commits || {}, ru = P.run_utc || {};
+    var commits = keys.map(function (k) { return rc[k]; });
+    var same = commits.every(function (h) { return h && h === commits[0]; });
+    var reg = P.registered_commit || (P.registry && P.registry.prereg_commit);
+    if (same) {
+      out.push(listJoin(H.arms.map(armTag)) + ' ran from commit ', {code: hex12(commits[0])});
+      if (P.at_registered_commit === true) out.push(', the registered commit,');
+      else if (reg && P.crash_fix) out.push(', not the registered commit ', {code: hex12(reg)}, ' but a crash-fix commit,');
+      else if (reg) out.push(', a commit later than the registered ', {code: hex12(reg)}, ',');
+    } else {
+      out.push('The arms ran from different commits: ');
+      H.arms.forEach(function (a, i) { out.push((i ? (i === H.arms.length - 1 ? ' and ' : ', ') : '') + armTag(a) + ' from ', {code: hex12(rc[a.key])}); });
+      if (reg) out.push(' (the registered commit is ', {code: hex12(reg)}, ')');
+      out.push('. They ran');
+    }
+    out.push(P.clean === true ? ' with a clean tree' : P.clean === false ? ' with uncommitted changes' : '');
+    var dates = keys.map(function (k) { return ru[k] ? String(ru[k]).slice(0, 10) : null; }).filter(Boolean).sort();
+    if (dates.length) out.push(dates[0] === dates[dates.length - 1] ? ', on ' + dayOf(dates[0]) : ', between ' + dayOf(dates[0]) + ' and ' + dayOf(dates[dates.length - 1]));
+    out.push('. ');
+    // a later commit without a crash fix: the runbook allows it only when the frozen code is unchanged
+    if (same && P.at_registered_commit !== true && reg && !P.crash_fix) {
+      out.push('The runbook starts at a later commit without a crash fix only if nothing under the frozen paths differs from the registered commit (commitment 2 of the pre-registration). ');
+    }
+    if (H.period_matches_calendar === false && H.arms[0].period) {
+      out.push('Their days run from ' + H.arms[0].period[0] + ' to ' + H.arms[0].period[1] + ', not over the whole calendar (' + (H.calendar_start || '–') + ' to ' + (H.calendar_end || '–') + '). ');
+    }
+    // every attempt, as the attempt record has it: an earlier one failed (its failure line) or
+    // stopped without recording a failure; the last registered the trial, and its completion
+    // line follows unless the runbook stopped in between
+    var A = P.attempts || [];
+    var n = has(P.n_attempts) ? P.n_attempts : A.length;
+    var nf = has(P.n_failed) ? P.n_failed : A.filter(function (t) { return t.failed; }).length;
+    var nu = has(P.n_unfinished) ? P.n_unfinished : A.slice(0, -1).filter(function (t) { return !t.failed; }).length;
+    var sa = P.step_attempts || {};
+    var R = P.registry || {};
+    var ending = function (t) {
+      return t.completed_utc ? ' and completed on ' + dayOf(t.completed_utc) :
+        ' and registered the trial' + (R.registered_utc ? ' on ' + dayOf(R.registered_utc) : '') + ' (no completion line follows in results/trial_attempts.jsonl)';
+    };
+    if (A.length === 1 && !nf) {
+      out.push('It took one attempt, which ran ' + stepsDone(A[0].steps_done || []) + ending(A[0]) + '. ');
+    } else if (A.length) {
+      var ends = (nf ? [(nf === 1 ? 'one' : nf) + ' failed'] : []).concat(nu ? [(nu === 1 ? 'one' : nu) + ' stopped without finishing or recording a failure'] : [])
+        .concat([A[A.length - 1].completed_utc ? 'the last completed' : 'the last registered the trial']);
+      out.push('It took ' + word(n) + ' attempts (' + listJoin(ends) + '): ');
+      A.forEach(function (t, i) {
+        var done = t.steps_done || [], last = i === A.length - 1;
+        out.push((i ? '; ' : '') + 'attempt ' + t.attempt + ' at ', {code: hex12(t.head)},
+          t.at_registered_commit ? ' (the registered commit)' : t.crash_fix ? ' (a crash-fix commit)' : ' (a later commit; no crash-fix note)',
+          ', started ' + dayOf(t.started_utc));
+        if (t.failed) {
+          out.push(', failed at the ' + stepName(t.failed.step) + ' step' + (t.failed.note ? ' (' + t.failed.note + ')' : '') +
+            (done.length ? ' after completing ' + stepsDone(done) : ' before completing a step'));
+        } else if (last) {
+          // the steps an earlier attempt at the same commit finished, by that attempt
+          var by = {};
+          Object.keys(STEP).concat(Object.keys(sa).filter(function (s) { return !STEP[s]; }))
+            .filter(function (s) { return has(sa[s]) && sa[s] !== t.attempt; })
+            .forEach(function (s) { (by[sa[s]] = by[sa[s]] || []).push(s); });
+          var reused = Object.keys(by).sort(function (x, y) { return x - y; });
+          out.push(', ran ' + (done.length ? stepsDone(done) : 'no step') +
+            (reused.length ? ', reusing ' + listJoin(reused.map(function (k) { return stepsDone(by[k]) + ' of attempt ' + k; })) + ',' : '') + ending(t));
+        } else out.push(', stopped without finishing or recording a failure' + (done.length ? ' after completing ' + stepsDone(done) : ''));
+      });
+      out.push('. ');
+    }
+    var diffs = P.crash_fix_diffs || [];
+    if (P.crash_fix) {
+      var cf = P.crash_fix, dd = diffs.filter(function (d) { return d.sha256 === cf.sha256; })[0];
+      out.push('Crash fix: “' + (cf.fix || '') + '”. Its diff of the frozen paths since the registered commit is ', {code: 'logs/' + cf.diff},
+        ' (sha256 ', {code: String(cf.sha256 || '–')}, ')');
+      if (dd && dd.files && dd.files.length) {
+        out.push('; it changes ');
+        dd.files.forEach(function (f, i) { out.push(i ? (i === dd.files.length - 1 ? ' and ' : ', ') : '', {code: f}); });
+        if (has(dd.insertions) && has(dd.deletions)) out.push(' (' + plural(dd.insertions, 'line', 'lines') + ' added, ' + dd.deletions + ' removed)');
+      }
+      out.push('. ');
+    } else if (!A.some(function (t) { return t.crash_fix; })) out.push('No attempt carries a crash fix. ');
+    diffs.filter(function (d) { return !d.attempts || !d.attempts.length; }).forEach(function (d) {
+      out.push('The diff ', {code: d.file}, ' is published but named by no attempt (the runbook writes it before its other start checks, so a refused start can leave one). ');
+    });
+    var L = P.logs;
+    if (L && has(L.count)) {
+      var kinds = [];
+      if (L.step_logs > 0) kinds.push(plural(L.step_logs, 'step log', 'step logs'));
+      if (L.environment > 0) kinds.push(plural(L.environment, 'environment listing', 'environment listings'));
+      if (L.diffs > 0) kinds.push(plural(L.diffs, 'diff', 'diffs'));
+      out.push('Every attempt’s logs are published: ' + plural(L.count, 'file', 'files') + ' in ', {code: 'results/' + (H.trial || 'holdout2026') + '/logs/'},
+        kinds.length ? ' (' + listJoin(kinds) + '). ' : '. ');
+    }
+    if (P.registry) {
+      out.push('The trial is registered as ', {code: R.name || H.trial || 'holdout2026'}, ' in ', {code: 'results/trial_registry.jsonl'},
+        ' on ' + dayOf(R.registered_utc) + ', with pre-registration commit ', {code: hex12(R.prereg_commit)});
+      // the registry line copies the attempt lines written before registration; the runbook then
+      // appends the completion line, so the attempt file holds one more line for the trial
+      if (has(R.attempt_lines)) {
+        var lines = P.attempt_record_lines;
+        out.push('; its line copies the ' + R.attempt_lines + ' attempt lines written before registration' +
+          (has(lines) && lines === R.attempt_lines + 1 ? ', and ' : has(lines) && lines === R.attempt_lines ? '; ' : '. '), {code: 'results/trial_attempts.jsonl'},
+          has(lines) && lines === R.attempt_lines + 1 ? ' holds them and the completion line, ' + lines + ' lines for the trial' :
+          has(lines) && lines === R.attempt_lines ? ' holds the same ' + lines + ' lines and no completion line' : ' holds the trial’s lines');
+      }
+      out.push('.');
+    }
+    return para('note ho-note', 'Run record.', out);
+  }
+
+  // ── the sealed-tense text of index.html, and its wording once the holdout is evaluated ──
+  // index.html itself is not edited when the holdout is evaluated (the sealed page must stay
+  // as it is, and the paper records its sha256): each sentence that is true only while the test
+  // is sealed is replaced here, worded as main.typ's `done` branches word it. Strict JSON between
+  // the markers (tests/test_build_site_data.py reads it): `sealed` occurs `count` times (default
+  // once) in index.html, each time inside an element `in` selects; `attr` names an attribute
+  // instead of the text; `cut` drops everything after the sealed text to the element's end;
+  // `done` is text, or parts (text, {href, text}); '{name}' is filled from holdoutWords().
+  /* holdout-text-begin */
+  var HOLDOUT_TEXT = [
+    {"in": "meta[name=\"description\"]", "attr": "content", "sealed": "A pre-registered test on 2026 data is sealed.",
+     "done": "A pre-registered test on 2026 data (sealed, not prospective) has been run: {short}."},
+    {"in": "meta[property=\"og:description\"]", "attr": "content", "sealed": "A pre-registered 2026 test is sealed.",
+     "done": "A pre-registered 2026 test (sealed, not prospective) has been run: {short}."},
+    {"in": "script[type=\"application/ld+json\"]", "sealed": "a pre-registered test on 2026 data is sealed.",
+     "done": "a pre-registered test on 2026 data (sealed, not prospective) has been run: {short}."},
+    {"in": "p.dek", "sealed": " and runs once.",
+     "done": [" and has since been run and evaluated (", {"href": "#holdout", "text": "Section 1"}, ")."]},
+    {"in": ".bottom-line p", "sealed": "The pre-registered falsification test on 2026 data, which has ", "cut": true,
+     "done": ["{outcome} (", {"href": "#holdout", "text": "Section 1"}, ")."]},
+    {"in": "#holdout .lede", "sealed": "The pre-registered confirmatory test runs on daily prices that no part of the code or its caches has held: those of the ",
+     "done": "The pre-registered confirmatory test ran on daily prices that no part of the code or its caches had held before it: those of the "},
+    {"in": "#holdout .lede", "sealed": "That period has already ended, and the project",
+     "done": "That period had ended before the filing, and the project"},
+    {"in": "#holdout .lede", "sealed": "was fetched into the project's code, caches or files (network",
+     "done": "was fetched into the project's code, caches or files before the filing (network"},
+    {"in": "#holdout .lede", "sealed": "and the fetch code refuses such a request until the registered commit unseals it;",
+     "done": "and the fetch code refused such a request until the registered commit unsealed it;"},
+    {"in": "#holdout .lede", "sealed": "The protocol was filed first, on 26 October 2026; each arm then runs once, and its result is published whatever it is.",
+     "done": "The protocol was filed first, on 26 October 2026; the runbook then ran the three arms and the evaluation, every attempt is on record (run record, below), and the result is published in full, as the protocol requires."},
+    {"in": "#holdout p.note", "sealed": "The power is stated before any 2026 daily price is seen.",
+     "done": "The power was stated before any 2026 daily price was seen."},
+    {"in": "#holdout p.note", "sealed": "and not rejecting the null will not show that the edge is zero",
+     "done": "and not rejecting the null does not show that the edge is zero"},
+    {"in": "#holdout p.note", "sealed": "so the three arms are frozen together and each runs once.",
+     "done": "so the three arms were frozen together and ran under one runbook (run record, above)."},
+    {"in": "caption", "sealed": "The holdout will be added as one trial.",
+     "done": "The holdout is the trial holdout2026, one row for each of its {runs} runs."},
+    {"in": ".ex-title", "sealed": "main backtest and the sealed holdout", "done": "main backtest and the holdout"},
+    {"in": "svg desc", "sealed": "the sealed holdout from January to October 2026.", "count": 2,
+     "done": "the holdout from January to October 2026, pre-registered, then run and evaluated."},
+    {"in": "svg text", "sealed": "pre-registered, sealed", "count": 2, "done": "pre-registered, then run and evaluated"},
+    {"in": "td", "sealed": "The code and caches hold no daily 2026 prices of the traded securities",
+     "done": "Before the filing the code and caches held no daily 2026 prices of the traded securities"},
+    {"in": "td", "sealed": "designs, test and decision rule frozen before any 2026 daily price is fetched; one run per arm, every attempt on record",
+     "done": ["designs, test and decision rule frozen before any 2026 daily price was fetched; every attempt on record (", {"href": "#holdout", "text": "Section 1"}, ")"]},
+    {"in": "td", "sealed": "the trial registry and the sealed 2026 holdout.",
+     "done": ["the trial registry and the 2026 holdout, pre-registered and evaluated (", {"href": "#holdout", "text": "Section 1"}, ")."]}
+  ];
+  /* holdout-text-end */
+
+  var WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+  function word(n) { return n >= 0 && n < WORDS.length ? WORDS[n] : String(n); }
+
+  // the decision in words, from the evaluation's own decision only, as the paper words it: its
+  // summary pill (verdict), its summary's last sentence (outcome) and a short form (short)
+  function holdoutOutcome(H) {
+    var fam = familyOf(H);
+    var edge = function (k) { return fam.filter(function (x) { return x.a.key === k; }).map(function (x) { return x.d.edge; })[0]; };
+    var e1 = edge('v33_pairs'), e2 = edge('avellaneda_lee');
+    var lead = 'In the 2026 test (pre-registered, sealed, not prospective; power stated in advance) ';
+    if (typeof e1 !== 'boolean' || typeof e2 !== 'boolean') {
+      return {verdict: null, outcome: 'The decision of the 2026 test is not available in assets/study.json', short: 'its decision is not available'};
+    }
+    if (e1 && e2) {
+      return {verdict: '2026 test: edge in S1 and S2', short: 'both tested arms show an edge out of sample, on inputs that may flatter it',
+        outcome: lead + 'both tested arms show an edge out of sample, over a short period and on inputs that may flatter it'};
+    }
+    if (e1 || e2) {
+      var yes = e1 ? 'the v33 design' : 'Avellaneda–Lee', no = e1 ? 'Avellaneda–Lee' : 'the v33 design';
+      return {verdict: '2026 test: edge in ' + (e1 ? 'S1, not S2' : 'S2, not S1'),
+        short: yes + ' shows an edge out of sample and ' + no + ' does not, which is not evidence that its edge is zero',
+        outcome: lead + yes + ' shows an edge out of sample and ' + no + ' does not, which is not evidence that its edge is zero: one test of two, on inputs that may flatter it'};
+    }
+    return {verdict: 'No detectable edge', short: 'neither tested arm shows an edge out of sample, which is not evidence that the edge is zero',
+      outcome: 'In the 2026 test (pre-registered, sealed, not prospective) neither tested arm shows an edge, which, given the power stated in advance, is not evidence that the edge is zero'};
+  }
+  function holdoutWords(S, H) {
+    var o = holdoutOutcome(H);
+    var runs = (S.trials || []).filter(function (t) { return t.name === (H.trial || 'holdout2026'); }).length;
+    return {outcome: o.outcome, short: o.short, verdict: o.verdict, runs: word(runs)};
+  }
+  function partNodes(parts) {
+    return parts.filter(function (x) { return x !== null && x !== undefined && x !== ''; }).map(function (x) {
+      if (typeof x === 'string') return document.createTextNode(x);
+      var n = document.createElement(x.href ? 'a' : 'code');
+      if (x.href) n.href = x.href;
+      n.textContent = x.href ? x.text : x.code;
+      return n;
+    });
+  }
+  // replaces every sealed text of HOLDOUT_TEXT; returns the sealed texts not found as often as listed
+  function holdoutText(words) {
+    var missing = [];
+    var fill = function (t) { return t.replace(/\{(\w+)\}/g, function (m, k) { return words[k] !== undefined && words[k] !== null ? words[k] : m; }); };
+    HOLDOUT_TEXT.forEach(function (e) {
+      var parts = (Array.isArray(e.done) ? e.done : [e.done]).map(function (x) { return typeof x === 'string' ? fill(x) : x; });
+      var hit = 0;
+      document.querySelectorAll(e['in']).forEach(function (el) {
+        if (e.attr) {
+          var v = el.getAttribute(e.attr);
+          if (v && v.indexOf(e.sealed) >= 0) {
+            el.setAttribute(e.attr, v.replace(e.sealed, parts.map(function (x) { return typeof x === 'string' ? x : x.text || x.code; }).join('')));
+            hit++;
+          }
+          return;
+        }
+        var walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), node;
+        while ((node = walk.nextNode())) {
+          var at = node.nodeValue.indexOf(e.sealed);
+          if (at < 0) continue;
+          var rest = e.cut ? '' : node.nodeValue.slice(at + e.sealed.length);
+          if (e.cut) {
+            for (var up = node; up && up !== el; up = up.parentNode) {
+              while (up.nextSibling) up.parentNode.removeChild(up.nextSibling);
+            }
+          }
+          var after = node.splitText(at);
+          after.nodeValue = rest;
+          partNodes(parts).forEach(function (x) { after.parentNode.insertBefore(x, after); });
+          if (!rest) after.parentNode.removeChild(after);
+          hit++;
+          break;
+        }
+      });
+      if (hit !== (e.count || 1)) missing.push(e.sealed);
+    });
+    missing.forEach(function (t) { console.error('The holdout text was not replaced: ' + t); });
+    return missing;
+  }
+
+  // the trial registry table: one row per run record of the holdout's trial, as the paper's
+  // trials table prints them; its counts are study.json's (the registry gains the trial)
+  function holdoutTrials(S, H) {
+    var cell = document.querySelector('[data-metric="study.registry.trials"]');
+    var tbody = cell && cell.closest('table') ? cell.closest('table').querySelector('tbody') : null;
+    var name = H.trial || 'holdout2026';
+    if (tbody) {
+      var what = {v33: 'v33', v32: 'v32', avellaneda_lee: 'Avellaneda–Lee'};
+      var role = {v33: 'the pre-registered 2026 test, S1', v32: 'the same, v32 design (S3, descriptive)', avellaneda_lee: 'the same, Avellaneda–Lee (S2)'};
+      (S.trials || []).filter(function (t) { return t.name === name; }).forEach(function (t) {
+        var tr = document.createElement('tr');
+        var th = document.createElement('th');
+        th.scope = 'row';
+        var muted = document.createElement('span');
+        muted.className = 'muted';
+        muted.textContent = role[t.profile] || 'the pre-registered 2026 test';
+        th.append(document.createTextNode(t.name), document.createElement('br'), muted);
+        var cal = String(t.calendar || '').replace('rehearsal2025', '2025').replace('holdout2026', '2026');
+        var commit = document.createElement('code');
+        commit.textContent = t.commit || '—';
+        var tds = [[(what[t.profile] || t.profile || '—') + ' · ' + cal, ''], [commit, ''], [has(t.sharpe) ? signed(t.sharpe, 2) : '—', 'r'],
+          [has(t.ret_pct) ? pct(t.ret_pct) : '—', 'r'], [has(t.trades) ? global.d3.format(',')(t.trades) : '—', 'r'], ['—', 'r muted']];
+        tr.appendChild(th);
+        tds.forEach(function (c) {
+          var td = document.createElement('td');
+          if (c[1]) td.className = c[1];
+          if (typeof c[0] === 'string') td.textContent = c[0]; else td.appendChild(c[0]);
+          if (t.dirty && c[0] === commit) td.appendChild(document.createTextNode('*'));
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+    var R = S.registry || {};
+    document.querySelectorAll('[data-metric^="study.registry."]').forEach(function (el) {
+      var v = R[el.getAttribute('data-metric').slice('study.registry.'.length)];
+      if (has(v)) el.textContent = global.d3.format(',')(v);
+    });
+  }
+
+  // the threats table gains the row the paper adds once the test has run
+  function holdoutThreat(S, H) {
+    var th = Array.prototype.filter.call(document.querySelectorAll('tr > th[scope="row"]'), function (x) {
+      return x.textContent === 'The 2026 test is sealed, not prospective';
+    })[0];
+    if (!th) return;
+    var f = S.dev && S.dev.facts ? S.dev.facts : {}, days = H.arms[0] && has(H.arms[0].days) ? H.arms[0].days : null;
+    var tr = document.createElement('tr');
+    var head = document.createElement('th');
+    head.scope = 'row';
+    head.textContent = 'The 2026 test is short, and tests two arms';
+    var dir = document.createElement('span');
+    dir.className = 'dir dir-flat';
+    dir.textContent = 'either way';
+    var cells = [[dir], [(days ? days + ' trading days: with' : 'With') + ' returns shaped like the development period\'s, 80% power only against an annual Sharpe ratio of about ' +
+      num(f.ho_mde_025, 2) + ' at Holm\'s first step, stated in advance; the Newey–West test is asymptotic, and its size at this length is a little above 5% (simulated in the pre-registration); an edge in one arm says nothing about the other'],
+      ['Power and size stated before any 2026 price was fetched; each arm\'s one-sided upper bound and minimum detectable Sharpe ratio reported (', {href: '#holdout', text: 'Section 1'}, '); Holm\'s correction across the two tested arms']];
+    tr.appendChild(head);
+    cells.forEach(function (parts) {
+      var td = document.createElement('td');
+      parts.forEach(function (x) { td.appendChild(x.nodeType ? x : partNodes([x])[0]); });
+      tr.appendChild(td);
+    });
+    th.parentNode.after(tr);
+  }
+
+  function holdoutPage(S) {
+    var H = holdoutDone(S);
+    if (!H || document.querySelector('.ho-note')) return false;
+    var alpha = holdoutAlpha(H);
+    var words = holdoutWords(S, H);
+    // a page published after the test carries its wording, rows and threat itself
+    var written = document.documentElement.getAttribute('data-holdout') === 'complete';
+    if (!written) holdoutText(words);
+    var verdict = document.querySelector('.bottom-line .verdict');
+    if (verdict && words.verdict) {
+      verdict.textContent = words.verdict;
+      if (verdict.closest('.bl-head')) verdict.closest('.bl-head').classList.add('is-result');
+    }
+    var pill = document.querySelector('#h-holdout .status-pill');
+    if (pill) pill.replaceChildren(document.createTextNode('Complete'));
+    var flag = document.querySelector('.toc a[href="#holdout"] .toc-flag');
+    if (flag) {
+      var vh = document.createElement('span');
+      vh.className = 'vh';
+      vh.textContent = '(complete)';
+      flag.replaceChildren(vh);
+    }
+    holdoutKpi(S, H, alpha);
+    var tbl = holdoutHypotheses(H, alpha);
+    var wrap = tbl && tbl.closest('.tbl-wrap');
+    if (wrap) wrap.after(holdoutResult(S, H, alpha), holdoutRun(H));
+    var sub = document.querySelector('figure[data-exhibit="holdout"] .ex-sub');
+    var a0 = H.arms[0];
+    if (sub && a0.period && a0.period.length === 2) {
+      sub.textContent = 'Annualised, with 95% block-bootstrap intervals' + (H.daily ? ', and the cumulative net return by day' : '') + ': ' +
+        (has(a0.days) ? a0.days + ' ' : '') + 'daily net returns from ' + dayOf(a0.period[0]) + ' to ' + dayOf(a0.period[1]) +
+        ', the same cost model for every arm; S3, descriptive, dashed';
+    }
+    if (!written) {
+      holdoutTrials(S, H);
+      holdoutThreat(S, H);
+    }
+    document.querySelectorAll('rect.tl-hold').forEach(function (r) { r.classList.add('is-done'); });
+    return true;
+  }
 
   // Exhibit 25: known-answer checks; also fills the validation table's result cells
   X.validation = function (S, c) {
@@ -1449,4 +2151,5 @@
 
   global.Exhibits = X;
   global.ExhibitTable = buildTable;
+  global.ExhibitPage = {holdout: holdoutPage};
 })(window);

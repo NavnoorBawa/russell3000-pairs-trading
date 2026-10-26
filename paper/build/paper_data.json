@@ -52,7 +52,33 @@
   "headline_not_first_on_shared_days": true,
   "headline_path_beats_most_later_starts": true,
   "headline_start_first_unmatched": true,
-  "holdout_sealed": true,
+  "ho_all_attempts_at_registered_commit": true,
+  "ho_attempts_on_record": true,
+  "ho_clean": true,
+  "ho_crash_fix_published": false,
+  "ho_h1_edge": false,
+  "ho_h1_no_edge": true,
+  "ho_h2_edge": false,
+  "ho_h2_no_edge": true,
+  "ho_last_attempt_at_registered_commit": false,
+  "ho_no_completion_line": false,
+  "ho_none_rejected": true,
+  "ho_not_at_registered_commit_no_fix": false,
+  "ho_period_matches": true,
+  "ho_runs_at_registered_commit": true,
+  "ho_runs_one_commit": true,
+  "ho_s1_ci_excludes_zero": false,
+  "ho_s1_ci_includes_zero": true,
+  "ho_s1_flat": false,
+  "ho_s2_ci_excludes_zero": false,
+  "ho_s2_ci_includes_zero": true,
+  "ho_s2_flat": false,
+  "ho_s3_ci_excludes_zero": false,
+  "ho_s3_ci_includes_zero": true,
+  "ho_s3_flat": false,
+  "ho_s3_not_tested": true,
+  "ho_single_attempt": true,
+  "holdout_sealed": false,
   "hurdles_above_bound": true,
   "impact_largest_cost": true,
   "initial_formation_governed_no_trade": true,
@@ -130,7 +156,7 @@
   [
    1,
    "Net Sharpe ratio of each pre-registered arm on the 2026 holdout",
-   "forthcoming"
+   "ex-holdout"
   ],
   [
    2,
@@ -244,7 +270,7 @@
   ],
   [
    24,
-   "Data splits: formation and re-formations, walk-forward, main backtest and the sealed holdout",
+   "Data splits: formation and re-formations, walk-forward, main backtest and the holdout",
    "ex-timeline"
   ],
   [
@@ -271,7 +297,7 @@
   "forest": "build/figures/forest.svg",
   "funnel": "build/figures/funnel.svg",
   "halflife": "build/figures/halflife.svg",
-  "holdout": null,
+  "holdout": "build/figures/holdout.svg",
   "monthly": "build/figures/monthly.svg",
   "persistence": "build/figures/persistence.svg",
   "randomnull": "build/figures/randomnull.svg",
@@ -288,7 +314,32 @@
  },
  "flags": {
   "cost_split": true,
-  "holdout_complete": false,
+  "ho_all_attempts_at_registered_commit": true,
+  "ho_any_edge": false,
+  "ho_at_registered_commit": true,
+  "ho_both_edge": false,
+  "ho_clean": true,
+  "ho_completed": true,
+  "ho_crash_fix": false,
+  "ho_daily": true,
+  "ho_failed": false,
+  "ho_h1_edge": false,
+  "ho_h2_edge": false,
+  "ho_period_matches": true,
+  "ho_price_fetch": true,
+  "ho_s1_ci_excludes_zero": false,
+  "ho_s1_flat": false,
+  "ho_s1_universe": true,
+  "ho_s2_ci_excludes_zero": false,
+  "ho_s2_flat": false,
+  "ho_s2_universe": true,
+  "ho_s3_ci_excludes_zero": false,
+  "ho_s3_flat": false,
+  "ho_s3_universe": false,
+  "ho_single_attempt": true,
+  "ho_unfinished": false,
+  "ho_unnamed_diffs": false,
+  "holdout_complete": true,
   "iwv": true,
   "multi_factor": true,
   "preregistered": true,
@@ -300,14 +351,7 @@
   "validation": true,
   "wf_daily": true
  },
- "forthcoming": [
-  [
-   "holdout",
-   "The 2026 holdout",
-   "Each arm's net Sharpe ratio, one-sided upper bound, Holm-adjusted p-value and decision (S1 and S2; S3 descriptive), and its cumulative return",
-   "The pre-registration, filed before any 2026 daily price is fetched, then a single run of each arm on 2026 data"
-  ]
- ],
+ "forthcoming": [],
  "layout": {
   "column_gap_mm": 6.0,
   "exhibit_width_mm": 162.0,
@@ -380,10 +424,166 @@
   "paper.gatev_wf_sharpe": "−0.83",
   "paper.hl_none_oos": "1",
   "paper.hl_pairs": "130",
-  "paper.holdout.hi": null,
-  "paper.holdout.lo": null,
-  "paper.holdout.p": null,
-  "paper.holdout.sharpe": null,
+  "paper.ho.calendar_end_long": "19 October 2026",
+  "paper.ho.calendar_start_long": "2 January 2026",
+  "paper.ho.days": "200",
+  "paper.ho.first_long": "2 January 2026",
+  "paper.ho.last_long": "19 October 2026",
+  "paper.ho.run.attempts_phrase": "one attempt",
+  "paper.ho.run.commit": "7c7d3f904ec6",
+  "paper.ho.run.completed": "2026-10-26 10:27 UTC",
+  "paper.ho.run.crash_fix": null,
+  "paper.ho.run.crash_fix_deletions": null,
+  "paper.ho.run.crash_fix_diff": null,
+  "paper.ho.run.crash_fix_files": null,
+  "paper.ho.run.crash_fix_insertions": null,
+  "paper.ho.run.crash_fix_sha": null,
+  "paper.ho.run.diffs": "0",
+  "paper.ho.run.environment": "1",
+  "paper.ho.run.fetch_symbols": "3,015",
+  "paper.ho.run.fetched": "2026-10-26 10:20 UTC",
+  "paper.ho.run.logs": "7",
+  "paper.ho.run.logs_phrase": "seven files: six step logs, one environment listing and no crash-fix diff",
+  "paper.ho.run.n_attempts": "1",
+  "paper.ho.run.n_failed": "0",
+  "paper.ho.run.n_unfinished": "0",
+  "paper.ho.run.registered": "7c7d3f904ec6",
+  "paper.ho.run.registered_long": "26 October 2026",
+  "paper.ho.run.started": "2026-10-26 10:06 UTC",
+  "paper.ho.run.step_logs": "6",
+  "paper.ho.run.top_ups": "1",
+  "paper.ho.run.top_ups_phrase": "one top-up",
+  "paper.ho.run.until": "2026-10-26 10:27 UTC",
+  "paper.ho.s1.days": "200",
+  "paper.ho.s1.days_open": "198",
+  "paper.ho.s1.decision": "not rejected",
+  "paper.ho.s1.exp_avg": "26.7%",
+  "paper.ho.s1.exp_max": "30.1%",
+  "paper.ho.s1.first_long": "2 January 2026",
+  "paper.ho.s1.flat_phrase": "had no dispersion in its daily net returns",
+  "paper.ho.s1.gap_first_pct": "0.81%",
+  "paper.ho.s1.gap_last_pct": "0.84%",
+  "paper.ho.s1.gap_max_pct": "0.84%",
+  "paper.ho.s1.gap_min_pct": "0.81%",
+  "paper.ho.s1.gatev_days": "200",
+  "paper.ho.s1.gatev_diff": "+0.73",
+  "paper.ho.s1.gatev_hi": "+3.69",
+  "paper.ho.s1.gatev_lo": "−2.23",
+  "paper.ho.s1.gatev_p": "0.619",
+  "paper.ho.s1.gatev_sharpe": "−0.68",
+  "paper.ho.s1.gross_ret_pct": "+0.66%",
+  "paper.ho.s1.gross_sharpe": "+0.31",
+  "paper.ho.s1.hi": "+1.83",
+  "paper.ho.s1.label": "S1",
+  "paper.ho.s1.lags": "4",
+  "paper.ho.s1.last_long": "19 October 2026",
+  "paper.ho.s1.lo": "−1.81",
+  "paper.ho.s1.mde": "2.72",
+  "paper.ho.s1.mde_single": "2.41",
+  "paper.ho.s1.name": "v33 pairs",
+  "paper.ho.s1.p_holm_rel": "= 0.955",
+  "paper.ho.s1.p_holm_text": "0.955",
+  "paper.ho.s1.p_one_rel": "= 0.478",
+  "paper.ho.s1.p_one_text": "0.478",
+  "paper.ho.s1.psr_pct": "51.8%",
+  "paper.ho.s1.ret_pct": "+0.08%",
+  "paper.ho.s1.rp_draws": "200",
+  "paper.ho.s1.rp_median": "+0.06",
+  "paper.ho.s1.rp_pct": "49.0",
+  "paper.ho.s1.sharpe": "+0.05",
+  "paper.ho.s1.sharpe_lo2002": "+0.06",
+  "paper.ho.s1.sharpe_or": "+0.05",
+  "paper.ho.s1.sharpe_se": "0.97",
+  "paper.ho.s1.t": "0.06",
+  "paper.ho.s1.trades": "106",
+  "paper.ho.s1.ucb": "+1.64",
+  "paper.ho.s1.universe_n": "3",
+  "paper.ho.s2.days": "200",
+  "paper.ho.s2.days_open": "198",
+  "paper.ho.s2.decision": "not rejected",
+  "paper.ho.s2.exp_avg": "118.4%",
+  "paper.ho.s2.exp_max": "166.8%",
+  "paper.ho.s2.first_long": "2 January 2026",
+  "paper.ho.s2.flat_phrase": "had no dispersion in its daily net returns",
+  "paper.ho.s2.gap_first_pct": "0.81%",
+  "paper.ho.s2.gap_last_pct": "0.84%",
+  "paper.ho.s2.gap_max_pct": "0.84%",
+  "paper.ho.s2.gap_min_pct": "0.66%",
+  "paper.ho.s2.gatev_days": "200",
+  "paper.ho.s2.gatev_diff": "+0.41",
+  "paper.ho.s2.gatev_hi": "+3.23",
+  "paper.ho.s2.gatev_lo": "−2.42",
+  "paper.ho.s2.gatev_p": "0.769",
+  "paper.ho.s2.gatev_sharpe": "−0.68",
+  "paper.ho.s2.gross_ret_pct": "+0.23%",
+  "paper.ho.s2.gross_sharpe": "+0.08",
+  "paper.ho.s2.hi": "+1.81",
+  "paper.ho.s2.label": "S2",
+  "paper.ho.s2.lags": "4",
+  "paper.ho.s2.last_long": "19 October 2026",
+  "paper.ho.s2.lo": "−2.36",
+  "paper.ho.s2.mde": "2.85",
+  "paper.ho.s2.mde_single": "2.53",
+  "paper.ho.s2.name": "Avellaneda–Lee",
+  "paper.ho.s2.p_holm_rel": "= 0.955",
+  "paper.ho.s2.p_holm_text": "0.955",
+  "paper.ho.s2.p_one_rel": "= 0.608",
+  "paper.ho.s2.p_one_text": "0.608",
+  "paper.ho.s2.psr_pct": "40.4%",
+  "paper.ho.s2.ret_pct": "−1.59%",
+  "paper.ho.s2.rp_draws": "200",
+  "paper.ho.s2.rp_median": "+0.06",
+  "paper.ho.s2.rp_pct": "32.0",
+  "paper.ho.s2.sharpe": "−0.27",
+  "paper.ho.s2.sharpe_lo2002": "−0.33",
+  "paper.ho.s2.sharpe_or": "−0.27",
+  "paper.ho.s2.sharpe_se": "1.01",
+  "paper.ho.s2.t": "−0.27",
+  "paper.ho.s2.trades": "3,561",
+  "paper.ho.s2.ucb": "+1.38",
+  "paper.ho.s2.universe_n": "3",
+  "paper.ho.s3.days": "200",
+  "paper.ho.s3.days_open": "79",
+  "paper.ho.s3.decision": "not tested",
+  "paper.ho.s3.exp_avg": "7.0%",
+  "paper.ho.s3.exp_max": "30.0%",
+  "paper.ho.s3.first_long": "2 January 2026",
+  "paper.ho.s3.flat_phrase": "had no dispersion in its daily net returns",
+  "paper.ho.s3.gap_first_pct": null,
+  "paper.ho.s3.gap_last_pct": null,
+  "paper.ho.s3.gap_max_pct": null,
+  "paper.ho.s3.gap_min_pct": null,
+  "paper.ho.s3.gatev_days": "200",
+  "paper.ho.s3.gatev_diff": "−0.42",
+  "paper.ho.s3.gatev_hi": "+2.77",
+  "paper.ho.s3.gatev_lo": "−3.60",
+  "paper.ho.s3.gatev_p": "0.767",
+  "paper.ho.s3.gatev_sharpe": "+0.01",
+  "paper.ho.s3.gross_ret_pct": "−0.34%",
+  "paper.ho.s3.gross_sharpe": "−0.28",
+  "paper.ho.s3.hi": "+1.30",
+  "paper.ho.s3.label": "S3",
+  "paper.ho.s3.lags": "4",
+  "paper.ho.s3.last_long": "19 October 2026",
+  "paper.ho.s3.lo": "−1.48",
+  "paper.ho.s3.mde": "2.96",
+  "paper.ho.s3.mde_single": "2.63",
+  "paper.ho.s3.name": "v32, frozen",
+  "paper.ho.s3.p_one_rel": "= 0.690",
+  "paper.ho.s3.p_one_text": "0.690",
+  "paper.ho.s3.psr_pct": "35.5%",
+  "paper.ho.s3.ret_pct": "−0.48%",
+  "paper.ho.s3.rp_draws": "200",
+  "paper.ho.s3.rp_median": "−0.15",
+  "paper.ho.s3.rp_pct": "37.0",
+  "paper.ho.s3.sharpe": "−0.41",
+  "paper.ho.s3.sharpe_lo2002": "−0.59",
+  "paper.ho.s3.sharpe_or": "−0.41",
+  "paper.ho.s3.sharpe_se": "0.95",
+  "paper.ho.s3.t": "−0.50",
+  "paper.ho.s3.trades": "43",
+  "paper.ho.s3.ucb": "+1.16",
+  "paper.ho.s3.universe_n": "0",
   "paper.holdout_end_long": "19 October 2026",
   "paper.holdout_power.kurtosis": "7.73",
   "paper.holdout_power.mde_05_126": "3.31",
@@ -420,7 +620,7 @@
   "paper.oos_end_month": "December 2025",
   "paper.oos_start_long": "14 February 2023",
   "paper.oos_start_month": "February 2023",
-  "paper.paper_date_long": "21 October 2026",
+  "paper.paper_date_long": "26 October 2026",
   "paper.percentile_ordinal": "37th",
   "paper.period_end_long": "31 December 2025",
   "paper.period_end_month": "December 2025",
@@ -441,8 +641,8 @@
   "paper.sched_worst_ret": "−7.12%",
   "paper.schedules_lose_word": "five",
   "paper.schedules_n_word": "five",
-  "paper.trials_n": "14",
-  "paper.trials_word": "14",
+  "paper.trials_n": "17",
+  "paper.trials_word": "17",
   "paper.trl_power_ratio": "2.3",
   "paper.universe_top": "500",
   "paper.v32_borrow_bp": "25",
@@ -864,9 +1064,9 @@
   "study.dev.snooping.results.trades_max": "333",
   "study.dev.snooping.results.trades_min": "144",
   "study.dev.snooping.toggles": "11",
-  "study.registry.recorded_runs": "11",
-  "study.registry.rows": "14",
-  "study.registry.trials": "9",
+  "study.registry.recorded_runs": "14",
+  "study.registry.rows": "17",
+  "study.registry.trials": "10",
   "study.residual.avg_gross_x": "1.2×",
   "study.residual.avg_positions": "181",
   "study.residual.cost_bp": "11.30",
@@ -950,14 +1150,12 @@
   "commit": "744270556ba6d688e95bee8d7d88608c7c656c55",
   "headline": "results/v33_dev/headline_metrics.json",
   "headline_sha256": "b09f239032db62196602447e8d1d780286b5c2674e8e85d02062beab946d0fb1",
-  "paper_date": "2026-10-21",
+  "paper_date": "2026-10-26",
   "run_dir": "results/v33_dev",
-  "study_sha256": "efd7198840b09cf00f66371a1a95c902620a2babd832c90be62bd9c99352f1ca",
+  "study_sha256": "c431fcb1a099c2fff2e32c36506757c6331a1793ccc4d835463abc66b8a41b20",
   "universe_index_sha256": "2afd0cb6a7a7b79e08e6d45a5fc78f7ac6d43903c3cafbde1a042bf048883c3c"
  },
- "pending": {
-  "holdout": "Sealed."
- },
+ "pending": {},
  "schema": 1,
  "tables": {
   "alternatives": [
@@ -1169,6 +1367,219 @@
     "—"
    ]
   ],
+  "ho_detail": [
+   [
+    "Gross return, %",
+    "+0.66",
+    "+0.23",
+    "−0.34"
+   ],
+   [
+    "Sharpe ratio before costs",
+    "+0.31",
+    "+0.08",
+    "−0.28"
+   ],
+   [
+    "Sharpe ratio, Lo (2002) annualisation",
+    "+0.06",
+    "−0.33",
+    "−0.59"
+   ],
+   [
+    "Probabilistic Sharpe ratio, %",
+    "51.8",
+    "40.4",
+    "35.5"
+   ],
+   [
+    "Standard error of the Sharpe ratio",
+    "0.97",
+    "1.01",
+    "0.95"
+   ],
+   [
+    "Minimum detectable Sharpe, one-sided 2.5% / 5%",
+    "2.72 / 2.41",
+    "2.85 / 2.53",
+    "2.96 / 2.63"
+   ],
+   [
+    "Newey–West lags",
+    "4",
+    "4",
+    "4"
+   ],
+   [
+    "Gross exposure, % of equity: average / maximum",
+    "26.7 / 30.1",
+    "118.4 / 166.8",
+    "7.0 / 30.0"
+   ],
+   [
+    "Days with open positions",
+    "198",
+    "198",
+    "79"
+   ],
+   [
+    "Gatev distance method: Sharpe ratio (common days)",
+    "−0.68 (200)",
+    "−0.68 (200)",
+    "+0.01 (200)"
+   ],
+   [
+    "Arm minus Gatev, Sharpe [95% interval]",
+    "+0.73 [−2.23, +3.69]",
+    "+0.41 [−2.42, +3.23]",
+    "−0.42 [−3.60, +2.77]"
+   ],
+   [
+    "Ledoit–Wolf p of the difference, two-sided",
+    "0.619",
+    "0.769",
+    "0.767"
+   ],
+   [
+    "Percentile among random-pair portfolios (their median Sharpe)",
+    "49.0 (+0.06)",
+    "32.0 (+0.06)",
+    "37.0 (−0.15)"
+   ],
+   [
+    "Baselines from",
+    "its own run",
+    "S1’s run",
+    "its own run"
+   ]
+  ],
+  "ho_detail_notes": [],
+  "ho_record": [
+   [
+    "1",
+    "7c7d3f9",
+    "registered",
+    "2026-10-26 10:06",
+    "universe, data, S1, S3, S2, evaluation",
+    "—",
+    "2026-10-26 10:27"
+   ]
+  ],
+  "ho_results": [
+   [
+    "H1 · S1",
+    "v33 pairs",
+    "200",
+    "106",
+    "+0.08",
+    "+0.05",
+    "−1.81 to +1.83",
+    "0.06",
+    "0.478",
+    "0.955",
+    "Not rejected",
+    "+1.64",
+    "2.72"
+   ],
+   [
+    "H2 · S2",
+    "Avellaneda–Lee",
+    "200",
+    "3,561",
+    "−1.59",
+    "−0.27",
+    "−2.36 to +1.81",
+    "−0.27",
+    "0.608",
+    "0.955",
+    "Not rejected",
+    "+1.38",
+    "2.85"
+   ],
+   [
+    "S3",
+    "v32, frozen",
+    "200",
+    "43",
+    "−0.48",
+    "−0.41",
+    "−1.48 to +1.30",
+    "−0.50",
+    "0.690",
+    "—",
+    "Not tested",
+    "+1.16",
+    "2.96"
+   ]
+  ],
+  "ho_universe": [
+   [
+    "S1",
+    "31 Dec 2025",
+    "31 Dec 2025",
+    "25 Feb 2026",
+    "2,589",
+    "163",
+    "0.80",
+    "0.01",
+    "—"
+   ],
+   [
+    "S1",
+    "2 Jan 2026",
+    "31 Dec 2025",
+    "25 Feb 2026",
+    "2,589",
+    "163",
+    "0.80",
+    "0.01",
+    "—"
+   ],
+   [
+    "S1",
+    "7 Jul 2026",
+    "30 Jun 2026",
+    "27 Aug 2026",
+    "2,583",
+    "119",
+    "0.84",
+    "0.00",
+    "—"
+   ],
+   [
+    "S2",
+    "2 Jan 2026",
+    "31 Dec 2025",
+    "25 Feb 2026",
+    "2,589",
+    "163",
+    "0.80",
+    "0.01",
+    "11 (0.05)"
+   ],
+   [
+    "S2",
+    "6 Apr 2026",
+    "31 Mar 2026",
+    "26 May 2026",
+    "2,582",
+    "139",
+    "0.66",
+    "0.00",
+    "11 (0.05)"
+   ],
+   [
+    "S2",
+    "7 Jul 2026",
+    "30 Jun 2026",
+    "27 Aug 2026",
+    "2,583",
+    "119",
+    "0.84",
+    "0.00",
+    "29 (0.10)"
+   ]
+  ],
   "holdout_power": [
    [
     "126",
@@ -1251,7 +1662,7 @@
    ],
    [
     "Site data",
-    "assets/study.json, sha256 efd7198840b09cf00f66371a1a95c902620a2babd832c90be62bd9c99352f1ca"
+    "assets/study.json, sha256 c431fcb1a099c2fff2e32c36506757c6331a1793ccc4d835463abc66b8a41b20"
    ],
    [
     "Universe",
@@ -1808,6 +2219,46 @@
     "767b8602838b419c9e7ebab5f76a113938e28df0c433c00064d7ebc9932304f0"
    ],
    [
+    "results/holdout2026/evaluation.json",
+    "5b335fcea9b5b87c7d4574f540381339a80748bc7dfc6a73ab920456fea2acab"
+   ],
+   [
+    "results/holdout2026/price_fetch_manifest.json",
+    "016a7d207d0be728f5f539a9220d00e716b86f8652facba543b10eb333312e41"
+   ],
+   [
+    "results/holdout2026/residual/MANIFEST.json",
+    "184332e77c659b626ea4a00d402b5d88defcc485f69278b264ea0d708a8c17a1"
+   ],
+   [
+    "results/holdout2026/residual/residual_statarb.json",
+    "39debf9a6f85bfcf26edb87e089c8135b71bed3c2aaed0e45a3ec10d06a1cbcd"
+   ],
+   [
+    "results/holdout2026/v32_pairs/MANIFEST.json",
+    "b6b2e8b6dcd33d83b1d50a395cf4564934e7f94ae96581697dc721e6915fb806"
+   ],
+   [
+    "results/holdout2026/v32_pairs/headline_metrics.json",
+    "822b77d013850beebb40401ff23fea1695e4703de9b32a248a55e825102cd033"
+   ],
+   [
+    "results/holdout2026/v32_pairs/pairs_trading_results_2023_2025_unbiased.json",
+    "d07c6ebc90a223e3b282177bee1abf41e009ac7c7dc08968b7bbe00bc3bba29a"
+   ],
+   [
+    "results/holdout2026/v33_pairs/MANIFEST.json",
+    "ef07f3b1b34498f406c1988bb9ba8d9a11f408387b47b05f20eecb06dbd72e73"
+   ],
+   [
+    "results/holdout2026/v33_pairs/headline_metrics.json",
+    "19365c812ca2daf83aadd57369e331bb251185451ff0beb719eb82260cce6fe3"
+   ],
+   [
+    "results/holdout2026/v33_pairs/pairs_trading_results_2023_2025_unbiased.json",
+    "60cb8931bd0242223f9821ae9c88867786316ebe5fe0ba3f61d11109eab07a74"
+   ],
+   [
     "results/residual_dev/MANIFEST.json",
     "1a89276294d27e0b9c6dd12004085153403840962da91659c3ace30df8a4e0ee"
    ],
@@ -1816,8 +2267,12 @@
     "7bc4562bf017ce2bb31763ea97effa7e98049abbdd74a27faf452147aed2b222"
    ],
    [
+    "results/trial_attempts.jsonl",
+    "13d5ab1e74328084ef5b9bdb5492670bbcac9614a7144a41707842fc9501b450"
+   ],
+   [
     "results/trial_registry.jsonl",
-    "828d9565b069fc1c842675fe2256554da96cbcd29f73cb35a9924084df03da98"
+    "ad2424251fcf5fb8c9f0b3178b73c726b52d06915fc61013e8ea8772e11dc61b"
    ],
    [
     "results/v32_dev/headline_metrics.json",
@@ -1885,7 +2340,7 @@
    ],
    [
     "index.html",
-    "d2ec5259ae3a4d537ac23bfec8996e5457696e7c7ab8f28446752f50293deb49"
+    "bd901655efedef619fed8459b47eeac6f1d6aacd5648a620adbb161483889abc"
    ]
   ],
   "spec": [
@@ -2146,6 +2601,33 @@
     "−0.92",
     "3,514",
     "—"
+   ],
+   [
+    "holdout2026",
+    "v33 · 2026",
+    "7c7d3f9",
+    "+0.05",
+    "+0.08",
+    "106",
+    "—"
+   ],
+   [
+    "holdout2026",
+    "v32 · 2026",
+    "7c7d3f9",
+    "−0.41",
+    "−0.48",
+    "43",
+    "—"
+   ],
+   [
+    "holdout2026",
+    "Avellaneda–Lee · 2026",
+    "7c7d3f9",
+    "−0.27",
+    "−1.59",
+    "3,561",
+    "—"
    ]
   ],
   "validation": [
@@ -2353,9 +2835,15 @@
   ]
  },
  "why": {
-  "paper.holdout.hi": "pending (sealed until the pre-registration is filed)",
-  "paper.holdout.lo": "pending (sealed until the pre-registration is filed)",
-  "paper.holdout.p": "pending (sealed until the pre-registration is filed)",
-  "paper.holdout.sharpe": "pending (sealed until the pre-registration is filed)"
+  "paper.ho.run.crash_fix": "none recorded",
+  "paper.ho.run.crash_fix_deletions": "none recorded",
+  "paper.ho.run.crash_fix_diff": "none recorded",
+  "paper.ho.run.crash_fix_files": "none recorded",
+  "paper.ho.run.crash_fix_insertions": "none recorded",
+  "paper.ho.run.crash_fix_sha": "none recorded",
+  "paper.ho.s3.gap_first_pct": "none (no point-in-time universe for this arm)",
+  "paper.ho.s3.gap_last_pct": "none (no point-in-time universe for this arm)",
+  "paper.ho.s3.gap_max_pct": "none (no point-in-time universe for this arm)",
+  "paper.ho.s3.gap_min_pct": "none (no point-in-time universe for this arm)"
  }
 }
