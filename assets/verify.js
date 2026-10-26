@@ -229,7 +229,7 @@
       else if (!isDict(h) || h.schema !== SUPPORTED_SCHEMA) src.headlineProblem = HEADLINE_FILE + ' has a schema the checker does not read';
       else if (pyTruthy(h.non_default_switches)) src.headlineProblem = HEADLINE_FILE + ' comes from a sensitivity run';
       else if (hasOwn(h, SITE_NAMESPACE)) src.headlineProblem = HEADLINE_FILE + ' has a top-level ' + SITE_NAMESPACE + ' key';
-      if (h) {
+      if (h && study) {                               // nothing to compare with if the site data failed to load
         if (head.sha256 === null) src.hash = 'unchecked';
         else if (study && head.sha256 === src.want) src.hash = 'match';
         else {
@@ -578,7 +578,8 @@
     } else if (src.hash === 'unchecked') {
       hashDd.append('Hash not checked: the browser computes SHA-256 only on a secure (https or local) page');
     } else {
-      hashDd.append('Hash not checked: ' + HEADLINE_FILE + ' could not be loaded (' + src.loadError + ')');
+      hashDd.append('Hash not checked: ' + (src.loadError ? HEADLINE_FILE + ' could not be loaded (' + src.loadError + ')'
+                                                    : SITE_FILE + ' could not be loaded'));
     }
 
     var s = sourceOf(r.el);

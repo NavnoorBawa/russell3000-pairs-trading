@@ -292,8 +292,14 @@
     var r = a.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = window.innerHeight;
     var w = card.offsetWidth, h = card.offsetHeight;
     var left = Math.max(8, Math.min(r.left, vw - w - 8));
-    var top = r.bottom + 8;
-    if (top + h > vh - 8 && r.top - h - 8 >= 8) top = r.top - h - 8;
+    // below the link if it fits, else above; if neither side has room, the chart copy shrinks
+    // to fit the larger side
+    var below = vh - r.bottom - 16, above = r.top - 16, svg = card.querySelector('.xpop-svg');
+    if (h > below && h > above && svg) {
+      svg.style.maxHeight = Math.max(60, svg.getBoundingClientRect().height - (h - Math.max(below, above))) + 'px';
+      h = card.offsetHeight;
+    }
+    var top = h <= below || below >= above ? r.bottom + 8 : r.top - h - 8;
     card.style.left = left + 'px';
     card.style.top = Math.max(8, top) + 'px';
   }
@@ -434,10 +440,12 @@
 
   function message(fig, text) {
     var chart = fig.querySelector('.ex-chart');
-    if (!chart || fig.classList.contains('is-pending')) return;
+    if (!chart) return;
     var p = document.createElement('p');
     p.className = 'ex-error';
     p.textContent = text;
+    // a pending figure keeps its static text, with the reason it has no chart added below it
+    if (fig.classList.contains('is-pending')) { if (!chart.querySelector('.ex-error')) chart.appendChild(p); return; }
     chart.replaceChildren(p);
   }
 
@@ -675,6 +683,8 @@
       .catch(function (err) {
         figures.forEach(function (f) { message(f, 'Charts are unavailable: assets/study.json could not be loaded (' + err.message + '). Open the page through a web server.'); });
         settle();
+        // a link to one number still opens its check, which then says why it cannot be made
+        if (location.hash.indexOf('#n=') === 0) verify().then(function (V) { if (V.fromHash) V.fromHash(); }, function () {});
       });
   }
   start();
