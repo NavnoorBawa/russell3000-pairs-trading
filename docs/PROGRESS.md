@@ -3341,3 +3341,37 @@ overstatements; every fix uses the committed data.
   metadata reach into 2026, and that threat now reads "may flatter the holdout". The fill and
   cost-parameter threats now read "probably flatters". The spec table lists every engine gate and
   the kill-switch thresholds.
+
+### Filing the pre-registration (2026-10-21 to 2026-10-26)
+
+- **A second scripted rehearsal.** The runbook ran again as `rehearsal2025b` at `6aaf7ef`, the
+  last code commit before the filing, in one attempt with every step completed. Its prices,
+  fetched afresh about five hours after the first rehearsal's, hold the same symbols with the same
+  fetch outcomes and differ by at most 1.2 parts per million; both rehearsals made the same
+  trades, and their evaluations agree to four significant figures. Neither rehearsal's logs had
+  been committed (the `logs/` ignore rule matched them); both are now, with `git add -f`, as the
+  holdout's will be.
+- **An audit of the 2026 information the project held** (2026-10-21) found more than the draft
+  listed: the stock screener response behind the v32 universe file (each stock's last sale price
+  and volume as well as its market value), the downloads of two surveys of free data sources
+  (FRED and Cboe VIX series to October 2026, French industry returns, the ETF's product pages,
+  index changes, short interest), network checks that asked for one stock's five-day chart and
+  discarded the answer, and a survey that asked for 300 stocks' 2026 monthly charts for their
+  splits. A few such values had been displayed while files were checked. The files were deleted
+  (137 of them, at 15:11 UTC) and the pre-registration lists each kind, each request and each
+  value displayed.
+- **The working storage was lost.** The session's container was recycled by 2026-10-22 at 17:29
+  UTC, taking every file outside git: the price caches, the raw downloads, the French and FRED
+  files, the original `data/marketcap.csv`, the records of the deleted files, the helper
+  sessions' logs, an uncommitted rewrite of the site and paper builders for a completed holdout,
+  and the working copy of the pre-registration. `data/marketcap.csv` was rebuilt with the same
+  2,999 symbols from the committed fetch manifest (`reference/README.md`), so S3's universe and
+  the holdout's fetch list are unchanged, and `reference/holdout_inputs.sha256` pins the rebuilt
+  file. The pre-registration was rebuilt from the parts of it the main session's log kept and
+  from the code; two rounds of checks against the code (23 corrections, then 3) came before the
+  filing.
+- **Filed.** `docs/PREREGISTRATION.md` was committed alone at `7c7d3f9` on 2026-10-26 and
+  pushed. Between `6aaf7ef` and that commit the frozen paths differ only in the pre-registration
+  and in the input pin and its description. The site, README and paper now say the protocol is
+  filed. The site's and paper's tables for the result are written after the result: the paper's
+  builder stops on an evaluated holdout until they are.

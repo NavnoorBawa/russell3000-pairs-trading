@@ -291,7 +291,7 @@
   "holdout_complete": false,
   "iwv": true,
   "multi_factor": true,
-  "preregistered": false,
+  "preregistered": true,
   "random_band": true,
   "residual": true,
   "scenarios": true,
@@ -428,7 +428,7 @@
   "paper.period_start_month": "July 2023",
   "paper.position_max_pct": "10.0%",
   "paper.position_min_pct": "2.2%",
-  "paper.prereg_status": "not yet filed",
+  "paper.prereg_status": "filed",
   "paper.profile_hash": "d54d21314c22",
   "paper.reselect_every": "126",
   "paper.results_path": "results/v33_dev/pairs_trading_results_2023_2025_unbiased.json",
@@ -1214,7 +1214,7 @@
   "hypotheses": [
    [
     "H1 · S1",
-    "v33 pairs, the design of this note",
+    "v33 pairs, the design of this note, pre-registered",
     "mean daily net return > 0"
    ],
    [
@@ -1885,7 +1885,7 @@
    ],
    [
     "index.html",
-    "b94b78b76826f83416751079e0c605e52e42b6e52f751221d277acbfa4f8f4fd"
+    "d2ec5259ae3a4d537ac23bfec8996e5457696e7c7ab8f28446752f50293deb49"
    ]
   ],
   "spec": [

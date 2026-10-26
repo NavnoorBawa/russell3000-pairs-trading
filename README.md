@@ -78,7 +78,7 @@ ranks <!--m:study.dev.facts.start_common_rank-->3<!--/m-->rd
 (median <!--m:study.dev.facts.start_common_sharpe_median-->−0.47<!--/m-->).
 The pre-registered falsification test on 2026 data,
 with <!--m:study.dev.facts.ho_power_1-->16<!--/m-->% power against a true Sharpe ratio of 1, is
-sealed until its protocol is filed.
+filed on 2026-10-26 and runs once from the registered commit.
 
 Every number in this file and on the page is a marker checked against the run's headline JSON
 or the site data built from it (`python scripts/check_published_numbers.py`, which fails on any
@@ -152,21 +152,26 @@ null apart trade by trade, from the committed run:
 
 ## The pre-registered 2026 test
 
-**Status: sealed.** No daily price history of any security for dates after 2025-12-31 has been
-requested, and the fetch code refuses such a request (`study_config.assert_unsealed`) unless
-`PAIRS_UNSEAL` names the registered commit; the commitment is that only the runbook sets it. The
-pre-registration will be committed and pushed as `docs/PREREGISTRATION.md` before any 2026
-daily price is fetched; until then it is a draft. `scripts/run_holdout.sh` then runs each arm
-once from that commit on the <!--m:study.dev.facts.ho_days-->200<!--/m--> trading days from
+**Status: filed, not yet run.** The pre-registration, [`docs/PREREGISTRATION.md`](https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5/docs/PREREGISTRATION.md), was
+committed and pushed on 2026-10-26 (commit `7c7d3f9`). No daily price history of any security for
+dates after 2025-12-31 was fetched into the project's code, caches or files (network checks that
+asked for one stock's five-day chart discarded the answer unread), and the fetch code refuses such
+a request (`study_config.assert_unsealed`) unless `PAIRS_UNSEAL` names the registered commit; the
+commitment is that only the runbook sets it. `scripts/run_holdout.sh` runs each arm once from that
+commit on the <!--m:study.dev.facts.ho_days-->200<!--/m--> trading days from
 2026-01-02 to 2026-10-19, records every attempt, and publishes the result whatever it is.
 
 That period has already ended, and the project was developed during it (versions 8 to 33). The
 test is sealed, not prospective: the project's code and caches hold no daily 2026 prices of the
 traded securities, but the designers' general knowledge of 2026 markets cannot be sealed. The
 2026 information the project did receive (each security's latest price and 52-week high and low
-in the price vendor's responses, the market values behind the v32 universe file, identity data,
-and factor files that include the short-term reversal factor) is listed under Known limitations
-and in the pre-registration.
+in the price vendor's responses, the market values and last sale prices of the stock screener
+behind the v32 universe file, identity data, factor files that include the short-term reversal
+factor, and the rate, VIX and industry series, ETF pages and index changes that surveys of free
+data sources downloaded) is listed under Known limitations and in the pre-registration. The
+project's working storage, caches and raw downloads included, was lost on 2026-10-22 when its
+container was recycled; the pre-registration says what was lost and how the one untracked input
+the holdout reads, the v32 universe file, was rebuilt with the same symbols.
 
 | Arm | Strategy | Role |
 |---|---|---|
@@ -290,7 +295,7 @@ and size.
   measures it: no variant beats cash, even before the search is allowed for, or the distance
   method on a Sharpe scale, and parameter choice on the family would overfit.
 - **The 2026 test is sealed, not prospective.** The test period ended before the pre-registration
-  is filed, and the project was developed during it; the designers' general knowledge of 2026
+  was filed, and the project was developed during it; the designers' general knowledge of 2026
   markets cannot be sealed.
 - **The path depends on the start date.** Sizing is a share of equity and the 30% cap binds, so
   the same rule on the same days gives different trades from different start dates. On each
