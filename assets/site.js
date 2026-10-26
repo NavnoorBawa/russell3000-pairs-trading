@@ -341,10 +341,12 @@
   if (verifyToggle) {
     verifyToggle.hidden = false;
     verifyToggle.addEventListener('click', function () {
-      verify().then(function (V) { V.audit(); }, function (err) { say(err.message); });
+      verify().then(function (V) { V.toggle(); }, function (err) { say(err.message); });
     });
   }
+  // the first click on a number loads verify.js, which handles every later click itself
   document.addEventListener('click', function (e) {
+    if (window.Verify) return;
     var el = e.target.closest && e.target.closest('[data-metric]');
     if (!el || !study || e.defaultPrevented || e.target.closest('a, button, summary, input, label, .mv')) return;
     var sel = window.getSelection && window.getSelection();

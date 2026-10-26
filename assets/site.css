@@ -163,6 +163,11 @@ a.secno:hover { text-decoration: underline; }
 .anchor:hover, .anchor:focus-visible, .sub-h:hover .anchor { opacity: 1; color: var(--accent); }
 .inbrief { max-width: 66ch; font: 400 16px/1.55 var(--sans); color: var(--ink); border-left: 2px solid var(--accent); padding: 2px 0 2px 14px; margin: 0 0 18px; }
 .ib-k { display: block; font: 600 11px/1.6 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+/* a number can be checked against its data (assets/verify.js, loaded on the first click) */
+@media (hover: hover) and (pointer: fine) {
+  html.js [data-metric] { cursor: help; }
+  html.js:not(.audit) [data-metric]:hover { text-decoration: underline dotted var(--ink-3); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+}
 /* the target of a link is marked for a moment, so the eye finds it */
 @keyframes target-mark { from { background-color: color-mix(in srgb, var(--accent) 16%, transparent); } to { background-color: transparent; } }
 :target:not(section, .sec, main) { animation: target-mark 2.4s ease-out 1; scroll-margin-top: 8px; }
