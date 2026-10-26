@@ -1,0 +1,323 @@
+{
+  "schema": 1,
+  "version": "33.0.0",
+  "complete": true,
+  "non_default_switches": [],
+  "pipeline_errors": [],
+  "run_config": {
+    "package_version": "33.0.0",
+    "git_commit": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+    "git_dirty": false,
+    "git_changed_during_run": false,
+    "run_started_utc": "2026-10-26T10:22:24+00:00",
+    "run_timestamp_utc": "2026-10-26T10:23:33+00:00",
+    "env": {
+      "PAIRS_PROFILE": "v33",
+      "PAIRS_CALENDAR": "holdout2026",
+      "PAIRS_SEED": "42",
+      "PAIRS_FILL": null,
+      "PAIRS_USE_TRANSFORMER": null,
+      "PAIRS_RANKER": null,
+      "PAIRS_RESELECT": null,
+      "PAIRS_DEMO_UNIVERSE": null,
+      "PAIRS_SKIP_REPROCESS": null,
+      "PAIRS_ALLOW_PARTIAL_FETCH": null,
+      "PAIRS_N_JOBS": null,
+      "PAIRS_OUTPUT_DIR": "outputs/holdout2026_v33",
+      "PYTHONHASHSEED": "0",
+      "PAIRS_UNSEAL": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+      "PAIRS_EXPECTED_COMMIT": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5"
+    },
+    "effective": {
+      "profile": "v33",
+      "calendar": "holdout2026",
+      "fill": "close",
+      "ranker": "none",
+      "use_transformer_ranker": false,
+      "reselect": "full",
+      "regime_gate": false
+    },
+    "study": {
+      "profile": {
+        "name": "v33",
+        "universe": "pit_iwv",
+        "max_universe": 500,
+        "same_industry": true,
+        "reselect": "full",
+        "reselect_every": 126,
+        "formation_calendar_days": 1095,
+        "regime_gate": false,
+        "ranker": "none",
+        "borrow_rate": 0.0038,
+        "pb_financing_spread": 0.0
+      },
+      "calendar": {
+        "name": "holdout2026",
+        "data_start": "2023-01-01",
+        "data_end": "2026-10-19",
+        "selection_cutoff": "2025-12-31",
+        "model_train_end": "2025-12-31",
+        "backtest_start": "2026-01-02",
+        "walk_forward": false,
+        "price_cache": "data/holdout2026_prices.pkl",
+        "macro_cache": "data/holdout2026_macro.pkl"
+      },
+      "profile_hash": "d54d21314c22",
+      "calendar_hash": "c19018232a36"
+    },
+    "data": {
+      "data_start": "2023-01-03",
+      "data_end": "2026-10-19",
+      "backtest_start": "2026-01-02",
+      "backtest_end": "2026-10-19",
+      "n_symbols": 2507,
+      "n_pairs": 153,
+      "universe_coverage": 0.9915,
+      "universe_cached_fraction": 0.9271,
+      "universe_not_found_fraction": 0.03,
+      "price_cache": {
+        "path": "data/holdout2026_prices.pkl",
+        "size_bytes": 806151539,
+        "mtime_utc": "2026-10-26T10:21:44+00:00",
+        "sha256": "3225e2224492a33082c6139678d54cbae7d9e3ec41a1ed5cefd6d16145e21a53"
+      },
+      "macro_cache": {
+        "path": "data/holdout2026_macro.pkl",
+        "size_bytes": 279829,
+        "mtime_utc": "2026-10-26T10:20:26+00:00",
+        "sha256": "42ec0c2adde0b229567a7feaa7595bad0677ffb82d2981d80d92ecce0e88a6cc"
+      },
+      "universe_file": {
+        "path": "/tmp/claude-0/holdout/data/holdout2026_reference/universe/index.json",
+        "size_bytes": 17270,
+        "mtime_utc": "2026-10-26T10:06:52+00:00",
+        "sha256": "6cea0d4b4994e69af8126dbb68547df293dcd428799099d018cdc246649d3da4"
+      },
+      "price_anchor": {
+        "anchored": 2507,
+        "median_ratio_beyond_10pct": 221,
+        "largest": [
+          [
+            "VISN",
+            3.5948
+          ],
+          [
+            "NLOP",
+            3.1154
+          ],
+          [
+            "AIV",
+            2.8659
+          ],
+          [
+            "RGR",
+            2.7551
+          ],
+          [
+            "ARI",
+            1.8132
+          ],
+          [
+            "IVR",
+            1.5107
+          ],
+          [
+            "ORC",
+            1.465
+          ],
+          [
+            "ARR",
+            1.4273
+          ],
+          [
+            "TK",
+            1.4141
+          ],
+          [
+            "DX",
+            1.3813
+          ]
+        ]
+      }
+    },
+    "versions": {
+      "python": "3.12.3",
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "torch": "2.13.0+cpu",
+      "scipy": "1.15.2",
+      "statsmodels": "0.14.4"
+    },
+    "platform": "Linux-6.18.44-fc-v153-x86_64-with-glibc2.39"
+  },
+  "main": {
+    "period_start": "2026-01-02",
+    "period_end": "2026-10-19",
+    "total_return_pct": 0.08,
+    "sharpe": 0.05,
+    "trades": 106,
+    "win_rate_pct": 44.3,
+    "max_drawdown_pct": -2.36,
+    "exit_reasons": {
+      "end_of_data": 7,
+      "stop": 41,
+      "target": 33,
+      "time": 25
+    },
+    "avg_gross_exposure_pct": 26.7,
+    "annual_turnover_x": 10.8
+  },
+  "ranker": {
+    "trained": false,
+    "train_samples": null,
+    "oos_signals": null,
+    "oos_auc": null,
+    "wf_pooled_auc": null,
+    "wf_windows_trained": null
+  },
+  "oos": {
+    "period_start": null,
+    "period_end": null,
+    "windows": null,
+    "windows_positive": null,
+    "windows_no_trades": null,
+    "windows_selection_clean": null,
+    "windows_skipped": null,
+    "avg_window_return_pct": null,
+    "median_window_return_pct": null,
+    "pooled_sharpe": null,
+    "total_return_pct": null,
+    "trades": null,
+    "max_drawdown_pct": null,
+    "window_ids": [],
+    "window_returns_pct": [],
+    "window_trades": []
+  },
+  "significance": {
+    "main": {
+      "ann_sharpe": 0.05,
+      "hac_t": 0.06,
+      "hac_p": 0.955,
+      "psr": 0.5183,
+      "psr_pct": 51.8,
+      "boot_lo": -1.81,
+      "boot_hi": 1.83,
+      "dsr": 0.0202,
+      "dsr_pct": 2.0
+    },
+    "oos_daily": {
+      "ann_sharpe": null,
+      "hac_t": null,
+      "hac_p": null,
+      "psr": null,
+      "psr_pct": null,
+      "boot_lo": null,
+      "boot_hi": null,
+      "dsr": null,
+      "dsr_pct": null
+    },
+    "oos_windows": {
+      "n": null,
+      "mean_pct": null,
+      "t": null,
+      "p": null,
+      "p_one_sided_negative": null,
+      "ci_lo_pct": null,
+      "ci_hi_pct": null,
+      "boot_ci_lo_pct": null,
+      "boot_ci_hi_pct": null,
+      "positive": null
+    }
+  },
+  "benchmarks": {
+    "gatev": {
+      "total_return_pct": -1.34,
+      "sharpe": -0.68
+    },
+    "random_control": {
+      "median_sharpe": 0.06,
+      "p5_sharpe": -1.13,
+      "p95_sharpe": 1.44,
+      "n_draws": 200,
+      "strategy_percentile": 49.0
+    },
+    "sharpe_diff_vs_gatev": {
+      "diff": 0.73,
+      "p": 0.619,
+      "ci_lo": -2.23,
+      "ci_hi": 3.69
+    }
+  },
+  "fdr": {
+    "pairs_tested": 4324,
+    "significant_raw_p05": 223,
+    "survive_bh_fdr_q05": 0,
+    "survive_bh_fdr_q10": 1,
+    "final_selected_pairs": 153
+  },
+  "fund_profiles": {
+    "quant_hf": {
+      "name": "Systematic Stat-Arb",
+      "total_return_pct": -1.36,
+      "sharpe": -0.18,
+      "max_drawdown_pct": -6.49,
+      "max_gross_leverage": 1.56
+    },
+    "multi_strat": {
+      "name": "Multi-Manager Pod",
+      "total_return_pct": -2.31,
+      "sharpe": -0.53,
+      "max_drawdown_pct": -5.18,
+      "max_gross_leverage": 0.95
+    },
+    "fundamental_ls": {
+      "name": "Discretionary Long/Short",
+      "total_return_pct": -2.87,
+      "sharpe": -1.37,
+      "max_drawdown_pct": -3.82,
+      "max_gross_leverage": 0.47
+    },
+    "institutional": {
+      "name": "Patient Institutional",
+      "total_return_pct": -0.1,
+      "sharpe": -0.09,
+      "max_drawdown_pct": -1.13,
+      "max_gross_leverage": 0.22
+    },
+    "retail": {
+      "name": "Retail / Small Prop",
+      "total_return_pct": -1.84,
+      "sharpe": -1.8,
+      "max_drawdown_pct": -2.22,
+      "max_gross_leverage": 0.2
+    }
+  },
+  "evidence": {
+    "main_min_detectable_sharpe": 2.4112,
+    "main_upper_bound_95": 1.6389,
+    "main_sharpe_se": 0.965,
+    "oos_min_detectable_sharpe": null,
+    "oos_upper_bound_95": null,
+    "hurdle_hlz_sharpe": 2.8955,
+    "gross_bp_per_trade": 11.633,
+    "gross_t_per_trade": 0.2724,
+    "cost_bp_per_trade": 12.4536,
+    "breakeven_cost_multiple": 1.1463,
+    "gross_to_cost_ratio": 1.1463,
+    "gross_sharpe": 0.3117,
+    "sharpe_at_zero_cost": 0.3117,
+    "sharpe_at_double_cost": -0.2079,
+    "factor_alpha_ann_pct": -0.4664,
+    "factor_alpha_t": -0.1859,
+    "factor_r2": 0.124,
+    "factor_st_rev_t": 1.9805,
+    "tbill_return_pct": 2.306
+  },
+  "universe": {
+    "formation_date": "2025-12-31",
+    "members": 2589,
+    "with_prices": 2426,
+    "missing_value_weight_pct": 0.796,
+    "unmapped_value_weight_pct": 0.013
+  }
+}

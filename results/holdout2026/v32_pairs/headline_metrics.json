@@ -1,0 +1,278 @@
+{
+  "schema": 1,
+  "version": "33.0.0",
+  "complete": true,
+  "non_default_switches": [],
+  "pipeline_errors": [],
+  "run_config": {
+    "package_version": "33.0.0",
+    "git_commit": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+    "git_dirty": false,
+    "git_changed_during_run": false,
+    "run_started_utc": "2026-10-26T10:23:37+00:00",
+    "run_timestamp_utc": "2026-10-26T10:26:24+00:00",
+    "env": {
+      "PAIRS_PROFILE": "v32",
+      "PAIRS_CALENDAR": "holdout2026",
+      "PAIRS_SEED": "42",
+      "PAIRS_FILL": null,
+      "PAIRS_USE_TRANSFORMER": null,
+      "PAIRS_RANKER": null,
+      "PAIRS_RESELECT": null,
+      "PAIRS_DEMO_UNIVERSE": null,
+      "PAIRS_SKIP_REPROCESS": null,
+      "PAIRS_ALLOW_PARTIAL_FETCH": null,
+      "PAIRS_N_JOBS": null,
+      "PAIRS_OUTPUT_DIR": "outputs/holdout2026_v32",
+      "PYTHONHASHSEED": "0",
+      "PAIRS_UNSEAL": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+      "PAIRS_EXPECTED_COMMIT": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5"
+    },
+    "effective": {
+      "profile": "v32",
+      "calendar": "holdout2026",
+      "fill": "close",
+      "ranker": "transformer",
+      "use_transformer_ranker": true,
+      "reselect": "pool",
+      "regime_gate": true
+    },
+    "study": {
+      "profile": {
+        "name": "v32",
+        "universe": "marketcap",
+        "max_universe": 300,
+        "same_industry": false,
+        "reselect": "pool",
+        "reselect_every": 90,
+        "formation_calendar_days": 730,
+        "regime_gate": true,
+        "ranker": "transformer",
+        "borrow_rate": 0.0025,
+        "pb_financing_spread": 0.005
+      },
+      "calendar": {
+        "name": "holdout2026",
+        "data_start": "2023-01-01",
+        "data_end": "2026-10-19",
+        "selection_cutoff": "2025-12-31",
+        "model_train_end": "2025-12-31",
+        "backtest_start": "2026-01-02",
+        "walk_forward": false,
+        "price_cache": "data/holdout2026_prices.pkl",
+        "macro_cache": "data/holdout2026_macro.pkl"
+      },
+      "profile_hash": "b5665398f3ad",
+      "calendar_hash": "c19018232a36"
+    },
+    "data": {
+      "data_start": "2023-01-03",
+      "data_end": "2026-10-19",
+      "backtest_start": "2026-01-02",
+      "backtest_end": "2026-10-19",
+      "n_symbols": 2790,
+      "n_pairs": 971,
+      "universe_coverage": 1.0,
+      "universe_cached_fraction": 0.9303,
+      "universe_not_found_fraction": 0.0,
+      "price_cache": {
+        "path": "data/holdout2026_prices.pkl",
+        "size_bytes": 806151539,
+        "mtime_utc": "2026-10-26T10:21:44+00:00",
+        "sha256": "3225e2224492a33082c6139678d54cbae7d9e3ec41a1ed5cefd6d16145e21a53"
+      },
+      "macro_cache": {
+        "path": "data/holdout2026_macro.pkl",
+        "size_bytes": 279829,
+        "mtime_utc": "2026-10-26T10:20:26+00:00",
+        "sha256": "42ec0c2adde0b229567a7feaa7595bad0677ffb82d2981d80d92ecce0e88a6cc"
+      },
+      "universe_file": {
+        "path": "data/marketcap.csv",
+        "size_bytes": 13612,
+        "mtime_utc": "2026-10-26T10:06:12+00:00",
+        "sha256": "f1acb6a53a0792e45d6a558e889edb3e38405852ae91e65a77a24ab5bb565fa3"
+      },
+      "price_anchor": null
+    },
+    "versions": {
+      "python": "3.12.3",
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "torch": "2.13.0+cpu",
+      "scipy": "1.15.2",
+      "statsmodels": "0.14.4"
+    },
+    "platform": "Linux-6.18.44-fc-v153-x86_64-with-glibc2.39"
+  },
+  "main": {
+    "period_start": "2026-01-02",
+    "period_end": "2026-10-19",
+    "total_return_pct": -0.48,
+    "sharpe": -0.41,
+    "trades": 43,
+    "win_rate_pct": 44.2,
+    "max_drawdown_pct": -1.38,
+    "exit_reasons": {
+      "end_of_data": 3,
+      "stop": 18,
+      "target": 17,
+      "time": 5
+    },
+    "avg_gross_exposure_pct": 7.0,
+    "annual_turnover_x": 3.3
+  },
+  "ranker": {
+    "trained": true,
+    "train_samples": 15000,
+    "oos_signals": 4000,
+    "oos_auc": 0.546,
+    "wf_pooled_auc": null,
+    "wf_windows_trained": null
+  },
+  "oos": {
+    "period_start": null,
+    "period_end": null,
+    "windows": null,
+    "windows_positive": null,
+    "windows_no_trades": null,
+    "windows_selection_clean": null,
+    "windows_skipped": null,
+    "avg_window_return_pct": null,
+    "median_window_return_pct": null,
+    "pooled_sharpe": null,
+    "total_return_pct": null,
+    "trades": null,
+    "max_drawdown_pct": null,
+    "window_ids": [],
+    "window_returns_pct": [],
+    "window_trades": []
+  },
+  "significance": {
+    "main": {
+      "ann_sharpe": -0.41,
+      "hac_t": -0.5,
+      "hac_p": 0.619,
+      "psr": 0.3554,
+      "psr_pct": 35.5,
+      "boot_lo": -1.48,
+      "boot_hi": 1.3,
+      "dsr": 0.0059,
+      "dsr_pct": 0.6
+    },
+    "oos_daily": {
+      "ann_sharpe": null,
+      "hac_t": null,
+      "hac_p": null,
+      "psr": null,
+      "psr_pct": null,
+      "boot_lo": null,
+      "boot_hi": null,
+      "dsr": null,
+      "dsr_pct": null
+    },
+    "oos_windows": {
+      "n": null,
+      "mean_pct": null,
+      "t": null,
+      "p": null,
+      "p_one_sided_negative": null,
+      "ci_lo_pct": null,
+      "ci_hi_pct": null,
+      "boot_ci_lo_pct": null,
+      "boot_ci_hi_pct": null,
+      "positive": null
+    }
+  },
+  "benchmarks": {
+    "gatev": {
+      "total_return_pct": -0.11,
+      "sharpe": 0.01
+    },
+    "random_control": {
+      "median_sharpe": -0.15,
+      "p5_sharpe": -1.53,
+      "p95_sharpe": 1.48,
+      "n_draws": 200,
+      "strategy_percentile": 37.0
+    },
+    "sharpe_diff_vs_gatev": {
+      "diff": -0.41,
+      "p": 0.767,
+      "ci_lo": -3.6,
+      "ci_hi": 2.77
+    }
+  },
+  "fdr": {
+    "pairs_tested": 18888,
+    "significant_raw_p05": 1558,
+    "survive_bh_fdr_q05": 0,
+    "survive_bh_fdr_q10": 0,
+    "final_selected_pairs": 971
+  },
+  "fund_profiles": {
+    "quant_hf": {
+      "name": "Systematic Stat-Arb",
+      "total_return_pct": -0.87,
+      "sharpe": -0.23,
+      "max_drawdown_pct": -4.03,
+      "max_gross_leverage": 0.95
+    },
+    "multi_strat": {
+      "name": "Multi-Manager Pod",
+      "total_return_pct": -0.84,
+      "sharpe": -0.36,
+      "max_drawdown_pct": -2.82,
+      "max_gross_leverage": 0.63
+    },
+    "fundamental_ls": {
+      "name": "Discretionary Long/Short",
+      "total_return_pct": -0.8,
+      "sharpe": -0.69,
+      "max_drawdown_pct": -1.59,
+      "max_gross_leverage": 0.32
+    },
+    "institutional": {
+      "name": "Patient Institutional",
+      "total_return_pct": -0.1,
+      "sharpe": -0.19,
+      "max_drawdown_pct": -0.72,
+      "max_gross_leverage": 0.15
+    },
+    "retail": {
+      "name": "Retail / Small Prop",
+      "total_return_pct": -0.48,
+      "sharpe": -0.89,
+      "max_drawdown_pct": -0.85,
+      "max_gross_leverage": 0.15
+    }
+  },
+  "evidence": {
+    "main_min_detectable_sharpe": 2.6275,
+    "main_upper_bound_95": 1.1631,
+    "main_sharpe_se": 0.9545,
+    "oos_min_detectable_sharpe": null,
+    "oos_upper_bound_95": null,
+    "hurdle_hlz_sharpe": 2.948,
+    "gross_bp_per_trade": -18.0211,
+    "gross_t_per_trade": -0.2138,
+    "cost_bp_per_trade": 9.573,
+    "breakeven_cost_multiple": null,
+    "gross_to_cost_ratio": -2.3908,
+    "gross_sharpe": -0.2846,
+    "sharpe_at_zero_cost": -0.2846,
+    "sharpe_at_double_cost": -0.5288,
+    "factor_alpha_ann_pct": -1.2364,
+    "factor_alpha_t": -1.006,
+    "factor_r2": 0.1085,
+    "factor_st_rev_t": 1.2884,
+    "tbill_return_pct": 2.306
+  },
+  "universe": {
+    "formation_date": null,
+    "members": null,
+    "with_prices": null,
+    "missing_value_weight_pct": null,
+    "unmapped_value_weight_pct": null
+  }
+}

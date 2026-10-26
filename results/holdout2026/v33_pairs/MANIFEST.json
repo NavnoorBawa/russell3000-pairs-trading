@@ -1,0 +1,74 @@
+{
+ "files": {
+  "fund_type_comparison.json": {
+   "bytes": 100809,
+   "sha256": "015922296687e7881a53daa5b08ab2c629ff9b2bcf1ade00022a546ac53d6798"
+  },
+  "headline_metrics.json": {
+   "bytes": 8298,
+   "sha256": "19365c812ca2daf83aadd57369e331bb251185451ff0beb719eb82260cce6fe3"
+  },
+  "pairs_trading_results_2023_2025_unbiased.json": {
+   "bytes": 310981,
+   "sha256": "60cb8931bd0242223f9821ae9c88867786316ebe5fe0ba3f61d11109eab07a74"
+  },
+  "pairs_trading_results_2023_2025_unbiased_compact.json": {
+   "bytes": 131089,
+   "sha256": "f59a6a071ea9d0e6a884aa6dd4346c7e5c250e7348e325f7fe090f02f8b0cda8"
+  },
+  "run.log": {
+   "bytes": 39693,
+   "sha256": "7c379f808efd314434f15f6bc2819746933b7372f7b547d20e41bf13e27b1350"
+  }
+ },
+ "name": "holdout2026/v33_pairs",
+ "price_cache": {
+  "mtime_utc": "2026-10-26T10:21:44+00:00",
+  "path": "data/holdout2026_prices.pkl",
+  "sha256": "3225e2224492a33082c6139678d54cbae7d9e3ec41a1ed5cefd6d16145e21a53",
+  "size_bytes": 806151539
+ },
+ "run_config": {
+  "effective": {
+   "calendar": "holdout2026",
+   "fill": "close",
+   "profile": "v33",
+   "ranker": "none",
+   "regime_gate": false,
+   "reselect": "full",
+   "use_transformer_ranker": false
+  },
+  "git_commit": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+  "git_dirty": false,
+  "package_version": "33.0.0",
+  "run_timestamp_utc": "2026-10-26T10:23:33+00:00"
+ },
+ "study": {
+  "calendar": {
+   "backtest_start": "2026-01-02",
+   "data_end": "2026-10-19",
+   "data_start": "2023-01-01",
+   "macro_cache": "data/holdout2026_macro.pkl",
+   "model_train_end": "2025-12-31",
+   "name": "holdout2026",
+   "price_cache": "data/holdout2026_prices.pkl",
+   "selection_cutoff": "2025-12-31",
+   "walk_forward": false
+  },
+  "calendar_hash": "c19018232a36",
+  "profile": {
+   "borrow_rate": 0.0038,
+   "formation_calendar_days": 1095,
+   "max_universe": 500,
+   "name": "v33",
+   "pb_financing_spread": 0.0,
+   "ranker": "none",
+   "regime_gate": false,
+   "reselect": "full",
+   "reselect_every": 126,
+   "same_industry": true,
+   "universe": "pit_iwv"
+  },
+  "profile_hash": "d54d21314c22"
+ }
+}

@@ -1,0 +1,243 @@
+2026-10-26 10:23:39,311 - INFO - Random seed: 42
+2026-10-26 10:23:39,311 - INFO - Starting the Russell 3000 pairs-trading study
+2026-10-26 10:23:39,311 - INFO - ENHANCED Russell 3000 Data Processor initialized
+2026-10-26 10:23:39,311 - INFO - Pair selector initialised
+2026-10-26 10:23:39,311 - INFO - Signal-quality ranker initialised
+2026-10-26 10:23:39,311 - INFO - ADAPTIVE Prime Fund Position Sizer - Risk Scaled
+2026-10-26 10:23:39,311 - INFO - ADAPTIVE Risk Manager - Volatility & Profit Protection
+2026-10-26 10:23:39,311 - INFO - Transaction cost model: per-share commission, ADV-bucket spread, per-stock sqrt impact, GC borrow, PB carry
+2026-10-26 10:23:39,311 - INFO - Russell 3000 pairs-trading system initialised: profile v32, calendar holdout2026
+2026-10-26 10:23:39,321 - INFO - Starting Russell 3000 pairs-trading study
+2026-10-26 10:23:39,323 - INFO - Loaded data/marketcap.csv with 2999 rows
+2026-10-26 10:23:39,329 - INFO - Universe: 2999 symbols (0 rows removed as missing/invalid/duplicate); sample ['A', 'AA', 'AAL', 'AAOI', 'AAON', 'AAP', 'AAPL', 'AAT', 'ABAT', 'ABBV']
+2026-10-26 10:23:39,329 - INFO - Loading saved data from data/holdout2026_prices.pkl
+2026-10-26 10:23:41,391 - INFO - Loaded 3015 symbols from saved data
+2026-10-26 10:23:41,440 - INFO - Restricted the cache to the universe file: 2790 of 3015 cached symbols are in the universe
+2026-10-26 10:23:41,440 - INFO - 209 universe symbols have no cached prices (failed or never fetched) and are excluded
+2026-10-26 10:24:16,604 - INFO - Recomputed indicators from cached OHLCV for 2790 symbols (0 left as-is) — removes the pre-v31 bfill look-ahead
+2026-10-26 10:24:16,668 - INFO - Loaded cached macro data: VIX (954 days) + 11 sector ETFs
+2026-10-26 10:24:17,284 - INFO - RUN CONFIG: version 33.0.0 | commit 7c7d3f904ec6 | 2026-10-26T10:24:16+00:00 UTC
+2026-10-26 10:24:17,285 - INFO -   switches: {'PAIRS_PROFILE': 'v32', 'PAIRS_CALENDAR': 'holdout2026', 'PAIRS_SEED': '42', 'PAIRS_OUTPUT_DIR': 'outputs/holdout2026_v32', 'PYTHONHASHSEED': '0', 'PAIRS_UNSEAL': '7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5', 'PAIRS_EXPECTED_COMMIT': '7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5'} | effective: {'profile': 'v32', 'calendar': 'holdout2026', 'fill': 'close', 'ranker': 'transformer', 'use_transformer_ranker': True, 'reselect': 'pool', 'regime_gate': True}
+2026-10-26 10:24:17,285 - INFO -   data: None -> None, backtest None -> None, 2790 symbols, None pairs
+2026-10-26 10:24:17,285 - INFO -   price cache: data/holdout2026_prices.pkl, 806.2 MB, mtime 2026-10-26T10:21:44+00:00, sha256 3225e2224492a330
+2026-10-26 10:24:17,285 - INFO -   versions: {'python': '3.12.3', 'numpy': '1.26.4', 'pandas': '2.2.3', 'torch': '2.13.0+cpu', 'scipy': '1.15.2', 'statsmodels': '0.14.4'}
+2026-10-26 10:24:19,037 - INFO - Pair selection on 2753 symbols with data up to 2025-12-31
+2026-10-26 10:24:19,037 - INFO - Pair selection: screening 2753 symbols
+2026-10-26 10:24:19,453 - INFO - Pair selection: 1528 symbols pass the screens; testing the 300 most liquid
+2026-10-26 10:24:19,477 - INFO - PCA: dropped 3 symbol(s) with <90% return coverage; 297 symbols on 751 common dates
+2026-10-26 10:24:19,525 - INFO - PCA: stripped 5 factors from 297 symbols (factors explain 40.6% of cross-sectional variance)
+2026-10-26 10:24:19,529 - INFO - Pair selection: testing all 44,850 candidate pairs (4 workers)
+
+2026-10-26 10:24:41,984 - INFO - FDR diagnostic (Benjamini-Hochberg on cointegration p-values):
+2026-10-26 10:24:41,984 - INFO -   tested 18,888 pairs | raw p<0.05: 1,558 (<= 944 expected false positives if all were null)
+2026-10-26 10:24:41,984 - INFO -   survive BH-FDR q<0.05: 0 | q<0.10: 0 | final selected (after half-life/quality/PCA): 971
+2026-10-26 10:24:41,984 - INFO - Pair selection: 971 pairs satisfy all conditions
+2026-10-26 10:24:41,984 - INFO - Top 5 pairs by quality score:
+2026-10-26 10:24:41,984 - INFO -    1. ADSK-BLK : Score=1.000, Corr=0.490, Coint_p=0.0001, Half_Life=11.3d
+2026-10-26 10:24:41,984 - INFO -    2. AMZN-META: Score=1.000, Corr=0.615, Coint_p=0.0039, Half_Life=17.2d
+2026-10-26 10:24:41,984 - INFO -    3. AMZN-VRT : Score=1.000, Corr=0.438, Coint_p=0.0009, Half_Life=12.2d
+2026-10-26 10:24:41,984 - INFO -    4. BKNG-RCL : Score=1.000, Corr=0.525, Coint_p=0.0057, Half_Life=17.2d
+2026-10-26 10:24:41,984 - INFO -    5. CDNS-DDOG: Score=1.000, Corr=0.510, Coint_p=0.0068, Half_Life=16.8d
+2026-10-26 10:24:45,154 - INFO - Time split: 971 pairs with >= 100 training days
+2026-10-26 10:24:45,154 - INFO - Training the ranking model on outcomes complete by 2025-12-31
+2026-10-26 10:25:31,763 - INFO - Feature scaler fitted on 13090/15000 rows after outlier removal
+2026-10-26 10:25:31,842 - INFO - Initialized Transformer Encoder: d_model=256, nhead=8, num_layers=6, input_dim=30
+2026-10-26 10:25:31,844 - INFO - Transformer signal-quality scorer initialised
+2026-10-26 10:25:35,691 - INFO - Ranker epoch 1/3: BCE loss 0.5999 (15000 samples, base rate 57.8%, pos_weight 0.73)
+2026-10-26 10:25:39,248 - INFO - Ranker epoch 2/3: BCE loss 0.5858 (15000 samples, base rate 57.8%, pos_weight 0.73)
+2026-10-26 10:25:51,700 - INFO - Ranker epoch 3/3: BCE loss 0.5832 (15000 samples, base rate 57.8%, pos_weight 0.73)
+2026-10-26 10:25:51,890 - INFO - Building the pair schedule (every 90 trading days, 730-calendar-day formation window)...
+2026-10-26 10:25:51,890 - INFO -   Candidate pool: 971 pairs selected on data to 2025-12-31 (re-tested only; no new pairs can enter)
+2026-10-26 10:25:54,804 - INFO -   2026-01-02: kept 81/971 (126-day check dropped 92)
+2026-10-26 10:25:57,630 - INFO -   2026-05-13: kept 25/971 (126-day check dropped 185)
+2026-10-26 10:26:00,350 - INFO -   2026-09-22: kept 49/971 (126-day check dropped 61)
+2026-10-26 10:26:00,351 - INFO - Quarterly schedule built: 3 re-selections
+2026-10-26 10:26:00,835 - INFO - Main backtest 2026-01-02 -> 2026-10-19
+2026-10-26 10:26:00,838 - INFO - ADAPTIVE Prime Fund Position Sizer - Risk Scaled
+2026-10-26 10:26:01,836 - INFO - Backtest: 200 tradeable days (2026-01-02 -> 2026-10-19), fill=Close
+2026-10-26 10:26:01,844 - INFO - Regime gate: 954 VIX days, 863 dispersion days
+2026-10-26 10:26:02,908 - INFO - TRADE 1: HAL-LNG SHORT spread  z=+2.48 beta=0.29 quality=0.86 exit=time
+2026-10-26 10:26:02,908 - INFO - TRADE 2: MCO-PANW SHORT spread  z=+2.32 beta=0.29 quality=0.85 exit=target
+2026-10-26 10:26:02,908 - INFO - TRADE 3: ADSK-MSCI LONG spread  z=-1.81 beta=0.53 quality=0.94 exit=stop
+2026-10-26 10:26:02,909 - INFO - TRADE 4: GE-NRG SHORT spread  z=+1.85 beta=0.58 quality=0.66 exit=target
+2026-10-26 10:26:03,345 - INFO - TRADE 5: GEHC-UNP SHORT spread  z=+2.41 beta=0.78 quality=0.84 exit=target
+2026-10-26 10:26:06,632 - INFO - POSITION SCALING: vol=0.77, profit=1.00, combined=0.77
+2026-10-26 10:26:07,045 - INFO - POSITION SCALING: vol=0.80, profit=1.00, combined=0.80
+2026-10-26 10:26:07,106 - INFO - POSITION SCALING: vol=0.79, profit=1.00, combined=0.79
+2026-10-26 10:26:07,118 - INFO - POSITION SCALING: vol=0.76, profit=1.00, combined=0.76
+2026-10-26 10:26:07,151 - INFO - POSITION SCALING: vol=0.75, profit=1.00, combined=0.75
+2026-10-26 10:26:07,177 - INFO - POSITION SCALING: vol=0.77, profit=1.00, combined=0.77
+2026-10-26 10:26:07,193 - INFO - POSITION SCALING: vol=0.80, profit=1.00, combined=0.80
+2026-10-26 10:26:07,214 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-26 10:26:07,242 - INFO - POSITION SCALING: vol=0.81, profit=1.00, combined=0.81
+2026-10-26 10:26:07,258 - INFO - HIGH VOLATILITY: 3.02% annualized, scaling positions to 50%
+2026-10-26 10:26:07,258 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-26 10:26:07,287 - INFO - POSITION SCALING: vol=0.76, profit=1.00, combined=0.76
+2026-10-26 10:26:07,322 - INFO - POSITION SCALING: vol=0.76, profit=1.00, combined=0.76
+2026-10-26 10:26:07,350 - INFO - HIGH VOLATILITY: 3.03% annualized, scaling positions to 50%
+2026-10-26 10:26:07,350 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-26 10:26:07,386 - INFO - HIGH VOLATILITY: 3.03% annualized, scaling positions to 50%
+2026-10-26 10:26:07,386 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-26 10:26:07,424 - INFO - HIGH VOLATILITY: 3.01% annualized, scaling positions to 50%
+2026-10-26 10:26:07,424 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-26 10:26:07,449 - INFO - POSITION SCALING: vol=0.83, profit=1.00, combined=0.83
+2026-10-26 10:26:07,466 - INFO - POSITION SCALING: vol=0.83, profit=1.00, combined=0.83
+2026-10-26 10:26:07,490 - INFO - POSITION SCALING: vol=0.80, profit=1.00, combined=0.80
+2026-10-26 10:26:07,504 - INFO - HIGH VOLATILITY: 3.29% annualized, scaling positions to 50%
+2026-10-26 10:26:07,505 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-26 10:26:07,518 - INFO - Day 2026-02-11: 2 candidates (signals so far: 107)
+2026-10-26 10:26:07,519 - INFO - HIGH VOLATILITY: 3.33% annualized, scaling positions to 50%
+2026-10-26 10:26:07,519 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-26 10:26:07,522 - INFO - HIGH VOLATILITY: 3.22% annualized, scaling positions to 50%
+2026-10-26 10:26:07,522 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-26 10:26:07,533 - INFO - HIGH VOLATILITY: 3.24% annualized, scaling positions to 50%
+2026-10-26 10:26:07,533 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-26 10:26:07,579 - INFO - HIGH VOLATILITY: 3.22% annualized, scaling positions to 50%
+2026-10-26 10:26:07,579 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-26 10:26:07,588 - INFO - HIGH VOLATILITY: 3.06% annualized, scaling positions to 50%
+2026-10-26 10:26:07,588 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-26 10:26:07,596 - INFO - POSITION SCALING: vol=0.75, profit=1.00, combined=0.75
+2026-10-26 10:26:07,598 - INFO - HIGH VOLATILITY: 3.07% annualized, scaling positions to 50%
+2026-10-26 10:26:07,598 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-26 10:26:07,607 - INFO - HIGH VOLATILITY: 3.11% annualized, scaling positions to 50%
+2026-10-26 10:26:07,607 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-26 10:26:07,623 - INFO - HIGH VOLATILITY: 3.15% annualized, scaling positions to 50%
+2026-10-26 10:26:07,623 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-26 10:26:07,834 - INFO - Regime gate: 44 full-scale days, 12 reduced-scale days, 142 no-entry (hard-stop) days
+2026-10-26 10:26:07,834 - INFO - Signal rejections: {'beta_out_of_band': 382, 'cooloff': 1, 'evaluated': 745, 'gross_exposure_cap': 28, 'pair_quality': 146, 'regime_hard_stop_day': 142, 'risk: would': 58, 'rolling_corr': 1125}
+2026-10-26 10:26:22,139 - INFO - Ranker out-of-sample (4000 signals from 2026-01-02): AUC 0.5462517384540635, Brier 0.2504 vs base-rate 0.2503
+2026-10-26 10:26:22,139 - INFO - Walk-forward validation: not run on the holdout2026 calendar
+2026-10-26 10:26:22,171 - INFO - 
+==============================================================================
+2026-10-26 10:26:22,172 - INFO -                  STATISTICAL SIGNIFICANCE — is the edge real?                 
+2026-10-26 10:26:22,172 - INFO - ==============================================================================
+2026-10-26 10:26:22,172 - INFO - 
+MAIN BACKTEST (optimistic bound):
+2026-10-26 10:26:22,172 - INFO -   Ann. Sharpe          : -0.407  (200 days) | Lo (2002) autocorr-adjusted -0.588 (4 lags)
+2026-10-26 10:26:22,172 - INFO -   P(true Sharpe > 0)   :  35.5%   [skew -1.96, kurt 13.18; null-variance form 35.9%]
+2026-10-26 10:26:22,172 - INFO -   HAC t-stat (mean≠0)  : -0.50  (p=0.619, 4 lags)  not significant @5%
+2026-10-26 10:26:22,172 - INFO -   Bootstrap 95% Sharpe : [-1.48, +1.30]  (includes 0 → within noise)  (block 16, politis-white)
+2026-10-26 10:26:22,172 - INFO -   Deflated Sharpe (DSR):   0.6%   [vs E[max] SR* 2.36 over 32 trials]
+2026-10-26 10:26:22,172 - INFO - ==============================================================================
+2026-10-26 10:26:22,174 - INFO - Transaction cost model: per-share commission, ADV-bucket spread, per-stock sqrt impact, GC borrow, PB carry
+2026-10-26 10:26:22,174 - INFO - ======================================================================
+2026-10-26 10:26:22,174 - INFO - BASELINE BENCHMARKS — distance method (Gatev 2006) + random-pair control
+2026-10-26 10:26:22,174 - INFO - ======================================================================
+2026-10-26 10:26:22,826 - INFO -   Rolling scheme: 2 x 126-day trading blocks, each formed on the prior 252 days | fills: t+1 close | costs: pipeline cost model @ $2,000,000/leg
+./pairs_trading/significance.py:531: RuntimeWarning: invalid value encountered in divide
+  return mu1 / np.sqrt(g1 - mu1 ** 2) - mu2 / np.sqrt(g2 - mu2 ** 2)
+./pairs_trading/significance.py:538: RuntimeWarning: invalid value encountered in divide
+  return np.stack([g1 / v1, -g2 / v2, -0.5 * mu1 / v1, 0.5 * mu2 / v2], axis=-1)
+2026-10-26 10:26:23,117 - INFO -   Distance method (Gatev)      return   -0.109% | Sharpe +0.01 | 20 pairs x 2 blocks | 51 trades, avg round-trip cost 31.4 bp
+2026-10-26 10:26:23,117 - INFO -   Random-pair control          200 draws | Sharpe median -0.15 [p5 -1.53, p95 +1.48] | distance method at the 59th percentile
+2026-10-26 10:26:23,117 - INFO -   Effective universe per block: [300, 300]
+2026-10-26 10:26:23,117 - INFO - ======================================================================
+2026-10-26 10:26:23,117 - INFO - 
+======================================================================
+2026-10-26 10:26:23,117 - INFO -         STRATEGY vs BASELINES (same universe, same OOS period)        
+2026-10-26 10:26:23,117 - INFO - ======================================================================
+2026-10-26 10:26:23,117 - INFO -   Cointegration + Kalman (this project)    ret  -0.478% | Sharpe -0.41
+2026-10-26 10:26:23,117 - INFO -   Distance method (Gatev 2006), t+1        ret  -0.109% | Sharpe +0.01
+2026-10-26 10:26:23,117 - INFO -   Random-pair control, median of 200       ret  -1.802% | Sharpe -0.15  [p5 -1.53, p95 +1.48]
+2026-10-26 10:26:23,118 - INFO -   Strategy Sharpe percentile among random-pair draws: 37.0
+2026-10-26 10:26:23,118 - INFO -   [main_backtest] vs distance on 200 common days: Sharpe diff -0.41 (95% CI [-3.60, +2.77], p=0.767, Ledoit-Wolf, block 16) | random-draw percentile 37.0
+2026-10-26 10:26:23,118 - INFO -   (sensitivity) distance method with SAME-BAR fills: ret -0.408% | Sharpe -0.05 — bid-ask bounce, not comparable
+2026-10-26 10:26:23,118 - INFO - ======================================================================
+2026-10-26 10:26:23,126 - INFO - Market attribution (main_backtest): beta -0.022 (t -1.73), alpha -0.27%/yr (t -0.23), R2 0.020
+2026-10-26 10:26:24,123 - INFO - Starting the cost-schedule replay...
+2026-10-26 10:26:24,124 - INFO - 
+====================================================================================================
+                            COST-SCHEDULE REPLAY — ARCHETYPE PARAMETERS                             
+====================================================================================================
+Profile                     Commission    Bid-Ask     MI Cap     Borrow (GC)    Financing  Base Pos%   Max Pos%
+----------------------------------------------------------------------------------------------------
+Systematic Stat-Arb             1.00bp     2.00bp     12.0bp          0.60%/yr       0.50%/yr     12.0%     30.0%
+Multi-Manager Pod               1.50bp     4.00bp     20.0bp          1.00%/yr       1.00%/yr      8.0%     20.0%
+Discretionary Long/Short        5.00bp    10.00bp     50.0bp          2.00%/yr       1.50%/yr      4.0%     10.0%
+Patient Institutional           1.00bp     1.50bp      4.0bp          0.10%/yr       0.00%/yr      2.0%      5.0%
+Retail / Small Prop             0.70bp    15.00bp     80.0bp          6.00%/yr       3.00%/yr      2.0%      5.0%
+====================================================================================================
+2026-10-26 10:26:24,126 - INFO -   Systematic Stat-Arb: return -0.87% | Sharpe -0.24 | max DD -4.03% | peak gross 0.95x | costs 0.82% of capital
+2026-10-26 10:26:24,128 - INFO -   Multi-Manager Pod: return -0.84% | Sharpe -0.36 | max DD -2.82% | peak gross 0.63x | costs 0.82% of capital
+2026-10-26 10:26:24,130 - INFO -   Discretionary Long/Short: return -0.80% | Sharpe -0.70 | max DD -1.59% | peak gross 0.32x | costs 0.79% of capital
+2026-10-26 10:26:24,131 - INFO -   Patient Institutional: return -0.10% | Sharpe -0.19 | max DD -0.72% | peak gross 0.15x | costs 0.04% of capital
+2026-10-26 10:26:24,133 - INFO -   Retail / Small Prop: return -0.48% | Sharpe -0.89 | max DD -0.85% | peak gross 0.15x | costs 0.52% of capital
+2026-10-26 10:26:24,133 - INFO - 
+==========================================================================================
+2026-10-26 10:26:24,133 - INFO -                               FUND TYPE COMPARISON — SUMMARY                              
+2026-10-26 10:26:24,133 - INFO - ==========================================================================================
+2026-10-26 10:26:24,133 - INFO - Cost schedule                     Return%   Sharpe   MaxDD%   WinRate%      Cost%  Peak gross
+2026-10-26 10:26:24,133 - INFO - ------------------------------------------------------------------------------------------
+2026-10-26 10:26:24,133 - INFO - Systematic Stat-Arb                -0.87%    -0.23    -4.03%     44.19%      0.82%       0.95x
+2026-10-26 10:26:24,133 - INFO - Multi-Manager Pod                  -0.84%    -0.36    -2.82%     44.19%      0.82%       0.63x
+2026-10-26 10:26:24,133 - INFO - Discretionary Long/Short           -0.80%    -0.69    -1.59%     44.19%      0.79%       0.32x
+2026-10-26 10:26:24,133 - INFO - Patient Institutional              -0.10%    -0.19    -0.72%     43.90%      0.04%       0.15x
+2026-10-26 10:26:24,133 - INFO - Retail / Small Prop                -0.48%    -0.89    -0.85%     47.37%      0.52%       0.15x
+2026-10-26 10:26:24,133 - INFO - ==========================================================================================
+2026-10-26 10:26:24,190 - INFO - RUN CONFIG: version 33.0.0 | commit 7c7d3f904ec6 | 2026-10-26T10:26:24+00:00 UTC
+2026-10-26 10:26:24,191 - INFO -   switches: {'PAIRS_PROFILE': 'v32', 'PAIRS_CALENDAR': 'holdout2026', 'PAIRS_SEED': '42', 'PAIRS_OUTPUT_DIR': 'outputs/holdout2026_v32', 'PYTHONHASHSEED': '0', 'PAIRS_UNSEAL': '7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5', 'PAIRS_EXPECTED_COMMIT': '7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5'} | effective: {'profile': 'v32', 'calendar': 'holdout2026', 'fill': 'close', 'ranker': 'transformer', 'use_transformer_ranker': True, 'reselect': 'pool', 'regime_gate': True}
+2026-10-26 10:26:24,191 - INFO -   data: 2023-01-03 -> 2026-10-19, backtest 2026-01-02 -> 2026-10-19, 2790 symbols, 971 pairs
+2026-10-26 10:26:24,191 - INFO -   price cache: data/holdout2026_prices.pkl, 806.2 MB, mtime 2026-10-26T10:21:44+00:00, sha256 3225e2224492a330
+2026-10-26 10:26:24,191 - INFO -   versions: {'python': '3.12.3', 'numpy': '1.26.4', 'pandas': '2.2.3', 'torch': '2.13.0+cpu', 'scipy': '1.15.2', 'statsmodels': '0.14.4'}
+2026-10-26 10:26:24,191 - INFO - ================================================================================
+2026-10-26 10:26:24,191 - INFO - EXPORTING BACKTEST RESULTS (2026-01-02 -> 2026-10-19) TO JSON
+2026-10-26 10:26:24,191 - INFO - ================================================================================
+2026-10-26 10:26:24,216 - INFO - Exported results: ./outputs/holdout2026_v32/pairs_trading_results_2023_2025_unbiased.json (207.4 KB) — 43 trades, 33 pairs, 200 daily points
+2026-10-26 10:26:24,225 - INFO - Exported compact results: ./outputs/holdout2026_v32/pairs_trading_results_2023_2025_unbiased_compact.json (126.0 KB)
+2026-10-26 10:26:24,225 - INFO - ================================================================================
+2026-10-26 10:26:24,225 - INFO - ================================================================================
+2026-10-26 10:26:24,225 - INFO - EXPORTING FUND TYPE COMPARISON TO JSON
+2026-10-26 10:26:24,225 - INFO - ================================================================================
+2026-10-26 10:26:24,232 - INFO - Fund comparison exported: ./outputs/holdout2026_v32/fund_type_comparison.json (97.7 KB) — profiles: quant_hf, multi_strat, fundamental_ls, institutional, retail
+2026-10-26 10:26:24,232 - INFO - ================================================================================
+2026-10-26 10:26:24,234 - INFO - Headline metrics: ./outputs/holdout2026_v32/headline_metrics.json — main -0.48% / Sharpe -0.41 / 43 trades; no walk-forward on this calendar
+2026-10-26 10:26:24,492 - INFO - Backtest chart saved to ./outputs/holdout2026_v32/backtest_results.png
+2026-10-26 10:26:24,582 - INFO - Ranker training chart saved to ./outputs/holdout2026_v32/ranker_training.png
+2026-10-26 10:26:25,241 - INFO - Fund comparison chart saved to ./outputs/holdout2026_v32/fund_comparison.png
+
+==========================================================================================
+MAIN BACKTEST  2026-01-02 -> 2026-10-19   (one calendar)
+==========================================================================================
+  Total return           -0.48%      Annualised -0.60%
+  Sharpe (daily, ann.)   -0.41       Annualised volatility 1.46%
+  Max drawdown           -1.38%
+  Trades                 43          Win rate 44.2%   Profit factor 0.85
+  Exit reasons           end_of_data 3, stop 18, target 17, time 5
+  Risk halt              none
+==========================================================================================
+WALK-FORWARD  not run / no eligible windows
+==========================================================================================
+==========================================================================================
+SIGNIFICANCE  is the edge distinguishable from zero?
+==========================================================================================
+  OOS daily              not available
+  Main backtest daily    Sharpe -0.41 | HAC t -0.50 p=0.619 | PSR 35.5% | DSR 0.6% | bootstrap 95% CI [-1.48, +1.30]
+==========================================================================================
+BENCHMARKS  same universe, same period as the main backtest
+==========================================================================================
+  This strategy           return -0.48%   Sharpe -0.41
+  Gatev (2006) distance   return -0.11%   Sharpe +0.01
+  Sharpe diff vs Gatev    -0.41 (p=0.767, 95% CI [-3.60, +2.77], 200 common days)
+  Random-pair control     median Sharpe -0.15 [5%-95%: -1.53, +1.48] over 200 draws; strategy Sharpe at percentile 37 of the draws
+==========================================================================================
+MULTIPLE TESTING  18,888 pairs tested | 1,558 at raw p<0.05 | 0 survive BH-FDR q<0.05 | 0 at q<0.10 | 971 selected
+==========================================================================================
+COST-SCHEDULE REPLAY  same trades, archetypal sizing / costs / kill-switch
+==========================================================================================
+  Profile                          Return  Sharpe    MaxDD  WinRate   Costs Peak gross  Kill-switch
+  ------------------------------------------------------------------------------------------
+  Systematic Stat-Arb              -0.87%   -0.23   -4.03%    44.2%   0.82%      0.95x  -
+  Multi-Manager Pod                -0.84%   -0.36   -2.82%    44.2%   0.82%      0.63x  -
+  Discretionary Long/Short         -0.80%   -0.69   -1.59%    44.2%   0.79%      0.32x  -
+  Patient Institutional            -0.10%   -0.19   -0.72%    43.9%   0.04%      0.15x  -
+  Retail / Small Prop              -0.48%   -0.89   -0.85%    47.4%   0.52%      0.15x  -
+==========================================================================================
+OUTPUTS
+  outputs/holdout2026_v32/pairs_trading_results_2023_2025_unbiased.json
+  outputs/holdout2026_v32/pairs_trading_results_2023_2025_unbiased_compact.json
+  outputs/holdout2026_v32/fund_type_comparison.json
+  outputs/holdout2026_v32/headline_metrics.json
+  outputs/holdout2026_v32/backtest_results.png
+  outputs/holdout2026_v32/ranker_training.png
+  outputs/holdout2026_v32/fund_comparison.png
+==========================================================================================

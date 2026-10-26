@@ -1,0 +1,74 @@
+{
+ "files": {
+  "fund_type_comparison.json": {
+   "bytes": 100018,
+   "sha256": "d05c0c0b63a52a20ea855d66a9dd8fded962680e05ca58ceae93db641ad29e62"
+  },
+  "headline_metrics.json": {
+   "bytes": 7520,
+   "sha256": "822b77d013850beebb40401ff23fea1695e4703de9b32a248a55e825102cd033"
+  },
+  "pairs_trading_results_2023_2025_unbiased.json": {
+   "bytes": 212401,
+   "sha256": "d07c6ebc90a223e3b282177bee1abf41e009ac7c7dc08968b7bbe00bc3bba29a"
+  },
+  "pairs_trading_results_2023_2025_unbiased_compact.json": {
+   "bytes": 129061,
+   "sha256": "a07dec6aa53e5611b40c4c06b418d8acc1717e7af99c881f00261b62ba460e86"
+  },
+  "run.log": {
+   "bytes": 24643,
+   "sha256": "1851367424d00d74ef61c51924c75f0f1e2dd5b702dbf03f0962b9783b77b2a3"
+  }
+ },
+ "name": "holdout2026/v32_pairs",
+ "price_cache": {
+  "mtime_utc": "2026-10-26T10:21:44+00:00",
+  "path": "data/holdout2026_prices.pkl",
+  "sha256": "3225e2224492a33082c6139678d54cbae7d9e3ec41a1ed5cefd6d16145e21a53",
+  "size_bytes": 806151539
+ },
+ "run_config": {
+  "effective": {
+   "calendar": "holdout2026",
+   "fill": "close",
+   "profile": "v32",
+   "ranker": "transformer",
+   "regime_gate": true,
+   "reselect": "pool",
+   "use_transformer_ranker": true
+  },
+  "git_commit": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+  "git_dirty": false,
+  "package_version": "33.0.0",
+  "run_timestamp_utc": "2026-10-26T10:26:24+00:00"
+ },
+ "study": {
+  "calendar": {
+   "backtest_start": "2026-01-02",
+   "data_end": "2026-10-19",
+   "data_start": "2023-01-01",
+   "macro_cache": "data/holdout2026_macro.pkl",
+   "model_train_end": "2025-12-31",
+   "name": "holdout2026",
+   "price_cache": "data/holdout2026_prices.pkl",
+   "selection_cutoff": "2025-12-31",
+   "walk_forward": false
+  },
+  "calendar_hash": "c19018232a36",
+  "profile": {
+   "borrow_rate": 0.0025,
+   "formation_calendar_days": 730,
+   "max_universe": 300,
+   "name": "v32",
+   "pb_financing_spread": 0.005,
+   "ranker": "transformer",
+   "regime_gate": true,
+   "reselect": "pool",
+   "reselect_every": 90,
+   "same_industry": false,
+   "universe": "marketcap"
+  },
+  "profile_hash": "b5665398f3ad"
+ }
+}

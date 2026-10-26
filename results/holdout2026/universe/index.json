@@ -1,0 +1,567 @@
+{
+ "fund": "iShares Russell 3000 ETF (IWV)",
+ "trust_cik": 1100663,
+ "series_id": "S000004341",
+ "filings_url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=S000004341&type=NPORT-P&count=100&output=atom",
+ "holdings": "assetCat EC (equity common) of each N-PORT-P primary_doc.xml; one row per CUSIP (ISIN where N-PORT gives no CUSIP)",
+ "weight": "valUSD / total valUSD of the equity-common holdings on the period date",
+ "membership_rule": "a snapshot is in force from its period_date until the next snapshot",
+ "ticker_map": "cusip_ticker_map.json (OpenFIGI, with the tickers N-PORT reports); a CUSIP listed under \"successions\" takes its successor CUSIP's ticker",
+ "successions": {
+  "04351G101": {
+   "successor": "04351G200",
+   "ticker": "ASNAQ"
+  },
+  "09609G100": {
+   "successor": "09609G209",
+   "ticker": "BLUE"
+  },
+  "13781Y103": {
+   "successor": "13781Y202",
+   "ticker": "CANO"
+  },
+  "14171W103": {
+   "successor": "14171W202",
+   "ticker": "CMAX"
+  },
+  "21077C107": {
+   "successor": "21077C305",
+   "ticker": "LOGC"
+  },
+  "25401T108": {
+   "successor": "25401T603",
+   "ticker": "DBRG"
+  },
+  "369604103": {
+   "successor": "369604301",
+   "ticker": "GE"
+  },
+  "37954A204": {
+   "successor": "37954A303",
+   "ticker": "XRN"
+  },
+  "44891N109": {
+   "successor": "44891N208",
+   "ticker": "PPLI"
+  },
+  "50202P105": {
+   "successor": "50202P204",
+   "ticker": "LICYQ"
+  },
+  "550424105": {
+   "successor": "550424303",
+   "ticker": "LAZRQ"
+  },
+  "56854Q101": {
+   "successor": "56854Q200",
+   "ticker": "MRNS"
+  },
+  "649445103": {
+   "successor": "649445400",
+   "ticker": "FLG"
+  },
+  "649604501": {
+   "successor": "649604840",
+   "ticker": "ADAM"
+  },
+  "654110105": {
+   "successor": "654110303",
+   "ticker": "NKLA"
+  },
+  "68404L102": {
+   "successor": "68404L201",
+   "ticker": "OPCH"
+  },
+  "83417Q105": {
+   "successor": "83417Q204",
+   "ticker": "SWI"
+  },
+  "90187B408": {
+   "successor": "90187B804",
+   "ticker": "TWO"
+  },
+  "90214J101": {
+   "successor": "90214J200",
+   "ticker": "TWOU"
+  },
+  "92339V100": {
+   "successor": "92339V308",
+   "ticker": "VER"
+  },
+  "966387409": {
+   "successor": "966387508",
+   "ticker": "WLL"
+  }
+ },
+ "sealed_from": "2026-01-01",
+ "sealed": [],
+ "snapshots": [
+  {
+   "period_date": "2019-09-30",
+   "filing_date": "2019-11-25",
+   "accession": "0001752724-19-177692",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272419177692/primary_doc.xml",
+   "sha256": "c930d940c446c9eda38cbb398ee209aff41a34e1b9dba0180d1b950d5fa0840f",
+   "file": "iwv_2019-09-30.csv",
+   "n_holdings": 2899,
+   "n_equity": 2895,
+   "n_mapped": 2662,
+   "n_tickers": 2661,
+   "mapped_value_share": 0.989572,
+   "equity_value_usd": 9599678384.44,
+   "shared_tickers": [
+    "RDUS"
+   ]
+  },
+  {
+   "period_date": "2019-12-31",
+   "filing_date": "2020-02-27",
+   "accession": "0001752724-20-038699",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272420038699/primary_doc.xml",
+   "sha256": "9f5b030bcf9191749867df766a23dd9101c877318c4f42ffdd14163ac305c5d1",
+   "file": "iwv_2019-12-31.csv",
+   "n_holdings": 2896,
+   "n_equity": 2892,
+   "n_mapped": 2666,
+   "n_tickers": 2665,
+   "mapped_value_share": 0.990493,
+   "equity_value_usd": 10145277035.77,
+   "shared_tickers": [
+    "RDUS"
+   ]
+  },
+  {
+   "period_date": "2020-03-31",
+   "filing_date": "2020-06-01",
+   "accession": "0001752724-20-112049",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272420112049/primary_doc.xml",
+   "sha256": "6bb3a252d0aed80185c8809a817f072e5e5842201bb2fed9259bc0c450e3e271",
+   "file": "iwv_2020-03-31.csv",
+   "n_holdings": 2885,
+   "n_equity": 2880,
+   "n_mapped": 2662,
+   "n_tickers": 2661,
+   "mapped_value_share": 0.991427,
+   "equity_value_usd": 8201134434.74,
+   "shared_tickers": [
+    "RDUS"
+   ]
+  },
+  {
+   "period_date": "2020-06-30",
+   "filing_date": "2020-08-27",
+   "accession": "0001752724-20-176950",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272420176950/primary_doc.xml",
+   "sha256": "d0ad3a459d562acfc8c35199fad09689e9303112d299cd78bc6be29230730864",
+   "file": "iwv_2020-06-30.csv",
+   "n_holdings": 2812,
+   "n_equity": 2806,
+   "n_mapped": 2626,
+   "n_tickers": 2625,
+   "mapped_value_share": 0.993818,
+   "equity_value_usd": 9316976291.54,
+   "shared_tickers": [
+    "RDUS"
+   ]
+  },
+  {
+   "period_date": "2020-09-30",
+   "filing_date": "2020-11-25",
+   "accession": "0001752724-20-247845",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272420247845/primary_doc.xml",
+   "sha256": "cbde533e74561551fc8aaeb7c371656376ad16fa06390403b78b930fe3f7d1b2",
+   "file": "iwv_2020-09-30.csv",
+   "n_holdings": 2850,
+   "n_equity": 2842,
+   "n_mapped": 2660,
+   "n_tickers": 2659,
+   "mapped_value_share": 0.994124,
+   "equity_value_usd": 9465973055.48,
+   "shared_tickers": [
+    "RDUS"
+   ]
+  },
+  {
+   "period_date": "2020-12-31",
+   "filing_date": "2021-02-25",
+   "accession": "0001752724-21-040749",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272421040749/primary_doc.xml",
+   "sha256": "661e69da7b65684e003f08d9db17382c2cbc139911b054cbde11e89fa7c7efa8",
+   "file": "iwv_2020-12-31.csv",
+   "n_holdings": 2867,
+   "n_equity": 2859,
+   "n_mapped": 2676,
+   "n_tickers": 2675,
+   "mapped_value_share": 0.994255,
+   "equity_value_usd": 10583972709.15,
+   "shared_tickers": [
+    "RDUS"
+   ]
+  },
+  {
+   "period_date": "2021-03-31",
+   "filing_date": "2021-05-27",
+   "accession": "0001752724-21-116391",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272421116391/primary_doc.xml",
+   "sha256": "3639d69cc0a9b26c08a91f25d3b157adf47a9e34aafae5926cd423f436c61264",
+   "file": "iwv_2021-03-31.csv",
+   "n_holdings": 2889,
+   "n_equity": 2881,
+   "n_mapped": 2698,
+   "n_tickers": 2697,
+   "mapped_value_share": 0.9942,
+   "equity_value_usd": 10936900078.46,
+   "shared_tickers": [
+    "RDUS"
+   ]
+  },
+  {
+   "period_date": "2021-06-30",
+   "filing_date": "2021-08-26",
+   "accession": "0001752724-21-186206",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272421186206/primary_doc.xml",
+   "sha256": "cf242120536f64369af8e6cd5c6ac231d3fdd5c52202f4aa5defe5ba4d1d7ae2",
+   "file": "iwv_2021-06-30.csv",
+   "n_holdings": 2694,
+   "n_equity": 2684,
+   "n_mapped": 2547,
+   "n_tickers": 2546,
+   "mapped_value_share": 0.994519,
+   "equity_value_usd": 11879301378.13,
+   "shared_tickers": [
+    "RDUS"
+   ]
+  },
+  {
+   "period_date": "2021-09-30",
+   "filing_date": "2021-11-24",
+   "accession": "0001752724-21-255918",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272421255918/primary_doc.xml",
+   "sha256": "7aa97718fb57812facd5abe0f629431940414f74ef72be2e06b9c483738a778e",
+   "file": "iwv_2021-09-30.csv",
+   "n_holdings": 2712,
+   "n_equity": 2703,
+   "n_mapped": 2571,
+   "n_tickers": 2570,
+   "mapped_value_share": 0.994994,
+   "equity_value_usd": 11675272215.16,
+   "shared_tickers": [
+    "RDUS"
+   ]
+  },
+  {
+   "period_date": "2021-12-31",
+   "filing_date": "2022-02-25",
+   "accession": "0001752724-22-046245",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272422046245/primary_doc.xml",
+   "sha256": "87cc5bdf3f053570783e7ef521e1e99babeccb354df654acf5622de93e0ab33a",
+   "file": "iwv_2021-12-31.csv",
+   "n_holdings": 2752,
+   "n_equity": 2744,
+   "n_mapped": 2616,
+   "n_tickers": 2615,
+   "mapped_value_share": 0.995822,
+   "equity_value_usd": 13003128211.54,
+   "shared_tickers": [
+    "RDUS"
+   ]
+  },
+  {
+   "period_date": "2022-03-31",
+   "filing_date": "2022-05-26",
+   "accession": "0001752724-22-122765",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272422122765/primary_doc.xml",
+   "sha256": "147e8f52f2f0fd2c0ba66b170d4425f139ecd3b9c847912d30652b1507874f95",
+   "file": "iwv_2022-03-31.csv",
+   "n_holdings": 2767,
+   "n_equity": 2757,
+   "n_mapped": 2634,
+   "n_tickers": 2633,
+   "mapped_value_share": 0.995939,
+   "equity_value_usd": 11990431102.05,
+   "shared_tickers": [
+    "RDUS"
+   ]
+  },
+  {
+   "period_date": "2022-06-30",
+   "filing_date": "2022-08-25",
+   "accession": "0001752724-22-193768",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272422193768/primary_doc.xml",
+   "sha256": "52bf227110fa732f8bd1bd983abbe95d7a50722952f053f4f49873f503503daf",
+   "file": "iwv_2022-06-30.csv",
+   "n_holdings": 2698,
+   "n_equity": 2689,
+   "n_mapped": 2622,
+   "n_tickers": 2621,
+   "mapped_value_share": 0.996846,
+   "equity_value_usd": 9926717203.42,
+   "shared_tickers": [
+    "RDUS"
+   ]
+  },
+  {
+   "period_date": "2022-09-30",
+   "filing_date": "2022-11-25",
+   "accession": "0001752724-22-266768",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272422266768/primary_doc.xml",
+   "sha256": "a0d53764bffc9cda073978fdade1282c513421a8c9ea89a29689b0b398601a0b",
+   "file": "iwv_2022-09-30.csv",
+   "n_holdings": 2588,
+   "n_equity": 2581,
+   "n_mapped": 2552,
+   "n_tickers": 2552,
+   "mapped_value_share": 0.997947,
+   "equity_value_usd": 9424124096.08
+  },
+  {
+   "period_date": "2022-12-30",
+   "filing_date": "2023-02-24",
+   "accession": "0001752724-23-037481",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272423037481/primary_doc.xml",
+   "sha256": "528a96926b0b4866511b22c7dcf07e707040e43ac4efb06d46828e44f55f0229",
+   "file": "iwv_2022-12-30.csv",
+   "n_holdings": 2610,
+   "n_equity": 2603,
+   "n_mapped": 2575,
+   "n_tickers": 2574,
+   "mapped_value_share": 0.998582,
+   "equity_value_usd": 10804449940.0,
+   "shared_tickers": [
+    "STR"
+   ]
+  },
+  {
+   "period_date": "2023-03-31",
+   "filing_date": "2023-05-24",
+   "accession": "0001752724-23-114189",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272423114189/primary_doc.xml",
+   "sha256": "5f40f974acdba7e807ba8daf4574a33838edce4d7571412606d710a59cb66612",
+   "file": "iwv_2023-03-31.csv",
+   "n_holdings": 2631,
+   "n_equity": 2624,
+   "n_mapped": 2598,
+   "n_tickers": 2598,
+   "mapped_value_share": 0.998602,
+   "equity_value_usd": 10701958845.92
+  },
+  {
+   "period_date": "2023-06-30",
+   "filing_date": "2023-08-24",
+   "accession": "0001752724-23-188399",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272423188399/primary_doc.xml",
+   "sha256": "29f4b6250dfa99fc500ba9b354a36a56ce9bc6f06cf4f2d7cbf6452b316250db",
+   "file": "iwv_2023-06-30.csv",
+   "n_holdings": 2691,
+   "n_equity": 2684,
+   "n_mapped": 2657,
+   "n_tickers": 2657,
+   "mapped_value_share": 0.998804,
+   "equity_value_usd": 11520928818.18
+  },
+  {
+   "period_date": "2023-09-30",
+   "filing_date": "2023-11-22",
+   "accession": "0001752724-23-263515",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272423263515/primary_doc.xml",
+   "sha256": "cda9d8d8ea2c777ca891067b1cadfdbcea11651b298b4896875b13f125c0d390",
+   "file": "iwv_2023-09-30.csv",
+   "n_holdings": 2703,
+   "n_equity": 2696,
+   "n_mapped": 2670,
+   "n_tickers": 2670,
+   "mapped_value_share": 0.9993,
+   "equity_value_usd": 10993845187.6
+  },
+  {
+   "period_date": "2023-12-31",
+   "filing_date": "2024-02-26",
+   "accession": "0001752724-24-038647",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272424038647/primary_doc.xml",
+   "sha256": "d883ab2ca26a9d25f296e7bbfcad2e9095b06b004776d91103528c0ea3327b28",
+   "file": "iwv_2023-12-31.csv",
+   "n_holdings": 2708,
+   "n_equity": 2700,
+   "n_mapped": 2675,
+   "n_tickers": 2675,
+   "mapped_value_share": 0.999333,
+   "equity_value_usd": 12472010404.79
+  },
+  {
+   "period_date": "2024-03-31",
+   "filing_date": "2024-05-28",
+   "accession": "0001752724-24-120749",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272424120749/primary_doc.xml",
+   "sha256": "cafc81b5bfb052ffd89f39fe4909640d9f1a4eeed72c73bb2cea411f3cc39cf9",
+   "file": "iwv_2024-03-31.csv",
+   "n_holdings": 2697,
+   "n_equity": 2690,
+   "n_mapped": 2668,
+   "n_tickers": 2668,
+   "mapped_value_share": 0.999496,
+   "equity_value_usd": 13623964931.75
+  },
+  {
+   "period_date": "2024-06-30",
+   "filing_date": "2024-08-26",
+   "accession": "0001752724-24-191819",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272424191819/primary_doc.xml",
+   "sha256": "0ca52e3b256b664234bc25ba69b098151340dbd291195a7eda421878b176cf3f",
+   "file": "iwv_2024-06-30.csv",
+   "n_holdings": 2684,
+   "n_equity": 2676,
+   "n_mapped": 2654,
+   "n_tickers": 2654,
+   "mapped_value_share": 0.99956,
+   "equity_value_usd": 14226574228.37
+  },
+  {
+   "period_date": "2024-09-30",
+   "filing_date": "2024-11-27",
+   "accession": "0001752724-24-274342",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272424274342/primary_doc.xml",
+   "sha256": "b4ac1d6dcef74373a6dd5bc12e1fead6880fe123e549b2575df2173052392668",
+   "file": "iwv_2024-09-30.csv",
+   "n_holdings": 2686,
+   "n_equity": 2679,
+   "n_mapped": 2660,
+   "n_tickers": 2660,
+   "mapped_value_share": 0.999572,
+   "equity_value_usd": 14923834808.63
+  },
+  {
+   "period_date": "2024-12-31",
+   "filing_date": "2025-02-26",
+   "accession": "0001752724-25-041401",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272425041401/primary_doc.xml",
+   "sha256": "4feb3e4c0a2e9bdb00c16b5ea1a2db5e62f8f0f9f1a682df335ab666d77b981f",
+   "file": "iwv_2024-12-31.csv",
+   "n_holdings": 2689,
+   "n_equity": 2683,
+   "n_mapped": 2665,
+   "n_tickers": 2665,
+   "mapped_value_share": 0.999688,
+   "equity_value_usd": 15608180558.2
+  },
+  {
+   "period_date": "2025-03-31",
+   "filing_date": "2025-05-27",
+   "accession": "0001752724-25-122118",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272425122118/primary_doc.xml",
+   "sha256": "9d6dac9bdb0074ebf6d52299cda76d423d6cc1c595805c1c2a8fb1d60b7a31ae",
+   "file": "iwv_2025-03-31.csv",
+   "n_holdings": 2676,
+   "n_equity": 2670,
+   "n_mapped": 2655,
+   "n_tickers": 2655,
+   "mapped_value_share": 0.999718,
+   "equity_value_usd": 14400268519.92
+  },
+  {
+   "period_date": "2025-06-30",
+   "filing_date": "2025-08-26",
+   "accession": "0001752724-25-205080",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000175272425205080/primary_doc.xml",
+   "sha256": "5572c8e7c1d614b3b8b23a3f3728f60da1a2f2e07e971bfb13e736b81f61515d",
+   "file": "iwv_2025-06-30.csv",
+   "n_holdings": 2679,
+   "n_equity": 2672,
+   "n_mapped": 2658,
+   "n_tickers": 2658,
+   "mapped_value_share": 0.999743,
+   "equity_value_usd": 15819753865.33
+  },
+  {
+   "period_date": "2025-09-30",
+   "filing_date": "2025-11-25",
+   "accession": "0000940400-25-010635",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000094040025010635/primary_doc.xml",
+   "sha256": "0ba6e77f48e1c93c507ca6e4cdc21b0128f148addd08a40116308cb5794d1ac0",
+   "file": "iwv_2025-09-30.csv",
+   "n_holdings": 2589,
+   "n_equity": 2583,
+   "n_mapped": 2573,
+   "n_tickers": 2573,
+   "mapped_value_share": 0.999866,
+   "equity_value_usd": 17090462546.42
+  },
+  {
+   "period_date": "2025-12-31",
+   "filing_date": "2026-02-25",
+   "accession": "0000940400-26-007533",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000094040026007533/primary_doc.xml",
+   "sha256": "067bf2f7c13e5055642d28b24f80b1d19eaa6a300cddbb87466771c7a014f1f4",
+   "file": "iwv_2025-12-31.csv",
+   "n_holdings": 2602,
+   "n_equity": 2596,
+   "n_mapped": 2589,
+   "n_tickers": 2589,
+   "mapped_value_share": 0.999871,
+   "equity_value_usd": 18263711018.89
+  },
+  {
+   "period_date": "2026-03-31",
+   "filing_date": "2026-05-26",
+   "accession": "0000940400-26-020829",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000094040026020829/primary_doc.xml",
+   "sha256": "61938dd86e2c5742506fb21b3eaa9e96a490440040308e4f4da198798ffd4edd",
+   "file": "iwv_2026-03-31.csv",
+   "n_holdings": 2594,
+   "n_equity": 2588,
+   "n_mapped": 2582,
+   "n_tickers": 2582,
+   "mapped_value_share": 0.999998,
+   "equity_value_usd": 17010303644.13
+  },
+  {
+   "period_date": "2026-06-30",
+   "filing_date": "2026-08-27",
+   "accession": "0000940400-26-035008",
+   "form": "NPORT-P",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/1100663/000094040026035008/primary_doc.xml",
+   "sha256": "825a83e13b006beb14755542e1851abdbec3d9c4d909aa30defa88bd36803f30",
+   "file": "iwv_2026-06-30.csv",
+   "n_holdings": 2596,
+   "n_equity": 2590,
+   "n_mapped": 2583,
+   "n_tickers": 2583,
+   "mapped_value_share": 0.999998,
+   "equity_value_usd": 19444033529.23
+  }
+ ],
+ "sealed_build": {
+  "sealed_from": "2026-01-01",
+  "committed_index": "/tmp/claude-0/holdout/reference/universe",
+  "built": [
+   "2026-03-31",
+   "2026-06-30"
+  ]
+ }
+}

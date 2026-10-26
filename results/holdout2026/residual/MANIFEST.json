@@ -1,0 +1,63 @@
+{
+ "files": {
+  "residual_statarb.json": {
+   "bytes": 4878018,
+   "sha256": "39debf9a6f85bfcf26edb87e089c8135b71bed3c2aaed0e45a3ec10d06a1cbcd"
+  },
+  "run.log": {
+   "bytes": 1743,
+   "sha256": "83a313d4f77680909a744c52b4b01575b3503f17d19f70a11380b5ff94330224"
+  }
+ },
+ "name": "holdout2026/residual",
+ "price_cache": {
+  "mtime_utc": "2026-10-26T10:21:44+00:00",
+  "path": "data/holdout2026_prices.pkl",
+  "sha256": "3225e2224492a33082c6139678d54cbae7d9e3ec41a1ed5cefd6d16145e21a53",
+  "size_bytes": 806151539
+ },
+ "run_config": {
+  "effective": {
+   "calendar": "holdout2026",
+   "fill": "close"
+  },
+  "git_commit": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+  "git_dirty": false,
+  "package_version": "33.0.0",
+  "run_timestamp_utc": "2026-10-26T10:27:26+00:00"
+ },
+ "study": {
+  "calendar": {
+   "backtest_start": "2026-01-02",
+   "data_end": "2026-10-19",
+   "data_start": "2023-01-01",
+   "macro_cache": "data/holdout2026_macro.pkl",
+   "model_train_end": "2025-12-31",
+   "name": "holdout2026",
+   "price_cache": "data/holdout2026_prices.pkl",
+   "selection_cutoff": "2025-12-31",
+   "walk_forward": false
+  },
+  "calendar_hash": "c19018232a36",
+  "params": {
+   "adv_days": 20,
+   "initial_capital": 100000000.0,
+   "kappa_min": 8.4,
+   "position_frac": 0.005,
+   "s_close_long": 0.5,
+   "s_close_short": 0.75,
+   "s_open": 1.25,
+   "universe_rebalance_days": 21,
+   "universe_size": 500,
+   "universe_window_days": 1095,
+   "window": 60
+  },
+  "params_hash": "2d50e388fb12",
+  "profile": null,
+  "shares_with_profile": {
+   "name": "v33",
+   "what": "point-in-time universe rule, t+1 close fills, cost model"
+  },
+  "strategy": "avellaneda_lee"
+ }
+}

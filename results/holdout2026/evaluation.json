@@ -1,0 +1,858 @@
+{
+ "alpha": 0.05,
+ "family": [
+  "v33_pairs",
+  "avellaneda_lee"
+ ],
+ "test": "one-sided Newey-West t (mean daily net return > 0), Holm across the confirmatory strategies",
+ "strategies": {
+  "v33_pairs": {
+   "days": 200,
+   "total_return_pct": 0.08328771974477345,
+   "sharpe": 0.05154897262524781,
+   "trades": 106,
+   "t": 0.05588793877551796,
+   "lags": 4,
+   "p_one_sided": 0.4777155396377848,
+   "sharpe_lo2002": 0.06486233310927055,
+   "psr": 0.5182706514980879,
+   "bootstrap_ci_95": [
+    -1.810501650188118,
+    1.8338142466572085
+   ],
+   "sharpe_se": 0.9650200255633911,
+   "upper_bound_95": 1.6388656617539938,
+   "min_detectable_sharpe": 2.7192213024843377,
+   "min_detectable_sharpe_alpha": 0.025,
+   "min_detectable_sharpe_single_test": 2.411233846363383,
+   "gross_total_return_pct": 0.6590038464550751,
+   "gross_sharpe": 0.31170767519843967,
+   "exposure": {
+    "avg_gross_pct_of_equity": 26.67,
+    "max_gross_pct_of_equity": 30.07,
+    "days_with_open_positions": 198
+   },
+   "vs_gatev": {
+    "diff": 0.7334470962776565,
+    "ci_lo": -2.226520801345494,
+    "ci_hi": 3.6934149939008067,
+    "pvalue": 0.618876224755049,
+    "n_common_days": 200,
+    "distance_sharpe": -0.68,
+    "source": "own run",
+    "universe_size": 500
+   },
+   "random_pair": {
+    "percentile": 49.0,
+    "median_sharpe": 0.0642,
+    "n_draws": 200,
+    "source": "own run"
+   },
+   "universe_by_formation": [
+    {
+     "formation_date": "2025-12-31",
+     "snapshot": "2025-12-31",
+     "members": 2589,
+     "with_prices": 2426,
+     "missing": 163,
+     "missing_value_weight": 0.0079558591689505,
+     "unmapped_value_weight": 0.00012852425927061705,
+     "snapshot_filed": "2026-02-25",
+     "missing_heaviest": [
+      [
+       "WBD",
+       0.00102202633
+      ],
+      [
+       "EA",
+       0.000782359997
+      ],
+      [
+       "AVB",
+       0.000392973604
+      ],
+      [
+       "CTRA",
+       0.000303713741
+      ],
+      [
+       "EXAS",
+       0.000289442795
+      ],
+      [
+       "HOLX",
+       0.000255710629
+      ],
+      [
+       "BLD",
+       0.000180661844
+      ],
+      [
+       "CMA",
+       0.00017799894
+      ],
+      [
+       "DAY",
+       0.000163882711
+      ],
+      [
+       "WBS",
+       0.000157255997
+      ]
+     ],
+     "unmapped_heaviest": [
+      [
+       "Avidity Biosciences Inc",
+       0.000127678913
+      ],
+      [
+       "INHIBRX INC",
+       6.90078812e-07
+      ],
+      [
+       "CHINOOK THERAPEUTICS INC CVR",
+       1.5524939e-07
+      ],
+      [
+       "GCI LIBERTY INC",
+       1.53309478e-11
+      ],
+      [
+       "OmniAb, Inc.",
+       1.0950677e-12
+      ],
+      [
+       "OmniAb, Inc.",
+       1.0950677e-12
+      ],
+      [
+       "ESCROW PETROCORP",
+       5.47533849e-13
+      ]
+     ]
+    },
+    {
+     "formation_date": "2026-01-02",
+     "snapshot": "2025-12-31",
+     "members": 2589,
+     "with_prices": 2426,
+     "missing": 163,
+     "missing_value_weight": 0.0079558591689505,
+     "unmapped_value_weight": 0.00012852425927061705,
+     "snapshot_filed": "2026-02-25",
+     "missing_heaviest": [
+      [
+       "WBD",
+       0.00102202633
+      ],
+      [
+       "EA",
+       0.000782359997
+      ],
+      [
+       "AVB",
+       0.000392973604
+      ],
+      [
+       "CTRA",
+       0.000303713741
+      ],
+      [
+       "EXAS",
+       0.000289442795
+      ],
+      [
+       "HOLX",
+       0.000255710629
+      ],
+      [
+       "BLD",
+       0.000180661844
+      ],
+      [
+       "CMA",
+       0.00017799894
+      ],
+      [
+       "DAY",
+       0.000163882711
+      ],
+      [
+       "WBS",
+       0.000157255997
+      ]
+     ],
+     "unmapped_heaviest": [
+      [
+       "Avidity Biosciences Inc",
+       0.000127678913
+      ],
+      [
+       "INHIBRX INC",
+       6.90078812e-07
+      ],
+      [
+       "CHINOOK THERAPEUTICS INC CVR",
+       1.5524939e-07
+      ],
+      [
+       "GCI LIBERTY INC",
+       1.53309478e-11
+      ],
+      [
+       "OmniAb, Inc.",
+       1.0950677e-12
+      ],
+      [
+       "OmniAb, Inc.",
+       1.0950677e-12
+      ],
+      [
+       "ESCROW PETROCORP",
+       5.47533849e-13
+      ]
+     ]
+    },
+    {
+     "formation_date": "2026-07-07",
+     "snapshot": "2026-06-30",
+     "members": 2583,
+     "with_prices": 2464,
+     "missing": 119,
+     "missing_value_weight": 0.008436064206710165,
+     "unmapped_value_weight": 1.5399577433829235e-06,
+     "snapshot_filed": "2026-08-27",
+     "missing_heaviest": [
+      [
+       "SPCX",
+       0.00124724773
+      ],
+      [
+       "HONA",
+       0.000968002182
+      ],
+      [
+       "WBD",
+       0.000884957183
+      ],
+      [
+       "EA",
+       0.000711670215
+      ],
+      [
+       "SUNB",
+       0.000423396784
+      ],
+      [
+       "AVB",
+       0.000370693113
+      ],
+      [
+       "FDXF",
+       0.000225156112
+      ],
+      [
+       "IREN",
+       0.000203778493
+      ],
+      [
+       "WBS",
+       0.00017311985
+      ],
+      [
+       "HUT",
+       0.000153532561
+      ]
+     ],
+     "unmapped_heaviest": [
+      [
+       "Akero Therapeutics Inc",
+       7.02349128e-07
+      ],
+      [
+       "INHIBRX INC",
+       6.60045663e-07
+      ],
+      [
+       "CHINOOK THERAPEUTICS INC",
+       1.45825196e-07
+      ],
+      [
+       "HOLOGIC INC",
+       3.17351849e-08
+      ],
+      [
+       "OMNIAB INC",
+       1.02859317e-12
+      ],
+      [
+       "OMNIAB INC",
+       1.02859317e-12
+      ],
+      [
+       "ESCROW PETROCORP",
+       5.14296583e-13
+      ]
+     ]
+    }
+   ],
+   "commit": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+   "period": [
+    "2026-01-02",
+    "2026-10-19"
+   ],
+   "role": "confirmatory",
+   "p_holm": 0.9554310792755696,
+   "edge_out_of_sample": false
+  },
+  "v32_pairs": {
+   "days": 200,
+   "total_return_pct": -0.478266234911251,
+   "sharpe": -0.4069100216493576,
+   "trades": 43,
+   "t": -0.4969904693539476,
+   "lags": 4,
+   "p_one_sided": 0.690402113896843,
+   "sharpe_lo2002": -0.5878818193423019,
+   "psr": 0.3554429752694574,
+   "bootstrap_ci_95": [
+    -1.4828480225506093,
+    1.3012749170154905
+   ],
+   "sharpe_se": 0.9545278554143469,
+   "upper_bound_95": 1.1631485833551414,
+   "min_detectable_sharpe": 2.9637517746074273,
+   "min_detectable_sharpe_alpha": 0.025,
+   "min_detectable_sharpe_single_test": 2.627531984218451,
+   "gross_total_return_pct": -0.3368462465102695,
+   "gross_sharpe": -0.2845651294143871,
+   "exposure": {
+    "avg_gross_pct_of_equity": 7.04,
+    "max_gross_pct_of_equity": 30.03,
+    "days_with_open_positions": 79
+   },
+   "vs_gatev": {
+    "diff": -0.4149780910651532,
+    "ci_lo": -3.595638291522664,
+    "ci_hi": 2.7656821093923574,
+    "pvalue": 0.7670465906818636,
+    "n_common_days": 200,
+    "distance_sharpe": 0.007,
+    "source": "own run",
+    "universe_size": 300
+   },
+   "random_pair": {
+    "percentile": 37.0,
+    "median_sharpe": -0.1515,
+    "n_draws": 200,
+    "source": "own run"
+   },
+   "universe_by_formation": [],
+   "commit": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+   "period": [
+    "2026-01-02",
+    "2026-10-19"
+   ],
+   "role": "descriptive",
+   "p_holm": null,
+   "edge_out_of_sample": null
+  },
+  "avellaneda_lee": {
+   "days": 200,
+   "total_return_pct": -1.5865047095950047,
+   "sharpe": -0.27466870857243897,
+   "trades": 3561,
+   "t": -0.2742192732687435,
+   "lags": 4,
+   "p_one_sided": 0.6080419411598179,
+   "sharpe_lo2002": -0.3303750185417559,
+   "psr": 0.4035445200390402,
+   "bootstrap_ci_95": [
+    -2.3563220754206675,
+    1.8074273981863676
+   ],
+   "sharpe_se": 1.0085654795333732,
+   "upper_bound_95": 1.3842738784560809,
+   "min_detectable_sharpe": 2.847888125498744,
+   "min_detectable_sharpe_alpha": 0.025,
+   "min_detectable_sharpe_single_test": 2.5260336627711313,
+   "gross_total_return_pct": 0.22830993013647216,
+   "gross_sharpe": 0.07645655393561275,
+   "exposure": {
+    "avg_gross_pct_of_equity": 118.41523067669422,
+    "max_gross_pct_of_equity": 166.76089047957026,
+    "days_with_open_positions": 198
+   },
+   "universe_by_formation": [
+    {
+     "formation_date": "2026-01-02",
+     "snapshot": "2025-12-31",
+     "members": 2589,
+     "with_prices": 2426,
+     "missing": 163,
+     "missing_value_weight": 0.0079558591689505,
+     "unmapped_value_weight": 0.00012852425927061705,
+     "snapshot_filed": "2026-02-25",
+     "missing_heaviest": [
+      [
+       "WBD",
+       0.00102202633
+      ],
+      [
+       "EA",
+       0.000782359997
+      ],
+      [
+       "AVB",
+       0.000392973604
+      ],
+      [
+       "CTRA",
+       0.000303713741
+      ],
+      [
+       "EXAS",
+       0.000289442795
+      ],
+      [
+       "HOLX",
+       0.000255710629
+      ],
+      [
+       "BLD",
+       0.000180661844
+      ],
+      [
+       "CMA",
+       0.00017799894
+      ],
+      [
+       "DAY",
+       0.000163882711
+      ],
+      [
+       "WBS",
+       0.000157255997
+      ]
+     ],
+     "unmapped_heaviest": [
+      [
+       "Avidity Biosciences Inc",
+       0.000127678913
+      ],
+      [
+       "INHIBRX INC",
+       6.90078812e-07
+      ],
+      [
+       "CHINOOK THERAPEUTICS INC CVR",
+       1.5524939e-07
+      ],
+      [
+       "GCI LIBERTY INC",
+       1.53309478e-11
+      ],
+      [
+       "OmniAb, Inc.",
+       1.0950677e-12
+      ],
+      [
+       "OmniAb, Inc.",
+       1.0950677e-12
+      ],
+      [
+       "ESCROW PETROCORP",
+       5.47533849e-13
+      ]
+     ],
+     "no_sector_etf": 11,
+     "no_sector_etf_value_weight": 0.00048329523182000006,
+     "no_sector_etf_heaviest": [
+      [
+       "AMCR",
+       0.000289965255
+      ],
+      [
+       "OZK",
+       7.7263118e-05
+      ],
+      [
+       "TOWN",
+       4.1864811e-05
+      ],
+      [
+       "DAKT",
+       1.54101058e-05
+      ],
+      [
+       "PFBC",
+       1.1550589e-05
+      ],
+      [
+       "LBRDA",
+       1.13590912e-05
+      ],
+      [
+       "ODC",
+       1.08257079e-05
+      ],
+      [
+       "FRBA",
+       8.78709698e-06
+      ],
+      [
+       "HIFS",
+       7.80498114e-06
+      ],
+      [
+       "NBN",
+       7.41474664e-06
+      ]
+     ]
+    },
+    {
+     "formation_date": "2026-04-06",
+     "snapshot": "2026-03-31",
+     "members": 2582,
+     "with_prices": 2443,
+     "missing": 139,
+     "missing_value_weight": 0.006640152377406668,
+     "unmapped_value_weight": 1.7318432763949227e-06,
+     "snapshot_filed": "2026-05-26",
+     "missing_heaviest": [
+      [
+       "WBD",
+       0.00101680095
+      ],
+      [
+       "EA",
+       0.00081505795
+      ],
+      [
+       "CTRA",
+       0.000423391224
+      ],
+      [
+       "AVB",
+       0.000369648401
+      ],
+      [
+       "HOLX",
+       0.000270981535
+      ],
+      [
+       "WBS",
+       0.000181133585
+      ],
+      [
+       "BLD",
+       0.000159042505
+      ],
+      [
+       "GTLS",
+       0.00014859967
+      ],
+      [
+       "MASI",
+       0.000121735778
+      ],
+      [
+       "AL",
+       0.000109559956
+      ]
+     ],
+     "unmapped_heaviest": [
+      [
+       "Akero Therapeutics Inc",
+       8.1518827e-07
+      ],
+      [
+       "INHIBRX INC",
+       7.49963097e-07
+      ],
+      [
+       "Chinook Therapeutics Inc",
+       1.6668897e-07
+      ],
+      [
+       "OMNIAB INC",
+       1.17575797e-12
+      ],
+      [
+       "OMNIAB INC",
+       1.17575797e-12
+      ],
+      [
+       "ESCROW PETROCORP",
+       5.87878983e-13
+      ]
+     ],
+     "no_sector_etf": 11,
+     "no_sector_etf_value_weight": 0.00050284952965,
+     "no_sector_etf_heaviest": [
+      [
+       "AMCR",
+       0.000288629857
+      ],
+      [
+       "OZK",
+       8.03289976e-05
+      ],
+      [
+       "TOWN",
+       4.4118591e-05
+      ],
+      [
+       "DAKT",
+       1.5913255e-05
+      ],
+      [
+       "ODC",
+       1.50611209e-05
+      ],
+      [
+       "LBRDA",
+       1.23023518e-05
+      ],
+      [
+       "PFBC",
+       1.1910514e-05
+      ],
+      [
+       "CRML",
+       9.2239588e-06
+      ],
+      [
+       "FRBA",
+       8.92635447e-06
+      ],
+      [
+       "NBN",
+       8.43585705e-06
+      ]
+     ]
+    },
+    {
+     "formation_date": "2026-07-07",
+     "snapshot": "2026-06-30",
+     "members": 2583,
+     "with_prices": 2464,
+     "missing": 119,
+     "missing_value_weight": 0.008436064206710165,
+     "unmapped_value_weight": 1.5399577433829235e-06,
+     "snapshot_filed": "2026-08-27",
+     "missing_heaviest": [
+      [
+       "SPCX",
+       0.00124724773
+      ],
+      [
+       "HONA",
+       0.000968002182
+      ],
+      [
+       "WBD",
+       0.000884957183
+      ],
+      [
+       "EA",
+       0.000711670215
+      ],
+      [
+       "SUNB",
+       0.000423396784
+      ],
+      [
+       "AVB",
+       0.000370693113
+      ],
+      [
+       "FDXF",
+       0.000225156112
+      ],
+      [
+       "IREN",
+       0.000203778493
+      ],
+      [
+       "WBS",
+       0.00017311985
+      ],
+      [
+       "HUT",
+       0.000153532561
+      ]
+     ],
+     "unmapped_heaviest": [
+      [
+       "Akero Therapeutics Inc",
+       7.02349128e-07
+      ],
+      [
+       "INHIBRX INC",
+       6.60045663e-07
+      ],
+      [
+       "CHINOOK THERAPEUTICS INC",
+       1.45825196e-07
+      ],
+      [
+       "HOLOGIC INC",
+       3.17351849e-08
+      ],
+      [
+       "OMNIAB INC",
+       1.02859317e-12
+      ],
+      [
+       "OMNIAB INC",
+       1.02859317e-12
+      ],
+      [
+       "ESCROW PETROCORP",
+       5.14296583e-13
+      ]
+     ],
+     "no_sector_etf": 29,
+     "no_sector_etf_value_weight": 0.0010267855304400002,
+     "no_sector_etf_heaviest": [
+      [
+       "AMCR",
+       0.000273280212
+      ],
+      [
+       "ASND",
+       0.000183222223
+      ],
+      [
+       "GFL",
+       0.000131994588
+      ],
+      [
+       "OZK",
+       7.97690375e-05
+      ],
+      [
+       "JBS",
+       5.33224703e-05
+      ],
+      [
+       "TOWN",
+       4.12293591e-05
+      ],
+      [
+       "ESTA",
+       3.12982653e-05
+      ],
+      [
+       "ODC",
+       2.0542892e-05
+      ],
+      [
+       "DLO",
+       1.59269346e-05
+      ],
+      [
+       "DAKT",
+       1.38229529e-05
+      ]
+     ]
+    }
+   ],
+   "commit": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+   "vs_gatev": {
+    "n_common_days": 200,
+    "source": "holdout2026_v33 run",
+    "universe_size": 500,
+    "diff": 0.4064109101227036,
+    "ci_lo": -2.418451085112716,
+    "ci_hi": 3.2312729053581233,
+    "pvalue": 0.769246150769846,
+    "distance_sharpe": -0.6800623182006994
+   },
+   "random_pair": {
+    "percentile": 32.0,
+    "median_sharpe": 0.06425,
+    "n_draws": 200,
+    "source": "holdout2026_v33 run"
+   },
+   "period": [
+    "2026-01-02",
+    "2026-10-19"
+   ],
+   "role": "confirmatory",
+   "p_holm": 0.9554310792755696,
+   "edge_out_of_sample": false
+  }
+ },
+ "inputs": {
+  "calendar": "holdout2026",
+  "calendar_hash": "c19018232a36",
+  "expect_commit": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+  "period_matches_calendar": true,
+  "runs": {
+   "v33_pairs": {
+    "provenance": {
+     "git_commit": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+     "git_dirty": false,
+     "run_timestamp_utc": "2026-10-26T10:23:33+00:00",
+     "profile": "v33",
+     "profile_hash": "d54d21314c22",
+     "calendar": "holdout2026",
+     "calendar_hash": "c19018232a36",
+     "complete": true,
+     "non_default_switches": [],
+     "price_cache_sha256": "3225e2224492a33082c6139678d54cbae7d9e3ec41a1ed5cefd6d16145e21a53",
+     "macro_cache_sha256": "42ec0c2adde0b229567a7feaa7595bad0677ffb82d2981d80d92ecce0e88a6cc",
+     "universe_file_sha256": "6cea0d4b4994e69af8126dbb68547df293dcd428799099d018cdc246649d3da4"
+    },
+    "sha256": {
+     "pairs_trading_results_2023_2025_unbiased.json": "60cb8931bd0242223f9821ae9c88867786316ebe5fe0ba3f61d11109eab07a74",
+     "headline_metrics.json": "19365c812ca2daf83aadd57369e331bb251185451ff0beb719eb82260cce6fe3"
+    }
+   },
+   "v32_pairs": {
+    "provenance": {
+     "git_commit": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+     "git_dirty": false,
+     "run_timestamp_utc": "2026-10-26T10:26:24+00:00",
+     "profile": "v32",
+     "profile_hash": "b5665398f3ad",
+     "calendar": "holdout2026",
+     "calendar_hash": "c19018232a36",
+     "complete": true,
+     "non_default_switches": [],
+     "price_cache_sha256": "3225e2224492a33082c6139678d54cbae7d9e3ec41a1ed5cefd6d16145e21a53",
+     "macro_cache_sha256": "42ec0c2adde0b229567a7feaa7595bad0677ffb82d2981d80d92ecce0e88a6cc",
+     "universe_file_sha256": "f1acb6a53a0792e45d6a558e889edb3e38405852ae91e65a77a24ab5bb565fa3"
+    },
+    "sha256": {
+     "pairs_trading_results_2023_2025_unbiased.json": "d07c6ebc90a223e3b282177bee1abf41e009ac7c7dc08968b7bbe00bc3bba29a",
+     "headline_metrics.json": "822b77d013850beebb40401ff23fea1695e4703de9b32a248a55e825102cd033"
+    }
+   },
+   "avellaneda_lee": {
+    "provenance": {
+     "git_commit": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+     "git_dirty": false,
+     "run_timestamp_utc": "2026-10-26T10:27:26+00:00",
+     "strategy": "avellaneda_lee",
+     "params_hash": "2d50e388fb12",
+     "calendar": "holdout2026",
+     "calendar_hash": "c19018232a36",
+     "complete": true,
+     "non_default_switches": [],
+     "price_cache_sha256": "3225e2224492a33082c6139678d54cbae7d9e3ec41a1ed5cefd6d16145e21a53",
+     "macro_cache_sha256": "42ec0c2adde0b229567a7feaa7595bad0677ffb82d2981d80d92ecce0e88a6cc",
+     "universe_file_sha256": "6cea0d4b4994e69af8126dbb68547df293dcd428799099d018cdc246649d3da4",
+     "reference_root": "data/holdout2026_reference",
+     "sector_map_registered": true,
+     "sector_map_sha256": "8d68969196846eed911991c0536d6b478ac50ac0a2ced3cb4b7ae88f9f16771c"
+    },
+    "sha256": {
+     "residual_statarb.json": "39debf9a6f85bfcf26edb87e089c8135b71bed3c2aaed0e45a3ec10d06a1cbcd"
+    }
+   }
+  }
+ }
+}

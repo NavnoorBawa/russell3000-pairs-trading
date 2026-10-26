@@ -1,0 +1,4 @@
+       v33_pairs: 200 days, net +0.08%, Sharpe +0.05, t +0.06, p(one-sided) 0.478, Holm p 0.955
+       v32_pairs: 200 days, net -0.48%, Sharpe -0.41, t -0.50, p(one-sided) 0.690, descriptive, not tested
+  avellaneda_lee: 200 days, net -1.59%, Sharpe -0.27, t -0.27, p(one-sided) 0.608, Holm p 0.955
+-> results/holdout2026/evaluation.json

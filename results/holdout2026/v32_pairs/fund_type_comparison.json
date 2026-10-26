@@ -1,0 +1,4534 @@
+{
+  "metadata": {
+    "export_date_utc": "2026-10-26T10:26:24+00:00",
+    "description": "Cost-schedule replay: the main backtest's trades (same signals, entry/exit dates and daily mark-to-market paths) re-sized and re-costed under five archetypal cost schedules (pairs_trading/fund_profiles.py). The schedules are illustrative parameter sets, not any firm's terms; the replay does not model margin, and max_gross_leverage reports the peak gross exposure actually run.",
+    "profiles": [
+      "quant_hf",
+      "multi_strat",
+      "fundamental_ls",
+      "institutional",
+      "retail"
+    ],
+    "initial_capital_usd": {
+      "quant_hf": 100000009.83,
+      "multi_strat": 100000043.38,
+      "fundamental_ls": 100000031.02,
+      "institutional": 100000036.73,
+      "retail": 99999992.56
+    },
+    "field_notes": {
+      "drawdowns": "all drawdown fields are <= 0, relative to the running peak; the starting capital counts as the first peak",
+      "profit_factor": "sum of winning trades / |sum of losing trades|; null when there is no losing trade (infinite) or no trade at all"
+    }
+  },
+  "run_config": {
+    "package_version": "33.0.0",
+    "git_commit": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+    "git_dirty": false,
+    "git_changed_during_run": false,
+    "run_started_utc": "2026-10-26T10:23:37+00:00",
+    "run_timestamp_utc": "2026-10-26T10:26:24+00:00",
+    "env": {
+      "PAIRS_PROFILE": "v32",
+      "PAIRS_CALENDAR": "holdout2026",
+      "PAIRS_SEED": "42",
+      "PAIRS_FILL": null,
+      "PAIRS_USE_TRANSFORMER": null,
+      "PAIRS_RANKER": null,
+      "PAIRS_RESELECT": null,
+      "PAIRS_DEMO_UNIVERSE": null,
+      "PAIRS_SKIP_REPROCESS": null,
+      "PAIRS_ALLOW_PARTIAL_FETCH": null,
+      "PAIRS_N_JOBS": null,
+      "PAIRS_OUTPUT_DIR": "outputs/holdout2026_v32",
+      "PYTHONHASHSEED": "0",
+      "PAIRS_UNSEAL": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5",
+      "PAIRS_EXPECTED_COMMIT": "7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5"
+    },
+    "effective": {
+      "profile": "v32",
+      "calendar": "holdout2026",
+      "fill": "close",
+      "ranker": "transformer",
+      "use_transformer_ranker": true,
+      "reselect": "pool",
+      "regime_gate": true
+    },
+    "study": {
+      "profile": {
+        "name": "v32",
+        "universe": "marketcap",
+        "max_universe": 300,
+        "same_industry": false,
+        "reselect": "pool",
+        "reselect_every": 90,
+        "formation_calendar_days": 730,
+        "regime_gate": true,
+        "ranker": "transformer",
+        "borrow_rate": 0.0025,
+        "pb_financing_spread": 0.005
+      },
+      "calendar": {
+        "name": "holdout2026",
+        "data_start": "2023-01-01",
+        "data_end": "2026-10-19",
+        "selection_cutoff": "2025-12-31",
+        "model_train_end": "2025-12-31",
+        "backtest_start": "2026-01-02",
+        "walk_forward": false,
+        "price_cache": "data/holdout2026_prices.pkl",
+        "macro_cache": "data/holdout2026_macro.pkl"
+      },
+      "profile_hash": "b5665398f3ad",
+      "calendar_hash": "c19018232a36"
+    },
+    "data": {
+      "data_start": "2023-01-03",
+      "data_end": "2026-10-19",
+      "backtest_start": "2026-01-02",
+      "backtest_end": "2026-10-19",
+      "n_symbols": 2790,
+      "n_pairs": 971,
+      "universe_coverage": 1.0,
+      "universe_cached_fraction": 0.9303,
+      "universe_not_found_fraction": 0.0,
+      "price_cache": {
+        "path": "data/holdout2026_prices.pkl",
+        "size_bytes": 806151539,
+        "mtime_utc": "2026-10-26T10:21:44+00:00",
+        "sha256": "3225e2224492a33082c6139678d54cbae7d9e3ec41a1ed5cefd6d16145e21a53"
+      },
+      "macro_cache": {
+        "path": "data/holdout2026_macro.pkl",
+        "size_bytes": 279829,
+        "mtime_utc": "2026-10-26T10:20:26+00:00",
+        "sha256": "42ec0c2adde0b229567a7feaa7595bad0677ffb82d2981d80d92ecce0e88a6cc"
+      },
+      "universe_file": {
+        "path": "data/marketcap.csv",
+        "size_bytes": 13612,
+        "mtime_utc": "2026-10-26T10:06:12+00:00",
+        "sha256": "f1acb6a53a0792e45d6a558e889edb3e38405852ae91e65a77a24ab5bb565fa3"
+      },
+      "price_anchor": null
+    },
+    "versions": {
+      "python": "3.12.3",
+      "numpy": "1.26.4",
+      "pandas": "2.2.3",
+      "torch": "2.13.0+cpu",
+      "scipy": "1.15.2",
+      "statsmodels": "0.14.4"
+    },
+    "platform": "Linux-6.18.44-fc-v153-x86_64-with-glibc2.39"
+  },
+  "profiles": {
+    "quant_hf": {
+      "profile_key": "quant_hf",
+      "profile_name": "Systematic Stat-Arb",
+      "description": "Systematic stat-arb archetype: electronic execution, large positions",
+      "max_gross_leverage": 0.948,
+      "commission_bps": 1.0,
+      "bid_ask_bps": 2.0,
+      "market_impact_cap_bps": 12.0,
+      "borrow_rate_gc_pct": 0.6,
+      "replayed_net_pnl": -867190.26,
+      "unclosed_trades": 0,
+      "financing_spread_pct": 0.5,
+      "base_position_pct": 12.0,
+      "max_position_pct": 30.0,
+      "max_drawdown_limit_pct": 20.0,
+      "total_return_pct": -0.8672,
+      "annualized_return_pct": -1.0914,
+      "final_equity": 99132809.74,
+      "max_drawdown_pct": -4.031,
+      "sharpe_ratio": -0.235,
+      "win_rate_pct": 44.19,
+      "profit_factor": 0.903,
+      "total_trades": 43,
+      "trades_stopped_early": false,
+      "stopped_on": null,
+      "total_cost_dollars": 818070.92,
+      "total_cost_pct_of_capital": 0.8181,
+      "cost_components": {
+        "commission_dollars": 76256.31,
+        "bid_ask_dollars": 152512.62,
+        "market_impact_dollars": 480542.87,
+        "borrow_dollars": 59323.16,
+        "financing_dollars": 49435.97,
+        "commission_pct": 0.0763,
+        "bid_ask_pct": 0.1525,
+        "market_impact_pct": 0.4805,
+        "borrow_pct": 0.0593,
+        "financing_pct": 0.0494
+      }
+    },
+    "multi_strat": {
+      "profile_key": "multi_strat",
+      "profile_name": "Multi-Manager Pod",
+      "description": "Multi-manager pod archetype: blended execution, pass-through costs",
+      "max_gross_leverage": 0.631,
+      "commission_bps": 1.5,
+      "bid_ask_bps": 4.0,
+      "market_impact_cap_bps": 20.0,
+      "borrow_rate_gc_pct": 1.0,
+      "replayed_net_pnl": -841156.98,
+      "unclosed_trades": 0,
+      "financing_spread_pct": 1.0,
+      "base_position_pct": 8.0,
+      "max_position_pct": 20.0,
+      "max_drawdown_limit_pct": 15.0,
+      "total_return_pct": -0.8412,
+      "annualized_return_pct": -1.0587,
+      "final_equity": 99158843.02,
+      "max_drawdown_pct": -2.8212,
+      "sharpe_ratio": -0.358,
+      "win_rate_pct": 44.19,
+      "profit_factor": 0.862,
+      "total_trades": 43,
+      "trades_stopped_early": false,
+      "stopped_on": null,
+      "total_cost_dollars": 815945.26,
+      "total_cost_pct_of_capital": 0.8159,
+      "cost_components": {
+        "commission_dollars": 76643.67,
+        "bid_ask_dollars": 204383.13,
+        "market_impact_dollars": 402419.61,
+        "borrow_dollars": 66249.42,
+        "financing_dollars": 66249.42,
+        "commission_pct": 0.0766,
+        "bid_ask_pct": 0.2044,
+        "market_impact_pct": 0.4024,
+        "borrow_pct": 0.0662,
+        "financing_pct": 0.0662
+      }
+    },
+    "fundamental_ls": {
+      "profile_key": "fundamental_ls",
+      "profile_name": "Discretionary Long/Short",
+      "description": "Discretionary long/short archetype: high-touch execution",
+      "max_gross_leverage": 0.315,
+      "commission_bps": 5.0,
+      "bid_ask_bps": 10.0,
+      "market_impact_cap_bps": 50.0,
+      "borrow_rate_gc_pct": 2.0,
+      "replayed_net_pnl": -797569.23,
+      "unclosed_trades": 0,
+      "financing_spread_pct": 1.5,
+      "base_position_pct": 4.0,
+      "max_position_pct": 10.0,
+      "max_drawdown_limit_pct": 12.0,
+      "total_return_pct": -0.7976,
+      "annualized_return_pct": -1.0039,
+      "final_equity": 99202430.77,
+      "max_drawdown_pct": -1.5859,
+      "sharpe_ratio": -0.695,
+      "win_rate_pct": 44.19,
+      "profit_factor": 0.756,
+      "total_trades": 43,
+      "trades_stopped_early": false,
+      "stopped_on": null,
+      "total_cost_dollars": 788937.72,
+      "total_cost_pct_of_capital": 0.7889,
+      "cost_components": {
+        "commission_dollars": 128404.34,
+        "bid_ask_dollars": 256808.68,
+        "market_impact_dollars": 287185.93,
+        "borrow_dollars": 66593.58,
+        "financing_dollars": 49945.19,
+        "commission_pct": 0.1284,
+        "bid_ask_pct": 0.2568,
+        "market_impact_pct": 0.2872,
+        "borrow_pct": 0.0666,
+        "financing_pct": 0.0499
+      }
+    },
+    "institutional": {
+      "profile_key": "institutional",
+      "profile_name": "Patient Institutional",
+      "description": "Pension-style archetype: patient algorithmic execution, no leverage",
+      "max_gross_leverage": 0.154,
+      "commission_bps": 1.0,
+      "bid_ask_bps": 1.5,
+      "market_impact_cap_bps": 4.0,
+      "borrow_rate_gc_pct": 0.1,
+      "replayed_net_pnl": -104263.31,
+      "unclosed_trades": 0,
+      "financing_spread_pct": 0.0,
+      "base_position_pct": 2.0,
+      "max_position_pct": 5.0,
+      "max_drawdown_limit_pct": 10.0,
+      "total_return_pct": -0.1043,
+      "annualized_return_pct": -0.1314,
+      "final_equity": 99895736.69,
+      "max_drawdown_pct": -0.7241,
+      "sharpe_ratio": -0.186,
+      "win_rate_pct": 43.9,
+      "profit_factor": 0.927,
+      "total_trades": 41,
+      "trades_stopped_early": false,
+      "stopped_on": null,
+      "total_cost_dollars": 44935.53,
+      "total_cost_pct_of_capital": 0.0449,
+      "cost_components": {
+        "commission_dollars": 12402.86,
+        "bid_ask_dollars": 18604.29,
+        "market_impact_dollars": 12330.05,
+        "borrow_dollars": 1598.34,
+        "financing_dollars": 0.0,
+        "commission_pct": 0.0124,
+        "bid_ask_pct": 0.0186,
+        "market_impact_pct": 0.0123,
+        "borrow_pct": 0.0016,
+        "financing_pct": 0.0
+      }
+    },
+    "retail": {
+      "profile_key": "retail",
+      "profile_name": "Retail / Small Prop",
+      "description": "Retail or small proprietary account archetype: expensive borrow and margin",
+      "max_gross_leverage": 0.154,
+      "commission_bps": 0.7,
+      "bid_ask_bps": 15.0,
+      "market_impact_cap_bps": 80.0,
+      "borrow_rate_gc_pct": 6.0,
+      "replayed_net_pnl": -480007.4,
+      "unclosed_trades": 0,
+      "financing_spread_pct": 3.0,
+      "base_position_pct": 2.0,
+      "max_position_pct": 5.0,
+      "max_drawdown_limit_pct": 15.0,
+      "total_return_pct": -0.48,
+      "annualized_return_pct": -0.6044,
+      "final_equity": 99519992.6,
+      "max_drawdown_pct": -0.8453,
+      "sharpe_ratio": -0.888,
+      "win_rate_pct": 47.37,
+      "profit_factor": 0.692,
+      "total_trades": 38,
+      "trades_stopped_early": false,
+      "stopped_on": null,
+      "total_cost_dollars": 516842.02,
+      "total_cost_pct_of_capital": 0.5168,
+      "cost_components": {
+        "commission_dollars": 8123.92,
+        "bid_ask_dollars": 174083.99,
+        "market_impact_dollars": 194320.33,
+        "borrow_dollars": 93542.52,
+        "financing_dollars": 46771.26,
+        "commission_pct": 0.0081,
+        "bid_ask_pct": 0.1741,
+        "market_impact_pct": 0.1943,
+        "borrow_pct": 0.0935,
+        "financing_pct": 0.0468
+      }
+    }
+  },
+  "summary_table": [
+    {
+      "metric": "Total Return (%)",
+      "quant_hf": -0.8672,
+      "multi_strat": -0.8412,
+      "fundamental_ls": -0.7976,
+      "institutional": -0.1043,
+      "retail": -0.48
+    },
+    {
+      "metric": "Annualized Return (%)",
+      "quant_hf": -1.0914,
+      "multi_strat": -1.0587,
+      "fundamental_ls": -1.0039,
+      "institutional": -0.1314,
+      "retail": -0.6044
+    },
+    {
+      "metric": "Sharpe Ratio",
+      "quant_hf": -0.235,
+      "multi_strat": -0.358,
+      "fundamental_ls": -0.695,
+      "institutional": -0.186,
+      "retail": -0.888
+    },
+    {
+      "metric": "Max Drawdown (%)",
+      "quant_hf": -4.031,
+      "multi_strat": -2.8212,
+      "fundamental_ls": -1.5859,
+      "institutional": -0.7241,
+      "retail": -0.8453
+    },
+    {
+      "metric": "Win Rate (%)",
+      "quant_hf": 44.19,
+      "multi_strat": 44.19,
+      "fundamental_ls": 44.19,
+      "institutional": 43.9,
+      "retail": 47.37
+    },
+    {
+      "metric": "Profit Factor (null = no losing trade)",
+      "quant_hf": 0.903,
+      "multi_strat": 0.862,
+      "fundamental_ls": 0.756,
+      "institutional": 0.927,
+      "retail": 0.692
+    },
+    {
+      "metric": "Total Trades",
+      "quant_hf": 43,
+      "multi_strat": 43,
+      "fundamental_ls": 43,
+      "institutional": 41,
+      "retail": 38
+    },
+    {
+      "metric": "Total Costs (% of initial capital)",
+      "quant_hf": 0.8181,
+      "multi_strat": 0.8159,
+      "fundamental_ls": 0.7889,
+      "institutional": 0.0449,
+      "retail": 0.5168
+    },
+    {
+      "metric": "Commission (bps)",
+      "quant_hf": 1.0,
+      "multi_strat": 1.5,
+      "fundamental_ls": 5.0,
+      "institutional": 1.0,
+      "retail": 0.7
+    },
+    {
+      "metric": "Bid-Ask (bps)",
+      "quant_hf": 2.0,
+      "multi_strat": 4.0,
+      "fundamental_ls": 10.0,
+      "institutional": 1.5,
+      "retail": 15.0
+    },
+    {
+      "metric": "Market Impact Cap (bps)",
+      "quant_hf": 12.0,
+      "multi_strat": 20.0,
+      "fundamental_ls": 50.0,
+      "institutional": 4.0,
+      "retail": 80.0
+    },
+    {
+      "metric": "Borrow Rate, GC, short leg (%/yr)",
+      "quant_hf": 0.6,
+      "multi_strat": 1.0,
+      "fundamental_ls": 2.0,
+      "institutional": 0.1,
+      "retail": 6.0
+    },
+    {
+      "metric": "Financing Spread (%/yr)",
+      "quant_hf": 0.5,
+      "multi_strat": 1.0,
+      "fundamental_ls": 1.5,
+      "institutional": 0.0,
+      "retail": 3.0
+    },
+    {
+      "metric": "Base Position (% equity)",
+      "quant_hf": 12.0,
+      "multi_strat": 8.0,
+      "fundamental_ls": 4.0,
+      "institutional": 2.0,
+      "retail": 2.0
+    },
+    {
+      "metric": "Peak Gross Leverage (realised)",
+      "quant_hf": 0.948,
+      "multi_strat": 0.631,
+      "fundamental_ls": 0.315,
+      "institutional": 0.154,
+      "retail": 0.154
+    },
+    {
+      "metric": "Stopped by Drawdown Kill-Switch",
+      "quant_hf": false,
+      "multi_strat": false,
+      "fundamental_ls": false,
+      "institutional": false,
+      "retail": false
+    },
+    {
+      "metric": "Kill-Switch Date",
+      "quant_hf": null,
+      "multi_strat": null,
+      "fundamental_ls": null,
+      "institutional": null,
+      "retail": null
+    }
+  ],
+  "cost_table": [
+    {
+      "cost_component": "Commission (% of initial capital)",
+      "quant_hf": 0.0763,
+      "multi_strat": 0.0766,
+      "fundamental_ls": 0.1284,
+      "institutional": 0.0124,
+      "retail": 0.0081
+    },
+    {
+      "cost_component": "Bid-Ask (% of initial capital)",
+      "quant_hf": 0.1525,
+      "multi_strat": 0.2044,
+      "fundamental_ls": 0.2568,
+      "institutional": 0.0186,
+      "retail": 0.1741
+    },
+    {
+      "cost_component": "Market Impact (% of initial capital)",
+      "quant_hf": 0.4805,
+      "multi_strat": 0.4024,
+      "fundamental_ls": 0.2872,
+      "institutional": 0.0123,
+      "retail": 0.1943
+    },
+    {
+      "cost_component": "Stock Borrow (% of initial capital)",
+      "quant_hf": 0.0593,
+      "multi_strat": 0.0662,
+      "fundamental_ls": 0.0666,
+      "institutional": 0.0016,
+      "retail": 0.0935
+    },
+    {
+      "cost_component": "Financing (% of initial capital)",
+      "quant_hf": 0.0494,
+      "multi_strat": 0.0662,
+      "fundamental_ls": 0.0499,
+      "institutional": 0.0,
+      "retail": 0.0468
+    }
+  ],
+  "equity_curves": {
+    "quant_hf": {
+      "profile_name": "Systematic Stat-Arb",
+      "curve": [
+        {
+          "date": "2026-01-02",
+          "value": 100000000.0
+        },
+        {
+          "date": "2026-01-05",
+          "value": 100000000.0
+        },
+        {
+          "date": "2026-01-06",
+          "value": 99951853.51
+        },
+        {
+          "date": "2026-01-07",
+          "value": 100146566.68
+        },
+        {
+          "date": "2026-01-08",
+          "value": 99154094.52
+        },
+        {
+          "date": "2026-01-09",
+          "value": 98948274.09
+        },
+        {
+          "date": "2026-01-12",
+          "value": 99085352.02
+        },
+        {
+          "date": "2026-01-13",
+          "value": 98807221.72
+        },
+        {
+          "date": "2026-01-14",
+          "value": 98433504.76
+        },
+        {
+          "date": "2026-01-15",
+          "value": 98919929.89
+        },
+        {
+          "date": "2026-01-16",
+          "value": 98821768.32
+        },
+        {
+          "date": "2026-01-20",
+          "value": 99136462.84
+        },
+        {
+          "date": "2026-01-21",
+          "value": 98498969.45
+        },
+        {
+          "date": "2026-01-22",
+          "value": 98973384.8
+        },
+        {
+          "date": "2026-01-23",
+          "value": 98986717.59
+        },
+        {
+          "date": "2026-01-26",
+          "value": 98981661.74
+        },
+        {
+          "date": "2026-01-27",
+          "value": 99024054.77
+        },
+        {
+          "date": "2026-01-28",
+          "value": 99381743.9
+        },
+        {
+          "date": "2026-01-29",
+          "value": 98385102.14
+        },
+        {
+          "date": "2026-01-30",
+          "value": 97969535.83
+        },
+        {
+          "date": "2026-02-02",
+          "value": 98088487.4
+        },
+        {
+          "date": "2026-02-03",
+          "value": 98396252.71
+        },
+        {
+          "date": "2026-02-04",
+          "value": 98243097.53
+        },
+        {
+          "date": "2026-02-05",
+          "value": 98343960.95
+        },
+        {
+          "date": "2026-02-06",
+          "value": 97690006.42
+        },
+        {
+          "date": "2026-02-09",
+          "value": 97958200.75
+        },
+        {
+          "date": "2026-02-10",
+          "value": 98467242.48
+        },
+        {
+          "date": "2026-02-11",
+          "value": 97014602.8
+        },
+        {
+          "date": "2026-02-12",
+          "value": 96325663.75
+        },
+        {
+          "date": "2026-02-13",
+          "value": 96590082.38
+        },
+        {
+          "date": "2026-02-17",
+          "value": 96707666.87
+        },
+        {
+          "date": "2026-02-18",
+          "value": 97212594.84
+        },
+        {
+          "date": "2026-02-19",
+          "value": 97271325.85
+        },
+        {
+          "date": "2026-02-20",
+          "value": 97171813.17
+        },
+        {
+          "date": "2026-02-23",
+          "value": 96109649.75
+        },
+        {
+          "date": "2026-02-24",
+          "value": 96609175.0
+        },
+        {
+          "date": "2026-02-25",
+          "value": 97268706.28
+        },
+        {
+          "date": "2026-02-26",
+          "value": 97518432.55
+        },
+        {
+          "date": "2026-02-27",
+          "value": 96678158.79
+        },
+        {
+          "date": "2026-03-02",
+          "value": 96526706.05
+        },
+        {
+          "date": "2026-03-03",
+          "value": 96506296.21
+        },
+        {
+          "date": "2026-03-04",
+          "value": 96768201.66
+        },
+        {
+          "date": "2026-03-05",
+          "value": 97255689.4
+        },
+        {
+          "date": "2026-03-06",
+          "value": 97103942.22
+        },
+        {
+          "date": "2026-03-09",
+          "value": 97152926.23
+        },
+        {
+          "date": "2026-03-10",
+          "value": 97215818.61
+        },
+        {
+          "date": "2026-03-11",
+          "value": 96951162.14
+        },
+        {
+          "date": "2026-03-12",
+          "value": 96712034.4
+        },
+        {
+          "date": "2026-03-13",
+          "value": 97238892.46
+        },
+        {
+          "date": "2026-03-16",
+          "value": 97120720.68
+        },
+        {
+          "date": "2026-03-17",
+          "value": 97619353.21
+        },
+        {
+          "date": "2026-03-18",
+          "value": 97977028.83
+        },
+        {
+          "date": "2026-03-19",
+          "value": 97931654.56
+        },
+        {
+          "date": "2026-03-20",
+          "value": 97829549.52
+        },
+        {
+          "date": "2026-03-23",
+          "value": 97576067.39
+        },
+        {
+          "date": "2026-03-24",
+          "value": 97457639.28
+        },
+        {
+          "date": "2026-03-25",
+          "value": 97354165.56
+        },
+        {
+          "date": "2026-03-26",
+          "value": 97482261.92
+        },
+        {
+          "date": "2026-03-27",
+          "value": 97505810.33
+        },
+        {
+          "date": "2026-03-30",
+          "value": 97753244.82
+        },
+        {
+          "date": "2026-03-31",
+          "value": 97815685.23
+        },
+        {
+          "date": "2026-04-01",
+          "value": 97673034.93
+        },
+        {
+          "date": "2026-04-02",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-06",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-07",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-08",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-09",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-10",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-13",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-14",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-15",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-16",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-17",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-20",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-21",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-22",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-23",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-24",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-27",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-28",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-29",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-04-30",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-01",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-04",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-05",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-06",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-07",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-08",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-11",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-12",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-13",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-14",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-15",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-18",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-19",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-20",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-21",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-22",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-26",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-27",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-28",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-05-29",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-01",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-02",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-03",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-04",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-05",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-08",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-09",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-10",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-11",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-12",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-15",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-16",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-17",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-18",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-22",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-23",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-24",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-25",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-26",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-29",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-06-30",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-01",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-02",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-06",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-07",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-08",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-09",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-10",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-13",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-14",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-15",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-16",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-17",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-20",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-21",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-22",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-23",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-24",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-27",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-28",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-29",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-30",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-07-31",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-03",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-04",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-05",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-06",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-07",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-10",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-11",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-12",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-13",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-14",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-17",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-18",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-19",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-20",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-21",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-24",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-25",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-26",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-27",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-28",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-08-31",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-09-01",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-09-02",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-09-03",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-09-04",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-09-08",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-09-09",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-09-10",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-09-11",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-09-14",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-09-15",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-09-16",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-09-17",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-09-18",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-09-21",
+          "value": 97578963.63
+        },
+        {
+          "date": "2026-09-22",
+          "value": 97561494.15
+        },
+        {
+          "date": "2026-09-23",
+          "value": 97188568.03
+        },
+        {
+          "date": "2026-09-24",
+          "value": 96580841.44
+        },
+        {
+          "date": "2026-09-25",
+          "value": 97302817.91
+        },
+        {
+          "date": "2026-09-28",
+          "value": 97600450.32
+        },
+        {
+          "date": "2026-09-29",
+          "value": 97284786.78
+        },
+        {
+          "date": "2026-09-30",
+          "value": 97553159.5
+        },
+        {
+          "date": "2026-10-01",
+          "value": 97915347.3
+        },
+        {
+          "date": "2026-10-02",
+          "value": 97732108.19
+        },
+        {
+          "date": "2026-10-05",
+          "value": 97883596.92
+        },
+        {
+          "date": "2026-10-06",
+          "value": 97796352.96
+        },
+        {
+          "date": "2026-10-07",
+          "value": 98187087.6
+        },
+        {
+          "date": "2026-10-08",
+          "value": 98149821.35
+        },
+        {
+          "date": "2026-10-09",
+          "value": 98328856.65
+        },
+        {
+          "date": "2026-10-12",
+          "value": 97848645.95
+        },
+        {
+          "date": "2026-10-13",
+          "value": 98036049.5
+        },
+        {
+          "date": "2026-10-14",
+          "value": 98601029.71
+        },
+        {
+          "date": "2026-10-15",
+          "value": 99120970.77
+        },
+        {
+          "date": "2026-10-16",
+          "value": 99100467.5
+        },
+        {
+          "date": "2026-10-19",
+          "value": 99132809.74
+        }
+      ]
+    },
+    "multi_strat": {
+      "profile_name": "Multi-Manager Pod",
+      "curve": [
+        {
+          "date": "2026-01-02",
+          "value": 100000000.0
+        },
+        {
+          "date": "2026-01-05",
+          "value": 100000000.0
+        },
+        {
+          "date": "2026-01-06",
+          "value": 99951775.25
+        },
+        {
+          "date": "2026-01-07",
+          "value": 100078055.14
+        },
+        {
+          "date": "2026-01-08",
+          "value": 99416407.07
+        },
+        {
+          "date": "2026-01-09",
+          "value": 99276768.6
+        },
+        {
+          "date": "2026-01-12",
+          "value": 99364142.23
+        },
+        {
+          "date": "2026-01-13",
+          "value": 99178190.47
+        },
+        {
+          "date": "2026-01-14",
+          "value": 98928255.99
+        },
+        {
+          "date": "2026-01-15",
+          "value": 99248327.81
+        },
+        {
+          "date": "2026-01-16",
+          "value": 99173931.19
+        },
+        {
+          "date": "2026-01-20",
+          "value": 99379852.89
+        },
+        {
+          "date": "2026-01-21",
+          "value": 98954742.19
+        },
+        {
+          "date": "2026-01-22",
+          "value": 99269208.74
+        },
+        {
+          "date": "2026-01-23",
+          "value": 99278125.24
+        },
+        {
+          "date": "2026-01-26",
+          "value": 99274829.7
+        },
+        {
+          "date": "2026-01-27",
+          "value": 99302819.31
+        },
+        {
+          "date": "2026-01-28",
+          "value": 99536217.33
+        },
+        {
+          "date": "2026-01-29",
+          "value": 98867239.27
+        },
+        {
+          "date": "2026-01-30",
+          "value": 98589219.95
+        },
+        {
+          "date": "2026-02-02",
+          "value": 98665066.17
+        },
+        {
+          "date": "2026-02-03",
+          "value": 98869604.76
+        },
+        {
+          "date": "2026-02-04",
+          "value": 98756970.31
+        },
+        {
+          "date": "2026-02-05",
+          "value": 98812019.88
+        },
+        {
+          "date": "2026-02-06",
+          "value": 98370188.11
+        },
+        {
+          "date": "2026-02-09",
+          "value": 98547340.54
+        },
+        {
+          "date": "2026-02-10",
+          "value": 98884117.85
+        },
+        {
+          "date": "2026-02-11",
+          "value": 97896702.36
+        },
+        {
+          "date": "2026-02-12",
+          "value": 97430848.59
+        },
+        {
+          "date": "2026-02-13",
+          "value": 97600701.31
+        },
+        {
+          "date": "2026-02-17",
+          "value": 97674682.85
+        },
+        {
+          "date": "2026-02-18",
+          "value": 98005767.55
+        },
+        {
+          "date": "2026-02-19",
+          "value": 98044714.36
+        },
+        {
+          "date": "2026-02-20",
+          "value": 97975211.01
+        },
+        {
+          "date": "2026-02-23",
+          "value": 97254612.95
+        },
+        {
+          "date": "2026-02-24",
+          "value": 97581170.8
+        },
+        {
+          "date": "2026-02-25",
+          "value": 98020440.59
+        },
+        {
+          "date": "2026-02-26",
+          "value": 98185920.76
+        },
+        {
+          "date": "2026-02-27",
+          "value": 97617356.83
+        },
+        {
+          "date": "2026-03-02",
+          "value": 97516067.14
+        },
+        {
+          "date": "2026-03-03",
+          "value": 97497567.62
+        },
+        {
+          "date": "2026-03-04",
+          "value": 97674009.54
+        },
+        {
+          "date": "2026-03-05",
+          "value": 98002192.83
+        },
+        {
+          "date": "2026-03-06",
+          "value": 97899698.26
+        },
+        {
+          "date": "2026-03-09",
+          "value": 97930662.51
+        },
+        {
+          "date": "2026-03-10",
+          "value": 97972902.47
+        },
+        {
+          "date": "2026-03-11",
+          "value": 97794698.96
+        },
+        {
+          "date": "2026-03-12",
+          "value": 97633267.89
+        },
+        {
+          "date": "2026-03-13",
+          "value": 97986992.45
+        },
+        {
+          "date": "2026-03-16",
+          "value": 97907378.15
+        },
+        {
+          "date": "2026-03-17",
+          "value": 98243473.46
+        },
+        {
+          "date": "2026-03-18",
+          "value": 98484572.64
+        },
+        {
+          "date": "2026-03-19",
+          "value": 98446978.56
+        },
+        {
+          "date": "2026-03-20",
+          "value": 98377919.05
+        },
+        {
+          "date": "2026-03-23",
+          "value": 98203616.32
+        },
+        {
+          "date": "2026-03-24",
+          "value": 98121320.55
+        },
+        {
+          "date": "2026-03-25",
+          "value": 98051677.73
+        },
+        {
+          "date": "2026-03-26",
+          "value": 98138115.56
+        },
+        {
+          "date": "2026-03-27",
+          "value": 98154037.22
+        },
+        {
+          "date": "2026-03-30",
+          "value": 98315500.58
+        },
+        {
+          "date": "2026-03-31",
+          "value": 98357590.89
+        },
+        {
+          "date": "2026-04-01",
+          "value": 98253580.48
+        },
+        {
+          "date": "2026-04-02",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-06",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-07",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-08",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-09",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-10",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-13",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-14",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-15",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-16",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-17",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-20",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-21",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-22",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-23",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-24",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-27",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-28",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-29",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-04-30",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-01",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-04",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-05",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-06",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-07",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-08",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-11",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-12",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-13",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-14",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-15",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-18",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-19",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-20",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-21",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-22",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-26",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-27",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-28",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-05-29",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-01",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-02",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-03",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-04",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-05",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-08",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-09",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-10",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-11",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-12",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-15",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-16",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-17",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-18",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-22",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-23",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-24",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-25",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-26",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-29",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-06-30",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-01",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-02",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-06",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-07",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-08",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-09",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-10",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-13",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-14",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-15",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-16",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-17",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-20",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-21",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-22",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-23",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-24",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-27",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-28",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-29",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-30",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-07-31",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-03",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-04",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-05",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-06",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-07",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-10",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-11",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-12",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-13",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-14",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-17",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-18",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-19",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-20",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-21",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-24",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-25",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-26",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-27",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-28",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-08-31",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-09-01",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-09-02",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-09-03",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-09-04",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-09-08",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-09-09",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-09-10",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-09-11",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-09-14",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-09-15",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-09-16",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-09-17",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-09-18",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-09-21",
+          "value": 98188481.28
+        },
+        {
+          "date": "2026-09-22",
+          "value": 98171036.72
+        },
+        {
+          "date": "2026-09-23",
+          "value": 97917803.81
+        },
+        {
+          "date": "2026-09-24",
+          "value": 97504164.77
+        },
+        {
+          "date": "2026-09-25",
+          "value": 97988760.07
+        },
+        {
+          "date": "2026-09-28",
+          "value": 98185612.8
+        },
+        {
+          "date": "2026-09-29",
+          "value": 97971710.09
+        },
+        {
+          "date": "2026-09-30",
+          "value": 98146379.0
+        },
+        {
+          "date": "2026-10-01",
+          "value": 98387047.04
+        },
+        {
+          "date": "2026-10-02",
+          "value": 98260934.4
+        },
+        {
+          "date": "2026-10-05",
+          "value": 98362773.02
+        },
+        {
+          "date": "2026-10-06",
+          "value": 98304049.53
+        },
+        {
+          "date": "2026-10-07",
+          "value": 98563504.22
+        },
+        {
+          "date": "2026-10-08",
+          "value": 98538660.19
+        },
+        {
+          "date": "2026-10-09",
+          "value": 98658922.93
+        },
+        {
+          "date": "2026-10-12",
+          "value": 98331744.49
+        },
+        {
+          "date": "2026-10-13",
+          "value": 98457025.15
+        },
+        {
+          "date": "2026-10-14",
+          "value": 98832853.11
+        },
+        {
+          "date": "2026-10-15",
+          "value": 99179304.12
+        },
+        {
+          "date": "2026-10-16",
+          "value": 99156944.06
+        },
+        {
+          "date": "2026-10-19",
+          "value": 99158843.02
+        }
+      ]
+    },
+    "fundamental_ls": {
+      "profile_name": "Discretionary Long/Short",
+      "curve": [
+        {
+          "date": "2026-01-02",
+          "value": 100000000.0
+        },
+        {
+          "date": "2026-01-05",
+          "value": 100000000.0
+        },
+        {
+          "date": "2026-01-06",
+          "value": 99955040.72
+        },
+        {
+          "date": "2026-01-07",
+          "value": 100012578.87
+        },
+        {
+          "date": "2026-01-08",
+          "value": 99681754.09
+        },
+        {
+          "date": "2026-01-09",
+          "value": 99608032.36
+        },
+        {
+          "date": "2026-01-12",
+          "value": 99645463.73
+        },
+        {
+          "date": "2026-01-13",
+          "value": 99552221.71
+        },
+        {
+          "date": "2026-01-14",
+          "value": 99426855.17
+        },
+        {
+          "date": "2026-01-15",
+          "value": 99580462.61
+        },
+        {
+          "date": "2026-01-16",
+          "value": 99530080.18
+        },
+        {
+          "date": "2026-01-20",
+          "value": 99627360.67
+        },
+        {
+          "date": "2026-01-21",
+          "value": 99414747.13
+        },
+        {
+          "date": "2026-01-22",
+          "value": 99568397.63
+        },
+        {
+          "date": "2026-01-23",
+          "value": 99572870.05
+        },
+        {
+          "date": "2026-01-26",
+          "value": 99571260.35
+        },
+        {
+          "date": "2026-01-27",
+          "value": 99585117.5
+        },
+        {
+          "date": "2026-01-28",
+          "value": 99695613.59
+        },
+        {
+          "date": "2026-01-29",
+          "value": 99356097.35
+        },
+        {
+          "date": "2026-01-30",
+          "value": 99216594.82
+        },
+        {
+          "date": "2026-02-02",
+          "value": 99249649.95
+        },
+        {
+          "date": "2026-02-03",
+          "value": 99351600.0
+        },
+        {
+          "date": "2026-02-04",
+          "value": 99281931.78
+        },
+        {
+          "date": "2026-02-05",
+          "value": 99291453.2
+        },
+        {
+          "date": "2026-02-06",
+          "value": 99061765.37
+        },
+        {
+          "date": "2026-02-09",
+          "value": 99147370.12
+        },
+        {
+          "date": "2026-02-10",
+          "value": 99311002.16
+        },
+        {
+          "date": "2026-02-11",
+          "value": 98800204.74
+        },
+        {
+          "date": "2026-02-12",
+          "value": 98559327.99
+        },
+        {
+          "date": "2026-02-13",
+          "value": 98634439.79
+        },
+        {
+          "date": "2026-02-17",
+          "value": 98665096.76
+        },
+        {
+          "date": "2026-02-18",
+          "value": 98820100.83
+        },
+        {
+          "date": "2026-02-19",
+          "value": 98838503.58
+        },
+        {
+          "date": "2026-02-20",
+          "value": 98799438.3
+        },
+        {
+          "date": "2026-02-23",
+          "value": 98426477.17
+        },
+        {
+          "date": "2026-02-24",
+          "value": 98578095.33
+        },
+        {
+          "date": "2026-02-25",
+          "value": 98792849.17
+        },
+        {
+          "date": "2026-02-26",
+          "value": 98872357.08
+        },
+        {
+          "date": "2026-02-27",
+          "value": 98580606.99
+        },
+        {
+          "date": "2026-03-02",
+          "value": 98529798.6
+        },
+        {
+          "date": "2026-03-03",
+          "value": 98514598.52
+        },
+        {
+          "date": "2026-03-04",
+          "value": 98603761.15
+        },
+        {
+          "date": "2026-03-05",
+          "value": 98769487.99
+        },
+        {
+          "date": "2026-03-06",
+          "value": 98717560.2
+        },
+        {
+          "date": "2026-03-09",
+          "value": 98730215.64
+        },
+        {
+          "date": "2026-03-10",
+          "value": 98751495.61
+        },
+        {
+          "date": "2026-03-11",
+          "value": 98661488.93
+        },
+        {
+          "date": "2026-03-12",
+          "value": 98579743.24
+        },
+        {
+          "date": "2026-03-13",
+          "value": 98756655.77
+        },
+        {
+          "date": "2026-03-16",
+          "value": 98716421.83
+        },
+        {
+          "date": "2026-03-17",
+          "value": 98886350.93
+        },
+        {
+          "date": "2026-03-18",
+          "value": 99008256.39
+        },
+        {
+          "date": "2026-03-19",
+          "value": 98981044.71
+        },
+        {
+          "date": "2026-03-20",
+          "value": 98946009.24
+        },
+        {
+          "date": "2026-03-23",
+          "value": 98853927.4
+        },
+        {
+          "date": "2026-03-24",
+          "value": 98809569.84
+        },
+        {
+          "date": "2026-03-25",
+          "value": 98774409.83
+        },
+        {
+          "date": "2026-03-26",
+          "value": 98818161.05
+        },
+        {
+          "date": "2026-03-27",
+          "value": 98826235.64
+        },
+        {
+          "date": "2026-03-30",
+          "value": 98901460.39
+        },
+        {
+          "date": "2026-03-31",
+          "value": 98922742.86
+        },
+        {
+          "date": "2026-04-01",
+          "value": 98860478.78
+        },
+        {
+          "date": "2026-04-02",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-06",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-07",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-08",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-09",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-10",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-13",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-14",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-15",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-16",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-17",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-20",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-21",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-22",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-23",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-24",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-27",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-28",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-29",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-04-30",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-01",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-04",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-05",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-06",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-07",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-08",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-11",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-12",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-13",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-14",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-15",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-18",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-19",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-20",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-21",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-22",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-26",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-27",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-28",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-05-29",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-01",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-02",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-03",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-04",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-05",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-08",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-09",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-10",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-11",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-12",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-15",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-16",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-17",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-18",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-22",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-23",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-24",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-25",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-26",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-29",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-06-30",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-01",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-02",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-06",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-07",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-08",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-09",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-10",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-13",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-14",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-15",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-16",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-17",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-20",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-21",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-22",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-23",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-24",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-27",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-28",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-29",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-30",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-07-31",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-03",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-04",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-05",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-06",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-07",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-10",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-11",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-12",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-13",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-14",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-17",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-18",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-19",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-20",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-21",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-24",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-25",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-26",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-27",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-28",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-08-31",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-09-01",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-09-02",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-09-03",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-09-04",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-09-08",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-09-09",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-09-10",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-09-11",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-09-14",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-09-15",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-09-16",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-09-17",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-09-18",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-09-21",
+          "value": 98825258.86
+        },
+        {
+          "date": "2026-09-22",
+          "value": 98806721.31
+        },
+        {
+          "date": "2026-09-23",
+          "value": 98674228.33
+        },
+        {
+          "date": "2026-09-24",
+          "value": 98456399.47
+        },
+        {
+          "date": "2026-09-25",
+          "value": 98700403.02
+        },
+        {
+          "date": "2026-09-28",
+          "value": 98795105.93
+        },
+        {
+          "date": "2026-09-29",
+          "value": 98683752.91
+        },
+        {
+          "date": "2026-09-30",
+          "value": 98762933.66
+        },
+        {
+          "date": "2026-10-01",
+          "value": 98880233.85
+        },
+        {
+          "date": "2026-10-02",
+          "value": 98811554.54
+        },
+        {
+          "date": "2026-10-05",
+          "value": 98862909.69
+        },
+        {
+          "date": "2026-10-06",
+          "value": 98833258.7
+        },
+        {
+          "date": "2026-10-07",
+          "value": 98959601.09
+        },
+        {
+          "date": "2026-10-08",
+          "value": 98947178.17
+        },
+        {
+          "date": "2026-10-09",
+          "value": 99007779.79
+        },
+        {
+          "date": "2026-10-12",
+          "value": 98834712.98
+        },
+        {
+          "date": "2026-10-13",
+          "value": 98897534.43
+        },
+        {
+          "date": "2026-10-14",
+          "value": 99081937.85
+        },
+        {
+          "date": "2026-10-15",
+          "value": 99251650.26
+        },
+        {
+          "date": "2026-10-16",
+          "value": 99227720.01
+        },
+        {
+          "date": "2026-10-19",
+          "value": 99202430.77
+        }
+      ]
+    },
+    "institutional": {
+      "profile_name": "Patient Institutional",
+      "curve": [
+        {
+          "date": "2026-01-02",
+          "value": 100000000.0
+        },
+        {
+          "date": "2026-01-05",
+          "value": 100000000.0
+        },
+        {
+          "date": "2026-01-06",
+          "value": 99997734.28
+        },
+        {
+          "date": "2026-01-07",
+          "value": 100058451.06
+        },
+        {
+          "date": "2026-01-08",
+          "value": 99883695.6
+        },
+        {
+          "date": "2026-01-09",
+          "value": 99851742.51
+        },
+        {
+          "date": "2026-01-12",
+          "value": 99885820.18
+        },
+        {
+          "date": "2026-01-13",
+          "value": 99842544.57
+        },
+        {
+          "date": "2026-01-14",
+          "value": 99756200.03
+        },
+        {
+          "date": "2026-01-15",
+          "value": 99810820.2
+        },
+        {
+          "date": "2026-01-16",
+          "value": 99838028.77
+        },
+        {
+          "date": "2026-01-20",
+          "value": 99862329.74
+        },
+        {
+          "date": "2026-01-21",
+          "value": 99768922.28
+        },
+        {
+          "date": "2026-01-22",
+          "value": 99773554.07
+        },
+        {
+          "date": "2026-01-23",
+          "value": 99778765.42
+        },
+        {
+          "date": "2026-01-26",
+          "value": 99779423.19
+        },
+        {
+          "date": "2026-01-27",
+          "value": 99771607.35
+        },
+        {
+          "date": "2026-01-28",
+          "value": 99821193.64
+        },
+        {
+          "date": "2026-01-29",
+          "value": 99654102.04
+        },
+        {
+          "date": "2026-01-30",
+          "value": 99584174.1
+        },
+        {
+          "date": "2026-02-02",
+          "value": 99605221.51
+        },
+        {
+          "date": "2026-02-03",
+          "value": 99656071.56
+        },
+        {
+          "date": "2026-02-04",
+          "value": 99633621.96
+        },
+        {
+          "date": "2026-02-05",
+          "value": 99654616.79
+        },
+        {
+          "date": "2026-02-06",
+          "value": 99549987.13
+        },
+        {
+          "date": "2026-02-09",
+          "value": 99599732.67
+        },
+        {
+          "date": "2026-02-10",
+          "value": 99694764.55
+        },
+        {
+          "date": "2026-02-11",
+          "value": 99484249.15
+        },
+        {
+          "date": "2026-02-12",
+          "value": 99360016.55
+        },
+        {
+          "date": "2026-02-13",
+          "value": 99407971.43
+        },
+        {
+          "date": "2026-02-17",
+          "value": 99429147.49
+        },
+        {
+          "date": "2026-02-18",
+          "value": 99517387.77
+        },
+        {
+          "date": "2026-02-19",
+          "value": 99527756.03
+        },
+        {
+          "date": "2026-02-20",
+          "value": 99511256.47
+        },
+        {
+          "date": "2026-02-23",
+          "value": 99333899.62
+        },
+        {
+          "date": "2026-02-24",
+          "value": 99422267.22
+        },
+        {
+          "date": "2026-02-25",
+          "value": 99536850.04
+        },
+        {
+          "date": "2026-02-26",
+          "value": 99580578.15
+        },
+        {
+          "date": "2026-02-27",
+          "value": 99438022.56
+        },
+        {
+          "date": "2026-03-02",
+          "value": 99412582.46
+        },
+        {
+          "date": "2026-03-03",
+          "value": 99410308.84
+        },
+        {
+          "date": "2026-03-04",
+          "value": 99455272.96
+        },
+        {
+          "date": "2026-03-05",
+          "value": 99538799.63
+        },
+        {
+          "date": "2026-03-06",
+          "value": 99512574.5
+        },
+        {
+          "date": "2026-03-09",
+          "value": 99522003.21
+        },
+        {
+          "date": "2026-03-10",
+          "value": 99532709.86
+        },
+        {
+          "date": "2026-03-11",
+          "value": 99487336.68
+        },
+        {
+          "date": "2026-03-12",
+          "value": 99446060.27
+        },
+        {
+          "date": "2026-03-13",
+          "value": 99537002.64
+        },
+        {
+          "date": "2026-03-16",
+          "value": 99516712.68
+        },
+        {
+          "date": "2026-03-17",
+          "value": 99602432.57
+        },
+        {
+          "date": "2026-03-18",
+          "value": 99663905.3
+        },
+        {
+          "date": "2026-03-19",
+          "value": 99658767.7
+        },
+        {
+          "date": "2026-03-20",
+          "value": 99641065.52
+        },
+        {
+          "date": "2026-03-23",
+          "value": 99598630.03
+        },
+        {
+          "date": "2026-03-24",
+          "value": 99578839.83
+        },
+        {
+          "date": "2026-03-25",
+          "value": 99561117.22
+        },
+        {
+          "date": "2026-03-26",
+          "value": 99583198.31
+        },
+        {
+          "date": "2026-03-27",
+          "value": 99587275.91
+        },
+        {
+          "date": "2026-03-30",
+          "value": 99631400.69
+        },
+        {
+          "date": "2026-03-31",
+          "value": 99642137.1
+        },
+        {
+          "date": "2026-04-01",
+          "value": 99620686.76
+        },
+        {
+          "date": "2026-04-02",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-06",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-07",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-08",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-09",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-10",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-13",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-14",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-15",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-16",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-17",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-20",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-21",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-22",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-23",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-24",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-27",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-28",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-29",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-04-30",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-01",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-04",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-05",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-06",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-07",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-08",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-11",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-12",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-13",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-14",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-15",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-18",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-19",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-20",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-21",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-22",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-26",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-27",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-28",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-05-29",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-01",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-02",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-03",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-04",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-05",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-08",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-09",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-10",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-11",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-12",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-15",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-16",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-17",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-18",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-22",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-23",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-24",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-25",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-26",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-29",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-06-30",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-01",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-02",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-06",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-07",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-08",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-09",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-10",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-13",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-14",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-15",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-16",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-17",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-20",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-21",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-22",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-23",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-24",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-27",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-28",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-29",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-30",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-07-31",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-03",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-04",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-05",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-06",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-07",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-10",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-11",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-12",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-13",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-14",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-17",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-18",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-19",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-20",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-21",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-24",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-25",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-26",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-27",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-28",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-08-31",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-09-01",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-09-02",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-09-03",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-09-04",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-09-08",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-09-09",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-09-10",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-09-11",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-09-14",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-09-15",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-09-16",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-09-17",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-09-18",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-09-21",
+          "value": 99605157.93
+        },
+        {
+          "date": "2026-09-22",
+          "value": 99603831.1
+        },
+        {
+          "date": "2026-09-23",
+          "value": 99541453.05
+        },
+        {
+          "date": "2026-09-24",
+          "value": 99440298.97
+        },
+        {
+          "date": "2026-09-25",
+          "value": 99563314.19
+        },
+        {
+          "date": "2026-09-28",
+          "value": 99614804.87
+        },
+        {
+          "date": "2026-09-29",
+          "value": 99561869.78
+        },
+        {
+          "date": "2026-09-30",
+          "value": 99609564.34
+        },
+        {
+          "date": "2026-10-01",
+          "value": 99671943.77
+        },
+        {
+          "date": "2026-10-02",
+          "value": 99642022.44
+        },
+        {
+          "date": "2026-10-05",
+          "value": 99667955.24
+        },
+        {
+          "date": "2026-10-06",
+          "value": 99652983.45
+        },
+        {
+          "date": "2026-10-07",
+          "value": 99720627.68
+        },
+        {
+          "date": "2026-10-08",
+          "value": 99714370.7
+        },
+        {
+          "date": "2026-10-09",
+          "value": 99744934.11
+        },
+        {
+          "date": "2026-10-12",
+          "value": 99664760.0
+        },
+        {
+          "date": "2026-10-13",
+          "value": 99696421.99
+        },
+        {
+          "date": "2026-10-14",
+          "value": 99793137.06
+        },
+        {
+          "date": "2026-10-15",
+          "value": 99883446.52
+        },
+        {
+          "date": "2026-10-16",
+          "value": 99883855.51
+        },
+        {
+          "date": "2026-10-19",
+          "value": 99895736.69
+        }
+      ]
+    },
+    "retail": {
+      "profile_name": "Retail / Small Prop",
+      "curve": [
+        {
+          "date": "2026-01-02",
+          "value": 100000000.0
+        },
+        {
+          "date": "2026-01-05",
+          "value": 100000000.0
+        },
+        {
+          "date": "2026-01-06",
+          "value": 99981602.07
+        },
+        {
+          "date": "2026-01-07",
+          "value": 100025730.62
+        },
+        {
+          "date": "2026-01-08",
+          "value": 99914840.96
+        },
+        {
+          "date": "2026-01-09",
+          "value": 99885239.38
+        },
+        {
+          "date": "2026-01-12",
+          "value": 99911692.88
+        },
+        {
+          "date": "2026-01-13",
+          "value": 99868399.19
+        },
+        {
+          "date": "2026-01-14",
+          "value": 99782037.04
+        },
+        {
+          "date": "2026-01-15",
+          "value": 99828467.67
+        },
+        {
+          "date": "2026-01-16",
+          "value": 99837983.39
+        },
+        {
+          "date": "2026-01-20",
+          "value": 99856623.41
+        },
+        {
+          "date": "2026-01-21",
+          "value": 99763218.7
+        },
+        {
+          "date": "2026-01-22",
+          "value": 99763916.88
+        },
+        {
+          "date": "2026-01-23",
+          "value": 99769128.87
+        },
+        {
+          "date": "2026-01-26",
+          "value": 99769788.52
+        },
+        {
+          "date": "2026-01-27",
+          "value": 99761971.22
+        },
+        {
+          "date": "2026-01-28",
+          "value": 99811550.91
+        },
+        {
+          "date": "2026-01-29",
+          "value": 99640685.5
+        },
+        {
+          "date": "2026-01-30",
+          "value": 99570758.84
+        },
+        {
+          "date": "2026-02-02",
+          "value": 99584480.52
+        },
+        {
+          "date": "2026-02-03",
+          "value": 99635319.09
+        },
+        {
+          "date": "2026-02-04",
+          "value": 99591513.29
+        },
+        {
+          "date": "2026-02-05",
+          "value": 99594904.65
+        },
+        {
+          "date": "2026-02-06",
+          "value": 99513468.59
+        },
+        {
+          "date": "2026-02-09",
+          "value": 99548701.39
+        },
+        {
+          "date": "2026-02-10",
+          "value": 99644922.8
+        },
+        {
+          "date": "2026-02-11",
+          "value": 99418444.14
+        },
+        {
+          "date": "2026-02-12",
+          "value": 99297302.46
+        },
+        {
+          "date": "2026-02-13",
+          "value": 99338690.45
+        },
+        {
+          "date": "2026-02-17",
+          "value": 99348503.83
+        },
+        {
+          "date": "2026-02-18",
+          "value": 99422760.18
+        },
+        {
+          "date": "2026-02-19",
+          "value": 99431885.22
+        },
+        {
+          "date": "2026-02-20",
+          "value": 99411473.41
+        },
+        {
+          "date": "2026-02-23",
+          "value": 99216622.72
+        },
+        {
+          "date": "2026-02-24",
+          "value": 99287404.35
+        },
+        {
+          "date": "2026-02-25",
+          "value": 99393212.66
+        },
+        {
+          "date": "2026-02-26",
+          "value": 99431825.23
+        },
+        {
+          "date": "2026-02-27",
+          "value": 99282861.3
+        },
+        {
+          "date": "2026-03-02",
+          "value": 99257417.67
+        },
+        {
+          "date": "2026-03-03",
+          "value": 99245732.1
+        },
+        {
+          "date": "2026-03-04",
+          "value": 99290642.83
+        },
+        {
+          "date": "2026-03-05",
+          "value": 99374080.04
+        },
+        {
+          "date": "2026-03-06",
+          "value": 99347890.29
+        },
+        {
+          "date": "2026-03-09",
+          "value": 99352759.04
+        },
+        {
+          "date": "2026-03-10",
+          "value": 99363458.54
+        },
+        {
+          "date": "2026-03-11",
+          "value": 99318137.01
+        },
+        {
+          "date": "2026-03-12",
+          "value": 99276916.69
+        },
+        {
+          "date": "2026-03-13",
+          "value": 99364855.31
+        },
+        {
+          "date": "2026-03-16",
+          "value": 99344589.64
+        },
+        {
+          "date": "2026-03-17",
+          "value": 99430203.47
+        },
+        {
+          "date": "2026-03-18",
+          "value": 99491614.37
+        },
+        {
+          "date": "2026-03-19",
+          "value": 99470355.36
+        },
+        {
+          "date": "2026-03-20",
+          "value": 99452674.46
+        },
+        {
+          "date": "2026-03-23",
+          "value": 99402265.4
+        },
+        {
+          "date": "2026-03-24",
+          "value": 99377239.32
+        },
+        {
+          "date": "2026-03-25",
+          "value": 99359538.07
+        },
+        {
+          "date": "2026-03-26",
+          "value": 99381592.41
+        },
+        {
+          "date": "2026-03-27",
+          "value": 99385666.17
+        },
+        {
+          "date": "2026-03-30",
+          "value": 99418086.29
+        },
+        {
+          "date": "2026-03-31",
+          "value": 99428809.22
+        },
+        {
+          "date": "2026-04-01",
+          "value": 99389946.4
+        },
+        {
+          "date": "2026-04-02",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-06",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-07",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-08",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-09",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-10",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-13",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-14",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-15",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-16",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-17",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-20",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-21",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-22",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-23",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-24",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-27",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-28",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-29",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-04-30",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-01",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-04",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-05",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-06",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-07",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-08",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-11",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-12",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-13",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-14",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-15",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-18",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-19",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-20",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-21",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-22",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-26",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-27",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-28",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-05-29",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-01",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-02",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-03",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-04",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-05",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-08",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-09",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-10",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-11",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-12",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-15",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-16",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-17",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-18",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-22",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-23",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-24",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-25",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-26",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-29",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-06-30",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-01",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-02",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-06",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-07",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-08",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-09",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-10",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-13",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-14",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-15",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-16",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-17",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-20",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-21",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-22",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-23",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-24",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-27",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-28",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-29",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-30",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-07-31",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-03",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-04",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-05",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-06",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-07",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-10",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-11",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-12",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-13",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-14",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-17",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-18",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-19",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-20",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-21",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-24",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-25",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-26",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-27",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-28",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-08-31",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-09-01",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-09-02",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-09-03",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-09-04",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-09-08",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-09-09",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-09-10",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-09-11",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-09-14",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-09-15",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-09-16",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-09-17",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-09-18",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-09-21",
+          "value": 99370763.51
+        },
+        {
+          "date": "2026-09-22",
+          "value": 99359740.13
+        },
+        {
+          "date": "2026-09-23",
+          "value": 99292037.06
+        },
+        {
+          "date": "2026-09-24",
+          "value": 99180222.88
+        },
+        {
+          "date": "2026-09-25",
+          "value": 99302939.34
+        },
+        {
+          "date": "2026-09-28",
+          "value": 99349070.43
+        },
+        {
+          "date": "2026-09-29",
+          "value": 99292375.23
+        },
+        {
+          "date": "2026-09-30",
+          "value": 99329785.79
+        },
+        {
+          "date": "2026-10-01",
+          "value": 99387917.71
+        },
+        {
+          "date": "2026-10-02",
+          "value": 99352137.82
+        },
+        {
+          "date": "2026-10-05",
+          "value": 99377994.72
+        },
+        {
+          "date": "2026-10-06",
+          "value": 99363060.44
+        },
+        {
+          "date": "2026-10-07",
+          "value": 99425166.25
+        },
+        {
+          "date": "2026-10-08",
+          "value": 99418933.87
+        },
+        {
+          "date": "2026-10-09",
+          "value": 99449423.63
+        },
+        {
+          "date": "2026-10-12",
+          "value": 99360813.37
+        },
+        {
+          "date": "2026-10-13",
+          "value": 99392365.53
+        },
+        {
+          "date": "2026-10-14",
+          "value": 99483944.24
+        },
+        {
+          "date": "2026-10-15",
+          "value": 99568032.43
+        },
+        {
+          "date": "2026-10-16",
+          "value": 99549029.07
+        },
+        {
+          "date": "2026-10-19",
+          "value": 99519992.6
+        }
+      ]
+    }
+  }
+}
