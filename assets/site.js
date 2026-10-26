@@ -321,6 +321,28 @@
   document.addEventListener('click', hide, true);
   window.addEventListener('scroll', function () { if (cardFor) hide(); }, {passive: true});
 
+  // ── a Copy button on each code block (the commands to reproduce, the BibTeX entry) ──
+  if (navigator.clipboard) {
+    document.querySelectorAll('main pre').forEach(function (pre) {
+      var wrap = document.createElement('div');
+      wrap.className = 'pre-wrap';
+      pre.parentNode.insertBefore(wrap, pre);
+      wrap.appendChild(pre);
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pre-copy';
+      b.textContent = 'Copy';
+      var what = pre.getAttribute('aria-label') || 'code';
+      b.setAttribute('aria-label', 'Copy: ' + what);
+      b.addEventListener('click', function () {
+        navigator.clipboard.writeText(pre.textContent.replace(/\s+$/, '') + '\n').then(function () {
+          say('Copied: ' + what);
+        }, function () { say('Copying is not allowed here: select the text instead.'); });
+      });
+      wrap.appendChild(b);
+    });
+  }
+
   // ── checking a number against its data: assets/verify.js, loaded on first use ──
   var verifyLoading = null;
   function verify() {
