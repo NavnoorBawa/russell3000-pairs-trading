@@ -3470,3 +3470,46 @@ are merged. All are fixed; none changes a published result or decision:
 - *Rendering.* Table captions wider than a phone screen now wrap to the frame; a clipped
   subtitle in Exhibit 24; dashed legend keys for Exhibit 8's dashed series; a printed copy now
   shows the code, data and pre-registration URLs; a swallowed semicolon in the paper.
+
+### The page as a reader's tool (2026-10-26)
+
+After the holdout, the page was rebuilt around what a reviewer does with it. The results, the
+numbers and the caveats are unchanged: every number added is a marker on a key the page already
+used, and `check_published_numbers.py` checks them all.
+
+- *The answer first.* Under the masthead, a static interval chart puts every Sharpe ratio the
+  answer rests on, with its two-sided 95% interval and the one-sided bounds, on one axis
+  (`scripts/build_hero.py`). The build refuses data that would make its title false. Seven key
+  findings follow, each linked to its evidence. The bottom line, unchanged, is under them.
+  Sections whose first sentence is not already the answer open with one.
+- *Checking.* Any number can be checked in the browser against the file it comes from, by the
+  same rule as CI, including the headline file's SHA-256 (`assets/verify.js`; a parity test runs
+  it against the Python checker). "Check the numbers" checks all of them.
+- *Navigation.*
+  - Every "Exhibit N" and "Section N" is a link (`scripts/link_refs.py`), and hovering one
+    previews its target.
+  - The contents are grouped into the answer, the evidence and the audit trail, and show the
+    exhibits of the section being read.
+  - Phones get a section bar and a contents sheet.
+  - Deep links land on their target while charts draw around it.
+- *Section 1* draws the pre-registration's timeline, with the overlap of development and the test
+  period that makes the test sealed rather than prospective
+  (`scripts/build_prereg_timeline.py`).
+- *Tables and charts.*
+  - On phones, tables read as cards or as label-above-values matrices, and every table copies
+    or exports as CSV (`assets/tables.js`).
+  - The interval charts share one Sharpe axis and print their values.
+  - Every time series has a crosshair that works by mouse and touch.
+  - Each exhibit exports SVG and PNG.
+- *Without JavaScript, and in print.* The paper's figures stand in for the charts. "Print the
+  summary" gives two pages.
+- *Review.* Four reviewers (content fidelity, accessibility, interaction, layout and print)
+  reproduced 28 issues in a browser, and all are fixed. Among them:
+  - "no positive edge" in the dek (now "no detectable edge");
+  - a hero title that said every 95% interval spans zero while it drew the walk-forward's
+    one-sided bound below zero (now "two-sided");
+  - evidence links to an exhibit that did not show the cited estimate;
+  - a print path that left the page in the wrong theme.
+- *Measured* (Lighthouse on a local copy). Desktop: performance 99, accessibility, best practices
+  and SEO 100, layout shift 0. Mobile: accessibility 100, layout shift 0.007; performance about
+  75 under simulated slow 4G, which a lighter font load would raise.
