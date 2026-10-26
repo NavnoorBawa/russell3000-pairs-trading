@@ -49,8 +49,6 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%231d4f91'/%3E%3Cpath d='M6 21 L12 15 L17 18 L26 9' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preload" href="assets/fonts/IBMPlexSerif-Medium.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/fonts/IBMPlexSans-Regular.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="assets/fonts/IBMPlexSans-Medium.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="assets/fonts/IBMPlexSans-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/site.css">
 <script src="assets/theme-init.js"></script>
 <script defer src="assets/vendor/d3-7.9.0.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i"></script>
@@ -64,7 +62,7 @@
 <header class="topbar">
   <div class="topbar-in">
     <a class="brand" href="#top">Russell 3000 pairs study</a>
-    <button class="where" id="where" type="button" hidden><span class="where-n"></span><span class="where-t">Contents</span><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg></button>
+    <button class="where" id="where" type="button" hidden><span class="vh">Contents, now reading </span><span class="where-n"></span> <span class="where-t">Contents</span><svg class="ico" aria-hidden="true" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg></button>
     <nav class="toplinks" aria-label="Project">
       <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading">Code</a>
       <a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/tree/main/results">Data</a>
@@ -119,7 +117,7 @@
       <li><a href="paper/pairs_study.pdf" type="application/pdf">Paper (PDF)</a></li>
       <li><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/tree/main/results">Data</a></li>
       <li><a href="https://github.com/NavnoorBawa/russell3000-pairs-trading/blob/7c7d3f904ec643b9a9dc658c2aa46bad506cc3a5/docs/PREREGISTRATION.md">Pre-registration</a></li>
-      <li class="print-li" hidden><button class="link-btn" id="print-summary" type="button">Print the summary</button></li>
+      <li class="print-li"><button class="link-btn" id="print-summary" type="button">Print the summary</button></li>
     </ul>
     <p class="brief-foot">The full note, with every exhibit, test and caveat: https://navnoorbawa.github.io/russell3000-pairs-trading/ · the paper: paper/pairs_study.pdf · built from the development run of commit 7442705 and the 2026 test runs of commit 7c7d3f9.</p>
   </header>
@@ -135,7 +133,7 @@
       <caption class="vh">Annualised Sharpe ratio of each estimate, with its 95% interval</caption>
       <colgroup><col class="hz-col-l"><col class="hz-col-t"><col class="hz-col-v"></colgroup>
       <thead>
-        <tr class="hz-axis"><th scope="col"><span class="vh">Estimate</span></th><td class="hz-ax" aria-hidden="true"><span class="hz-t" style="--t:10%">−2</span><span class="hz-t" style="--t:30%">−1</span><span class="hz-t" style="--t:50%">0</span><span class="hz-t" style="--t:70%">+1</span><span class="hz-t" style="--t:90%">+2</span></td><th scope="col" class="hz-valhead">Sharpe ratio [95% interval]</th></tr>
+        <tr class="hz-axis"><th scope="col"><span class="vh">Estimate</span></th><th class="hz-ax" scope="col"><span class="vh">95% interval on a common Sharpe-ratio axis</span><span aria-hidden="true"><span class="hz-t" style="--t:10%">−2</span><span class="hz-t" style="--t:30%">−1</span><span class="hz-t" style="--t:50%">0</span><span class="hz-t" style="--t:70%">+1</span><span class="hz-t" style="--t:90%">+2</span></span></th><th scope="col" class="hz-valhead">Sharpe ratio [95% interval]</th></tr>
       </thead>
       <tbody>
         <tr class="hz-grp"><th scope="rowgroup" colspan="3">Development period, July 2023 – December 2025</th></tr>

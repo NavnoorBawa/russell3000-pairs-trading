@@ -280,7 +280,8 @@ def render(data):
         '    <colgroup><col class="hz-col-l"><col class="hz-col-t"><col class="hz-col-v"></colgroup>',
         '    <thead>',
         '      <tr class="hz-axis"><th scope="col"><span class="vh">Estimate</span></th>'
-        f'<td class="hz-ax" aria-hidden="true">{axis}</td>'
+        f'<th class="hz-ax" scope="col"><span class="vh">95% interval on a common Sharpe-ratio axis</span>'
+        f'<span aria-hidden="true">{axis}</span></th>'
         '<th scope="col" class="hz-valhead">Sharpe ratio [95% interval]</th></tr>',
         '    </thead>',
     ]

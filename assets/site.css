@@ -204,6 +204,8 @@ h1 { font: 500 39px/1.14 var(--serif); letter-spacing: -.015em; margin: 0 0 14px
 .mast-links { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14.5px; }
 .link-btn { padding: 0; border: 0; background: none; font: inherit; color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer; }
 .brief-foot { display: none; }
+.print-li { display: none; }
+html.js .print-li { display: list-item; }
 .link-off { color: var(--ink-3); display: inline-flex; flex-wrap: wrap; align-items: center; row-gap: 4px; }
 
 /* ── the answer first: key findings, key figures, the bottom line in full ── */
@@ -219,7 +221,7 @@ h1 { font: 500 39px/1.14 var(--serif); letter-spacing: -.015em; margin: 0 0 14px
 .findings > li::before { content: counter(finding); position: absolute; left: 0; top: 12px; font: 500 13px/27px var(--sans); color: var(--accent); font-variant-numeric: tabular-nums; }
 .findings strong { font-weight: 600; color: var(--ink); }
 .ev, .kpi-ev { font: 500 13px/1.3 var(--sans); }
-.ev { display: inline-block; margin-left: 2px; white-space: nowrap; }
+.ev { margin-left: 2px; white-space: nowrap; }
 .ev::before, .kpi-ev::before { content: "\2192\00a0"; content: "\2192\00a0" / ""; color: var(--ink-3); }
 .bottom-line { background: var(--surface); padding: 4px 24px 20px; }
 .bottom-line p { font-size: 16px; line-height: 1.6; max-width: 68ch; }
@@ -411,7 +413,7 @@ html:not(.js) .ex-data, .exhibit.is-pending .ex-data { display: none; }
 
 /* axis: the header row's track cell holds the tick labels and tick marks */
 .hz .hz-axis > * { height: 38px; vertical-align: bottom; }
-.hz .hz-ax { position: relative; border-bottom: 1px solid var(--axis); }
+.hz .hz-ax { position: relative; border-bottom: 1px solid var(--axis); font-weight: inherit; text-align: left; }
 .hz .hz-t { position: absolute; left: var(--t); bottom: 10px; transform: translateX(-50%); font-size: 12px; line-height: 1; color: var(--ink-2); white-space: nowrap; }
 .hz .hz-t::after { content: ""; position: absolute; left: 50%; bottom: -10px; height: 5px; margin-left: -.5px; border-left: 1px solid var(--axis); }
 .hz .hz-valhead { padding: 0 0 10px 18px; font-size: 12.5px; line-height: 1; color: var(--ink-2); white-space: nowrap; }
@@ -608,7 +610,7 @@ pre { background: var(--sunk); color: var(--ink); border: 1px solid var(--rule);
   .mast-links { gap: 0 22px; }
   .ex-data summary, .history > summary { padding: 9px 0; }
   .bl-full > summary { padding-top: 14px; padding-bottom: 14px; }
-  .ev a, .kpi-ev a { display: inline-block; padding: 6px 0; }
+  .ev a, .kpi-ev a { display: inline-block; min-width: 28px; padding: 6px 0; text-align: center; }
   .toc li a { min-height: 44px; align-items: center; }
 }
 @media (max-width: 420px) {
