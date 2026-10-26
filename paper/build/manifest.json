@@ -26,7 +26,7 @@
   "paper/build/figures/validation.svg": "c55668dc0a3217b7adae2c08ad03f4466f1bbd177d6556fd2d1cc9b34d785b15",
   "paper/build/figures/walkforward.svg": "1db7d9cbe62d2858e3e043ba9e4cdd62edaff0c9e1256ca5c3614537d217969f",
   "paper/build/figures/waterfall.svg": "d4f97504de497145ae7e80e2ece752d2fe0d2e7e307d5fc8b0584c9b0f7addae",
-  "paper/build/paper_data.json": "0de5989541739e195b4e13da2addfe46ca11d3a8e8d4aad3048376bdca175a72",
+  "paper/build/paper_data.json": "2dfccf8881c5e285b61b1adbfaf08241202c05bbf4892dbaab9852eddb97a43f",
   "paper/fonts/IBMPlexMono-Regular.ttf": "884b41e7d9a8c0da2ab93b4dbb8b40a79d9089d4125c2bcb9e12dccdae68c5d4",
   "paper/fonts/IBMPlexSans-Italic.ttf": "dfb110b92a0c71bfcf84cb40e8e1cb0c37043556a5160bd2d3d910de4faabaf5",
   "paper/fonts/IBMPlexSans-Medium.ttf": "fe65f4a5bfdd7782de90619f60c9e43f846ecb1f9aecffdd8066a5b54d2aae40",
@@ -38,7 +38,7 @@
   "paper/main.typ": "dfedcdef5e7c885d6c018a00d68705e99f9f38baa4667c0dab963121b5fc0735",
   "paper/references.bib": "5edb9cd2a26fd4f442cda59b3a76a240ac0d70f6a823479a1f437753faf19457"
  },
- "pdf_sha256": "7bfbd7c7e4646e2fbff56e453fe4bbfa351c927cfc5ddbaf3dc3ec09faf89161",
+ "pdf_sha256": "dddb092aea701b82b9c2c60674515b07c132cf4b26140905ecdd01f73f024653",
  "tools": {
   "matplotlib": "3.10.1",
   "typst": "0.15.0"
