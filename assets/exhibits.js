@@ -2785,7 +2785,7 @@
       });
       return b;
     };
-    row.appendChild(button('Copy link', 'Copy a link to ' + label, function () {
+    row.appendChild(button('Copy link', 'Copy link to ' + label, function () {
       var url = exhibitURL(fig);
       if (!global.navigator.clipboard) { say(url, true); return; }
       return global.navigator.clipboard.writeText(url).then(function () { say('Link copied'); }, function () { say(url, true); });

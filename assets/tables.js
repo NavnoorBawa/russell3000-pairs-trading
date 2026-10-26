@@ -177,8 +177,12 @@
   function queue(el) {
     if (el.ttFrame == null) el.ttFrame = requestAnimationFrame(function () { sync(el); });
   }
+  // Off: the shades are sticky overlays in the frame's grid, and Chrome counts their placement as
+  // a layout shift of the whole page (CLS 0.27 on desktop, 0.92 on phones), though nothing moves
+  // on screen. site.js's own right-edge shadow marks a frame that scrolls.
+  var EDGES = false;
   function edges(el) {
-    if (edgeFrames.has(el)) return;
+    if (!EDGES || edgeFrames.has(el)) return;
     edgeFrames.add(el);
     el.classList.add('tt-edges');
     el.addEventListener('scroll', function () { queue(el); }, {passive: true});

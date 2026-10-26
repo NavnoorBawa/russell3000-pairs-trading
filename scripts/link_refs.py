@@ -26,7 +26,9 @@ PAGE = ROOT / 'index.html'
 REPO_URL = 'https://github.com/NavnoorBawa/russell3000-pairs-trading'
 
 REF = re.compile(r'\b(Exhibits?|Sections?)(\s+)(\d+)((?:(?:,\s*|\s+and\s+|\s*[–-]\s*|\s+to\s+)\d+)*)')
-SKIP = {'a', 'code', 'pre', 'svg', 'script', 'style', 'title', 'noscript'}
+# Table captions stay plain text: on phones assets/tables.js gives the tables explicit ARIA table
+# roles, under which a link inside the caption is not an allowed child.
+SKIP = {'a', 'code', 'pre', 'svg', 'script', 'style', 'title', 'noscript', 'caption'}
 
 
 def section_ids(page):
@@ -120,8 +122,9 @@ def link_commits(region, cache):
             return m.group(0)
         return f'<a class="commit" href="{REPO_URL}/commit/{full}"><code>{short}</code></a>'
     # a <code>hash</code> not already inside a link
-    parts = re.split(r'(<a\b[^>]*>.*?</a>)', region, flags=re.S)
-    return ''.join(p if p.startswith('<a') else re.sub(r'<code>([0-9a-f]{7,40})</code>', sub, p) for p in parts)
+    parts = re.split(r'(<a\b[^>]*>.*?</a>|<caption\b[^>]*>.*?</caption>)', region, flags=re.S)
+    return ''.join(p if p.startswith(('<a', '<caption')) else re.sub(r'<code>([0-9a-f]{7,40})</code>', sub, p)
+                   for p in parts)
 
 
 def apply(page):

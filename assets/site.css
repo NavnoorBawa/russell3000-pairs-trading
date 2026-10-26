@@ -397,6 +397,8 @@ html:not(.js) .tbl-tools, html:not(.js) .tt-toast { display: none; }
   .tbl-wrap.tt-edges::before { left: var(--tt-stick, 0px); justify-self: start; background: linear-gradient(to right, var(--tt-shade), transparent); }
   .tbl-wrap.tt-edges::after { right: 0; justify-self: end; background: linear-gradient(to left, var(--tt-shade), transparent); }
   .tbl-wrap.tt-l::before, .tbl-wrap.tt-r::after { opacity: 1; }
+  /* a frame with nothing beyond its edges draws no shades, so they cannot move as fonts load */
+  .tbl-wrap.tt-edges:not(.tt-l):not(.tt-r)::before, .tbl-wrap.tt-edges:not(.tt-l):not(.tt-r)::after { display: none; }
   pre.tt-edges { --tt-shade: color-mix(in srgb, var(--ink) 22%, transparent); }
   pre.tt-l { box-shadow: inset 14px 0 10px -12px var(--tt-shade); }
   pre.tt-r { box-shadow: inset -14px 0 10px -12px var(--tt-shade); }
