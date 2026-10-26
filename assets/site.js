@@ -507,7 +507,14 @@
       reopened.push(d);
     });
   });
+  // "Print the summary": the masthead, the hero and the key findings, on two pages (site.css)
+  var printSummary = document.getElementById('print-summary');
+  if (printSummary && window.print) {
+    printSummary.closest('li').hidden = false;
+    printSummary.addEventListener('click', function () { root.classList.add('brief'); window.print(); });
+  }
   window.addEventListener('afterprint', function () {
+    root.classList.remove('brief');
     reopened.forEach(function (d) { d.open = false; });
     reopened = [];
     if (printTheme === null) return;

@@ -197,6 +197,8 @@ h1 { font: 500 39px/1.14 var(--serif); letter-spacing: -.015em; margin: 0 0 14px
 .byline .sep { color: var(--ink-3); }
 .tag { padding: 4px 8px; background: var(--sunk); color: var(--ink-2); }
 .mast-links { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14.5px; }
+.link-btn { padding: 0; border: 0; background: none; font: inherit; color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer; }
+.brief-foot { display: none; }
 .link-off { color: var(--ink-3); display: inline-flex; flex-wrap: wrap; align-items: center; row-gap: 4px; }
 
 /* ── the answer first: key findings, key figures, the bottom line in full ── */
@@ -594,7 +596,7 @@ pre { background: var(--sunk); color: var(--ink); border: 1px solid var(--rule);
   .byline .tag { margin-top: 6px; }
 }
 @media (pointer: coarse) {
-  .mast-links a, .foot-in a { display: inline-block; padding: 10px 0; }
+  .mast-links a, .mast-links .link-btn, .foot-in a { display: inline-block; padding: 10px 0; }
   .mast-links { gap: 0 22px; }
   .ex-data summary, .history > summary { padding: 9px 0; }
   .bl-full > summary { padding-top: 14px; padding-bottom: 14px; }
@@ -640,4 +642,16 @@ pre { background: var(--sunk); color: var(--ink); border: 1px solid var(--rule);
   .ex-grid, .ex-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tbl-wrap { overflow: visible; }
   .site-foot { border-top: 1px solid #ccc; }
+  .print-li { display: none !important; }
+  /* "Print the summary" (site.js): the masthead and the hero on the first page, the key findings on the second */
+  html.brief main > section:not(#summary), html.brief .site-foot, html.brief .kpis, html.brief .bl-full,
+  html.brief .mast-links, html.brief .kicker { display: none !important; }
+  html.brief body { font-size: 9.5pt; line-height: 1.42; }
+  html.brief h1 { font-size: 21pt; max-width: none; margin-bottom: 6pt; }
+  html.brief .dek { font-size: 10.5pt; line-height: 1.45; max-width: none; margin-bottom: 6pt; }
+  html.brief .byline { font-size: 9pt; margin-bottom: 4pt; }
+  html.brief .brief-foot { display: block; font-size: 9pt; color: var(--ink-2); margin: 0 0 12pt; overflow-wrap: anywhere; }
+  html.brief .hero { margin-bottom: 0; }
+  html.brief .findings-wrap { break-before: page; border: 0; padding: 0; margin: 0; }
+  html.brief .findings > li { font-size: 10.5pt; line-height: 1.5; max-width: none; padding-top: 8pt; padding-bottom: 8pt; break-inside: avoid; }
 }
