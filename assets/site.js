@@ -134,6 +134,15 @@
       document.body.appendChild(sheet);
       where.popoverTargetElement = sheet;
       sheet.addEventListener('click', function (e) { if (e.target.closest('a')) sheet.hidePopover(); });
+      // focus goes into the sheet when it opens, and the sheet closes when focus leaves it
+      sheet.addEventListener('toggle', function (e) {
+        if (e.newState !== 'open') return;
+        var cur = sheet.querySelector('li > a[aria-current]') || sheet.querySelector('a');
+        if (cur) cur.focus();
+      });
+      sheet.addEventListener('focusout', function (e) {
+        if (e.relatedTarget && !sheet.contains(e.relatedTarget) && sheet.matches(':popover-open')) sheet.hidePopover();
+      });
     } else if (tocDetails) {
       // no Popover API: the button opens the in-flow contents
       where.addEventListener('click', function () {
@@ -183,7 +192,7 @@
     currentId = id;
     document.querySelectorAll('.toc li.is-active, .toc-sheet li.is-active').forEach(function (li) { li.classList.remove('is-active'); });
     document.querySelectorAll('.toc a[href="#' + id + '"], .toc-sheet a[href="#' + id + '"]').forEach(function (a) { a.parentNode.classList.add('is-active'); });
-    document.querySelectorAll('.toc a[aria-current], .toc-sheet a[aria-current]').forEach(function (a) { a.removeAttribute('aria-current'); });
+    document.querySelectorAll('.toc a[aria-current="location"], .toc-sheet a[aria-current="location"]').forEach(function (a) { a.removeAttribute('aria-current'); });
     document.querySelectorAll('.toc a[href="#' + id + '"], .toc-sheet a[href="#' + id + '"]').forEach(function (a) { a.setAttribute('aria-current', 'location'); });
     keepVisible(tocLinks[id]);
     if (where && tocLinks[id]) {
@@ -299,6 +308,7 @@
   }
   function hide() {
     clearTimeout(cardTimer);
+    if (!cardFor && !card.classList.contains('on')) return;
     cardFor = null;
     card.classList.remove('on');
   }
@@ -308,17 +318,26 @@
     clearTimeout(cardTimer);
     cardTimer = setTimeout(function () { show(a); }, 300);
   });
+  // the preview stays while the pointer moves from the link onto it (WCAG 1.4.13)
+  function leaving(e) {
+    var to = e.relatedTarget;
+    if (to && (card.contains(to) || (cardFor && cardFor.contains(to)))) return;
+    clearTimeout(cardTimer);
+    cardTimer = setTimeout(hide, 150);
+  }
   document.addEventListener('pointerout', function (e) {
     var a = e.target.closest && e.target.closest(REF);
-    if (a && !(e.relatedTarget && a.contains(e.relatedTarget))) hide();
+    if (a && !(e.relatedTarget && a.contains(e.relatedTarget))) leaving(e);
   });
+  card.addEventListener('pointerenter', function () { clearTimeout(cardTimer); });
+  card.addEventListener('pointerleave', leaving);
   document.addEventListener('focusin', function (e) {
     var a = e.target.closest && e.target.closest(REF);
     if (a && a.matches(':focus-visible')) show(a); else if (cardFor) hide();
   });
   document.addEventListener('focusout', function (e) { if (cardFor && e.target === cardFor) hide(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && cardFor) hide(); });
-  document.addEventListener('click', hide, true);
+  document.addEventListener('click', function (e) { if (!card.contains(e.target)) hide(); }, true);
   window.addEventListener('scroll', function () { if (cardFor) hide(); }, {passive: true});
 
   // ── a Copy button on each code block (the commands to reproduce, the BibTeX entry) ──
@@ -422,7 +441,13 @@
     chart.replaceChildren(p);
   }
 
-  function chartWidth(fig) { var c = fig.querySelector('.ex-chart'); return c ? Math.floor(c.clientWidth) : 0; }
+  // While printing, a chart is drawn at least at the printed column's width (A4 or Letter, about
+  // 680 px), so a page printed from a phone does not carry phone-sized charts.
+  var printing = false;
+  function chartWidth(fig) {
+    var c = fig.querySelector('.ex-chart'), w = c ? Math.floor(c.clientWidth) : 0;
+    return printing && w > 0 ? Math.max(w, 680) : w;
+  }
 
   function buildTable(fig) {
     var slot = fig.querySelector('[data-table]'), spec = specs.get(fig);
@@ -522,7 +547,9 @@
   // data tables stay closed: print hides them).
   var printTheme = null, reopened = [];
   window.addEventListener('beforeprint', function () {
-    if (theme() === 'dark') { printTheme = root.getAttribute('data-theme'); root.setAttribute('data-theme', 'light'); }
+    // printTheme: null if the theme was left alone, '' if it followed the OS, else the reader's choice
+    if (theme() === 'dark') { printTheme = root.getAttribute('data-theme') || ''; root.setAttribute('data-theme', 'light'); }
+    printing = true;
     drawAll();
     document.querySelectorAll('details:not([open])').forEach(function (d) {
       if (d.matches('.toc-d, .ex-data')) return;
@@ -539,10 +566,12 @@
     root.classList.remove('brief');
     reopened.forEach(function (d) { d.open = false; });
     reopened = [];
-    if (printTheme === null) return;
-    if (printTheme) root.setAttribute('data-theme', printTheme); else root.removeAttribute('data-theme');
-    printTheme = null;
-    syncTheme();
+    printing = false;
+    if (printTheme !== null) {
+      if (printTheme) root.setAttribute('data-theme', printTheme); else root.removeAttribute('data-theme');
+      printTheme = null;
+      syncTheme();
+    }
     redraw();
   });
 

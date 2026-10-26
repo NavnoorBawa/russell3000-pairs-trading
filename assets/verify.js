@@ -302,7 +302,7 @@
     return name ? 'Table: ' + name : '';
   }
 
-  function isShown(el) { return el.getClientRects().length > 0; }
+  function isShown(el) { return el.getClientRects().length > 0 && !el.closest('.vh'); }   // drawn, and not screen-reader-only
 
   /* A number reached from an address: in the upper part of the window, so its card fits below. */
   function revealHigh(el) {
@@ -600,7 +600,7 @@
         var label = sectionOf(x).label;
         if (x === r.el) occ.append(make('strong', null, label + ' (this one)'));
         else if (!isShown(x)) occ.append(make('span', 'vf-muted', label + ' (not shown at this width)'));
-        else occ.append(jumpLink(x, label));
+        else { occ.append(jumpLink(x, label)); occ.append(make('span', 'vh', ', ' + (i + 1) + ' of ' + same.length)); }
       });
     }
     row(dl, 'On page', [occ]);
@@ -958,7 +958,7 @@
         var r = checkMarker(el.getAttribute('data-metric'), el.textContent, src);
         r.el = el;
         el.setAttribute('data-audit', r.status);
-        setFocusable(el, true);
+        setFocusable(el, isShown(el));
         return r;
       });
       var s = summarize();

@@ -173,7 +173,7 @@ def test_every_drawn_position_is_the_printed_number(block):
 
 def test_every_interval_spans_zero_as_the_title_says(block):
     h = HeroBlock(block)
-    assert 'Every 95% interval spans zero' in block
+    assert 'Every two-sided 95% interval spans zero' in block
     for row in h.rows:
         lo, hi = number(row['roles']['lo'][1]), number(row['roles']['hi'][1])
         assert lo < 0 < hi, row
@@ -211,7 +211,7 @@ def test_every_link_resolves_on_the_page(page, block):
     ids = set(re.findall(r'\sid="([^"]+)"', page))
     assert h.hrefs and all(href.startswith('#') and href[1:] in ids for href in h.hrefs), h.hrefs
     assert all(len(r['hrefs']) == 1 for r in h.rows)              # each label links to its exhibit
-    assert [r['hrefs'][0] for r in h.rows] == ['#ex-6', '#ex-6', '#ex-3', '#ex-22', '#ex-6',
+    assert [r['hrefs'][0] for r in h.rows] == ['#ex-6', '#ex-6', '#ex-6', '#ex-22', '#ex-6',
                                                '#ex-1', '#ex-1', '#ex-1']
 
 

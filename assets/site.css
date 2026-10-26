@@ -144,7 +144,7 @@ html:not(.js) .theme-btn { display: none; }
 .xpop { position: fixed; left: 0; top: 0; z-index: 60; width: min(400px, calc(100vw - 16px)); padding: 12px 14px;
   background: var(--surface); color: var(--ink); border: 1px solid var(--rule-2); border-radius: 6px;
   box-shadow: 0 10px 30px color-mix(in srgb, #000 16%, transparent); pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .12s; }
-.xpop.on { opacity: 1; visibility: visible; }
+.xpop.on { opacity: 1; visibility: visible; pointer-events: auto; }
 .xp-k { font: 600 11px/1.2 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin: 0 0 4px; }
 .xp-t { font: 600 14.5px/1.35 var(--sans); margin: 0; }
 .xp-s { font-size: 13px; line-height: 1.45; color: var(--ink-2); margin: 4px 0 0; }
@@ -206,7 +206,7 @@ pre.bibtex { max-width: 96ch; font-size: 12px; margin: 0 0 24px; }
 h1 { font: 500 39px/1.14 var(--serif); letter-spacing: -.015em; margin: 0 0 14px; max-width: 30ch; text-wrap: balance; }
 .dek { font-size: 17.5px; line-height: 1.55; color: var(--ink-2); max-width: 64ch; margin-bottom: 14px; }
 .byline { font-size: 14px; color: var(--ink-2); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-bottom: 14px; }
-.byline .sep { color: var(--ink-3); }
+.byline .sep { color: var(--ink-3); margin-right: 3px; }
 .tag { padding: 4px 8px; background: var(--sunk); color: var(--ink-2); }
 .mast-links { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14.5px; }
 .link-btn { padding: 0; border: 0; background: none; font: inherit; color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer; }
@@ -238,6 +238,7 @@ html.js .print-li { display: list-item; }
 .bl-full > summary:hover .bl-title { color: var(--ink); }
 .bl-full .bl-title { display: inline; }
 .bl-hint { margin-left: 10px; font-size: 13.5px; color: var(--ink-3); }
+@media (min-width: 421px) { .kpi-label { min-height: calc(2 * 1.3em); } }
 .kpis { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
 .kpi { background: var(--surface); padding: 16px 18px 14px; min-width: 0; display: flex; flex-direction: column; }
 .kpi-ev { margin-top: auto; padding-top: 10px; }
@@ -284,6 +285,11 @@ html.js .print-li { display: list-item; }
 .ex-nojs, .ex-error { font-size: 14px; color: var(--ink-2); padding: 18px 0; }
 .ex-note { font-size: 13.5px; line-height: 1.5; color: var(--ink-2); margin-top: 10px; max-width: 76ch; }
 html.js .ex-nojs { display: none; }
+.ex-chart:has(.ex-static) > .ex-nojs, .exhibit:has(.ex-static) .pending { display: none; }
+@media (max-width: 600px) {
+  html:not(.js) .ex-chart:has(.ex-static) { overflow-x: auto; }
+  html:not(.js) .ex-static { width: 612px; max-width: none; }
+}
 /* without JavaScript: the paper's static figure, on its own light card in either theme */
 .ex-static { display: block; width: 100%; max-width: 760px; height: auto; background: #fff; border: 1px solid var(--rule); border-radius: 4px; padding: 8px; box-sizing: border-box; }
 .ex-static-note { font-size: 13px; color: var(--ink-3); margin: 6px 0 0; }
@@ -295,7 +301,7 @@ html.js .ex-nojs { display: none; }
 .ex-data summary:hover { color: var(--ink); }
 .ex-data[open] summary { margin-bottom: 8px; }
 html:not(.js) .ex-data, .exhibit.is-pending .ex-data { display: none; }
-.exhibit.is-pending .ex-foot.when-drawn { display: none; }   /* notes and source of a chart not drawn yet */
+html.js .exhibit.is-pending .ex-foot.when-drawn { display: none; }   /* notes and source of a chart not drawn yet */
 .ex-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; }
 .ex-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 36px; }
 .ex-compact { margin-bottom: 28px; }
@@ -757,7 +763,7 @@ pre { background: var(--sunk); color: var(--ink); border: 1px solid var(--rule);
 }
 @media (forced-colors: active) {
   .exhibit::before, .bottom-line, .findings-wrap, .inbrief { forced-color-adjust: auto; }
-  .lg-key, .xtip .xt-key { border-color: CanvasText; }
+  .lg-key, .xtip .xt-key { forced-color-adjust: none; }   /* the keys keep the colours of the series they name */
 }
 
 /* ── print: A4 or Letter, no navigation, charts as rendered SVG ───────────── */
@@ -786,7 +792,13 @@ pre { background: var(--sunk); color: var(--ink); border: 1px solid var(--rule);
   .bl-full > summary { list-style: none; padding-bottom: 0; }
   .exhibit { margin-bottom: 18px; }
   .history:not([open]) > :not(summary) { display: block; }
-  .history > summary { list-style: none; }
+  .history > summary { list-style: none; break-after: avoid; page-break-after: avoid; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; overflow: visible; }
+  .site-foot { break-inside: avoid; }
+  .foot-in { padding: 10pt 0 0; }
+  .disclosure { break-inside: avoid; }
+  .to-top { display: none; }
+  .mast-links a[href$=".pdf"]::after { content: " (https://navnoorbawa.github.io/russell3000-pairs-trading/paper/pairs_study.pdf)"; font-size: 9pt; overflow-wrap: anywhere; }
   a { color: inherit; text-decoration: none; }
   .ex-grid, .ex-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tbl-wrap { overflow: visible; }

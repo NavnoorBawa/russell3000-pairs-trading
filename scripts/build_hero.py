@@ -85,12 +85,12 @@ class Row:
 
 
 GROUPS = (
-    ('Development period, July 2023 – December 2025', (
+    ('Development period, 2023–2025', (
         Row('v33 pairs, net', '#ex-6', 's1', 'main.sharpe',
             'significance.main.boot_lo', 'significance.main.boot_hi', ub='study.dev.facts.sharpe_ucb'),
         Row('v33 pairs, before costs', '#ex-6', 's1', 'study.dev.facts.gross_sharpe',
             'study.dev.forest.1.lo', 'study.dev.forest.1.hi', hollow=True),
-        Row('Walk-forward, net', '#ex-3', 's1', 'oos.pooled_sharpe',
+        Row('Walk-forward, net', '#ex-6', 's1', 'oos.pooled_sharpe',
             'significance.oos_daily.boot_lo', 'significance.oos_daily.boot_hi', ub='study.dev.facts.oos_ucb',
             sub='the same rule from February 2023'),
         Row('Avellaneda–Lee, net', '#ex-22', 's3', 'study.residual.sharpe',
@@ -121,9 +121,10 @@ IDENTITY = {
     'study.holdout.arms.2.role': 'descriptive',
 }
 
-TITLE = 'Every 95% interval spans zero: no detectable edge in development or in the pre-registered 2026 test'
+TITLE = 'Every two-sided 95% interval spans zero: no detectable edge in development or in the pre-registered 2026 test'
 SUBTITLE = ('Annualised Sharpe ratio with its 95% interval, net of costs unless stated; ticks mark the '
-            'one-sided 95% upper bound where the note reports one.')
+            'one-sided 95% upper bound where the note reports one. The walk-forward\'s one-sided bound is '
+            'below zero: a loss, not an edge.')
 LABEL = 'The answer at a glance'
 NOTE = ('With the power stated in advance, the 2026 test detects with 80% probability only a Sharpe ratio '
         'of about ', ('study.dev.facts.ho_mde_025', PLAIN), '; not rejecting a null is not evidence that the '
