@@ -58,11 +58,34 @@
   }
   function gridY(c, o) { return global.Plot.gridY(Object.assign({stroke: c.t.grid, strokeOpacity: 1}, o)); }
   function gridX(c, o) { return global.Plot.gridX(Object.assign({stroke: c.t.grid, strokeOpacity: 1}, o)); }
-  function zeroY(c) { return global.Plot.ruleY([0], {stroke: c.t.axis, strokeWidth: 1}); }
-  function zeroX(c) { return global.Plot.ruleX([0], {stroke: c.t.axis, strokeWidth: 1}); }
+  // zero is the comparison in almost every exhibit: its rule is heavier than the grid and the axis
+  function zeroY(c) { return global.Plot.ruleY([0], {stroke: c.t.ink2, strokeWidth: 1.5}); }
+  function zeroX(c) { return global.Plot.ruleX([0], {stroke: c.t.ink2, strokeWidth: 1.5}); }
   function tip(c, data, o) {
     return global.Plot.tip(data, Object.assign({fill: c.t.surface, stroke: c.t.rule2, fontSize: 12, lineHeight: 1.35}, o));
   }
+  // annotation text inside a chart: 12 px on a narrow screen, 11 px otherwise
+  function annot(c) { return c.narrow ? 12 : 11; }
+  // the colour for reference marks (S3, the random-pair median, differences): --ref-series, a
+  // lighter neutral than --neutral-series (which stays the fill of bands and histogram bars)
+  function refColor(c) {
+    if (c.t.ref) return c.t.ref;
+    var v = global.getComputedStyle(document.documentElement).getPropertyValue('--ref-series').trim();
+    return v || c.t.neutral;
+  }
+  // One Sharpe axis for every interval chart of Sharpe ratios (Exhibits 1, 6 and 22), so that
+  // interval widths compare from one exhibit to the next; widened only if a value falls outside.
+  var SHARPE = [-2.5, 2.5];
+  function sharpeDomain(values) {
+    var v = values.filter(function (x) { return x !== null && x !== undefined && isFinite(x); });
+    var lo = Math.min.apply(null, v.concat([SHARPE[0]])), hi = Math.max.apply(null, v.concat([SHARPE[1]]));
+    if (lo >= SHARPE[0] && hi <= SHARPE[1]) return SHARPE.slice();
+    var pad = (hi - lo) * 0.04;
+    return [lo < SHARPE[0] ? lo - pad : SHARPE[0], hi > SHARPE[1] ? hi + pad : SHARPE[1]];
+  }
+  // Shape is the second identity channel, after colour: circle for the v33 pairs strategy, square
+  // for Avellaneda–Lee, diamond for the Gatev baseline; a hollow mark is gross of costs or descriptive.
+  var SHAPE = {v33: 'circle', al: 'square', gatev: 'diamond2', ref: 'circle'};
   function axisX(c, o) {
     var base = {stroke: c.t.axis, tickSize: 4, tickPadding: 4};
     if (o && o.label) Object.assign(base, {labelAnchor: 'center', labelOffset: 36});
@@ -114,6 +137,97 @@
     return [lo - span * pad, hi + span * pad];
   }
 
+  // ── interval rows: an estimate and its 95% interval per row (Exhibits 1, 6, 12, 22, 26) ──
+  // rows: [{label, est, lo, hi, color, symbol, hollow, dash, spread, group, ucb, status}]: a row
+  //   without an estimate keeps its place with the reason (status); a spread (across draws, not
+  //   an interval) is drawn as a pale band; ucb draws a one-sided 95% upper bound as a tick.
+  // o: {domain, label (x axis), ticks, tickFormat, dp, value(r), groups: [{key, label}], values,
+  //     valueHead, refs: [{row (index into rows), x, text, side: 'left' | 'right', dash}], title(r)}
+  // Wide: labels at the left, values ('+0.05 [−1.81, +1.83]') in a column at the right where they
+  // fit. Narrow: each label above its row with the value on the same line, so the scale keeps the
+  // whole width; annotations then go under their row.
+  function intervalPlot(c, rows, o) {
+    var P = global.Plot, narrow = c.narrow, fs = 12, af = annot(c), dp = o.dp === undefined ? 2 : o.dp;
+    var value = o.value || function (r) { return signed(r.est, dp) + ' [' + signed(r.lo, dp) + ', ' + signed(r.hi, dp) + ']'; };
+    var widestLabel = Math.max.apply(null, rows.map(function (r) { return textWidth(r.label, fs); }));
+    var widestValue = Math.max.apply(null, rows.filter(function (r) { return has(r.est); }).map(function (r) { return textWidth(value(r), fs); }).concat([0]));
+    var values = !!o.values && widestValue > 0, mL, mR, step, labelEm;
+    if (narrow) {
+      mL = 8; mR = 8; step = 46;
+      var room = c.width - mL - mR;
+      if (values && room - widestValue - 14 < Math.min(widestLabel, 110)) values = false;   // no room for both on one line
+      labelEm = (values ? room - widestValue - 14 : room) / fs;
+    } else {
+      mL = Math.min(Math.ceil(widestLabel) + 18, Math.floor(c.width * 0.36));
+      mR = values ? Math.ceil(Math.max(widestValue, o.valueHead ? textWidth(o.valueHead, af) : 0)) + 16 : 16;
+      if (values && c.width - mL - mR < 220) { values = false; mR = 16; }
+      step = 34;
+      // Plot wraps by its own estimate of text width: no wrapping unless the label is past the margin
+      labelEm = widestLabel + 18 <= mL ? Infinity : (mL - 14) / fs;
+    }
+    // rows in group order, each at its own pixel row (the y scale is the identity)
+    var headH = 26, heads = [], placed = [];
+    var mT = o.valueHead && values && !o.groups ? 22 : 8, y = mT;
+    (o.groups || [{key: undefined}]).forEach(function (g) {
+      var rs = rows.filter(function (r) { return !o.groups || r.group === g.key; });
+      if (!rs.length) return;
+      if (o.groups) { heads.push({label: g.label.toUpperCase(), py: y + (narrow ? headH - 5 : headH / 2 + 2)}); y += headH; }
+      rs.forEach(function (r) {
+        placed[rows.indexOf(r)] = Object.assign({}, r, {py: y + (narrow ? 30 : step / 2)});
+        y += step;
+      });
+    });
+    var A = placed.filter(Boolean);
+    var D = A.filter(function (r) { return has(r.est); }), B = A.filter(function (r) { return !has(r.est); });
+    // an annotation sits beside its tick (left or right), moved back inside the frame if it would leave it
+    var xs = global.d3.scaleLinear().domain(o.domain).range([mL, c.width - mR]);
+    var refs = (o.refs || []).filter(function (f) { return placed[f.row] && has(f.x); }).map(function (f) {
+      var w = textWidth(f.text, af), px = f.side === 'left' ? xs(f.x) - 5 - w : xs(f.x) + 5;
+      px = Math.max(mL, Math.min(px, c.width - mR - w));
+      return Object.assign({}, f, {py: placed[f.row].py, lx: xs.invert(px)});
+    });
+    var mB = 44;
+    var tick = function (d) { return {y1: function (r) { return r.py - d; }, y2: function (r) { return r.py + d; }}; };
+    var labelMark = narrow ?
+      P.text(A, halo(c, {frameAnchor: 'left', y: 'py', text: 'label', textAnchor: 'start', lineAnchor: 'bottom', dy: -9, fill: c.t.ink, fontSize: fs, lineWidth: labelEm})) :
+      P.text(A, {frameAnchor: 'left', y: 'py', text: 'label', textAnchor: 'end', dx: -10, fill: c.t.ink, fontSize: fs, lineWidth: labelEm, lineHeight: 1.15});
+    var valueOpts = {frameAnchor: 'right', y: 'py', text: value, textAnchor: 'end', dx: mR - 2, fill: c.t.ink2, fontSize: fs};
+    if (narrow) valueOpts = halo(c, Object.assign(valueOpts, {lineAnchor: 'bottom', dy: -9}));
+    var refText = refs.length ? P.text(refs, halo(c, {x: 'lx', y: 'py', text: 'text', textAnchor: 'start', dy: narrow ? 15 : -13, fill: c.t.ink2, fontSize: af})) : null;
+    var ticks = o.ticks || (narrow ? 5 : 10);
+    var node = plot(c, {
+      height: y + mB, marginLeft: mL, marginRight: mR, marginTop: mT, marginBottom: mB,
+      x: {domain: o.domain, label: o.label, labelArrow: 'none'},
+      y: {type: 'identity', axis: null},
+      marks: [
+        gridX(c, {ticks: ticks}), axisX(c, {ticks: ticks, label: o.label, labelArrow: 'none', tickFormat: o.tickFormat || function (v) { return signed(v, 1); }}),
+        zeroX(c),
+        P.ruleY(D.filter(function (r) { return r.spread; }), {y: 'py', x1: 'lo', x2: 'hi', stroke: 'color', strokeWidth: 8, strokeOpacity: 0.55}),
+        P.ruleY(D.filter(function (r) { return !r.spread && !r.dash; }), {y: 'py', x1: 'lo', x2: 'hi', stroke: 'color', strokeWidth: 2}),
+        P.ruleY(D.filter(function (r) { return !r.spread && r.dash; }), {y: 'py', x1: 'lo', x2: 'hi', stroke: 'color', strokeWidth: 2, strokeDasharray: '5,3'}),
+        P.ruleX(D.filter(function (r) { return has(r.ucb); }), Object.assign({x: 'ucb', stroke: c.t.ink, strokeWidth: 2}, tick(7))),
+        P.ruleX(refs.filter(function (f) { return !f.dash; }), Object.assign({x: 'x', stroke: c.t.ink, strokeWidth: 2}, tick(7))),
+        P.ruleX(refs.filter(function (f) { return f.dash; }), Object.assign({x: 'x', stroke: c.t.ink2, strokeWidth: 1.5, strokeDasharray: '2,2'}, tick(9))),
+        refText,
+        P.dot(D, {x: 'est', y: 'py', r: 5, symbol: function (r) { return r.symbol || 'circle'; },
+          fill: function (r) { return r.hollow ? c.t.paper : r.color; }, stroke: function (r) { return r.hollow ? r.color : c.t.paper; }, strokeWidth: 2}),
+        labelMark,
+        values ? P.text(D, valueOpts) : null,
+        values && o.valueHead ? P.text([o.valueHead], {frameAnchor: 'right', y: function () { return heads.length ? heads[0].py : mT - 12; }, text: function (d) { return d; },
+          textAnchor: 'end', dx: mR - 2, lineAnchor: narrow && heads.length ? 'bottom' : 'middle', fill: c.t.ink3, fontSize: af}) : null,
+        heads.length ? P.text(heads, {frameAnchor: 'left', y: 'py', text: 'label', textAnchor: 'start', dx: narrow ? 0 : 2 - mL,
+          lineAnchor: narrow ? 'bottom' : 'middle', fill: c.t.ink2, fontSize: af, fontWeight: 600}) : null,
+        B.length ? P.text(B, halo(c, {frameAnchor: 'left', y: 'py', text: 'status', textAnchor: 'start', dx: 2, fill: c.t.ink3, fontSize: narrow ? 12 : 11.5, fontStyle: 'italic'})) : null,
+        tip(c, D, P.pointer({x: 'est', y: 'py', title: o.title || function (r) { return r.label + '\n' + value(r); }}))
+      ].filter(Boolean)
+    });
+    // group headings spaced as the page's small capitals (.ex-label)
+    var H = {};
+    heads.forEach(function (h) { H[h.label] = true; });
+    node.querySelectorAll('text').forEach(function (t) { if (H[t.textContent]) t.setAttribute('letter-spacing', '0.06em'); });
+    return node;
+  }
+
   // ── the evaluated 2026 holdout (study.holdout, from scripts/evaluate_holdout.py) ──
   // Every decision shown is the evaluation's own (holdout.decision and each arm's edge): nothing
   // here recomputes it. A statistic the evaluation has no value for is null and prints as '–';
@@ -128,12 +242,16 @@
     var H = holdoutDone(S);
     return H ? H.arms.filter(function (a) { return a.key === key; })[0] || null : null;
   }
+  // each arm's colour role and shape: S1 the v33 pairs strategy (--series-1, circle), S2
+  // Avellaneda–Lee (--series-3, square), S3 descriptive (--ref-series, hollow circle, dashed);
+  // key is its legend key (site.css .lg-key classes)
   var ARM = {
-    v33_pairs: {tag: 'S1', name: 'v33 pairs', color: 's1', css: '--series-1'},
-    avellaneda_lee: {tag: 'S2', name: 'Avellaneda–Lee', color: 's3', css: '--series-3'},
-    v32_pairs: {tag: 'S3', name: 'v32 frozen', color: 'neutral', css: '--neutral-series', dash: true}
+    v33_pairs: {tag: 'S1', name: 'v33 pairs', color: 's1', css: '--series-1', symbol: 'circle', key: 'line mk'},
+    avellaneda_lee: {tag: 'S2', name: 'Avellaneda–Lee', color: 's3', css: '--series-3', symbol: 'square', key: 'line mk mk-sq'},
+    v32_pairs: {tag: 'S3', name: 'v32 frozen', color: 'ref', css: '--ref-series', dash: true, symbol: 'circle', open: true, key: 'line dash mk mk-ring'}
   };
-  function armInfo(a) { return ARM[a.key] || {tag: a.key, name: a.label || a.key, color: 'ink2', css: '--ink-2'}; }
+  function armInfo(a) { return ARM[a.key] || {tag: a.key, name: a.label || a.key, color: 'ink2', css: '--ink-2', symbol: 'circle', key: 'line mk'}; }
+  function armColor(c, info) { return info.color === 'ref' ? refColor(c) : c.t[info.color]; }
   function armTag(a) { return armInfo(a).tag; }
   function armLabel(a) { return (a.hypothesis ? a.hypothesis + ' · ' : '') + armTag(a) + ' ' + armInfo(a).name; }
   function holdoutAlpha(H) { return has(H.alpha) ? H.alpha : (H.decision && has(H.decision.alpha) ? H.decision.alpha : 0.05); }
@@ -232,7 +350,7 @@
         P.lineY(rows, {x: 'date', y: 'dd', stroke: c.t.neg, strokeWidth: 1.5}),
         zeroY(c),
         P.dot([minDd], {x: 'date', y: 'dd', r: 4, fill: c.t.neg, stroke: c.t.paper, strokeWidth: 2}),
-        P.text([minDd], {x: 'date', y: 'dd', text: function (d) { return 'max ' + pct(d.dd); }, dx: 8, textAnchor: 'start', fill: c.t.ink, fontSize: 11.5})
+        P.text([minDd], {x: 'date', y: 'dd', text: function (d) { return 'max ' + pct(d.dd); }, dx: 8, textAnchor: 'start', fill: c.t.ink, fontSize: c.narrow ? 12 : 11.5})
       ]
     }));
     var expMax = Math.max.apply(null, rows.map(function (r) { return r.exp; }));
@@ -246,7 +364,7 @@
         P.areaY(rows, {x: 'date', y: 'exp', curve: 'step-after', fill: c.t.s1, fillOpacity: 0.12}),
         P.lineY(rows, {x: 'date', y: 'exp', curve: 'step-after', stroke: c.t.s1, strokeWidth: 1.5}),
         P.ruleY([30], {stroke: c.t.ink3, strokeWidth: 1}),
-        P.text([30], {y: function (v) { return v; }, frameAnchor: 'right', text: function () { return '30% cap'; }, dy: -7, textAnchor: 'end', fill: c.t.ink2, fontSize: 11}),
+        P.text([30], {y: function (v) { return v; }, frameAnchor: 'right', text: function () { return '30% cap'; }, dy: -7, textAnchor: 'end', fill: c.t.ink2, fontSize: annot(c)}),
         zeroY(c)
       ]
     }));
@@ -269,84 +387,180 @@
           if (band) cells = cells.concat(r.rnd ? [pct(r.rnd.p05, 3), pct(r.rnd.p25, 3), pct(r.rnd.p50, 3), pct(r.rnd.p75, 3), pct(r.rnd.p95, 3)] : ['–', '–', '–', '–', '–']);
           return cells.concat([num(r.dd, 3, {suffix: '%'}), num(r.exp, 2, {suffix: '%'}), String(r.pos)]);
         })),
-      mount: function (container) { crosshair(container, [pane1, pane2, pane3], rows, c); }
+      mount: function (container) {
+        crosshair(container, {
+          panes: [pane1, pane2, pane3], rows: rows, stacked: true,
+          dots: [{pane: 0, y: function (r) { return r.cum; }, color: c.t.s1}, {pane: 0, y: function (r) { return r.gatev; }, color: c.t.s2},
+                 {pane: 1, y: function (r) { return r.dd; }, color: c.t.neg}, {pane: 2, y: function (r) { return r.exp; }, color: c.t.s1}],
+          items: function (r) {
+            var out = [{label: 'Strategy', color: c.t.s1, value: pct(r.cum)}];
+            if (G) out.push({label: 'Gatev', color: c.t.s2, value: r.gatev === null ? '–' : pct(r.gatev)});
+            if (band) {
+              out.push({label: 'Random, median', color: c.t.neutral, key: 'band', value: r.rnd ? pct(r.rnd.p50) : '–', wide: true});
+              out.push({label: 'Random, middle half', value: r.rnd ? pct(r.rnd.p25, 1) + ' to ' + pct(r.rnd.p75, 1) : '–', wide: true});
+            }
+            return out.concat([{label: 'Drawdown', color: c.t.neg, value: num(r.dd, 2, {suffix: '%'})},
+                               {label: 'Gross exposure', value: num(r.exp, 1, {suffix: '%'})},
+                               {label: 'Open positions', value: String(r.pos)}]);
+          }
+        }, c);
+      }
     };
   };
 
-  // One vertical rule across all panes and one tooltip listing every series at that date.
-  function crosshair(container, panes, rows, c) {
-    var xs = panes[0].scale('x');
+  // The crosshair of the time-series exhibits (2, 1 and 22's cumulative panes, 3, 5 and 18): one
+  // vertical rule across every pane at the date under the pointer, a dot on each line, and one
+  // read-out of every series at that date. Mouse: the read-out follows the pointer. Touch: a tap
+  // pins it, a sideways drag scrubs (the panes take touch-action: pan-y pinch-zoom, so a vertical
+  // swipe still scrolls the page), and a tap outside the chart hides it. On a narrow screen the
+  // read-out is docked above the first pane with its height reserved, so it never covers the
+  // lines and never moves the page; while nothing is pinned it shows the last date.
+  // spec: {panes: [svg], rows: [{date, ...}], items(r) -> [{label, color, value, key}],
+  //        dots: [{pane, y(r), color}], stacked (panes share one column), dock (element to dock before)}
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function crosshair(container, spec, c) {
+    var panes = spec.panes, rows = spec.rows;
     var dates = rows.map(function (r) { return +r.date; });
     var bisect = global.d3.bisector(function (d) { return d; }).center;
+    var scales = panes.map(function (p) { return {x: p.scale('x'), y: p.scale('y')}; });
     var rules = panes.map(function (p) {
-      var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      var line = document.createElementNS(SVGNS, 'line');
       line.setAttribute('y1', 0);
       line.setAttribute('y2', p.getAttribute('height'));
       line.setAttribute('stroke', c.t.ink3);
       line.setAttribute('stroke-width', 1);
-      line.style.display = 'none';
       line.setAttribute('aria-hidden', 'true');
+      line.setAttribute('class', 'xh');
+      line.style.display = 'none';
       p.appendChild(line);
+      p.style.touchAction = 'pan-y pinch-zoom';
       return line;
     });
+    var dots = (spec.dots || []).map(function (d) {
+      var el = document.createElementNS(SVGNS, 'circle');
+      el.setAttribute('r', 3.5);
+      el.setAttribute('fill', d.color);
+      el.setAttribute('stroke', c.t.paper);
+      el.setAttribute('stroke-width', 1.5);
+      el.setAttribute('aria-hidden', 'true');
+      el.setAttribute('class', 'xh');
+      el.style.display = 'none';
+      panes[d.pane].appendChild(el);
+      return {el: el, d: d};
+    });
+    var docked = !!c.narrow;
     var tipEl = document.createElement('div');
-    tipEl.className = 'xtip';
-    tipEl.style.display = 'none';
+    tipEl.className = 'xtip' + (docked ? ' is-docked' : '');
     tipEl.setAttribute('aria-hidden', 'true');
-    container.appendChild(tipEl);
+    if (docked) {
+      var at = spec.dock || panes[0];
+      at.parentNode.insertBefore(tipEl, at);
+    } else {
+      tipEl.style.display = 'none';
+      container.appendChild(tipEl);
+    }
 
-    function row(label, color, value) {
+    function line(it) {
       var r = document.createElement('div');
-      r.className = 'xt-row';
-      if (color) {
-        var k = document.createElement('span');
-        k.className = 'xt-key';
-        k.style.color = color;
-        r.appendChild(k);
-      }
+      r.className = 'xt-row' + (it.wide ? ' is-wide' : '');
+      var k = document.createElement('span');
+      k.className = 'xt-key' + (it.key ? ' ' + it.key : '') + (it.color ? '' : ' is-none');
+      if (it.color) k.style.color = it.color;
+      r.appendChild(k);
       var l = document.createElement('span');
-      l.textContent = label;
+      l.className = 'xt-l';
+      l.textContent = it.label;
       var v = document.createElement('b');
-      v.textContent = value;
+      v.textContent = it.value;
       r.appendChild(l);
       r.appendChild(v);
       return r;
     }
-    function show(evt) {
-      var box = panes[0].getBoundingClientRect();
-      var scale = box.width / Number(panes[0].getAttribute('width'));
-      var px = (evt.clientX - box.left) / scale;
-      var i = bisect(dates, +xs.invert(px));
-      var r = rows[i];
-      var x = xs.apply(r.date);
-      rules.forEach(function (l) { l.setAttribute('x1', x); l.setAttribute('x2', x); l.style.display = ''; });
+    function fill(r, active) {
       tipEl.replaceChildren();
       var d = document.createElement('div');
       d.className = 'xt-date';
       d.textContent = fmtDate(r.date);
       tipEl.appendChild(d);
-      tipEl.appendChild(row('Strategy', c.t.s1, pct(r.cum)));
-      if (r.gatev !== null) tipEl.appendChild(row('Gatev', c.t.s2, pct(r.gatev)));
-      if (r.rnd) tipEl.appendChild(row('Random, median', null, pct(r.rnd.p50) + ' [middle half ' + pct(r.rnd.p25, 1) + ', ' + pct(r.rnd.p75, 1) + ']'));
-      tipEl.appendChild(row('Drawdown', null, num(r.dd, 2, {suffix: '%'})));
-      tipEl.appendChild(row('Gross exposure', null, num(r.exp, 1, {suffix: '%'})));
-      tipEl.appendChild(row('Open positions', null, String(r.pos)));
+      spec.items(r).forEach(function (it) { tipEl.appendChild(line(it)); });
+      tipEl.classList.toggle('is-idle', !active);
+    }
+    function mark(j, active) {
+      var r = rows[j];
+      rules.forEach(function (l, i) {
+        var x = scales[i].x.apply(r.date);
+        l.setAttribute('x1', x);
+        l.setAttribute('x2', x);
+        l.style.display = active ? '' : 'none';
+      });
+      dots.forEach(function (o) {
+        var v = o.d.y(r);
+        if (!active || !has(v)) { o.el.style.display = 'none'; return; }
+        o.el.setAttribute('cx', scales[o.d.pane].x.apply(r.date));
+        o.el.setAttribute('cy', scales[o.d.pane].y.apply(v));
+        o.el.style.display = '';
+      });
+    }
+    // the pane under a pointer (stacked panes: the gaps between them count as the first pane)
+    function paneAt(x, y) {
+      for (var i = 0; i < panes.length; i++) {
+        var b = panes[i].getBoundingClientRect();
+        if (x >= b.left && x <= b.right && y >= b.top - 3 && y <= b.bottom + 3) return i;
+      }
+      if (spec.stacked) {
+        var a = panes[0].getBoundingClientRect(), z = panes[panes.length - 1].getBoundingClientRect();
+        if (x >= a.left && x <= a.right && y >= a.top && y <= z.bottom) return 0;
+      }
+      return -1;
+    }
+    function show(evt) {
+      var i = paneAt(evt.clientX, evt.clientY);
+      if (i < 0) { if (evt.pointerType === 'mouse') hide(); return; }
+      var box = panes[i].getBoundingClientRect();
+      var k = box.width / Number(panes[i].getAttribute('width'));
+      var j = bisect(dates, +scales[i].x.invert((evt.clientX - box.left) / k));
+      j = Math.max(0, Math.min(rows.length - 1, j));
+      mark(j, true);
+      fill(rows[j], true);
+      if (docked) {
+        if (tipEl.offsetHeight > parseFloat(tipEl.style.minHeight || 0)) tipEl.style.minHeight = tipEl.offsetHeight + 'px';
+        return;
+      }
       tipEl.style.display = '';
+      var cb = container.getBoundingClientRect();
+      var top = (spec.stacked ? panes[0] : panes[i]).getBoundingClientRect().top - cb.top;
+      var x = box.left - cb.left + scales[i].x.apply(rows[j].date) * k;
       var cw = container.clientWidth, tw = tipEl.offsetWidth;
-      var left = x * scale + 14;
-      if (left + tw > cw) left = x * scale - tw - 14;
-      tipEl.style.left = Math.max(0, left) + 'px';
-      tipEl.style.top = '28px';
+      var left = x + 14;
+      if (left + tw > cw) left = x - tw - 14;
+      tipEl.style.left = Math.max(0, Math.min(left, cw - tw)) + 'px';
+      tipEl.style.top = (top + 8) + 'px';
     }
-    function hide() { rules.forEach(function (l) { l.style.display = 'none'; }); tipEl.style.display = 'none'; }
+    function hide() {
+      mark(rows.length - 1, false);
+      if (docked) fill(rows[rows.length - 1], false);
+      else tipEl.style.display = 'none';
+    }
+    function down(evt) { if (paneAt(evt.clientX, evt.clientY) >= 0) show(evt); }
+    function leave(evt) { if (evt.pointerType === 'mouse') hide(); }
+    function outside(evt) { if (!container.contains(evt.target)) hide(); }
     // a redraw replaces the panes: drop the previous drawing's listeners first
-    if (container.crosshair) {
-      container.removeEventListener('pointermove', container.crosshair.show);
-      container.removeEventListener('pointerleave', container.crosshair.hide);
+    var old = container.crosshair;
+    if (old) {
+      container.removeEventListener('pointermove', old.show);
+      container.removeEventListener('pointerdown', old.down);
+      container.removeEventListener('pointerleave', old.leave);
+      document.removeEventListener('pointerdown', old.outside);
     }
-    container.crosshair = {show: show, hide: hide};
+    container.crosshair = {show: show, down: down, leave: leave, outside: outside};
     container.addEventListener('pointermove', show);
-    container.addEventListener('pointerleave', hide);
+    container.addEventListener('pointerdown', down);
+    container.addEventListener('pointerleave', leave);
+    document.addEventListener('pointerdown', outside);
+    if (docked) {
+      hide();
+      tipEl.style.minHeight = tipEl.offsetHeight + 'px';
+    }
   }
 
   // ── Exhibit 3: walk-forward windows and the stitched path ─────────────────
@@ -377,12 +591,8 @@
         gridY(c), axisY(c, {label: 'Window net return, %', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }}),
         P.rect(W, {x1: 'a', x2: 'b', y1: 0, y2: 'ret', fill: function (w) { return signColor(c)(w.ret); }, insetLeft: 2, insetRight: 2, rx1y2: 3, rx2y2: 3}),
         zeroY(c),
-        P.text(pos, {x: 'mid', y: 'ret', text: label, dy: -8, fill: c.t.ink2, fontSize: 11}),
-        P.text(neg, {x: 'mid', y: 'ret', text: label, dy: 9, fill: c.t.ink2, fontSize: 11}),
-        tip(c, W, P.pointerX({x: 'mid', y: 'ret', title: function (w) {
-          return 'Window ' + w.k + ' of ' + W.length + ' · ' + fmtDate(w.a) + ' – ' + fmtDate(w.b) + (w.days ? ' (' + w.days + ' days)' : '') + '\nNet return ' + pct(w.ret, 3) +
-            '\nTrades entered ' + w.trades + '\nSharpe ' + num(w.sharpe, 2) + (w.auc !== null ? '\nRanker AUC ' + num(w.auc, 3) : '');
-        }}))
+        P.text(pos, {x: 'mid', y: 'ret', text: label, dy: -8, fill: c.t.ink2, fontSize: annot(c)}),
+        P.text(neg, {x: 'mid', y: 'ret', text: label, dy: 9, fill: c.t.ink2, fontSize: annot(c)})
       ]
     });
     var lastP = path[path.length - 1];
@@ -396,13 +606,29 @@
         zeroY(c),
         P.lineY(path, {x: 'date', y: 'cum', stroke: c.t.s1, strokeWidth: 2}),
         WF.daily ? null : P.dot(path, {x: 'date', y: 'cum', r: 3.5, fill: c.t.s1, stroke: c.t.paper, strokeWidth: 2}),
-        P.text([lastP], {x: 'date', y: 'cum', text: function (p) { return pct(p.cum); }, dx: 8, textAnchor: 'start', fill: c.t.ink, fontWeight: 600}),
-        tip(c, path, P.pointerX({x: 'date', y: 'cum', title: function (p) { return fmtDate(p.date) + '\nStitched ' + pct(p.cum, 3); }}))
+        P.text([lastP], {x: 'date', y: 'cum', text: function (p) { return pct(p.cum); }, dx: 8, textAnchor: 'start', fill: c.t.ink, fontWeight: 600})
       ].filter(Boolean)
     });
     pane1.classList.add('plot-pane');
     pane2.classList.add('plot-pane');
+    // the read-out: the window a date falls in (its return, trades and Sharpe) and the stitched path
+    var windowOf = function (d) {
+      for (var i = 0; i < W.length; i++) if (+d >= +W[i].a && +d <= +W[i].b) return W[i];
+      return null;
+    };
     return {
+      mount: function (container) {
+        crosshair(container, {
+          panes: [pane1, pane2], rows: path, stacked: true,
+          dots: [{pane: 1, y: function (p) { return p.cum; }, color: c.t.s1}],
+          items: function (p) {
+            var w = windowOf(p.date);
+            return [{label: w ? 'Window ' + w.k + ' of ' + W.length : 'Window', color: w ? signColor(c)(w.ret) : null, key: 'box', wide: true,
+                     value: w ? pct(w.ret) + ', ' + plural(w.trades, 'trade', 'trades') + ', Sharpe ' + num(w.sharpe, 2) : '–'},
+                    {label: 'Stitched path', color: c.t.s1, value: pct(p.cum), wide: true}];
+          }
+        }, c);
+      },
       nodes: [pane1, pane2],
       legend: [{label: 'Window gain', color: '--pos', kind: 'box'}, {label: 'Window loss', color: '--neg', kind: 'box'},
                {label: 'Labels: trades entered in the window', color: '--ink-3', kind: 'none'}],
@@ -424,7 +650,8 @@
     var cells = M.map(function (m) { return {year: m.ym.slice(0, 4), col: MONTHS[+m.ym.slice(5, 7) - 1], v: m.ret_pct}; });
     (S.dev.annual || []).forEach(function (a) { cells.push({year: a.year, col: 'Year', v: a.ret_pct, months: a.months}); });
     var years = Array.from(new Set(cells.map(function (d) { return d.year; })));
-    var cols = MONTHS.concat(['Year']);
+    // an empty column (a row on phones) keeps the compounded year apart from the months
+    var cols = MONTHS.concat([' ', 'Year']);
     var m = Math.max.apply(null, cells.map(function (d) { return Math.abs(d.v); })) || 1;
     var fillOf = global.d3.scaleLinear().domain([-m, 0, m]).range([c.t.neg, c.t.mid, c.t.pos]).interpolate(global.d3.interpolateLab);
     // each label in black or white, whichever contrasts more with its cell (at least 4.6:1 on any fill)
@@ -470,14 +697,22 @@
         axisX(c, {ticks: c.narrow ? 4 : 8}),
         P.areaY(rows, {x: 'date', y1: 'lo', y2: 'hi', fill: c.t.neutral, fillOpacity: 0.18}),
         zeroY(c),
-        P.lineY(rows, {x: 'date', y: 'sr', stroke: c.t.s1, strokeWidth: 2}),
-        tip(c, rows, P.pointerX({x: 'date', y: 'sr', title: function (r) {
-          return r.sr === null ? fmtDate(r.date) + '\nflat throughout the window' :
-            fmtDate(r.date) + '\nSharpe ' + signed(r.sr, 2) + '\n95% band ' + num(r.lo, 2) + ' to ' + signed(r.hi, 2);
-        }}))
+        P.lineY(rows, {x: 'date', y: 'sr', stroke: c.t.s1, strokeWidth: 2})
       ]
     });
+    node.classList.add('plot-pane');
     return {
+      mount: function (container) {
+        crosshair(container, {
+          panes: [node], rows: rows,
+          dots: [{pane: 0, y: function (r) { return r.sr; }, color: c.t.s1}],
+          items: function (r) {
+            return r.sr === null ? [{label: 'Sharpe', color: c.t.s1, value: 'flat throughout the window'}] :
+              [{label: 'Sharpe', color: c.t.s1, value: signed(r.sr, 2)},
+               {label: '±1.96 standard errors', color: c.t.neutral, key: 'band', value: num(r.lo, 2) + ' to ' + signed(r.hi, 2), wide: true}];
+          }
+        }, c);
+      },
       nodes: [node],
       legend: [{label: 'Rolling ' + R.window + '-day Sharpe', color: '--series-1', kind: 'line'},
                {label: '±1.96 standard errors', color: '--neutral-series', kind: 'band'}],
@@ -488,24 +723,34 @@
   };
 
   // ── Exhibit 6: Sharpe forest plot ─────────────────────────────────────────
+  // Grouped rows on the shared Sharpe axis, values printed beside them: the development series,
+  // the differences against the Gatev baseline, the baselines, and the holdout. The main
+  // backtest's one-sided 95% bound and 80%-power mark, and the walk-forward's bound, sit on their
+  // own rows, labelled next to their ticks.
   X.forest = function (S, c) {
     var F = S.dev && S.dev.forest;
     if (!F || !F.length) return null;
-    var P = global.Plot, pw = S.dev.power || {};
-    var color = {main: c.t.s1, gross: c.t.s1, oos: c.t.s1, gatev: c.t.s2, diff_main: c.t.ink2, diff_oos: c.t.ink2, random: c.t.neutral};
-    var rows = F.map(function (r) { return Object.assign({}, r, {color: color[r.key] || c.t.ink2}); });
+    var pw = S.dev.power || {}, ref = refColor(c), facts = S.dev.facts || {};
+    var LOOK = {main: {color: c.t.s1, symbol: SHAPE.v33, group: 'dev'}, gross: {color: c.t.s1, symbol: SHAPE.v33, hollow: true, group: 'dev'},
+                oos: {color: c.t.s1, symbol: SHAPE.v33, group: 'dev'}, gatev: {color: c.t.s2, symbol: SHAPE.gatev, group: 'base'},
+                diff_main: {color: ref, symbol: SHAPE.ref, group: 'diff'}, diff_oos: {color: ref, symbol: SHAPE.ref, group: 'diff'},
+                random: {color: ref, symbol: SHAPE.ref, spread: true, group: 'base'}};
+    var rows = F.map(function (r) {
+      return Object.assign({}, r, {est: r.sharpe, color: c.t.ink2, symbol: 'circle', group: r.kind === 'diff' ? 'diff' : 'dev'}, LOOK[r.key] || {});
+    });
     // rows whose runs do not exist yet keep their place, marked pending or sealed
-    var pending = [];
-    if (!rows.some(function (r) { return r.key === 'gross'; })) pending.push({label: 'Main backtest, gross of costs', status: 'pending: v33 export'});
+    if (!rows.some(function (r) { return r.key === 'gross'; })) rows.push({key: 'gross', label: 'Main backtest, gross of costs', status: 'pending: v33 export', group: 'dev'});
     if (S.residual && S.residual.sharpe !== null) {
-      rows.push({key: 'residual', label: 'Avellaneda–Lee, net', kind: 'ci', sharpe: S.residual.sharpe, lo: S.residual.lo, hi: S.residual.hi, color: c.t.s3, method: 'block bootstrap'});
-    } else pending.push({label: 'Avellaneda–Lee, net', status: 'pending: v33 run'});
+      rows.push({key: 'residual', label: 'Avellaneda–Lee, net', kind: 'ci', est: S.residual.sharpe, sharpe: S.residual.sharpe, lo: S.residual.lo, hi: S.residual.hi,
+                 color: c.t.s3, symbol: SHAPE.al, group: 'dev', method: 'block bootstrap'});
+    } else rows.push({key: 'residual', label: 'Avellaneda–Lee, net', status: 'pending: v33 run', group: 'dev'});
     // the holdout's S1, the pairs strategy's own design (in its colour); a flat S1 keeps its row
     var held = holdoutArm(S, 'v33_pairs');
     var heldLabel = held ? 'Holdout ' + String(S.holdout.calendar_start || '2026').slice(0, 4) + ', S1 v33 pairs, net' : 'Holdout 2026, net';
     if (held && has(held.sharpe)) {
-      rows.push({key: 'holdout', label: heldLabel, kind: 'ci', sharpe: held.sharpe, lo: held.lo, hi: held.hi, days: held.days, color: c.t.s1, method: 'block bootstrap'});
-    } else pending.push({label: heldLabel, status: held ? flatWhy(held) + ': Sharpe not defined' : 'sealed'});
+      rows.push({key: 'holdout', label: heldLabel, kind: 'ci', est: held.sharpe, sharpe: held.sharpe, lo: held.lo, hi: held.hi, days: held.days,
+                 color: c.t.s1, symbol: SHAPE.v33, group: 'hold', method: 'block bootstrap'});
+    } else rows.push({key: 'holdout', label: heldLabel, status: held ? flatWhy(held) + ': Sharpe not defined' : 'sealed', group: 'hold'});
     // the title and subtitle speak of the development period: once the holdout row is filled, say so
     if (held && c.figure) {
       var lead = 'Every bootstrap interval spans zero', t0 = c.figure.querySelector('.ex-title');
@@ -515,79 +760,109 @@
       }
       if (sub && sub.textContent === subText) sub.textContent = subText + '; the holdout row is S1 on the holdout, outside the development period';
     }
-    var labels = rows.map(function (r) { return r.label; }).concat(pending.map(function (p) { return p.label; }));
-    var xdom = domainPad(rows.map(function (r) { return r.lo; }).concat(rows.map(function (r) { return r.hi; })), 0.06, [pw.mde || 0, 0]);
-    var main = rows.filter(function (r) { return r.key === 'main'; });
-    // the 80%-power mark and the upper bound are the main backtest's: both sit on its row only
+    var idx = function (k) { for (var i = 0; i < rows.length; i++) if (rows[i].key === k && has(rows[i].est)) return i; return -1; };
     var refs = [];
-    if (pw.mde && main.length) refs.push({x: pw.mde, text: (c.narrow ? 'main: 80% power ' : 'main backtest: detectable at 80% power, ') + num(pw.mde, 2)});
-    var node = plot(c, {
-      height: labels.length * (c.narrow ? 40 : 34) + 50, marginLeft: c.narrow ? 132 : 212, marginRight: 16, marginTop: 30, marginBottom: 30,
-      x: {domain: xdom, label: 'Annualised Sharpe ratio', labelArrow: 'none'},
-      y: {domain: labels, label: null, padding: 0.4},
-      marks: [
-        gridX(c, {ticks: c.narrow ? 4 : 8}), axisX(c, {ticks: c.narrow ? 4 : 8, label: 'Annualised Sharpe ratio', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }}),
-        axisY(c, {lineWidth: c.narrow ? 10 : 20, lineHeight: 1.15, fill: c.t.ink, fontSize: c.narrow ? 11 : 12}),
-        zeroX(c),
-        P.tickX(refs, {x: 'x', y: function () { return main[0].label; }, stroke: c.t.ink3, strokeWidth: 1.5, strokeDasharray: '3,2'}),
-        P.text(refs, {x: 'x', frameAnchor: 'top', text: 'text', dy: -16, textAnchor: 'end', dx: 4, fill: c.t.ink2, fontSize: 11}),
-        P.ruleY(rows, {y: 'label', x1: 'lo', x2: 'hi', stroke: 'color', strokeWidth: 2}),
-        P.dot(rows, {x: 'sharpe', y: 'label', r: 4.5, fill: 'color', stroke: c.t.paper, strokeWidth: 2}),
-        main.length && pw.ucb ? P.tickX(main, {x: function () { return pw.ucb; }, y: 'label', stroke: c.t.ink, strokeWidth: 1.5}) : null,
-        main.length && pw.ucb ? P.text(main, halo(c, {x: function () { return pw.ucb; }, y: 'label', text: function () { return (c.narrow ? '95% bound ' : 'main backtest: one-sided 95% bound, ') + num(pw.ucb, 2); }, dy: -13, textAnchor: 'end', dx: 3, fill: c.t.ink2, fontSize: 11})) : null,
-        // pending rows say so at the frame's left edge, which stays on screen at any width
-        P.text(pending, halo(c, {y: 'label', frameAnchor: 'left', text: 'status', textAnchor: 'start', dx: 2, fill: c.t.ink3, fontSize: 11.5, fontStyle: 'italic'})),
-        tip(c, rows, P.pointer({x: 'sharpe', y: 'label', title: function (r) {
-          return r.label + '\nSharpe ' + signed(r.sharpe, 2) + '\n' + (r.kind === 'spread' ? '5th–95th pct ' : '95% interval ') + signed(r.lo, 2) + ' to ' + signed(r.hi, 2) +
-            (r.p !== undefined && r.p !== null ? '\np = ' + num(r.p, 3) : '') + '\n' + r.method;
-        }}))
-      ].filter(Boolean)
+    if (idx('main') >= 0) {
+      if (has(pw.ucb)) refs.push({row: idx('main'), x: pw.ucb, text: 'bound ' + num(pw.ucb, 2), side: 'left'});
+      if (has(pw.mde)) refs.push({row: idx('main'), x: pw.mde, text: '80% power ' + num(pw.mde, 2), side: 'right', dash: true});
+    }
+    if (idx('oos') >= 0 && has(facts.oos_ucb)) refs.push({row: idx('oos'), x: facts.oos_ucb, text: 'bound ' + signed(facts.oos_ucb, 2), side: 'left'});
+    var node = intervalPlot(c, rows, {
+      domain: sharpeDomain([].concat.apply([], rows.map(function (r) { return [r.lo, r.hi]; })).concat(refs.map(function (f) { return f.x; }))),
+      label: 'Annualised Sharpe ratio', values: true, valueHead: 'Sharpe [95% interval]',
+      groups: [{key: 'dev', label: 'Development series'}, {key: 'diff', label: 'Differences vs Gatev'},
+               {key: 'base', label: 'Baselines'}, {key: 'hold', label: 'Holdout ' + String((S.holdout && S.holdout.calendar_start) || '2026').slice(0, 4)}],
+      refs: refs,
+      title: function (r) {
+        return r.label + '\nSharpe ' + signed(r.sharpe, 2) + '\n' + (r.kind === 'spread' ? '5th–95th pct ' : '95% interval ') + signed(r.lo, 2) + ' to ' + signed(r.hi, 2) +
+          (r.p !== undefined && r.p !== null ? '\np = ' + num(r.p, 3) : '') + '\n' + r.method;
+      }
     });
+    var drawn = rows.filter(function (r) { return has(r.est); }), pending = rows.filter(function (r) { return !has(r.est); });
+    var legend = [{label: 'Pairs strategy (v33)', color: '--series-1', kind: 'dot'}, {label: 'Gross of costs', color: '--ink-2', kind: 'dot ring'},
+                  {label: 'Gatev baseline', color: '--series-2', kind: 'dot dia'}];
+    if (rows.some(function (r) { return r.key === 'residual' && has(r.est); })) legend.push({label: 'Avellaneda–Lee', color: '--series-3', kind: 'dot sq'});
+    legend.push({label: 'Difference', color: '--ref-series', kind: 'dot'}, {label: 'Random pairs, 5th–95th percentile spread', color: '--ref-series', kind: 'band'});
+    if (refs.length) legend.push({label: 'One-sided 95% upper bound', color: '--ink', kind: 'rule'});
+    if (has(pw.mde) && idx('main') >= 0) legend.push({label: 'Detectable with 80% power', color: '--ink-2', kind: 'rule dash'});
     return {
       nodes: [node],
-      legend: [{label: 'Pairs strategy', color: '--series-1', kind: 'dot'}, {label: 'Gatev baseline', color: '--series-2', kind: 'dot'},
-               {label: 'Difference', color: '--ink-2', kind: 'dot'}, {label: 'Random pairs', color: '--neutral-series', kind: 'dot'}]
-        .concat(rows.some(function (r) { return r.key === 'residual'; }) ? [{label: 'Avellaneda–Lee', color: '--series-3', kind: 'dot'}] : []),
+      legend: legend,
       table: table('Sharpe ratios and intervals. Power: ' + (pw.method || '') + '.', ['Series', 'Sharpe', 'Lower', 'Upper', 'Days', 'Interval'],
         [false, true, true, true, true, false],
-        rows.map(function (r) { return [r.label, signed(r.sharpe, 2), signed(r.lo, 2), signed(r.hi, 2), r.days ? String(r.days) : '–', r.method]; })
+        drawn.map(function (r) { return [r.label, signed(r.sharpe, 2), signed(r.lo, 2), signed(r.hi, 2), r.days ? String(r.days) : '–', r.method]; })
           .concat(pending.map(function (p) { return [p.label, p.status, '', '', '', '']; }))
           .concat(pw.mde ? [['Minimum detectable Sharpe (80% power)', num(pw.mde, 2), '', '', String(pw.n || ''), 'one-sided 5% test'],
-                            ['One-sided 95% upper bound, main', num(pw.ucb, 2), '', '', String(pw.n || ''), 'Wald']] : []))
+                            ['One-sided 95% upper bound, main', num(pw.ucb, 2), '', '', String(pw.n || ''), 'Wald']] : [])
+          .concat(has(facts.oos_ucb) ? [['One-sided 95% upper bound, walk-forward', signed(facts.oos_ucb, 2), '', '', has(facts.oos_days) ? String(facts.oos_days) : '–', 'Wald']] : []))
     };
   };
 
   // ── Exhibit 7: random-pair null distribution ──────────────────────────────
+  // The draws at or below the strategy are the darker part of each bar, so the strategy's
+  // percentile (the title's) is the darker share; the median draw (the notes') is marked.
+  // Bars are binned here, so a bar's read-out names its range.
+  function bins(values, thresholds) {
+    return global.d3.bin().domain([thresholds[0], thresholds[thresholds.length - 1]]).thresholds(thresholds)(values)
+      .map(function (b) { return {x1: b.x0, x2: b.x1, n: b.length, values: b}; });
+  }
   X.randomnull = function (S, c) {
     var R = S.dev && S.dev.random_sharpes;
     if (!R || !R.length) return null;
-    var P = global.Plot, s = S.dev.strategy_sharpe, g = S.dev.gatev_sharpe;
+    var P = global.Plot, s = S.dev.strategy_sharpe, g = S.dev.gatev_sharpe, af = annot(c);
     var lo = Math.floor(Math.min.apply(null, R.concat([s, g])) * 5) / 5 - 0.2;
     var hi = Math.ceil(Math.max.apply(null, R.concat([s, g])) * 5) / 5 + 0.2;
     var thresholds = global.d3.range(lo, hi + 1e-9, 0.2);
-    var marks = [{x: s, text: 'Strategy ' + signed(s, 2), color: c.t.s1, anchor: 'end', dx: -6},
-                 {x: g, text: 'Gatev ' + signed(g, 2), color: c.t.s2, anchor: 'start', dx: 6}];
-    if (s > g) { marks[0].anchor = 'start'; marks[0].dx = 6; marks[1].anchor = 'end'; marks[1].dx = -6; }
+    var B = bins(R, thresholds).map(function (b) {
+      var below = b.values.filter(function (v) { return v <= s; }).length;
+      return Object.assign(b, {below: below});
+    });
+    var randomRow = (S.dev.forest || []).filter(function (r) { return r.key === 'random'; })[0];
+    var median = randomRow && has(randomRow.sharpe) ? randomRow.sharpe : global.d3.median(R);
+    var pctile = S.dev.random_percentile;
+    var strat = 'Strategy ' + signed(s, 2) + (has(pctile) ? ', ' + ordinalRank(Math.round(pctile)) + ' percentile' : '');
+    // three lines of labels above the frame, each next to the top of its own rule
+    var marks = [{x: g, text: 'Gatev ' + signed(g, 2), color: c.t.s2, line: 2, w: 2},
+                 {x: s, text: strat, color: c.t.s1, line: 0, w: 2},
+                 {x: median, text: 'median draw ' + signed(median, 2), color: c.t.ink2, line: 1, w: 1.5, dash: true}];
+    var xs = global.d3.scaleLinear().domain([lo, hi]).range([40, c.width - 16]);
+    marks.forEach(function (m) {
+      // a label runs right of its rule unless it would leave the frame
+      m.anchor = xs(m.x) + 6 + textWidth(m.text, af, m.line === 0 ? 600 : 400) > c.width - 4 ? 'end' : 'start';
+      m.dy = -12 - 14 * m.line;
+    });
+    // each label on its own line above the frame, its rule rising to it
+    var labels = marks.map(function (m) {
+      return P.text([m], halo(c, {x: 'x', text: 'text', frameAnchor: 'top', dy: m.dy, textAnchor: m.anchor, dx: m.anchor === 'start' ? 5 : -5,
+        fill: c.t.ink, fontSize: af, fontWeight: m.line === 0 ? 600 : 400}));
+    });
+    var rules = marks.map(function (m) {
+      return P.ruleX([m], {x: 'x', stroke: m.dash ? c.t.ink2 : m.color, strokeWidth: m.w, strokeDasharray: m.dash ? '3,2' : null, insetTop: m.dy + 6});
+    });
     var node = plot(c, {
-      height: c.narrow ? 220 : 250, marginLeft: 40, marginRight: 16, marginTop: 30, marginBottom: 30,
+      height: c.narrow ? 236 : 266, marginLeft: 40, marginRight: 16, marginTop: 50, marginBottom: 30,
       x: {domain: [lo, hi], label: 'Annualised Sharpe ratio of a random-pair draw', labelArrow: 'none'},
       y: {label: 'Draws', labelArrow: 'none'},
       marks: [
         gridY(c), axisY(c, {label: 'Draws', labelArrow: 'none'}),
         axisX(c, {label: 'Annualised Sharpe ratio of a random-pair draw', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }}),
-        P.rectY(R, P.binX({y: 'count'}, {x: function (v) { return v; }, thresholds: thresholds, fill: c.t.neutral, fillOpacity: 0.55, insetLeft: 1, insetRight: 1, ry2: 2})),
-        zeroY(c),
-        P.ruleX(marks, {x: 'x', stroke: function (d) { return d.color; }, strokeWidth: 2}),
-        P.text(marks.filter(function (m) { return m.anchor === 'end'; }), {x: 'x', text: 'text', frameAnchor: 'top', dy: -14, dx: -6, textAnchor: 'end', fill: c.t.ink, fontWeight: 600}),
-        P.text(marks.filter(function (m) { return m.anchor === 'start'; }), {x: 'x', text: 'text', frameAnchor: 'top', dy: -14, dx: 6, textAnchor: 'start', fill: c.t.ink, fontWeight: 600}),
-        tip(c, R, P.pointerX(P.binX({y: 'count', title: function (b) { return b.length + ' draws'; }}, {x: function (v) { return v; }, thresholds: thresholds})))
-      ]
+        P.rectY(B, {x1: 'x1', x2: 'x2', y1: 0, y2: 'below', fill: c.t.neutral, fillOpacity: 0.8, insetLeft: 1, insetRight: 1}),
+        P.rectY(B, {x1: 'x1', x2: 'x2', y1: 'below', y2: 'n', fill: c.t.neutral, fillOpacity: 0.35, insetLeft: 1, insetRight: 1}),
+        zeroY(c)
+      ].concat(rules, labels, [
+        tip(c, B, P.pointerX({x: function (b) { return (b.x1 + b.x2) / 2; }, y: 'n', title: function (b) {
+          return 'Sharpe ' + signed(b.x1, 1) + ' to ' + signed(b.x2, 1) + ': ' + plural(b.n, 'draw', 'draws') + ' (' + num(100 * b.n / R.length, 1) + '%)' +
+            (b.below && b.below < b.n ? '\n' + b.below + ' at or below the strategy' : '');
+        }}))
+      ])
     });
     var sorted = R.slice().sort(function (a, b) { return a - b; });
     return {
       nodes: [node],
-      legend: [{label: 'Random-pair draws', color: '--neutral-series', kind: 'box'}, {label: 'Strategy', color: '--series-1', kind: 'rule'},
-               {label: 'Gatev baseline', color: '--series-2', kind: 'rule'}],
+      legend: [{label: 'Random-pair draws at or below the strategy', color: '--neutral-series', kind: 'box'},
+               {label: 'Draws above the strategy', color: '--neutral-series', kind: 'box box-light'},
+               {label: 'Strategy', color: '--series-1', kind: 'rule'}, {label: 'Gatev baseline', color: '--series-2', kind: 'rule'},
+               {label: 'Median draw', color: '--ink-2', kind: 'rule dash'}],
       table: table('Sharpe ratios of the random-pair draws, sorted (strategy ' + signed(s, 2) + ', Gatev ' + signed(g, 2) + ', strategy percentile ' + S.dev.random_percentile + ').',
         ['Rank', 'Sharpe'], [true, true], sorted.map(function (v, i) { return [String(i + 1), signed(v, 2)]; }))
     };
@@ -630,8 +905,8 @@
         P.dot(nullAt, {x: 'n', y: 'dsr', r: 5, fill: c.t.paper, stroke: c.t.ink2, strokeWidth: 2}),
         P.dot(famAt, {x: 'n', y: 'dsr', r: 5.5, fill: c.t.paper, stroke: c.t.s1, strokeWidth: 2}),
         // the two marked values, as a key in the top-right corner (the curves meet near zero)
-        P.text(famAt, {frameAnchor: 'top-right', text: function (r) { return 'N = ' + r.n + ', the family\u2019s effective trials: ' + num(r.dsr, 1) + '%'; }, dy: 2, textAnchor: 'end', fill: c.t.s1, fontWeight: 600, fontSize: 11}),
-        P.text(nullAt, {frameAnchor: 'top-right', text: function (r) { return 'N = ' + r.n + ', the trials reported: ' + num(r.dsr, 1) + '%'; }, dy: 19, textAnchor: 'end', fill: c.t.ink2, fontSize: 11}),
+        P.text(famAt, {frameAnchor: 'top-right', text: function (r) { return 'N = ' + r.n + ', the family\u2019s effective trials: ' + num(r.dsr, 1) + '%'; }, dy: 2, textAnchor: 'end', fill: c.t.s1, fontWeight: 600, fontSize: annot(cc)}),
+        P.text(nullAt, {frameAnchor: 'top-right', text: function (r) { return 'N = ' + r.n + ', the trials reported: ' + num(r.dsr, 1) + '%'; }, dy: 19, textAnchor: 'end', fill: c.t.ink2, fontSize: annot(cc)}),
         tip(c, all, P.pointer({x: 'n', y: 'dsr', title: function (r) {
           return 'N = ' + r.n + (r.curve === 'family' ? ', the variants’ dispersion' : ', null trial variance') + '\nDSR ' + num(r.dsr, 1) + '%\nExpected best null Sharpe ' + num(r.star, 2);
         }}))
@@ -643,8 +918,10 @@
         .concat(famRows.map(function (r) { return [String(r.n), 'the variants’', num(r.dsr, 2, {suffix: '%'}), num(r.star, 2)]; })));
     if (!two) return {nodes: [dsrNode], table: dsrTable};
 
+    // the variants in the neutral colour, a circle for a grid point and a triangle for a toggle;
+    // the v33 design (one of the grid points) in the pairs strategy's colour
     var V = R.variants.map(function (v) {
-      return Object.assign({}, v, {color: v.base ? c.t.ink : v.kind === 'grid' ? c.t.s1 : c.t.s3});
+      return Object.assign({}, v, {color: v.base ? c.t.s1 : c.t.neutral, symbol: v.kind === 'grid' || v.base ? 'circle' : 'triangle'});
     });
     var g = S.dev.gatev_sharpe;
     var base = V.filter(function (v) { return v.base; });
@@ -652,6 +929,7 @@
     var refs = [];
     if (base.length) refs.push({key: 'base', x: base[0].sharpe, text: 'v33 design ' + signed(base[0].sharpe, 2) + ', ' + ordinalRank(base[0].rank) + ' of ' + V.length});
     if (g !== null && g !== undefined) refs.push({key: 'gatev', x: g, text: 'Gatev ' + signed(g, 2)});
+    var af = annot(cc);
     var famNode = plot(cc, {
       height: cc.narrow ? 180 : 140, marginLeft: 16, marginRight: 16, marginTop: 44, marginBottom: 30,
       x: {domain: xs, label: 'Annualised net Sharpe ratio, development period', labelArrow: 'none'},
@@ -659,22 +937,27 @@
       marks: [
         gridX(c, {ticks: cc.narrow ? 4 : 6}),
         axisX(c, {ticks: cc.narrow ? 4 : 6, label: 'Annualised net Sharpe ratio, development period', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }}),
-        P.ruleX([0], {stroke: c.t.axis, strokeWidth: 1}),
+        zeroX(c),
+        // zero is cash: the comparison of the title
+        P.text(['cash'], halo(c, {x: function () { return 0; }, frameAnchor: 'top', text: function (d) { return d; }, dy: -10, dx: 4, textAnchor: 'start', fill: c.t.ink2, fontSize: af})),
         g !== null && g !== undefined ? P.ruleX([g], {stroke: c.t.s2, strokeWidth: 1.5, strokeDasharray: '4,3'}) : null,
-        P.ruleX(base, {x: 'sharpe', stroke: c.t.ink, strokeWidth: 1, strokeOpacity: 0.4}),
-        P.dot(V, P.dodgeY({anchor: 'bottom', x: 'sharpe', r: 6, fill: 'color', stroke: c.t.paper, strokeWidth: 1.5, padding: 1,
+        P.ruleX(base, {x: 'sharpe', stroke: c.t.s1, strokeWidth: 1, strokeOpacity: 0.6}),
+        P.dot(V, P.dodgeY({anchor: 'bottom', x: 'sharpe', r: 6, fill: 'color', symbol: 'symbol', stroke: c.t.paper, strokeWidth: 1.5, padding: 1,
           title: function (v) {
             return v.label + (v.base ? ' (the v33 design)' : '') + '\nSharpe ' + signed(v.sharpe, 2) + ', rank ' + v.rank + ' of ' + V.length +
               '\nReturn ' + pct(v.ret_pct) + ', ' + v.trades + ' trades\nRomano\u2013Wolf adjusted p ' + num(v.rw_p, 3) + '; MCS p ' + num(v.mcs_p, 3);
           }, tip: {fill: c.t.surface, stroke: c.t.rule2, fontSize: 12, lineHeight: 1.35}})),
-        P.text(refs.filter(function (r) { return r.key === 'base'; }), {x: 'x', text: 'text', frameAnchor: 'top', dy: -26, textAnchor: 'end', dx: 4, fill: c.t.ink, fontWeight: 600, fontSize: 11}),
-        P.text(refs.filter(function (r) { return r.key === 'gatev'; }), {x: 'x', text: 'text', frameAnchor: 'top', dy: -10, textAnchor: 'end', dx: 4, fill: c.t.s2, fontSize: 11}),
+        P.text(refs.filter(function (r) { return r.key === 'base'; }), {x: 'x', text: 'text', frameAnchor: 'top', dy: -26, textAnchor: 'end', dx: 4, fill: c.t.ink, fontWeight: 600, fontSize: af}),
+        P.text(refs.filter(function (r) { return r.key === 'gatev'; }), {x: 'x', text: 'text', frameAnchor: 'top', dy: -10, textAnchor: 'end', dx: 4, fill: c.t.ink2, fontSize: af}),
       ].filter(Boolean)
     });
     var wrap = document.createElement('div');
     wrap.className = 'multi';
     wrap.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
-    [['The ' + V.length + ' declared variants', famNode], ['Deflated Sharpe ratio of the main backtest', dsrNode]].forEach(function (pp) {
+    // the panel's title counts the variants above zero (the prose before the exhibit gives the count)
+    var positive = has(R.positive) ? R.positive : V.filter(function (v) { return v.sharpe > 0; }).length;
+    [['The ' + V.length + ' declared variants: ' + positive + ' with a positive Sharpe ratio', famNode],
+     ['Deflated Sharpe ratio of the main backtest', dsrNode]].forEach(function (pp) {
       var cell = document.createElement('div');
       cell.className = 'multi-cell';
       var h = document.createElement('p');
@@ -687,8 +970,8 @@
     var sorted = V.slice().sort(function (a, b) { return a.rank - b.rank; });
     return {
       nodes: [wrap],
-      legend: [{label: 'Threshold grid', color: '--series-1', kind: 'dot'}, {label: 'Design toggle', color: '--series-3', kind: 'dot'},
-               {label: 'v33 design', color: '--ink', kind: 'dot'}, {label: 'Gatev baseline', color: '--series-2', kind: 'rule dash'},
+      legend: [{label: 'Threshold grid', color: '--neutral-series', kind: 'dot'}, {label: 'Design toggle', color: '--neutral-series', kind: 'dot tri'},
+               {label: 'v33 design', color: '--series-1', kind: 'dot'}, {label: 'Gatev baseline', color: '--series-2', kind: 'rule dash'},
                {label: 'DSR, the variants’ dispersion', color: '--series-1', kind: 'line'}, {label: 'DSR, null trial variance', color: '--ink-2', kind: 'line dash'}],
       table: [table('The declared variants by net Sharpe ratio (development period, ' + R.days + ' days), with each one’s Romano–Wolf adjusted p-value against cash and its model-confidence-set p-value.',
         ['Rank', 'Variant', 'Sharpe', 'Return', 'Trades', 'Romano–Wolf p', 'MCS p'], [true, false, true, true, true, true, true],
@@ -721,7 +1004,7 @@
     var xs = fitLabels(domainPad(rows.map(function (r) { return r.a; }).concat(rows.map(function (r) { return r.b; })), 0.04, [0]),
       rows.map(function (r) {
         var grows = r.b >= r.a;
-        return {x: grows ? r.b : Math.min(r.a, r.b), px: textWidth(usdk(r.usd), 11.5) + 12, side: grows ? 'right' : 'left'};
+        return {x: grows ? r.b : Math.min(r.a, r.b), px: textWidth(usdk(r.usd), c.narrow ? 12 : 11.5) + 12, side: grows ? 'right' : 'left'};
       }), c.width - mL - mR);
     var node = plot(c, {
       height: rows.length * 38 + 50, marginLeft: mL, marginRight: mR, marginTop: 10, marginBottom: 30,
@@ -732,8 +1015,8 @@
         axisY(c, {fill: c.t.ink, fontSize: 12}),
         zeroX(c),
         P.barX(rows, {y: 'step', x1: 'a', x2: 'b', fill: fill, rx: 2}),
-        P.text(right, halo(c, {y: 'step', x: 'b', text: function (r) { return usdk(r.usd); }, dx: 6, textAnchor: 'start', fill: c.t.ink, fontSize: 11.5})),
-        P.text(left, halo(c, {y: 'step', x: function (r) { return Math.min(r.a, r.b); }, text: function (r) { return usdk(r.usd); }, dx: -6, textAnchor: 'end', fill: c.t.ink, fontSize: 11.5})),
+        P.text(right, halo(c, {y: 'step', x: 'b', text: function (r) { return usdk(r.usd); }, dx: 6, textAnchor: 'start', fill: c.t.ink, fontSize: c.narrow ? 12 : 11.5})),
+        P.text(left, halo(c, {y: 'step', x: function (r) { return Math.min(r.a, r.b); }, text: function (r) { return usdk(r.usd); }, dx: -6, textAnchor: 'end', fill: c.t.ink, fontSize: c.narrow ? 12 : 11.5})),
         tip(c, rows, P.pointerY({y: 'step', x: 'b', title: function (r) {
           return r.name + '\n' + money(r.usd) + '\n' + signed(r.bp, 1) + ' bp of starting capital';
         }}))
@@ -773,7 +1056,7 @@
       // each panel on its own scale, wide enough for every label beyond its bar: the exit
       // panel's $15M bars would otherwise leave the side and |z| panels as slivers
       var xs = fitLabels(domainPad(rows.map(function (r) { return r.k; }), 0.04, [0]), rows.map(function (r) {
-        return {x: r.k, px: textWidth(barLabel(r), 11) + 10, side: r.k >= 0 ? 'right' : 'left'};
+        return {x: r.k, px: textWidth(barLabel(r), annot(c)) + 10, side: r.k >= 0 ? 'right' : 'left'};
       }), cw - mL - mR);
       var cell = document.createElement('div');
       cell.className = 'multi-cell';
@@ -793,8 +1076,8 @@
           axisY(c, {fill: c.t.ink}),
           zeroX(c),
           P.barX(rows, {y: 'y', x: 'k', fill: function (r) { return signColor(c)(r.k); }, rx2: 3}),
-          P.text(pos, {y: 'y', x: 'k', text: barLabel, dx: 5, textAnchor: 'start', fill: c.t.ink2, fontSize: 11}),
-          P.text(neg, {y: 'y', x: 'k', text: barLabel, dx: -5, textAnchor: 'end', fill: c.t.ink2, fontSize: 11}),
+          P.text(pos, {y: 'y', x: 'k', text: barLabel, dx: 5, textAnchor: 'start', fill: c.t.ink2, fontSize: annot(c)}),
+          P.text(neg, {y: 'y', x: 'k', text: barLabel, dx: -5, textAnchor: 'end', fill: c.t.ink2, fontSize: annot(c)}),
           tip(c, rows, P.pointerY({y: 'y', x: 'k', title: function (r) {
             return r.label + ' · ' + r.n + ' trades, ' + r.wins + ' winners\nNet ' + money(r.net_usd) + '\nGross ' + money(r.gross_usd) + ', costs ' + money(-r.cost_usd) +
               '\nMean net ' + signed(r.mean_net_bp, 1) + ' bp of notional';
@@ -831,9 +1114,10 @@
     var cols = c.narrow ? 2 : (c.width < 820 ? 3 : 5);
     var cw = Math.floor((c.width - (cols - 1) * 14) / cols);
     wrap.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
-    C.forEach(function (s) {
+    var panes = [], byDate = C.map(function () { return {}; });
+    C.forEach(function (s, k) {
       var ds = s.dates || dates;
-      var rows = s.cum.map(function (v, i) { return {date: parse(ds[i]), v: v}; });
+      var rows = s.cum.map(function (v, i) { byDate[k][ds[i]] = v; return {date: parse(ds[i]), v: v}; });
       var last = rows[rows.length - 1];
       var cell = document.createElement('div');
       cell.className = 'multi-cell';
@@ -846,7 +1130,7 @@
         num(s.position_pct[0], 0) + '–' + num(s.position_pct[1], 0) + '% · ' + s.trades + ' trades replayed';
       cell.appendChild(h);
       cell.appendChild(p);
-      cell.appendChild(plot(Object.assign({}, c, {width: cw}), {
+      var pane = plot(Object.assign({}, c, {width: cw}), {
         height: 130, marginLeft: 34, marginRight: 6, marginTop: 8, marginBottom: 22,
         x: {type: 'utc', ticks: 2, tickFormat: global.d3.utcFormat('%Y')},
         y: {domain: ys, ticks: 4, label: null, tickFormat: function (v) { return signed(v, 0); }},
@@ -855,13 +1139,24 @@
           axisX(c, {ticks: 2, tickFormat: global.d3.utcFormat('%Y')}),
           zeroY(c),
           P.lineY(rows, {x: 'date', y: 'v', stroke: c.t.s1, strokeWidth: 1.75}),
-          P.dot([last], {x: 'date', y: 'v', r: 3.5, fill: c.t.s1, stroke: c.t.paper, strokeWidth: 2}),
-          tip(c, rows, P.pointerX({x: 'date', y: 'v', title: function (r) { return 'Schedule ' + s.id + '\n' + fmtDate(r.date) + '\n' + pct(r.v); }}))
+          P.dot([last], {x: 'date', y: 'v', r: 3.5, fill: c.t.s1, stroke: c.t.paper, strokeWidth: 2})
         ]
-      }));
+      });
+      panes.push(pane);
+      cell.appendChild(pane);
       wrap.appendChild(cell);
     });
+    // one date across the five schedules: the dates of the main backtest, each schedule's value on it
+    var days = Array.from(new Set([].concat.apply([], C.map(function (s) { return s.dates || dates; })))).sort();
+    var rowsX = days.map(function (d) { return {date: parse(d), v: C.map(function (s, k) { return byDate[k][d]; })}; });
     return {
+      mount: function (container) {
+        crosshair(container, {
+          panes: panes, rows: rowsX, dock: wrap,
+          dots: C.map(function (s, k) { return {pane: k, y: function (r) { return r.v[k]; }, color: c.t.s1}; }),
+          items: function (r) { return C.map(function (s, k) { return {label: 'Schedule ' + s.id, color: c.t.s1, value: has(r.v[k]) ? pct(r.v[k]) : '–'}; }); }
+        }, c);
+      },
       nodes: [wrap],
       table: table('Cost schedules A–E: parameters and results of the replay.',
         ['Schedule', 'Commission, bp', 'Half-spread, bp', 'Impact cap, bp', 'Borrow, %/yr', 'Financing, %/yr', 'Position, % equity',
@@ -886,8 +1181,14 @@
     var rows = F.rows.filter(function (r) { return r.beta !== null; })
       .map(function (r) { return Object.assign({}, r, {label: multi ? r.name : r.series, oos: r.series !== 'Main backtest'}); });
     var labels = Array.from(new Set(rows.map(function (r) { return r.label; })));
-    var step = multi ? 30 : 40;
-    var lane = function (oos) { return multi ? (oos ? 5 : -5) : 0; };
+    var mL = c.narrow ? 112 : 130, mR = 20, af = annot(c);
+    // each beta printed at the right, on its own lane, where the scale keeps 200 px
+    var betaText = function (r) { return signed(r.beta, 3); };
+    var valueW = Math.ceil(Math.max.apply(null, rows.map(function (r) { return textWidth(betaText(r), af); }).concat([textWidth('Beta', af)]))) + 14;
+    var values = multi && c.width - mL - valueW >= 200;
+    if (values) mR = valueW;
+    var step = multi ? (values ? 34 : 30) : 40;
+    var lane = function (oos) { return multi ? (oos ? 1 : -1) * (values ? 6 : 5) : 0; };
     var series = [false, true].map(function (oos) {
       var rs = rows.filter(function (r) { return r.oos === oos; });
       return [
@@ -895,13 +1196,12 @@
         P.dot(rs, {x: 'beta', y: 'label', r: 4.5, fill: oos && multi ? c.t.paper : c.t.s1, stroke: oos && multi ? c.t.s1 : c.t.paper, strokeWidth: 2, dy: lane(oos)})
       ];
     });
-    var mL = c.narrow ? 112 : 130, mR = 20;
     var xdom = domainPad(rows.map(function (r) { return r.lo; }).concat(rows.map(function (r) { return r.hi; })), 0.15, [0]);
     if (!multi) {        // room for the t labels beyond each interval
-      xdom = fitLabels(xdom, rows.map(function (r) { return {x: r.hi, px: textWidth('t = ' + num(r.t, 2), 11) + 12, side: 'right'}; }), c.width - mL - mR);
+      xdom = fitLabels(xdom, rows.map(function (r) { return {x: r.hi, px: textWidth('t = ' + num(r.t, 2), af) + 12, side: 'right'}; }), c.width - mL - mR);
     }
     var node = plot(c, {
-      height: labels.length * step + 56, marginLeft: mL, marginRight: mR, marginTop: 14, marginBottom: 34,
+      height: labels.length * step + 56 + (values ? 12 : 0), marginLeft: mL, marginRight: mR, marginTop: values ? 26 : 14, marginBottom: 34,
       x: {domain: xdom, label: 'Beta (95% interval)', labelArrow: 'none'},
       y: {domain: labels, label: null, padding: multi ? 0.2 : 0.4},
       marks: [
@@ -909,7 +1209,10 @@
         axisY(c, {fill: c.t.ink, lineWidth: 12}),
         zeroX(c)
       ].concat(series[0], series[1], [
-        multi ? null : P.text(rows, {x: 'hi', y: 'label', text: function (r) { return 't = ' + num(r.t, 2); }, dx: 8, textAnchor: 'start', fill: c.t.ink2, fontSize: 11}),
+        multi ? null : P.text(rows, {x: 'hi', y: 'label', text: function (r) { return 't = ' + num(r.t, 2); }, dx: 8, textAnchor: 'start', fill: c.t.ink2, fontSize: af}),
+        values ? P.text(rows.filter(function (r) { return !r.oos; }), {frameAnchor: 'right', y: 'label', dy: lane(false), text: betaText, textAnchor: 'end', dx: mR - 2, fill: c.t.ink2, fontSize: af}) : null,
+        values ? P.text(rows.filter(function (r) { return r.oos; }), {frameAnchor: 'right', y: 'label', dy: lane(true), text: betaText, textAnchor: 'end', dx: mR - 2, fill: c.t.ink2, fontSize: af}) : null,
+        values ? P.text(['Beta'], {frameAnchor: 'top-right', text: function (d) { return d; }, dy: -14, textAnchor: 'end', dx: mR - 2, fill: c.t.ink3, fontSize: af}) : null,
         tip(c, rows, P.pointer({x: 'beta', y: 'label', title: function (r) { return r.series + (multi ? ': ' + r.name : '') + '\nbeta ' + signed(r.beta, 4) + ' (t = ' + num(r.t, 2) + ')\n95% ' + num(r.lo, 4) + ' to ' + signed(r.hi, 4); }}))
       ]).filter(Boolean)
     });
@@ -931,6 +1234,7 @@
     var bp = D.net.map(function (v) { return v * 100; });
     var lo = Math.floor(Math.min.apply(null, bp) / 5) * 5, hi = Math.ceil(Math.max.apply(null, bp) / 5) * 5;
     var thresholds = global.d3.range(lo - 1.25, hi + 2.5, 2.5);
+    var B = bins(bp, thresholds);
     var node = plot(c, {
       height: c.narrow ? 220 : 250, marginLeft: 40, marginRight: 16, marginTop: 20, marginBottom: 30,
       x: {label: 'Daily net return, bp of capital', labelArrow: 'none'},
@@ -938,9 +1242,11 @@
       marks: [
         gridY(c), axisY(c, {label: 'Days', labelArrow: 'none'}),
         axisX(c, {label: 'Daily net return, bp of capital', labelArrow: 'none', tickFormat: function (v) { return signed(v, 0); }}),
-        P.rectY(bp, P.binX({y: 'count'}, {x: function (v) { return v; }, thresholds: thresholds, fill: c.t.s1, fillOpacity: 0.8, insetLeft: 0.5, insetRight: 0.5})),
+        P.rectY(B, {x1: 'x1', x2: 'x2', y: 'n', fill: c.t.s1, fillOpacity: 0.8, insetLeft: 0.5, insetRight: 0.5}),
         zeroY(c),
-        tip(c, bp, P.pointerX(P.binX({y: 'count', title: function (b) { return b.length + ' days'; }}, {x: function (v) { return v; }, thresholds: thresholds})))
+        tip(c, B, P.pointerX({x: function (b) { return (b.x1 + b.x2) / 2; }, y: 'n', title: function (b) {
+          return signed(b.x1, 2) + ' to ' + signed(b.x2, 2) + ' bp: ' + plural(b.n, 'day', 'days') + ' (' + num(100 * b.n / bp.length, 1) + '%)';
+        }}))
       ]
     });
     var sorted = bp.slice().sort(function (a, b) { return a - b; });
@@ -981,7 +1287,7 @@
         P.text(rows, {y: 'stage', x: 'n', text: function (r) { return global.d3.format(',')(r.n); }, dx: 6, textAnchor: 'start', fill: c.t.ink, fontWeight: 600, fontSize: 12}),
         // the count chance alone would produce: a tick on the bar, its value beside the bar's own
         P.tickX(exp, {y: 'stage', x: 'expected', stroke: c.t.ink, strokeWidth: 2}),
-        P.text(exp, {y: 'stage', x: 'n', text: function (r) { return '(' + global.d3.format(',.0f')(r.expected) + ' by chance)'; }, dx: 6, dy: 15, textAnchor: 'start', fill: c.t.ink2, fontSize: 11}),
+        P.text(exp, {y: 'stage', x: 'n', text: function (r) { return '(' + global.d3.format(',.0f')(r.expected) + ' by chance)'; }, dx: 6, dy: 15, textAnchor: 'start', fill: c.t.ink2, fontSize: annot(c)}),
         tip(c, rows, P.pointerY({y: 'stage', x: 'n', title: function (r) {
           return r.stage + '\n' + global.d3.format(',')(r.n) + ' pairs' + (r.share !== null ? '\n' + num(100 * r.share, 1) + '% of the previous stage' : '') +
             (r.expected ? '\nexpected by chance ' + global.d3.format(',.0f')(r.expected) : '');
@@ -1046,7 +1352,7 @@
         axisY(c, {fill: c.t.ink}),
         P.barX(counts, {y: 'label', x: 'v', fill: 'fill'}),
         zeroX(c),
-        P.text(rows, {y: 'label', x: 'members', text: function (r) { return num(r.cover, 1, {suffix: '%'}); }, dx: 6, textAnchor: 'start', fill: c.t.ink2, fontSize: 11}),
+        P.text(rows, {y: 'label', x: 'members', text: function (r) { return num(r.cover, 1, {suffix: '%'}); }, dx: 6, textAnchor: 'start', fill: c.t.ink2, fontSize: annot(c)}),
         tip(c, rows, P.pointerY({y: 'label', x: 'members', title: function (r) {
           return 'Formation ' + r.formation_date + ' (snapshot ' + r.snapshot + ')\n' + fmtN(r.members) + ' members, ' + fmtN(r.with_prices) +
             ' with price history (' + num(r.cover, 1) + '%)\n' + fmtN(r.missing) + ' without';
@@ -1063,7 +1369,7 @@
         axisY(c, {fill: c.t.ink}),
         P.barX(weights, {y: 'label', x: 'v', fill: c.t.neutral, fillOpacity: 'op'}),
         zeroX(c),
-        P.text(rows, {y: 'label', x: 'gap', text: function (r) { return num(r.gap, 2, {suffix: '%'}); }, dx: 6, textAnchor: 'start', fill: c.t.ink2, fontSize: 11}),
+        P.text(rows, {y: 'label', x: 'gap', text: function (r) { return num(r.gap, 2, {suffix: '%'}); }, dx: 6, textAnchor: 'start', fill: c.t.ink2, fontSize: annot(c)}),
         tip(c, rows, P.pointerY({y: 'label', x: 'gap', title: function (r) {
           return 'Formation ' + r.formation_date + '\nMembers without price history ' + num(r.missing_weight_pct, 2) + '%' +
             '\nHoldings without a usable ticker ' + num(r.unmapped_weight_pct, 2) + '%\nTotal ' + num(r.gap, 2) + '% of index weight';
@@ -1112,11 +1418,11 @@
       marks: [gridY(c), axisY(c, {label: 'Net Sharpe', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }}),
         axisX(c, {label: 'Multiple of modelled costs', labelArrow: 'none', tickFormat: function (v) { return num(v, 1) + '×'; }}),
         zeroY(c), P.ruleX([1], {stroke: c.t.ink3}),
-        P.text([1], halo(c, {x: function (v) { return v; }, frameAnchor: 'top', text: function () { return 'modelled'; }, dy: 8, dx: 4, textAnchor: 'start', fill: c.t.ink2, fontSize: 11})),
+        P.text([1], halo(c, {x: function (v) { return v; }, frameAnchor: 'top', text: function () { return 'modelled'; }, dy: 8, dx: 4, textAnchor: 'start', fill: c.t.ink2, fontSize: annot(c)})),
         P.lineY(C, {x: 'k', y: 'sharpe', stroke: c.t.s1, strokeWidth: 2}), P.dot(C, {x: 'k', y: 'sharpe', r: 3.5, fill: c.t.s1, stroke: c.t.paper, strokeWidth: 2}),
         be === null ? null : P.dot([be], {x: function (v) { return v; }, y: function () { return 0; }, r: 4, fill: c.t.paper, stroke: c.t.ink, strokeWidth: 1.5}),
-        be === null ? null : P.text([be], halo(c, {x: function (v) { return v; }, y: function () { return 0; }, text: function (v) { return 'zero at ' + num(v, 2) + '×'; }, dy: 14, dx: -6, textAnchor: 'end', fill: c.t.ink, fontSize: 11})),
-        note === null ? null : P.text([note], halo(c, {frameAnchor: 'bottom-left', text: function (v) { return v; }, dx: 6, dy: -6, textAnchor: 'start', fill: c.t.ink2, fontSize: 11})),
+        be === null ? null : P.text([be], halo(c, {x: function (v) { return v; }, y: function () { return 0; }, text: function (v) { return 'zero at ' + num(v, 2) + '×'; }, dy: 14, dx: -6, textAnchor: 'end', fill: c.t.ink, fontSize: annot(c)})),
+        note === null ? null : P.text([note], halo(c, {frameAnchor: 'bottom-left', text: function (v) { return v; }, dx: 6, dy: -6, textAnchor: 'start', fill: c.t.ink2, fontSize: annot(c)})),
         tip(c, C, P.pointerX({x: 'k', y: 'sharpe', title: function (r) { return num(r.k, 2) + '× costs\nSharpe ' + signed(r.sharpe, 2) + '\nReturn ' + pct(r.ret_pct); }}))].filter(Boolean)
     });
     return {nodes: [node], label: 'Line of net Sharpe ratio against the multiple of modelled costs.',
@@ -1144,7 +1450,7 @@
       marks: [gridX(c, {ticks: 5}), axisX(c, {ticks: 5, label: 'Targets hit first, % of ' + n + ' barrier exits', labelArrow: 'none', tickFormat: function (v) { return num(v, 0); }}),
         axisY(c, {fill: c.t.ink, lineWidth: (mL - 12) / 12, lineHeight: 1.1}),
         P.barX(rows, {y: 'k', x: 'share', fill: function (r) { return r.fill; }, rx2: 3}), zeroX(c),
-        P.text(rows, halo(c, {y: 'k', x: 'share', text: function (r) { return num(r.share, 1, {suffix: '%'}); }, dx: 5, textAnchor: 'start', fill: c.t.ink, fontSize: 11})),
+        P.text(rows, halo(c, {y: 'k', x: 'share', text: function (r) { return num(r.share, 1, {suffix: '%'}); }, dx: 5, textAnchor: 'start', fill: c.t.ink, fontSize: annot(c)})),
         tip(c, rows, P.pointerY({y: 'k', x: 'share', title: function (r) {
           return r.k + '\n' + (r.z === null ? r.count + ' targets of ' + n : num(r.count, 1) + ' targets expected of ' + n + '\nobserved against it: z = ' + signed(r.z, 2));
         }}))]
@@ -1165,16 +1471,14 @@
     var short = {'Formation (in sample), same rule': 'Formation window', 'Out of sample, same rule': 'After formation', 'Engine trades': 'The book'};
     var long = {'Formation (in sample), same rule': 'Formation window (in sample), same rule', 'Out of sample, same rule': 'After formation, same rule',
                 'Engine trades': 'The book\'s own trades'};
-    var rows = D.map(function (r) { return Object.assign({}, r, {k: short[r.period] || r.period, name: long[r.period] || r.period}); });
-    var node = plot(c, {
-      height: rows.length * 40 + 40, marginLeft: 116, marginRight: 16, marginTop: 8, marginBottom: 30,
-      x: {domain: domainPad(rows.map(function (r) { return r.lo; }).concat(rows.map(function (r) { return r.hi; })), 0.08, [0]), label: 'Gross bp per trade (95% interval)', labelArrow: 'none'},
-      y: {domain: rows.map(function (r) { return r.k; }), label: null, padding: 0.4},
-      marks: [gridX(c, {ticks: 5}), axisX(c, {ticks: 5, label: 'Gross bp per trade (95% interval)', labelArrow: 'none', tickFormat: function (v) { return signed(v, 0); }}),
-        axisY(c, {fill: c.t.ink}), zeroX(c),
-        P.ruleY(rows, {y: 'k', x1: 'lo', x2: 'hi', stroke: c.t.s1, strokeWidth: 2}),
-        P.dot(rows, {x: 'bp', y: 'k', r: 4.5, fill: c.t.s1, stroke: c.t.paper, strokeWidth: 2}),
-        tip(c, rows, P.pointer({x: 'bp', y: 'k', title: function (r) { return r.name + '\n' + signed(r.bp, 1) + ' bp (t = ' + num(r.t, 2) + ', n = ' + r.n + ')\n95% ' + num(r.lo, 1) + ' to ' + signed(r.hi, 1); }}))]
+    var rows = D.map(function (r) {
+      return Object.assign({}, r, {k: short[r.period] || r.period, name: long[r.period] || r.period, label: short[r.period] || r.period, est: r.bp,
+                                   color: c.t.s1, symbol: SHAPE.v33});
+    });
+    var node = intervalPlot(c, rows, {
+      domain: domainPad(rows.map(function (r) { return r.lo; }).concat(rows.map(function (r) { return r.hi; })), 0.08, [0]),
+      label: 'Gross bp per trade (95% interval)', ticks: 5, tickFormat: function (v) { return signed(v, 0); }, dp: 1, values: true, valueHead: 'bp [95% interval]',
+      title: function (r) { return r.name + '\n' + signed(r.bp, 1) + ' bp (t = ' + num(r.t, 2) + ', n = ' + r.n + ')\n95% ' + num(r.lo, 1) + ' to ' + signed(r.hi, 1); }
     });
     return {nodes: [node], label: 'Dot plot of gross basis points per trade, in sample, after formation and in the book, with 95% intervals.',
       table: table('Gross bp per trade of the same rule on the same pairs (t clustered by signal month in the last column).',
@@ -1201,17 +1505,18 @@
       height: 200, marginLeft: 36, marginRight: 8, marginTop: 14, marginBottom: 30,
       x: {domain: W.map(function (w) { return w.k; }), label: null, padding: 0.25},
       y: {domain: [0, ymax], label: 'Still cointegrated, %', labelArrow: 'none'},
-      marks: [gridY(c, {ticks: 4}), axisY(c, {ticks: 4, label: 'Still cointegrated, %', labelArrow: 'none'}), axisX(c, {fontSize: c.narrow ? 10 : 11}),
+      marks: [gridY(c, {ticks: 4}), axisY(c, {ticks: 4, label: 'Still cointegrated, %', labelArrow: 'none'}), axisX(c, {fontSize: 11}),
         P.barY(W, {x: 'k', y: 'pct', fill: c.t.s1, ry2: 2}), zeroY(c),
-        P.ruleY([Pd.chance_pct], {stroke: c.t.ink3, strokeWidth: 1, strokeDasharray: '4,3'}),
+        P.ruleY([Pd.chance_pct], {stroke: c.t.ink2, strokeWidth: 1.5, strokeDasharray: '4,3'}),
+        P.text([Pd.chance_pct], halo(c, {y: function (v) { return v; }, frameAnchor: 'right', text: function (v) { return 'chance ' + num(v, 0) + '%'; },
+          dy: -8, textAnchor: 'end', fill: c.t.ink2, fontSize: annot(c)})),
         P.tickY(withBase, {x: 'k', y: 'base_pct', stroke: c.t.ink, strokeWidth: 2}),
         tip(c, W, P.pointerX({x: 'k', y: 'pct', title: function (w) {
           return w.name + '\n' + num(w.pct, 1) + '% of ' + w.pairs + ' pairs still cointegrated' + (w.base_pct ? '\nbase rate of the next year ' + num(w.base_pct, 1) + '%' : '');
         }}))]
     });
     return {nodes: [node], label: 'Bars of the share of cointegrated pairs still cointegrated a year later, with ticks at the next year\'s base rate and a line at the 5% chance rate.',
-      legend: [{label: 'Still cointegrated', color: '--series-1', kind: 'box'}, {label: 'Base rate of the next year', color: '--ink', kind: 'line'},
-               {label: 'Chance, ' + num(Pd.chance_pct, 0) + '%', color: '--ink-3', kind: 'line dash'}],
+      legend: [{label: 'Still cointegrated', color: '--series-1', kind: 'box'}, {label: 'Base rate of the next year', color: '--ink', kind: 'line'}],
       table: table('Cointegration persistence: pairs cointegrated in one year that are cointegrated the next (chance ' + num(Pd.chance_pct, 1) + '%).',
         ['Window', 'Pairs', 'Still cointegrated', 'Next year’s base rate'], [false, true, true, true],
         W.map(function (w) { return [w.name, String(w.pairs), num(w.pct, 1, {suffix: '%'}), w.base_pct ? num(w.base_pct, 1, {suffix: '%'}) : '–']; }))};
@@ -1229,14 +1534,20 @@
     });
     // y = x drawn on a log y axis: sampled densely, or the straight segment between two points is a chord
     var diag = global.d3.range(4, max + 1.01, 0.25).map(function (v) { return [v, v]; });
+    var above = rows.filter(function (r) { return r.raw === null || r.raw > max; }).length;
+    var facts = S.dev.facts || {};
+    var abovePct = has(facts.hl_oos_above_max_pct) ? facts.hl_oos_above_max_pct : 100 * above / rows.length;
     var node = plot(c, {
       height: 240, marginLeft: 44, marginRight: 14, marginTop: 26, marginBottom: 30,
       x: {domain: [0, max + 1], label: 'Half-life at formation, days', labelArrow: 'none'},
       y: {type: 'log', domain: [LO, CAP * 1.35], label: 'Half-life after formation, days', labelArrow: 'none'},
       marks: [gridY(c, {ticks: [2, 5, 10, 25, 50, 100, 400]}), axisY(c, {ticks: [2, 5, 10, 25, 50, 100, 400], tickFormat: function (v) { return String(v); }, label: 'Half-life after formation, days', labelArrow: 'none'}),
         axisX(c, {ticks: 5, label: 'Half-life at formation, days', labelArrow: 'none'}),
-        P.ruleY([max], {stroke: c.t.ink3, strokeWidth: 1, strokeDasharray: '4,3'}),
-        P.text([max], halo(c, {y: function (v) { return v; }, frameAnchor: 'left', text: function () { return 'rule’s maximum, ' + max + ' days'; }, dy: -7, dx: 4, textAnchor: 'start', fill: c.t.ink2, fontSize: 11})),
+        P.rect([max], {x1: 0, x2: max + 1, y1: function (v) { return v; }, y2: CAP * 1.35, fill: c.t.neutral, fillOpacity: 0.12}),
+        P.ruleY([max], {stroke: c.t.ink2, strokeWidth: 1.5, strokeDasharray: '4,3'}),
+        P.text([max], halo(c, {y: function (v) { return v; }, frameAnchor: 'left', text: function () { return 'rule’s maximum, ' + max + ' days'; }, dy: -8, dx: 4, textAnchor: 'start', fill: c.t.ink2, fontSize: annot(c)})),
+        P.text([abovePct], halo(c, {y: function () { return max; }, frameAnchor: 'left', text: function (v) { return num(v, 1) + '% of the traded pairs above it'; },
+          dy: -23, dx: 4, textAnchor: 'start', fill: c.t.ink, fontWeight: 600, fontSize: annot(c)})),
         P.line(diag, {stroke: c.t.ink3, strokeWidth: 1}),
         P.dot(rows.filter(function (r) { return !r.clipped; }), {x: 'f', y: 'o', r: 3, fill: c.t.s1, fillOpacity: 0.75}),
         P.dot(rows.filter(function (r) { return r.clipped; }), {x: 'f', y: 'o', r: 4, symbol: 'triangle', fill: c.t.s1}),
@@ -1245,7 +1556,6 @@
             '\nafter formation ' + (r.raw === null ? 'no mean reversion' : num(r.raw, 1) + ' days') + ', p = ' + num(r.p_o, 3);
         }}))]
     });
-    var above = rows.filter(function (r) { return r.raw === null || r.raw > max; }).length;
     return {nodes: [node], label: 'Scatter of each traded pair\'s spread half-life on its formation window against its half-life after formation, with the rule\'s 25-day maximum marked.',
       legend: [{label: 'Traded pair', color: '--series-1', kind: 'dot'}, {label: 'Equal half-lives', color: '--ink-3', kind: 'line'}],
       table: table('Half-lives of the ' + rows.length + ' traded pairs (' + above + ' above ' + max + ' days after formation); Engle–Granger p in each window.',
@@ -1279,8 +1589,8 @@
         P.link(links, {y1: 'label', y2: 'label', x1: 'a', x2: 'b', stroke: c.t.rule2, strokeWidth: 2}),
         P.dot(fixed, {x: 'x', y: 'label', r: 4.5, fill: c.t.paper, stroke: c.t.s1, strokeWidth: 2}),
         P.dot(full, {x: 'x', y: 'label', r: 4.5, fill: c.t.s1, stroke: c.t.paper, strokeWidth: 1.5}),
-        P.text(full, {y: 'label', frameAnchor: 'right', text: function (d) { return String(d.trades); }, dx: mR - 4, textAnchor: 'end', fill: c.t.ink2, fontSize: 11}),
-        P.text(['Trades'], {frameAnchor: 'top-right', text: function () { return 'trades, re-run'; }, dx: mR - 4, dy: -16, textAnchor: 'end', fill: c.t.ink3, fontSize: 11}),
+        P.text(full, {y: 'label', frameAnchor: 'right', text: function (d) { return String(d.trades); }, dx: mR - 4, textAnchor: 'end', fill: c.t.ink2, fontSize: annot(c)}),
+        P.text(['Trades'], {frameAnchor: 'top-right', text: function () { return 'trades, re-run'; }, dx: mR - 4, dy: -16, textAnchor: 'end', fill: c.t.ink3, fontSize: annot(c)}),
         tip(c, full, P.pointer({x: 'x', y: 'label', title: function (d) {
           var r = d.r;
           return d.label + '\nfull re-run: Sharpe ' + signed(r.full.sharpe, 2) + ', ' + pct(r.full.ret_pct) + ', ' + r.full.trades + ' trades, costs ' + num(r.full.cost_bp, 1) + ' bp of notional' +
@@ -1303,24 +1613,35 @@
     var C = S.dev && S.dev.capacity;
     if (!C || !C.length) return null;
     var P = global.Plot;
+    // net in the strategy's colour; market impact, a cost plotted below zero, dashed in the loss
+    // colour; each line labelled at its end rather than in a legend
     var pts = [];
     C.forEach(function (r) {
-      pts.push({aum: r.aum_musd, v: r.net_bp, s: 'Net, bp per trade', color: c.t.s1});
-      if (r.impact_bp !== undefined && r.impact_bp !== null) pts.push({aum: r.aum_musd, v: -r.impact_bp, s: 'Market impact, bp per trade', color: c.t.s2});
+      pts.push({aum: r.aum_musd, v: r.net_bp, s: 'Net, bp per trade', k: 'net', color: c.t.s1});
+      if (r.impact_bp !== undefined && r.impact_bp !== null) pts.push({aum: r.aum_musd, v: -r.impact_bp, s: 'Market impact, bp per trade', k: 'impact', color: c.t.neg});
     });
-    var series = [['Net, bp per trade', c.t.s1], ['Market impact, bp per trade', c.t.s2]];
+    var lastAum = C[C.length - 1].aum_musd, af = annot(c);
+    var ends = pts.filter(function (d) { return d.aum === lastAum; }).map(function (d) {
+      return Object.assign({}, d, {text: d.k === 'net' ? 'Net' : 'Market impact\n(negative)'});
+    }).sort(function (a, b) { return b.v - a.v; });
+    var mR = Math.ceil(Math.max.apply(null, ends.map(function (e) { return Math.max.apply(null, e.text.split('\n').map(function (t) { return textWidth(t, af); })); }))) + 14;
+    var endText = function (e, i) {
+      return P.text([e], {x: 'aum', y: 'v', text: 'text', dx: 8, textAnchor: 'start', lineAnchor: i ? 'top' : 'bottom', dy: i ? -4 : 4,
+        fill: c.t.ink, fontSize: af, lineHeight: 1.1});
+    };
     var node = plot(c, {
-      height: 200, marginLeft: 40, marginRight: 14, marginTop: 14, marginBottom: 30,
+      height: 200, marginLeft: 40, marginRight: mR, marginTop: 14, marginBottom: 30,
       x: {type: 'log', domain: [C[0].aum_musd * 0.8, C[C.length - 1].aum_musd * 1.25], label: 'Book size, $M (log scale)', labelArrow: 'none'},
       y: {domain: domainPad(pts.map(function (d) { return d.v; }), 0.1, [0]), label: 'bp per trade', labelArrow: 'none'},
       marks: [gridY(c, {ticks: 4}), axisY(c, {ticks: 4, label: 'bp per trade', labelArrow: 'none', tickFormat: function (v) { return signed(v, 0); }}),
         axisX(c, {ticks: 4, label: 'Book size, $M (log scale)', labelArrow: 'none', tickFormat: global.d3.format(',')}), zeroY(c),
-        P.lineY(pts, {x: 'aum', y: 'v', z: 's', stroke: 'color', strokeWidth: 2}),
+        P.lineY(pts.filter(function (d) { return d.k === 'net'; }), {x: 'aum', y: 'v', stroke: c.t.s1, strokeWidth: 2}),
+        P.lineY(pts.filter(function (d) { return d.k === 'impact'; }), {x: 'aum', y: 'v', stroke: c.t.neg, strokeWidth: 2, strokeDasharray: '5,3'}),
         P.dot(pts, {x: 'aum', y: 'v', fill: 'color', r: 3.5, stroke: c.t.paper, strokeWidth: 1.5}),
         tip(c, pts, P.pointer({x: 'aum', y: 'v', title: function (d) { return '$' + global.d3.format(',')(d.aum) + 'M\n' + d.s + ': ' + signed(d.v, 1); }}))]
+        .concat(ends.slice(0, 2).map(endText))
     });
     return {nodes: [node], label: 'Lines of net basis points per trade and of market impact per trade against book size, for the same trades re-priced.',
-      legend: series.map(function (s, i) { return {label: s[0].replace('Market impact', 'Market impact (negative)'), color: i ? '--series-2' : '--series-1', kind: 'line'}; }),
       table: table('Capacity: the headline trades re-priced at other book sizes (impact re-priced per execution).', ['Book size, $M', 'Net bp per trade', 'Impact bp per trade', 'Sharpe', 'Net return'],
         [true, true, true, true, true], C.map(function (r) { return [global.d3.format(',')(r.aum_musd), signed(r.net_bp, 1), num(r.impact_bp, 1), signed(r.sharpe, 2), pct(r.total_return_pct)]; }))};
   };
@@ -1347,29 +1668,20 @@
         rows.map(function (r) { return [num(r.a, 2) + '–' + num(r.b, 2), global.d3.format(',')(r.n)]; }))};
   };
 
-  // Exhibits 21 and 1: summaries of the other arms against the pairs strategy
-  // An arm without a Sharpe ratio (status: why) keeps its row, with the reason at the frame's
-  // left edge; a dashed arm (dash) is drawn with a dashed interval; opts.values labels each dot.
+  // Exhibits 22 and 1: Sharpe ratios of strategy arms on the shared Sharpe axis, with their
+  // values printed beside each row. An arm without a Sharpe ratio (status: why) keeps its row with
+  // the reason; a dashed arm (dash) has a dashed interval; opts.ucb draws each arm's one-sided 95%
+  // upper bound as a tick.
   function armSummary(c, arms, caption, opts) {
-    var P = global.Plot, o = opts || {};
-    var drawn = arms.filter(function (a) { return has(a.sharpe); }), bare = arms.filter(function (a) { return !has(a.sharpe); });
-    var solid = drawn.filter(function (a) { return !a.dash; }), dashed = drawn.filter(function (a) { return a.dash; });
-    var widest = Math.max.apply(null, arms.map(function (a) { return textWidth(a.label, 12); }));
-    var mL = Math.min(Math.ceil(widest) + 18, Math.floor(c.width * 0.45));
-    var title = o.title || function (a) { return a.label + '\nSharpe ' + signed(a.sharpe, 2) + ' [' + num(a.lo, 2) + ', ' + signed(a.hi, 2) + ']'; };
-    var node = plot(c, {
-      height: arms.length * 40 + 56, marginLeft: mL, marginRight: 20, marginTop: 10, marginBottom: 34,
-      // with no arm drawn (every one flat), a plain scale around zero
-      x: {domain: drawn.length ? domainPad(arms.map(function (a) { return a.lo; }).concat(arms.map(function (a) { return a.hi; })), 0.1, [0]) : [-1, 1], label: 'Annualised Sharpe ratio', labelArrow: 'none'},
-      y: {domain: arms.map(function (a) { return a.label; }), label: null, padding: 0.4},
-      marks: [gridX(c, {ticks: c.narrow ? 4 : 8}), axisX(c, {ticks: c.narrow ? 4 : 8, label: 'Annualised Sharpe ratio', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }}),
-        axisY(c, {fill: c.t.ink, fontSize: 12, lineWidth: o.fit && widest + 18 <= mL ? Infinity : (mL - 12) / 12}), zeroX(c),     // wrap only past the margin
-        P.ruleY(solid, {y: 'label', x1: 'lo', x2: 'hi', stroke: 'color', strokeWidth: 2}),
-        dashed.length ? P.ruleY(dashed, {y: 'label', x1: 'lo', x2: 'hi', stroke: 'color', strokeWidth: 2, strokeDasharray: '5,3'}) : null,
-        P.dot(drawn, {x: 'sharpe', y: 'label', r: 4.5, fill: function (a) { return a.open ? c.t.paper : a.color; }, stroke: function (a) { return a.open ? a.color : c.t.paper; }, strokeWidth: 2}),
-        o.values && drawn.length ? P.text(drawn, halo(c, {x: 'sharpe', y: 'label', text: function (a) { return signed(a.sharpe, 2); }, dy: -12, fill: c.t.ink, fontWeight: 600, fontSize: 11.5})) : null,
-        bare.length ? P.text(bare, halo(c, {y: 'label', frameAnchor: 'left', text: 'status', textAnchor: 'start', dx: 2, fill: c.t.ink3, fontSize: 11.5, fontStyle: 'italic'})) : null,
-        tip(c, drawn, P.pointer({x: 'sharpe', y: 'label', title: title}))].filter(Boolean)
+    var o = opts || {};
+    var rows = arms.map(function (a) {
+      return {label: a.label, est: a.sharpe, lo: a.lo, hi: a.hi, color: a.color, symbol: a.symbol, hollow: !!a.open, dash: !!a.dash,
+              ucb: o.ucb ? a.ucb : null, status: a.status, arm: a};
+    });
+    var node = intervalPlot(c, rows, {
+      domain: sharpeDomain([].concat.apply([], rows.map(function (r) { return [r.lo, r.hi, r.ucb]; }))),
+      label: 'Annualised Sharpe ratio', values: true, valueHead: 'Sharpe [95% interval]',
+      title: function (r) { return o.title ? o.title(r.arm) : r.label + '\nSharpe ' + signed(r.est, 2) + ' [' + signed(r.lo, 2) + ', ' + signed(r.hi, 2) + ']'; }
     });
     return {nodes: [node], label: 'Sharpe ratios with 95% intervals by strategy arm.',
       table: table(caption, ['Arm', 'Sharpe', 'Lower', 'Upper', 'Trades'], [false, true, true, true, true],
@@ -1380,22 +1692,24 @@
     if (!R || R.sharpe === null || R.sharpe === undefined) return null;
     var P = global.Plot, F = {};
     (S.dev.forest || []).forEach(function (r) { F[r.key] = r; });
-    var arms = [{label: 'Avellaneda–Lee, net', sharpe: R.sharpe, lo: R.lo, hi: R.hi, trades: R.trades, color: c.t.s3}];
-    if (R.gross_sharpe !== null && R.gross_sharpe !== undefined) arms.push({label: 'Avellaneda–Lee, gross', sharpe: R.gross_sharpe, lo: R.gross_lo, hi: R.gross_hi, trades: R.trades, color: c.t.s3, open: true});
-    if (F.main) arms.push({label: 'Pairs, net', sharpe: F.main.sharpe, lo: F.main.lo, hi: F.main.hi, trades: S.dev.facts.trades, color: c.t.s1});
-    if (F.gross) arms.push({label: 'Pairs, gross', sharpe: F.gross.sharpe, lo: F.gross.lo, hi: F.gross.hi, trades: S.dev.facts.trades, color: c.t.s1, open: true});
+    var arms = [{label: 'Avellaneda–Lee, net', sharpe: R.sharpe, lo: R.lo, hi: R.hi, trades: R.trades, color: c.t.s3, symbol: SHAPE.al}];
+    if (R.gross_sharpe !== null && R.gross_sharpe !== undefined) arms.push({label: 'Avellaneda–Lee, gross', sharpe: R.gross_sharpe, lo: R.gross_lo, hi: R.gross_hi, trades: R.trades, color: c.t.s3, symbol: SHAPE.al, open: true});
+    if (F.main) arms.push({label: 'Pairs, net', sharpe: F.main.sharpe, lo: F.main.lo, hi: F.main.hi, trades: S.dev.facts.trades, color: c.t.s1, symbol: SHAPE.v33});
+    if (F.gross) arms.push({label: 'Pairs, gross', sharpe: F.gross.sharpe, lo: F.gross.lo, hi: F.gross.hi, trades: S.dev.facts.trades, color: c.t.s1, symbol: SHAPE.v33, open: true});
     var out = armSummary(c, arms, 'Second strategy family against the pairs strategy, development period, net and gross of costs.');
-    out.legend = [{label: 'Avellaneda–Lee', color: '--series-3', kind: 'dot'}, {label: 'Pairs (v33)', color: '--series-1', kind: 'dot'},
+    out.legend = [{label: 'Avellaneda–Lee', color: '--series-3', kind: 'line mk mk-sq'}, {label: 'Pairs (v33)', color: '--series-1', kind: 'line mk'},
                   {label: 'Gross of costs', color: '--ink-2', kind: 'dot ring'}];
     if (R.paths && S.dev.daily) {
       var dates = R.paths.dates || S.dev.daily.dates, pairsBy = {};
       S.dev.daily.dates.forEach(function (d, i) { pairsBy[d] = S.dev.daily.cum[i]; });
       var rows = dates.map(function (d, i) { return {date: parse(d), al: R.paths.net[i], pr: pairsBy[d] === undefined ? null : pairsBy[d]}; });
       var last = rows[rows.length - 1];
-      var ends = [{y: last.al, text: pct(last.al), color: c.t.s3}];
-      if (last.pr !== null) ends.push({y: last.pr, text: pct(last.pr), color: c.t.s1});
+      // each line named at its end, so the two stay apart without colour
+      var ends = [{y: last.al, text: 'A–L ' + pct(last.al), color: c.t.s3}];
+      if (last.pr !== null) ends.push({y: last.pr, text: 'Pairs ' + pct(last.pr), color: c.t.s1});
+      var mR = Math.ceil(Math.max.apply(null, ends.map(function (e) { return textWidth(e.text, 12, 600); }))) + 14;
       var pane = plot(c, {
-        height: c.narrow ? 180 : 210, marginLeft: 46, marginRight: c.narrow ? 58 : 62, marginTop: 18, marginBottom: 26,
+        height: c.narrow ? 180 : 210, marginLeft: 46, marginRight: mR, marginTop: 18, marginBottom: 26,
         x: {type: 'utc', domain: [rows[0].date, last.date]},
         y: {domain: domainPad(rows.map(function (r) { return r.al; }).concat(rows.map(function (r) { return r.pr; })), 0.08, [0]), label: 'Cumulative net return, %', labelArrow: 'none'},
         marks: [gridY(c), axisY(c, {label: 'Cumulative net return, %', labelArrow: 'none', tickFormat: function (v) { return signed(v, 0); }}),
@@ -1403,41 +1717,53 @@
           P.lineY(rows, {x: 'date', y: 'pr', stroke: c.t.s1, strokeWidth: 2}),
           P.lineY(rows, {x: 'date', y: 'al', stroke: c.t.s3, strokeWidth: 2}),
           P.dot(ends, {x: function () { return last.date; }, y: 'y', r: 4, fill: function (d) { return d.color; }, stroke: c.t.paper, strokeWidth: 2}),
-          P.text(ends, {x: function () { return last.date; }, y: 'y', text: 'text', dx: 8, textAnchor: 'start', fill: c.t.ink, fontWeight: 600, fontSize: 12}),
-          tip(c, rows, P.pointerX({x: 'date', y: 'al', title: function (r) { return fmtDate(r.date) + '\nAvellaneda–Lee ' + pct(r.al) + (r.pr === null ? '' : '\nPairs ' + pct(r.pr)); }}))]
+          P.text(ends, {x: function () { return last.date; }, y: 'y', text: 'text', dx: 8, textAnchor: 'start', fill: c.t.ink, fontWeight: 600, fontSize: 12})]
       });
+      out.nodes[0].classList.add('plot-pane');
       pane.classList.add('plot-pane');
       out.nodes.push(pane);
+      out.mount = function (container) {
+        crosshair(container, {
+          panes: [pane], rows: rows,
+          dots: [{pane: 0, y: function (r) { return r.al; }, color: c.t.s3}, {pane: 0, y: function (r) { return r.pr; }, color: c.t.s1}],
+          items: function (r) {
+            return [{label: 'Avellaneda–Lee', color: c.t.s3, value: pct(r.al), wide: true}, {label: 'Pairs', color: c.t.s1, value: r.pr === null ? '–' : pct(r.pr), wide: true}];
+          }
+        }, c);
+      };
     }
     return out;
   };
   // ── Exhibit 1: the evaluated holdout ──────────────────────────────────────
-  // Top pane: each pre-registered arm's net Sharpe ratio with its 95% block-bootstrap interval;
-  // S3, descriptive, is dashed, and an arm without a Sharpe ratio keeps its row with the reason.
-  // Bottom pane: each arm's cumulative net return by day. The hypotheses table, the key figure
-  // and the run record are text, filled once by ExhibitPage.holdout (below).
+  // Top pane: each pre-registered arm's net Sharpe ratio with its 95% block-bootstrap interval and
+  // its one-sided 95% upper bound, on the Sharpe axis Exhibits 6 and 22 share, with the values
+  // printed; S3, descriptive, is hollow and dashed, and an arm without a Sharpe ratio keeps its row
+  // with the reason. Bottom pane: each arm's cumulative net return by day, read with the
+  // crosshair. The hypotheses table, the key figure and the run record are text, filled once by
+  // ExhibitPage.holdout (below).
   X.holdout = function (S, c) {
     var H = holdoutDone(S);
     if (!H) return null;
     var P = global.Plot, alpha = holdoutAlpha(H);
     var arms = H.arms.map(function (a) {
       var info = armInfo(a);
-      return Object.assign({}, a, {label: armLabel(a), color: c.t[info.color], dash: !!info.dash,
+      return Object.assign({}, a, {label: armLabel(a), color: armColor(c, info), dash: !!info.dash, symbol: info.symbol, open: !!info.open,
         status: has(a.sharpe) ? null : a.flat ? flatWhy(a) + ': Sharpe not defined' : 'Sharpe not reported'});
     });
-    var out = armSummary(c, arms, '', {values: true, fit: true, title: function (a) {
+    var out = armSummary(c, arms, '', {ucb: true, title: function (a) {
       var d = holdoutDecision(H, a);
       return a.label + '\nSharpe ' + signed(a.sharpe, 2) + ', 95% interval ' + interval(a.lo, a.hi) +
+        (has(a.ucb) ? '\nOne-sided 95% upper bound ' + signed(a.ucb, 2) : '') +
         '\nNet return ' + pct(a.ret_pct) + (has(a.days) ? ' over ' + a.days + ' days' : '') +
         '\nOne-sided p ' + pText(a.p_one_sided) + (d.tested ? ', Holm p ' + holmP(d.p, d.below, alpha) : '') + '\n' + d.text;
     }});
     out.legend = arms.map(function (a) {
       var info = armInfo(a);
-      return {label: a.label + (a.role === 'descriptive' ? ', descriptive' : ''), color: info.css, kind: info.dash ? 'line dash' : 'line'};
-    });
+      return {label: a.label + (a.role === 'descriptive' ? ', descriptive' : ''), color: info.css, kind: info.key};
+    }).concat(arms.some(function (a) { return has(a.sharpe) && has(a.ucb); }) ? [{label: 'One-sided 95% upper bound', color: '--ink', kind: 'rule'}] : []);
     out.table = [holdoutTable(H, alpha)];
     // the sealed page has no legend slot here: one is added above the chart (site.js fills it)
-    out.mount = function (chart) {
+    var addLegend = function (chart) {
       var fig = chart.closest('figure');
       if (fig && !fig.querySelector('[data-legend]')) {
         var slot = document.createElement('div');
@@ -1446,13 +1772,14 @@
         chart.before(slot);
       }
     };
+    out.mount = addLegend;
 
     var D = H.daily;
     var series = D && D.dates && D.dates.length && D.cum ? arms.filter(function (a) {
       var v = D.cum[a.key];
       return v && v.length === D.dates.length;
     }) : [];
-    out.label = 'Dot plot of the net Sharpe ratio of each pre-registered arm on the holdout, with 95% intervals' +
+    out.label = 'Dot plot of the net Sharpe ratio of each pre-registered arm on the holdout, with 95% intervals and one-sided 95% upper bounds' +
       (series.length ? ', and lines of each arm’s cumulative net return by day.' : '. No daily series is published, so the cumulative net return is not drawn.');
     if (!series.length) {
       var note = document.createElement('p');
@@ -1491,14 +1818,21 @@
       marks: [gridY(c), axisY(c, {label: 'Cumulative net return, %', labelArrow: 'none', tickFormat: function (v) { return signed(v, 1); }}),
         axisX(c, {ticks: c.narrow ? 4 : 8}), zeroY(c)].concat(lines, [
         P.dot(ends, {x: function () { return last.date; }, y: 'y', r: 4, fill: function (d) { return d.color; }, stroke: c.t.paper, strokeWidth: 2}),
-        P.text(ends, {x: function () { return last.date; }, y: 'ty', text: 'text', dx: 8, textAnchor: 'start', fill: c.t.ink, fontWeight: 600, fontSize: 12}),
-        tip(c, rows, P.pointerX({x: 'date', y: series[0].key, title: function (r) {
-          return [fmtDate(r.date)].concat(series.map(function (a) { return armTag(a) + ' ' + armInfo(a).name + ' ' + pct(r[a.key]); })).join('\n');
-        }}))])
+        P.text(ends, {x: function () { return last.date; }, y: 'ty', text: 'text', dx: 8, textAnchor: 'start', fill: c.t.ink, fontWeight: 600, fontSize: 12})])
     });
     out.nodes.forEach(function (n) { n.classList.add('plot-pane'); });
     pane.classList.add('plot-pane');
     out.nodes.push(pane);
+    out.mount = function (chart) {
+      addLegend(chart);
+      crosshair(chart, {
+        panes: [pane], rows: rows,
+        dots: series.map(function (a) { return {pane: 0, y: function (r) { return r[a.key]; }, color: a.color}; }),
+        items: function (r) {
+          return series.map(function (a) { return {label: armTag(a) + ' ' + armInfo(a).name, color: a.color, key: a.dash ? 'dash' : '', value: pct(r[a.key]), wide: true}; });
+        }
+      }, c);
+    };
     out.table.push(table('Cumulative net return by day, % of capital.', ['Date'].concat(series.map(function (a) { return a.label; })),
       [false].concat(series.map(function () { return true; })),
       rows.map(function (r) { return [r.iso].concat(series.map(function (a) { return pct(r[a.key], 3); })); })));
@@ -2069,9 +2403,9 @@
     var sub = document.querySelector('figure[data-exhibit="holdout"] .ex-sub');
     var a0 = H.arms[0];
     if (sub && a0.period && a0.period.length === 2) {
-      sub.textContent = 'Annualised, with 95% block-bootstrap intervals' + (H.daily ? ', and the cumulative net return by day' : '') + ': ' +
+      sub.textContent = 'Annualised, with 95% block-bootstrap intervals and one-sided 95% upper bounds' + (H.daily ? ', and the cumulative net return by day' : '') + ': ' +
         (has(a0.days) ? a0.days + ' ' : '') + 'daily net returns from ' + dayOf(a0.period[0]) + ' to ' + dayOf(a0.period[1]) +
-        ', the same trading-cost model for every arm (S3 keeps v32’s borrow fee and prime-broker spread); S3, descriptive, dashed';
+        ', the same trading-cost model for every arm (S3 keeps v32’s borrow fee and prime-broker spread); S3, descriptive, hollow and dashed';
     }
     if (!written) {
       holdoutTrials(S, H);
@@ -2099,13 +2433,10 @@
     var rows = [{k: 'Planted edge', m: V.edge.mean_bp, se: V.edge.se_bp, color: c.t.s1}, {k: 'Forced null', m: V.forced_null.mean_bp, se: V.forced_null.se_bp, color: c.t.neutral}]
       .filter(function (r) { return r.m !== null && r.se !== null; })
       .map(function (r) { return Object.assign(r, {lo: r.m - 1.96 * r.se, hi: r.m + 1.96 * r.se}); });
-    var node = plot(c, {
-      height: rows.length * 44 + 56, marginLeft: 110, marginRight: 20, marginTop: 10, marginBottom: 34,
-      x: {domain: domainPad(rows.map(function (r) { return r.lo; }).concat(rows.map(function (r) { return r.hi; })), 0.1, [0]), label: 'Gross bp per trade', labelArrow: 'none'},
-      y: {domain: rows.map(function (r) { return r.k; }), label: null, padding: 0.4},
-      marks: [gridX(c), axisX(c, {label: 'Gross bp per trade', labelArrow: 'none'}), axisY(c, {fill: c.t.ink}), zeroX(c),
-        P.ruleY(rows, {y: 'k', x1: 'lo', x2: 'hi', stroke: 'color', strokeWidth: 2}),
-        P.dot(rows, {x: 'm', y: 'k', r: 4.5, fill: 'color', stroke: c.t.paper, strokeWidth: 2})]
+    var node = intervalPlot(c, rows.map(function (r) { return Object.assign({}, r, {label: r.k, est: r.m}); }), {
+      domain: domainPad(rows.map(function (r) { return r.lo; }).concat(rows.map(function (r) { return r.hi; })), 0.1, [0]),
+      label: 'Gross bp per trade', ticks: c.narrow ? 5 : 10, tickFormat: function (v) { return signed(v, 0); }, dp: 1, values: true, valueHead: 'bp [95% interval]',
+      title: function (r) { return r.label + '\n' + signed(r.m, 1) + ' bp, 95% interval ' + signed(r.lo, 1) + ' to ' + signed(r.hi, 1) + ' (±1.96 standard errors)'; }
     });
     return {nodes: [node], label: 'Dot plot of gross basis points per trade on synthetic markets with 95% intervals.',
       table: table('Known-answer checks (' + V.seeds + ' markets per scenario; all pass: ' + (V.all_pass ? 'yes' : 'no') + ').', ['Check', 'Result'], [false, false],
@@ -2157,7 +2488,344 @@
     return wrap;
   }
 
+  // ── tooltips stay inside the chart ────────────────────────────────────────
+  // Plot keeps a tip inside its own frame, but near an edge of a narrow chart a tip can still run
+  // past it. After every pointer event each tip shown is shifted back inside the chart's width.
+  function clampTips(chart) {
+    var cb = chart.getBoundingClientRect();
+    chart.querySelectorAll('svg g[aria-label="tip"] > g').forEach(function (t) {
+      var m = /translate\(([-\d.e]+),\s*([-\d.e]+)\)/.exec(t.getAttribute('transform') || '');
+      var b = t.getBoundingClientRect();
+      if (!m || !b.width) return;
+      var svg = t.ownerSVGElement;
+      var k = svg.getBoundingClientRect().width / (Number(svg.getAttribute('width')) || 1) || 1;
+      var dx = b.left < cb.left + 2 ? cb.left + 2 - b.left : b.right > cb.right - 2 ? cb.right - 2 - b.right : 0;
+      if (dx) t.setAttribute('transform', 'translate(' + (Number(m[1]) + dx / k) + ',' + m[2] + ')');
+    });
+  }
+  function watchTips(chart) {
+    if (chart.tipClamp) return;
+    var frame = null;
+    chart.tipClamp = function () {
+      if (frame === null) frame = requestAnimationFrame(function () { frame = null; clampTips(chart); });
+    };
+    ['pointermove', 'pointerdown', 'pointerup'].forEach(function (e) { chart.addEventListener(e, chart.tipClamp, {passive: true}); });
+  }
+
+  // ── exhibit tools: a link to the exhibit, and the chart as SVG or PNG ─────
+  // A row in the exhibit's foot, added once the chart is drawn (window.ExhibitTools.attach(fig);
+  // without JavaScript and in print it does not exist or is hidden). The SVG is the chart drawn
+  // again in the light palette, with the exhibit's label, title and subtitle above it and its
+  // Source line, 'Hypothetical backtest' and the exhibit's address below; the PNG is that SVG
+  // at twice the size. IBM Plex Sans is embedded, read from this site's own font files.
+  var lastStudy = null;
+  document.addEventListener('study:ready', function (e) { if (e.detail) lastStudy = e.detail; });
+  var FONT_FILES = {400: 'IBMPlexSans-Regular', 600: 'IBMPlexSans-SemiBold'};
+  var fontCache = {};
+  function fontData(w) {
+    if (!fontCache[w]) {
+      fontCache[w] = fetch('assets/fonts/' + FONT_FILES[w] + '.woff2', {credentials: 'same-origin'})
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+        .then(function (buf) {
+          var b = new Uint8Array(buf), s = '';
+          for (var i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+          return 'data:font/woff2;base64,' + global.btoa(s);
+        })
+        .catch(function () { return null; });     // the export then names the font without embedding it
+    }
+    return fontCache[w];
+  }
+  function readTokens() {
+    var cs = global.getComputedStyle(document.documentElement);
+    var v = function (n) { return cs.getPropertyValue(n).trim(); };
+    return {ink: v('--ink'), ink2: v('--ink-2'), ink3: v('--ink-3'), paper: v('--paper'), surface: v('--surface'), rule2: v('--rule-2'),
+      grid: v('--grid'), axis: v('--axis'), s1: v('--series-1'), s2: v('--series-2'), s3: v('--series-3'), neutral: v('--neutral-series'),
+      ref: v('--ref-series') || v('--neutral-series'), pos: v('--pos'), neg: v('--neg'), mid: v('--div-mid'),
+      ord1: v('--ord-1'), ord2: v('--ord-2'), ord3: v('--ord-3'), ord4: v('--ord-4'), accent: v('--accent')};
+  }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  // words of a text broken into lines no wider than width (px) in the chart font
+  function wrap(text, width, size, weight) {
+    var words = String(text).replace(/\s+/g, ' ').trim().split(' '), lines = [], cur = '';
+    words.forEach(function (w) {
+      var next = cur ? cur + ' ' + w : w;
+      if (cur && textWidth(next, size, weight) > width) { lines.push(cur); cur = w; } else cur = next;
+    });
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  function textBlock(lines, x, y, size, weight, fill, lineHeight, extra) {
+    return lines.map(function (l, i) {
+      return '<text x="' + x + '" y="' + (y + size * 0.8 + i * size * lineHeight).toFixed(1) + '" font-size="' + size + '" font-weight="' + weight +
+        '" fill="' + fill + '"' + (extra || '') + '>' + esc(l) + '</text>';
+    }).join('');
+  }
+  // the legend as site.js builds it (assets/site.js legend())
+  function legendNode(items) {
+    var el = document.createElement('div');
+    el.className = 'ex-legend';
+    (items || []).forEach(function (it) {
+      var span = document.createElement('span');
+      span.className = 'lg';
+      if (it.kind !== 'none') {
+        var key = document.createElement('span');
+        key.className = 'lg-key ' + it.kind;
+        key.style.color = 'var(' + it.color + ')';
+        if (it.kind !== 'line' && it.kind !== 'rule') key.style.background = 'var(' + it.color + ')';
+        span.appendChild(key);
+      }
+      span.appendChild(document.createTextNode(it.label));
+      el.appendChild(span);
+    });
+    return el;
+  }
+  // a legend key drawn in SVG from its classes (the .lg-key rules of the stylesheet)
+  function keySVG(el, x, y, w, h, color, paper) {
+    var cl = el.classList, cx = x + w / 2, cy = y + h / 2, dash = cl.contains('dash') ? ' stroke-dasharray="4,3"' : '';
+    var marker = function (r) {
+      if (cl.contains('mk-sq')) return '<rect x="' + (cx - r) + '" y="' + (cy - r) + '" width="' + 2 * r + '" height="' + 2 * r + '" rx="1" fill="' + color + '"/>';
+      if (cl.contains('mk-ring')) return '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r - 1) + '" fill="' + paper + '" stroke="' + color + '" stroke-width="2"/>';
+      return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + color + '"/>';
+    };
+    if (cl.contains('mk')) return '<line x1="' + x + '" x2="' + (x + w) + '" y1="' + cy + '" y2="' + cy + '" stroke="' + color + '" stroke-width="2"' + dash + '/>' + marker(4);
+    if (cl.contains('rule')) return '<line x1="' + cx + '" x2="' + cx + '" y1="' + (cy - 6) + '" y2="' + (cy + 6) + '" stroke="' + color + '" stroke-width="2"' + dash + '/>';
+    if (cl.contains('line')) return '<line x1="' + x + '" x2="' + (x + 16) + '" y1="' + cy + '" y2="' + cy + '" stroke="' + color + '" stroke-width="2"' + dash + '/>';
+    var op = global.getComputedStyle(el).opacity;
+    if (cl.contains('band')) return '<rect x="' + x + '" y="' + (cy - 5) + '" width="16" height="10" fill="' + color + '" opacity="' + op + '"/>';
+    if (cl.contains('box')) return '<rect x="' + (cx - 5) + '" y="' + (cy - 5) + '" width="10" height="10" rx="2" fill="' + color + '" opacity="' + op + '"/>';
+    var ring = cl.contains('ring');
+    var paint = ring ? 'fill="' + paper + '" stroke="' + color + '" stroke-width="2"' : 'fill="' + color + '"';
+    if (cl.contains('sq')) return '<rect x="' + (cx - 4.5) + '" y="' + (cy - 4.5) + '" width="9" height="9" rx="1" ' + paint + '/>';
+    if (cl.contains('dia')) return '<rect x="' + (cx - 3.6) + '" y="' + (cy - 3.6) + '" width="7.2" height="7.2" transform="rotate(45 ' + cx + ' ' + cy + ')" ' + paint + '/>';
+    if (cl.contains('tri')) return '<path d="M' + cx + ',' + (cy - 4.5) + 'L' + (cx + 5) + ',' + (cy + 4) + 'L' + (cx - 5) + ',' + (cy + 4) + 'Z" ' + paint + '/>';
+    return '<circle cx="' + cx + '" cy="' + cy + '" r="' + (ring ? 3.5 : 4.5) + '" ' + paint + '/>';
+  }
+  function exhibitURL(fig) {
+    var canon = document.querySelector('link[rel="canonical"]');
+    var base = canon && canon.href ? canon.href.split('#')[0] : global.location.href.split('#')[0];
+    return base + '#' + fig.id;
+  }
+  function footText(fig, key) {
+    var ps = fig.querySelectorAll('.ex-foot p');
+    for (var i = 0; i < ps.length; i++) {
+      var k = ps[i].querySelector('.k');
+      if (k && k.textContent.trim() === key) return ps[i].textContent.replace(k.textContent, '').replace(/\s+/g, ' ').trim();
+    }
+    return '';
+  }
+  // a static diagram's styles (site.css classes) written onto each element of its copy
+  var INLINE = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-opacity', 'opacity', 'font-size', 'font-weight', 'font-style'];
+  function inlineStyles(src, dst) {
+    var a = src.querySelectorAll('*'), b = dst.querySelectorAll('*');
+    for (var i = 0; i < a.length; i++) {
+      var cs = global.getComputedStyle(a[i]);
+      b[i].setAttribute('style', INLINE.map(function (p) { return p + ':' + cs.getPropertyValue(p); }).join(';'));
+      b[i].removeAttribute('class');
+    }
+  }
+  // the exhibit as one self-contained SVG document: {svg, width, height}
+  function composeSVG(fig) {
+    var name = fig.getAttribute('data-exhibit'), build = name && X[name];
+    var study = global.Study || lastStudy, chart = fig.querySelector('.ex-chart');
+    // a static diagram (Exhibits 23 and 24): the version on screen, wide or compact
+    var dg = build ? null : Array.prototype.filter.call(fig.querySelectorAll('svg.dg'), function (s) { return s.getBoundingClientRect().width > 0; })[0];
+    if (!dg && (!build || !study || !chart)) return Promise.reject(new Error('the chart is not drawn'));
+    var W = dg ? Math.round(dg.getBoundingClientRect().width) : Math.max(640, Math.min(960, Math.floor(chart.clientWidth))), pad = 24;
+    var root = document.documentElement, prev = root.getAttribute('data-theme'), stage = null, body = '', bodyH = 0, t;
+    root.setAttribute('data-theme', 'light');           // drawn and measured in the light palette, then restored
+    try {
+      t = readTokens();
+      if (dg) {
+        var db = dg.getBoundingClientRect(), copy = dg.cloneNode(true);
+        inlineStyles(dg, copy);
+        copy.removeAttribute('class');
+        copy.setAttribute('width', db.width.toFixed(1));
+        copy.setAttribute('height', db.height.toFixed(1));
+        copy.setAttribute('x', 0);
+        copy.setAttribute('y', 0);
+        copy.setAttribute('font-family', FONT);
+        body = new XMLSerializer().serializeToString(copy);
+        bodyH = Math.ceil(db.height);
+      } else {
+        drawStage();
+      }
+    } finally {
+      if (stage) stage.remove();
+      if (prev === null) root.removeAttribute('data-theme'); else root.setAttribute('data-theme', prev);
+    }
+    function drawStage() {
+      var out = build(study, {width: W, narrow: false, t: t, figure: null});
+      if (!out) throw new Error('no data');
+      stage = document.createElement('div');
+      stage.setAttribute('aria-hidden', 'true');
+      stage.style.cssText = 'position:absolute;left:-20000px;top:0;width:' + W + 'px;visibility:hidden;';
+      var inner = document.createElement('div');
+      inner.className = 'ex-chart';
+      out.nodes.forEach(function (n) { inner.appendChild(n); });
+      stage.appendChild(legendNode(out.legend));
+      stage.appendChild(inner);
+      fig.appendChild(stage);
+      var sb = stage.getBoundingClientRect();
+      bodyH = Math.ceil(sb.height);
+      stage.querySelectorAll('svg, .lg, .mc-title, .multi-cell > p, .ex-note').forEach(function (el) {
+        if (el.tagName.toLowerCase() === 'svg' && el.parentNode.closest && el.parentNode.closest('svg')) return;
+        var b = el.getBoundingClientRect(), x = b.left - sb.left, y = b.top - sb.top;
+        if (!b.width) return;
+        if (el.tagName.toLowerCase() === 'svg') {
+          var clone = el.cloneNode(true);
+          clone.setAttribute('x', x.toFixed(1));
+          clone.setAttribute('y', y.toFixed(1));
+          body += new XMLSerializer().serializeToString(clone);
+          return;
+        }
+        var cs = global.getComputedStyle(el), size = parseFloat(cs.fontSize), weight = parseInt(cs.fontWeight, 10) >= 550 ? 600 : 400;
+        var color = global.d3.color(cs.color) ? global.d3.color(cs.color).formatHex() : t.ink2;
+        if (el.classList.contains('lg')) {
+          var key = el.querySelector('.lg-key'), tx = x;
+          if (key) {
+            var kb = key.getBoundingClientRect(), kc = global.getComputedStyle(key).color;
+            body += keySVG(key, kb.left - sb.left, kb.top - sb.top, kb.width, kb.height, global.d3.color(kc) ? global.d3.color(kc).formatHex() : t.ink2, t.paper);
+            tx = kb.right - sb.left + 7;
+          }
+          body += textBlock([el.textContent], tx.toFixed(1), y + (b.height - size * 1.2) / 2, size, weight, color, 1.2);
+          return;
+        }
+        var lh = parseFloat(cs.lineHeight) / size || 1.4;
+        body += textBlock(wrap(el.textContent, b.width + 1, size, weight), x.toFixed(1), y + (lh - 1) * size / 2, size, weight, color, lh);
+      });
+    }
+    // header: label, title, subtitle; footer: source, the caveat and the address
+    var text = function (sel) { var el = fig.querySelector(sel); return el ? el.textContent.replace(/\s+/g, ' ').trim() : ''; };
+    var head = '', y = pad;
+    var label = text('.ex-label').toUpperCase();
+    head += textBlock([label], pad, y, 11.5, 600, t.accent || t.ink2, 1.2, ' letter-spacing="1.15"');
+    y += 20;
+    var title = wrap(text('.ex-title'), W, 18, 600);
+    head += textBlock(title, pad, y, 18, 600, t.ink, 1.35);
+    y += title.length * 18 * 1.35 + 4;
+    var subLines = wrap(text('.ex-sub'), W, 14, 400);
+    head += textBlock(subLines, pad, y, 14, 400, t.ink2, 1.45);
+    y += subLines.length * 14 * 1.45 + 14;
+    var top = y;
+    y += bodyH + 14;
+    var foot = '', src = footText(fig, 'Source');
+    if (src) {
+      var srcLines = wrap('Source: ' + src, W, 12, 400);
+      foot += textBlock(srcLines, pad, y, 12, 400, t.ink2, 1.45);
+      y += srcLines.length * 12 * 1.45 + 2;
+    }
+    var mark = wrap('Hypothetical backtest · ' + exhibitURL(fig), W, 12, 400);
+    foot += textBlock(mark, pad, y, 12, 400, t.ink3, 1.45);
+    y += mark.length * 12 * 1.45 + pad;
+    var width = W + 2 * pad, height = Math.ceil(y);
+    return Promise.all([fontData(400), fontData(600)]).then(function (f) {
+      var faces = [[400, f[0]], [600, f[1]]].filter(function (x) { return x[1]; }).map(function (x) {
+        return '@font-face{font-family:"IBM Plex Sans";font-weight:' + x[0] + ';src:url(' + x[1] + ') format("woff2")}';
+      }).join('');
+      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '" ' +
+        'font-family="' + esc(FONT) + '"><title>' + esc(text('.ex-label') + ': ' + text('.ex-title')) + '</title>' +
+        '<style>' + faces + 'text{font-variant-numeric:tabular-nums}</style>' +
+        '<rect width="100%" height="100%" fill="' + t.paper + '"/>' + head +
+        '<g transform="translate(' + pad + ',' + top.toFixed(1) + ')">' + body + '</g>' + foot + '</svg>';
+      return {svg: svg, width: width, height: height};
+    });
+  }
+  function toPNG(doc) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () {
+        var k = 2, cv = document.createElement('canvas');
+        cv.width = doc.width * k;
+        cv.height = doc.height * k;
+        var g = cv.getContext('2d');
+        g.scale(k, k);
+        g.drawImage(img, 0, 0, doc.width, doc.height);
+        cv.toBlob(function (b) { if (b) resolve(b); else reject(new Error('the image could not be encoded')); }, 'image/png');
+      };
+      img.onerror = function () { reject(new Error('the image could not be drawn')); };
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(doc.svg);
+    });
+  }
+  function save(blob, name) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.hidden = true;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 10000);
+  }
+  function attach(fig) {
+    if (!fig || !fig.id || fig.querySelector('.ex-tools')) return;
+    var chart = fig.querySelector('.ex-chart'), diagram = fig.querySelector('svg.dg');
+    if (!diagram && (!chart || !chart.querySelector('svg'))) return;
+    var name = fig.getAttribute('data-exhibit'), label = (fig.querySelector('.ex-label') || {}).textContent || fig.id;
+    var file = fig.id.replace(/^ex-/, 'exhibit-');
+    var row = document.createElement('div');
+    row.className = 'ex-tools';
+    var msg = document.createElement('span');
+    msg.className = 'ex-tools-msg';
+    msg.setAttribute('role', 'status');
+    var timer = null;
+    var say = function (s, keep) {
+      msg.textContent = s;
+      clearTimeout(timer);
+      if (!keep) timer = setTimeout(function () { msg.textContent = ''; }, 4000);
+    };
+    var button = function (text, aria, run) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = text;
+      b.setAttribute('aria-label', aria);
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        Promise.resolve().then(run).catch(function (err) { say('Not available: ' + err.message); })
+          .then(function () { b.disabled = false; });
+      });
+      return b;
+    };
+    row.appendChild(button('Copy link', 'Copy a link to ' + label, function () {
+      var url = exhibitURL(fig);
+      if (!global.navigator.clipboard) { say(url, true); return; }
+      return global.navigator.clipboard.writeText(url).then(function () { say('Link copied'); }, function () { say(url, true); });
+    }));
+    if ((name && X[name]) || diagram) {
+      row.appendChild(button('SVG', 'Download ' + label + ' as SVG', function () {
+        return composeSVG(fig).then(function (doc) { save(new Blob([doc.svg], {type: 'image/svg+xml'}), file + '.svg'); say('SVG saved'); });
+      }));
+      row.appendChild(button('PNG', 'Download ' + label + ' as PNG', function () {
+        return composeSVG(fig).then(toPNG).then(function (blob) { save(blob, file + '.png'); say('PNG saved'); });
+      }));
+    }
+    row.appendChild(msg);
+    var foot = fig.querySelector('.ex-foot');
+    if (foot) foot.appendChild(row); else (chart || diagram.closest('.dg-wrap') || diagram).after(row);
+  }
+  // the static diagrams are never drawn: their tools are added once, at load
+  document.querySelectorAll('figure.exhibit').forEach(function (f) { if (f.querySelector('svg.dg')) attach(f); });
+
+  // every builder: remember the study (for the exports), and once its chart is in the page,
+  // keep its tips inside it and add the exhibit's tools
+  Object.keys(X).forEach(function (name) {
+    var build = X[name];
+    X[name] = function (S, c) {
+      if (S) lastStudy = S;
+      var out = build(S, c);
+      if (out && c && c.figure) {
+        var mount = out.mount, fig = c.figure;
+        out.mount = function (chart) {
+          if (mount) mount.call(this, chart);
+          watchTips(chart);
+          attach(fig);
+        };
+      }
+      return out;
+    };
+  });
+
   global.Exhibits = X;
   global.ExhibitTable = buildTable;
   global.ExhibitPage = {holdout: holdoutPage};
+  global.ExhibitTools = {attach: attach, svg: composeSVG};
 })(window);

@@ -330,7 +330,7 @@
   <figure class="exhibit is-pending" id="ex-1" data-exhibit="holdout">
     <figcaption class="ex-head">
       <a class="ex-label" href="#ex-1">Exhibit 1</a>
-      <span class="ex-title">Net Sharpe ratio of each pre-registered arm on the 2026 holdout</span>
+      <span class="ex-title">Neither tested arm shows an edge in 2026: S1&nbsp;<span data-metric="study.holdout.arms.0.sharpe">+0.05</span>, S2&nbsp;<span data-metric="study.holdout.arms.1.sharpe">−0.27</span>, every interval spans zero, Holm p&nbsp;<span data-metric="study.holdout.arms.0.p_holm">0.955</span> for both</span>
       <span class="ex-sub">Annualised, with 95% block-bootstrap intervals; daily net returns from 2 January 2026, the same trading-cost model for every arm (S3 keeps v32's borrow fee and prime-broker spread)</span>
     </figcaption>
     <div class="ex-chart">
@@ -464,8 +464,8 @@
   <figure class="exhibit" id="ex-6" data-exhibit="forest">
     <figcaption class="ex-head">
       <a class="ex-label" href="#ex-6">Exhibit 6</a>
-      <span class="ex-title">Every development-period bootstrap interval spans zero, gross or net, in both families; the main backtest excludes Sharpe ratios above <span data-metric="study.dev.facts.sharpe_ucb">0.92</span>, and the walk-forward's one-sided bound is below zero</span>
-      <span class="ex-sub">Annualised Sharpe ratio with its 95% interval; development period, net of costs unless stated</span>
+      <span class="ex-title">Every development-period bootstrap interval spans zero, gross or net, in both families</span>
+      <span class="ex-sub">The main backtest excludes Sharpe ratios above <span data-metric="study.dev.facts.sharpe_ucb">0.92</span>, and the walk-forward's one-sided bound is below zero. Annualised Sharpe ratio with its 95% interval; development period, net of costs unless stated; the holdout row is S1 on the holdout, outside the development period</span>
     </figcaption>
     <div class="ex-legend" data-legend></div>
     <div class="ex-chart" role="img" aria-label="Forest plot: a dot and a horizontal interval for each series or comparison, with a zero line, the minimum detectable Sharpe ratio and the main backtest's one-sided upper bound."><noscript><img class="ex-static" src="paper/build/figures/forest.svg" width="612" height="245" alt="" loading="lazy" decoding="async"><p class="ex-static-note">Above, the paper's figure for this exhibit (paper/build/figures/forest.svg), drawn from the same results.</p></noscript><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
@@ -518,8 +518,8 @@
   <figure class="exhibit" id="ex-8" data-exhibit="dsr">
     <figcaption class="ex-head">
       <a class="ex-label" href="#ex-8">Exhibit 8</a>
-      <span class="ex-title">None of the <span data-metric="study.dev.snooping.results.n">38</span> declared variants beats cash or the distance method, even before the search is allowed for, and deflated for the search neither the best variant's Sharpe ratio nor the design's is close to significant</span>
-      <span class="ex-sub">Net Sharpe ratio of each declared variant on the development days; and the main backtest's deflated Sharpe ratio against the number of trials N, with the estimator's null variance and with the variants' own Sharpe dispersion</span>
+      <span class="ex-title">None of the <span data-metric="study.dev.snooping.results.n">38</span> declared variants beats cash or the distance method, even before the search is allowed for</span>
+      <span class="ex-sub">Deflated for the search, neither the best variant's Sharpe ratio nor the design's is close to significant. Net Sharpe ratio of each declared variant on the development days; and the main backtest's deflated Sharpe ratio against the number of trials N, with the estimator's null variance and with the variants' own Sharpe dispersion</span>
     </figcaption>
     <div class="ex-legend" data-legend></div>
     <div class="ex-chart" role="img" aria-label="Left: a dot strip of the 38 declared variants' Sharpe ratios with the v33 design and the Gatev baseline marked. Right: the deflated Sharpe ratio falling as the assumed number of trials rises from 1 to 1,000, under two trial variances, with the reported and the declared values marked."><noscript><img class="ex-static" src="paper/build/figures/dsr.svg" width="612" height="187" alt="" loading="lazy" decoding="async"><p class="ex-static-note">Above, the paper's figure for this exhibit (paper/build/figures/dsr.svg), drawn from the same results.</p></noscript><p class="ex-nojs">The chart needs JavaScript. Its data are in assets/study.json.</p></div>
