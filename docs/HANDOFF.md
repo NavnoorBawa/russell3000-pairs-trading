@@ -85,6 +85,9 @@ pytest -q                                      # about 1,190 tests; CI also meas
 
 ## The standing mandate
 
+**The prioritised roadmap, with an honest assessment of what is still short of the bar and an
+acceptance criterion for every item, is in `docs/IMPROVEMENT_PLAN.md`. Work from that file.**
+
 Keep improving the project, one verified and published step at a time, until it meets the bar
 below. The bar is the one a top quantitative fund's research review would apply: rigour,
 reproducibility, honesty and presentation. It is **not** a positive Sharpe ratio.
