@@ -4,16 +4,18 @@
    come from the dataviz reference palette and are read by assets/exhibits.js, so no
    colour is hard-coded in script. */
 
-/* IBM Plex (SIL Open Font License 1.1, assets/fonts/LICENSE.txt), served from this site:
-   no third-party request, and the same typography for every reader. */
-@font-face { font-family: "IBM Plex Sans"; src: url("fonts/IBMPlexSans-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: "IBM Plex Sans"; src: url("fonts/IBMPlexSans-Italic.woff2") format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
-@font-face { font-family: "IBM Plex Sans"; src: url("fonts/IBMPlexSans-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
-@font-face { font-family: "IBM Plex Sans"; src: url("fonts/IBMPlexSans-SemiBold.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
-@font-face { font-family: "IBM Plex Serif"; src: url("fonts/IBMPlexSerif-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: "IBM Plex Serif"; src: url("fonts/IBMPlexSerif-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
-@font-face { font-family: "IBM Plex Mono"; src: url("fonts/IBMPlexMono-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: "IBM Plex Mono"; src: url("fonts/IBMPlexMono-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+/* Study Sans, Serif and Mono: subsets of IBM Plex (SIL Open Font License 1.1,
+   assets/fonts/LICENSE.txt), renamed as that licence requires of a modified version
+   (scripts/build_fonts.py). Served from this site: no third-party request, and the same
+   typography for every reader; IBM Plex itself is next in each stack. */
+@font-face { font-family: "Study Sans"; src: url("fonts/StudySans-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Study Sans"; src: url("fonts/StudySans-Italic.woff2") format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: "Study Sans"; src: url("fonts/StudySans-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Study Sans"; src: url("fonts/StudySans-SemiBold.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Study Serif"; src: url("fonts/StudySerif-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Study Serif"; src: url("fonts/StudySerif-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Study Mono"; src: url("fonts/StudyMono-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Study Mono"; src: url("fonts/StudyMono-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
 
 :root {
   color-scheme: light;
@@ -38,9 +40,9 @@
   --grid: #e6e5df;
   --axis: #c3c2b7;
   --ord-1: #86b6ef; --ord-2: #5598e7; --ord-3: #2a78d6; --ord-4: #1c5cab;   /* funnel stages */
-  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
-  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: "Study Sans", "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --serif: "Study Serif", "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --mono: "Study Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -152,6 +154,42 @@ html:not(.js) .theme-btn { display: none; }
 @media (prefers-reduced-motion: reduce) { .xpop { transition: none; } }
 .toc-flag .ico { width: 12px; height: 12px; vertical-align: -1px; }
 main { min-width: 0; padding-bottom: 48px; }
+
+/* ── off-screen sections: laid out as they come near, so a phone paints its first screen sooner ── */
+main > section:not(#summary) { content-visibility: auto; contain-intrinsic-size: auto 3000px; }
+#holdout { contain-intrinsic-size: auto 3805px; }
+#performance { contain-intrinsic-size: auto 5480px; }
+#significance { contain-intrinsic-size: auto 5550px; }
+#anatomy { contain-intrinsic-size: auto 4537px; }
+#execution { contain-intrinsic-size: auto 4075px; }
+#risk { contain-intrinsic-size: auto 2485px; }
+#testing { contain-intrinsic-size: auto 3223px; }
+#residual { contain-intrinsic-size: auto 1733px; }
+#method { contain-intrinsic-size: auto 4554px; }
+#validation { contain-intrinsic-size: auto 1385px; }
+#threats { contain-intrinsic-size: auto 3769px; }
+#literature { contain-intrinsic-size: auto 1496px; }
+#reproduce { contain-intrinsic-size: auto 822px; }
+#history { contain-intrinsic-size: auto 757px; }
+@media (max-width: 760px) {
+  #holdout { contain-intrinsic-size: auto 6045px; }
+  #performance { contain-intrinsic-size: auto 7999px; }
+  #significance { contain-intrinsic-size: auto 8407px; }
+  #anatomy { contain-intrinsic-size: auto 6985px; }
+  #execution { contain-intrinsic-size: auto 6738px; }
+  #risk { contain-intrinsic-size: auto 3491px; }
+  #testing { contain-intrinsic-size: auto 4393px; }
+  #residual { contain-intrinsic-size: auto 2418px; }
+  #method { contain-intrinsic-size: auto 8739px; }
+  #validation { contain-intrinsic-size: auto 2138px; }
+  #threats { contain-intrinsic-size: auto 6255px; }
+  #literature { contain-intrinsic-size: auto 3219px; }
+  #reproduce { contain-intrinsic-size: auto 1462px; }
+  #history { contain-intrinsic-size: auto 869px; }
+}
+/* the number check reads every section, and print shows them all */
+html.audit main > section:not(#summary) { content-visibility: visible; }
+@media print { main > section:not(#summary) { content-visibility: visible; } }
 
 /* ── sections and text ────────────────────────────────────────────────────── */
 .sec { padding: 56px 0 8px; border-top: 1px solid var(--rule); }
@@ -297,7 +335,7 @@ html.js .ex-nojs { display: none; }
 .ex-foot p { overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; color: var(--ink-2); max-width: 84ch; }
 .ex-foot .k { font-weight: 600; color: var(--ink); margin-right: 6px; }
 .ex-data { margin-top: 10px; font-size: 13.5px; }
-.ex-data summary { cursor: pointer; color: var(--ink-2); width: max-content; padding: 2px 0; }
+.ex-data summary { cursor: pointer; color: var(--ink-2); width: max-content; padding: 5px 0; }
 .ex-data summary:hover { color: var(--ink); }
 .ex-data[open] summary { margin-bottom: 8px; }
 html:not(.js) .ex-data, .exhibit.is-pending .ex-data { display: none; }

@@ -302,7 +302,10 @@
     return name ? 'Table: ' + name : '';
   }
 
-  function isShown(el) { return el.getClientRects().length > 0 && !el.closest('.vh'); }   // drawn, and not screen-reader-only
+  function isShown(el) {   // displayed (even in a section not yet laid out), and not screen-reader-only
+    var shown = el.checkVisibility ? el.checkVisibility() : el.getClientRects().length > 0;
+    return shown && !el.closest('.vh');
+  }
 
   /* A number reached from an address: in the upper part of the window, so its card fits below. */
   function revealHigh(el) {

@@ -14,7 +14,7 @@
   'use strict';
 
   var MINUS = '−';
-  var FONT = '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif';
+  var FONT = '"Study Sans", "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif';
   var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   // ── formatting ────────────────────────────────────────────────────────────
@@ -2517,10 +2517,10 @@
   // without JavaScript and in print it does not exist or is hidden). The SVG is the chart drawn
   // again in the light palette, with the exhibit's label, title and subtitle above it and its
   // Source line, 'Hypothetical backtest' and the exhibit's address below; the PNG is that SVG
-  // at twice the size. IBM Plex Sans is embedded, read from this site's own font files.
+  // at twice the size. Study Sans (the site's subset of IBM Plex Sans) is embedded, read from this site's own font files.
   var lastStudy = null;
   document.addEventListener('study:ready', function (e) { if (e.detail) lastStudy = e.detail; });
-  var FONT_FILES = {400: 'IBMPlexSans-Regular', 600: 'IBMPlexSans-SemiBold'};
+  var FONT_FILES = {400: 'StudySans-Regular', 600: 'StudySans-SemiBold'};
   var fontCache = {};
   function fontData(w) {
     if (!fontCache[w]) {
@@ -2720,7 +2720,7 @@
     var width = W + 2 * pad, height = Math.ceil(y);
     return Promise.all([fontData(400), fontData(600)]).then(function (f) {
       var faces = [[400, f[0]], [600, f[1]]].filter(function (x) { return x[1]; }).map(function (x) {
-        return '@font-face{font-family:"IBM Plex Sans";font-weight:' + x[0] + ';src:url(' + x[1] + ') format("woff2")}';
+        return '@font-face{font-family:"Study Sans";font-weight:' + x[0] + ';src:url(' + x[1] + ') format("woff2")}';
       }).join('');
       var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '" ' +
         'font-family="' + esc(FONT) + '"><title>' + esc(text('.ex-label') + ': ' + text('.ex-title')) + '</title>' +

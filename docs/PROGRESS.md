@@ -3510,6 +3510,13 @@ used, and `check_published_numbers.py` checks them all.
     one-sided bound below zero (now "two-sided");
   - evidence links to an exhibit that did not show the cited estimate;
   - a print path that left the page in the wrong theme.
-- *Measured* (Lighthouse on a local copy). Desktop: performance 99, accessibility, best practices
-  and SEO 100, layout shift 0. Mobile: accessibility 100, layout shift 0.007; performance about
-  75 under simulated slow 4G, which a lighter font load would raise.
+- *Loading.* Sections far from the window are laid out only as they come near
+  (`content-visibility`, sized from the rendered page). The fonts are subsets of IBM Plex,
+  about half the size, renamed Study Sans, Serif and Mono, because the SIL Open Font License
+  forbids a modified version the reserved name "Plex" (`scripts/build_fonts.py`; the originals
+  are in `assets/fonts/plex/`).
+- *Measured* (Lighthouse on a local copy).
+  - Desktop: 100 for performance, accessibility, best practices and SEO, with layout shift 0.
+  - Mobile, under simulated slow 4G: performance 87 to 89 (it was about 75), and 100 for
+    accessibility, best practices and SEO. First paint is 1.7 s (it was 3.0 s), the largest
+    paint 3.6 s (5.3 s), and layout shift 0.007.
