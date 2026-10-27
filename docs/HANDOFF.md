@@ -254,7 +254,12 @@ Any new strategy work, such as another signal, universe or cost model, must:
 4. be published in full whatever the result.
 
 The development-period data (2020 to 2025) and the spent 2026 holdout cannot confirm a new
-design. Report this limit plainly.
+design. Report this limit plainly. Data policy: 2026 daily data may serve as formation or
+development data for a new design, now that holdout2026 is registered and public; no 2026 daily
+return enters any new test statistic; every new design choice states whether a 2026 result
+motivated it. New studies live in `studies/` (never in the frozen `pairs_trading/`), with their
+own seal and pre-registration; see `docs/IMPROVEMENT_PLAN.md`, Phase E, including the power gate
+every new pre-registration must pass.
 
 ## Done
 
