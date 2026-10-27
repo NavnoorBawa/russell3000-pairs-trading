@@ -513,13 +513,19 @@
       }
       return -1;
     }
+    var cur = -1;                                     // the row shown, for the keyboard
     function show(evt) {
       var i = paneAt(evt.clientX, evt.clientY);
       if (i < 0) { if (evt.pointerType === 'mouse') hide(); return; }
       var box = panes[i].getBoundingClientRect();
       var k = box.width / Number(panes[i].getAttribute('width'));
       var j = bisect(dates, +scales[i].x.invert((evt.clientX - box.left) / k));
-      j = Math.max(0, Math.min(rows.length - 1, j));
+      at(Math.max(0, Math.min(rows.length - 1, j)), i);
+    }
+    function at(j, i) {
+      var box = panes[i].getBoundingClientRect();
+      var k = box.width / Number(panes[i].getAttribute('width'));
+      cur = j;
       mark(j, true);
       fill(rows[j], true);
       if (docked) {
@@ -537,6 +543,7 @@
       tipEl.style.top = (top + 8) + 'px';
     }
     function hide() {
+      cur = -1;
       mark(rows.length - 1, false);
       if (docked) fill(rows[rows.length - 1], false);
       else tipEl.style.display = 'none';
@@ -544,19 +551,39 @@
     function down(evt) { if (paneAt(evt.clientX, evt.clientY) >= 0) show(evt); }
     function leave(evt) { if (evt.pointerType === 'mouse') hide(); }
     function outside(evt) { if (!container.contains(evt.target)) hide(); }
+    // keyboard: with the chart focused, Left and Right step a day (with Shift, twenty), Home and
+    // End go to the ends, Escape hides the read-out
+    function key(evt) {
+      var n = rows.length, step = evt.shiftKey ? 20 : 1, j = cur < 0 ? n - 1 : cur;
+      if (evt.key === 'ArrowLeft') j -= cur < 0 ? 0 : step;
+      else if (evt.key === 'ArrowRight') j += cur < 0 ? 0 : step;
+      else if (evt.key === 'Home') j = 0;
+      else if (evt.key === 'End') j = n - 1;
+      else if (evt.key === 'Escape') { if (cur >= 0) { hide(); evt.preventDefault(); } return; }
+      else return;
+      evt.preventDefault();
+      at(Math.max(0, Math.min(n - 1, j)), 0);
+    }
+    function blur() { hide(); }
     // a redraw replaces the panes: drop the previous drawing's listeners first
     var old = container.crosshair;
     if (old) {
       container.removeEventListener('pointermove', old.show);
       container.removeEventListener('pointerdown', old.down);
       container.removeEventListener('pointerleave', old.leave);
+      container.removeEventListener('keydown', old.key);
+      container.removeEventListener('blur', old.blur);
       document.removeEventListener('pointerdown', old.outside);
     }
-    container.crosshair = {show: show, down: down, leave: leave, outside: outside};
+    container.crosshair = {show: show, down: down, leave: leave, outside: outside, key: key, blur: blur};
     container.addEventListener('pointermove', show);
     container.addEventListener('pointerdown', down);
     container.addEventListener('pointerleave', leave);
+    container.addEventListener('keydown', key);
+    container.addEventListener('blur', blur);
     document.addEventListener('pointerdown', outside);
+    if (!container.hasAttribute('tabindex')) container.tabIndex = 0;
+    container.setAttribute('aria-keyshortcuts', 'ArrowLeft ArrowRight Home End Escape');
     if (docked) {
       hide();
       tipEl.style.minHeight = tipEl.offsetHeight + 'px';
