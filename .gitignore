@@ -48,3 +48,6 @@ GRILL_NOTES.md
 .coverage
 htmlcov/
 .ruff_cache/
+
+# Local virtual environment (docs/HANDOFF.md, "Setting up a cloud session")
+.venv/

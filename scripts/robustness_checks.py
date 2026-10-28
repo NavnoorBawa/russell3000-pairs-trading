@@ -33,6 +33,10 @@ the design: no section re-chooses a parameter, and every run is the published de
                    independent-trades t of the export; entry date and symbol as alternative
                    clusters.
 
+--run-dir and --residual name another published run of the same design and calendar (a
+re-fetch reproduction, results/v33_dev_refetch/ and its residual/): its exports are read instead
+and the output goes beside them.
+
 Writes results/v33_dev/robustness.json (or --out) and lists it in that directory's
 MANIFEST.json (publish_run's format; --no-manifest skips it). The output is deterministic for
 given inputs and code (no timestamps); every input's sha256 is recorded, and the price cache,
@@ -617,10 +621,13 @@ def _study_sections(sections: Sequence[str], n_jobs: int, results: Dict, anatomy
     return out
 
 
-def build(sections: Sequence[str], n_jobs: int) -> Dict:
-    results = json.loads(RESULTS_FILE.read_text())
-    anatomy = json.loads(ANATOMY_FILE.read_text())
-    inputs = {'results': fingerprint(RESULTS_FILE), 'anatomy': fingerprint(ANATOMY_FILE)}
+def build(sections: Sequence[str], n_jobs: int, run_dir: pathlib.Path = DEV,
+          residual_file: pathlib.Path = RESIDUAL_FILE) -> Dict:
+    results_file = run_dir / RESULTS_FILE.name
+    anatomy_file = run_dir / ANATOMY_FILE.name
+    results = json.loads(results_file.read_text())
+    anatomy = json.loads(anatomy_file.read_text())
+    inputs = {'results': fingerprint(results_file), 'anatomy': fingerprint(anatomy_file)}
     commit, dirty = _git_state()
     out = {'schema': SCHEMA, 'builder': 'scripts/robustness_checks.py',
            'code': {'git_commit': commit, 'git_dirty': dirty, 'seed': SEED,
@@ -639,15 +646,17 @@ def build(sections: Sequence[str], n_jobs: int) -> Dict:
         macro = EnhancedRussell3000DataProcessor._load_pickle_or_raise(str(macro_path))
         out['regimes'] = regime_breakdown(results, macro)
     if 'd' in sections:
-        inputs['residual'] = fingerprint(RESIDUAL_FILE)
-        out['s2_trade_edge'] = s2_trade_edge(json.loads(RESIDUAL_FILE.read_text()))
+        inputs['residual'] = fingerprint(residual_file)
+        out['s2_trade_edge'] = s2_trade_edge(json.loads(residual_file.read_text()))
     out['inputs'] = dict(sorted(inputs.items()))
     return out
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    ap.add_argument('--out', default=str(DEFAULT_OUT))
+    ap.add_argument('--out', default=None, help='default: robustness.json in --run-dir')
+    ap.add_argument('--run-dir', default=str(DEV), help="the published pairs run's directory (default results/v33_dev)")
+    ap.add_argument('--residual', default=str(RESIDUAL_FILE), help="S2's published export (default results/residual_dev)")
     ap.add_argument('--sections', nargs='+', default=['a', 'b', 'c', 'd'], choices=['a', 'b', 'c', 'd'])
     ap.add_argument('--n-jobs', type=int, default=None, help='persistence-test workers (default PAIRS_N_JOBS, '
                                                              'else min(4, CPUs))')
@@ -659,8 +668,9 @@ def main(argv=None) -> int:
     env_jobs = os.environ.get('PAIRS_N_JOBS')
     n_jobs = max(1, args.n_jobs if args.n_jobs is not None else int(env_jobs) if env_jobs
                  else min(4, os.cpu_count() or 1))
-    report = build(sorted(set(args.sections)), n_jobs)
-    out = pathlib.Path(args.out)
+    run_dir = pathlib.Path(args.run_dir).absolute()
+    report = build(sorted(set(args.sections)), n_jobs, run_dir, pathlib.Path(args.residual).absolute())
+    out = pathlib.Path(args.out) if args.out else run_dir / DEFAULT_OUT.name
     _atomic_write_json(report, out)
     log.info(f'Wrote {_rel(out)}')
     if not args.no_manifest:

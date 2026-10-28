@@ -13,7 +13,16 @@ A destination that already holds files is refused, so a later run never mixes it
 with an earlier one's; --replace empties it first. A run whose headline marks it
 incomplete or a sensitivity variant (non_default_switches) is refused unless --variant.
 
+When the price cache the headline records is on disk, its per-symbol fingerprints
+(scripts/hash_cache.py; the macro cache's too, when recorded and present) are written as
+price_cache_hashes.json, so a later fetch can be diffed symbol by symbol. A cache whose sha256
+is no longer the one the run recorded is refused: its fingerprints would describe another
+cache. --cache-hashes require stops when the cache is missing; skip never fingerprints.
+
+--also GLOB copies other files too (the variant family's daily_returns.csv).
+
 usage: python scripts/publish_run.py OUTPUT_DIR NAME [--log logs/run.log] [--replace] [--variant]
+                                     [--cache-hashes auto|require|skip] [--also GLOB ...]
 """
 import argparse
 import hashlib
@@ -43,10 +52,39 @@ def clean_log(text: str) -> str:
     return '\n'.join(lines).replace(str(ROOT) + '/', './') + '\n'
 
 
+def cache_fingerprints(data: dict, mode: str = 'auto'):
+    """hash_cache.fingerprint of the price (and macro) cache a run recorded, or None.
+
+    None when mode is 'skip', when the run records no cache path, or (mode 'auto') when the
+    cache is not on disk. A cache on disk whose sha256 differs from the run's record stops.
+    """
+    pc = (data or {}).get('price_cache') or {}
+    if mode == 'skip' or not pc.get('path'):
+        if mode == 'require':
+            raise SystemExit("--cache-hashes require: the run records no price cache path")
+        return None
+    path = ROOT / pc['path']
+    if not path.exists():
+        if mode == 'require':
+            raise SystemExit(f"--cache-hashes require: {pc['path']} is not on disk")
+        print(f"note: {pc['path']} is not on disk; no price_cache_hashes.json")
+        return None
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    import hash_cache
+    mc = (data or {}).get('macro_cache') or {}
+    macro = ROOT / mc['path'] if mc.get('path') and (ROOT / mc['path']).exists() else None
+    doc = hash_cache.fingerprint(path, macro)
+    for rec, got in ((pc, doc['price_cache']), (mc, doc.get('macro_cache'))):
+        if got is not None and rec.get('sha256') and got['sha256'] != rec['sha256']:
+            raise SystemExit(f"{rec['path']} has sha256 {got['sha256'][:16]}, not the run's "
+                             f"{rec['sha256'][:16]}: the cache changed after the run")
+    return doc
+
+
 def publish(src: pathlib.Path, name: str, log: pathlib.Path = None, replace: bool = False,
-            variant: bool = False) -> pathlib.Path:
+            variant: bool = False, cache_hashes: str = 'auto', also: tuple = ()) -> pathlib.Path:
     dest = ROOT / 'results' / name
-    files = sorted(p for p in src.glob('*.json') if p.is_file())
+    files = sorted({p for pattern in ('*.json', *also) for p in src.glob(pattern) if p.is_file()})
     if not files:
         raise SystemExit(f"no JSON exports in {src}")
     src_head = next((src / n for n in HEADLINE_FILES if (src / n).exists()), None)
@@ -67,6 +105,9 @@ def publish(src: pathlib.Path, name: str, log: pathlib.Path = None, replace: boo
         (dest / 'run.log').write_text(clean_log(log.read_text(errors='replace')))
     headline = dest / src_head.name if src_head is not None else None
     rc = json.loads(headline.read_text()).get('run_config', {}) if headline is not None else {}
+    fp = cache_fingerprints(rc.get('data'), cache_hashes)
+    if fp is not None:
+        (dest / 'price_cache_hashes.json').write_text(json.dumps(fp, indent=1, sort_keys=True) + '\n')
     manifest = {
         'name': name,
         'run_config': {k: rc.get(k) for k in ('package_version', 'git_commit', 'git_dirty',
@@ -87,9 +128,13 @@ def main(argv=None) -> int:
     ap.add_argument('--log', help='the run log to clean and include')
     ap.add_argument('--replace', action='store_true', help='empty an existing destination first')
     ap.add_argument('--variant', action='store_true', help='publish an incomplete or variant run')
+    ap.add_argument('--cache-hashes', choices=('auto', 'require', 'skip'), default='auto',
+                    help="fingerprint the run's price cache (auto: when it is on disk)")
+    ap.add_argument('--also', nargs='*', default=(), metavar='GLOB', help='copy these files as well as *.json')
     args = ap.parse_args(argv)
     dest = publish(pathlib.Path(args.output_dir), args.name,
-                   pathlib.Path(args.log) if args.log else None, args.replace, args.variant)
+                   pathlib.Path(args.log) if args.log else None, args.replace, args.variant,
+                   args.cache_hashes, tuple(args.also))
     print(f"published -> {dest.relative_to(ROOT)}")
     return 0
 
