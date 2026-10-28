@@ -179,6 +179,74 @@ TOGGLE_LABELS = {'regime_gate_on': 'Regime gate on', 'cusum_gate_on': 'CUSUM ent
                  'all_pairs': 'Pairs across industries', 'universe_300': '300 names, v32\'s size',
                  'reform_every_63': 'Re-formation every 63 days'}
 ROBUSTNESS = 'robustness.json'       # {dev}/: scripts/robustness_checks.py
+# The re-fetch reproduction of the development run (docs/IMPROVEMENT_PLAN.md, A1): the same design,
+# calendar and code path on prices fetched afresh after the original caches were lost, published
+# by scripts/run_dev_studies.sh with RUN=v33_dev_refetch (residual/, variant_family/ and
+# validation/ inside it). Its numbers sit in 'refetch' beside the published run's, for the drift
+# table of the page's Reproduce section and the README (scripts/build_drift_table.py).
+REFETCH_RUN = 'v33_dev_refetch'
+# Every headline number the page quotes (each key of results/v33_dev/headline_metrics.json that
+# index.html marks; tests/test_drift_table.py keeps the list equal to the page's), then the
+# development results quoted from assets/study.json that the re-fetch also re-ran: (group, key,
+# label, decimals shown). The label is the page's wording; the decimals are the page's.
+DRIFT_ROWS = (
+    ('Main backtest, net of costs', 'main.sharpe', 'Sharpe ratio', 2),
+    ('Main backtest, net of costs', 'significance.main.boot_lo', 'Bootstrap 95% interval, lower end', 2),
+    ('Main backtest, net of costs', 'significance.main.boot_hi', 'Bootstrap 95% interval, upper end', 2),
+    ('Main backtest, net of costs', 'main.total_return_pct', 'Return, %', 2),
+    ('Main backtest, net of costs', 'main.trades', 'Trades', 0),
+    ('Main backtest, net of costs', 'main.win_rate_pct', 'Win rate, %', 1),
+    ('Main backtest, net of costs', 'main.max_drawdown_pct', 'Maximum drawdown, %', 2),
+    ('Main backtest, net of costs', 'main.avg_gross_exposure_pct', 'Average gross exposure, % of equity', 1),
+    ('Main backtest, net of costs', 'main.annual_turnover_x', 'Annual turnover, times', 1),
+    ('Main backtest, net of costs', 'significance.main.ann_sharpe', 'Annualised Sharpe ratio (significance table)', 2),
+    ('Main backtest, net of costs', 'significance.main.hac_t', 'Newey–West t', 2),
+    ('Main backtest, net of costs', 'significance.main.hac_p', 'Newey–West p', 3),
+    ('Main backtest, net of costs', 'significance.main.psr_pct', 'Probabilistic Sharpe ratio, %', 1),
+    ('Main backtest, net of costs', 'significance.main.dsr_pct', 'Deflated Sharpe ratio, %', 1),
+    ('Walk-forward, net of costs', 'oos.pooled_sharpe', 'Sharpe ratio', 2),
+    ('Walk-forward, net of costs', 'significance.oos_daily.boot_lo', 'Bootstrap 95% interval, lower end', 2),
+    ('Walk-forward, net of costs', 'significance.oos_daily.boot_hi', 'Bootstrap 95% interval, upper end', 2),
+    ('Walk-forward, net of costs', 'oos.total_return_pct', 'Return of the stitched path, %', 2),
+    ('Walk-forward, net of costs', 'oos.windows_positive', 'Windows that made money', 0),
+    ('Walk-forward, net of costs', 'oos.windows', 'Windows', 0),
+    ('Walk-forward, net of costs', 'oos.avg_window_return_pct', 'Mean return per window, %', 2),
+    ('Walk-forward, net of costs', 'significance.oos_windows.ci_lo_pct', 'Its 95% interval, lower end, %', 2),
+    ('Walk-forward, net of costs', 'significance.oos_windows.ci_hi_pct', 'Its 95% interval, upper end, %', 2),
+    ('Walk-forward, net of costs', 'significance.oos_windows.p', 'Its p', 3),
+    ('Walk-forward, net of costs', 'significance.oos_daily.ann_sharpe', 'Annualised Sharpe ratio (significance table)', 2),
+    ('Walk-forward, net of costs', 'significance.oos_daily.hac_t', 'Newey–West t', 2),
+    ('Walk-forward, net of costs', 'significance.oos_daily.hac_p', 'Newey–West p', 3),
+    ('Walk-forward, net of costs', 'significance.oos_daily.psr_pct', 'Probabilistic Sharpe ratio, %', 1),
+    ('Walk-forward, net of costs', 'significance.oos_daily.dsr_pct', 'Deflated Sharpe ratio, %', 1),
+    ('Baselines', 'benchmarks.gatev.sharpe', 'Gatev distance method, Sharpe ratio', 2),
+    ('Baselines', 'benchmarks.gatev.total_return_pct', 'Gatev distance method, return, %', 2),
+    ('Baselines', 'benchmarks.sharpe_diff_vs_gatev.diff', 'Strategy minus Gatev, Sharpe ratio', 2),
+    ('Baselines', 'benchmarks.sharpe_diff_vs_gatev.p', 'Its Ledoit–Wolf p', 3),
+    ('Baselines', 'benchmarks.random_control.n_draws', 'Random-pair draws', 0),
+    ('Baselines', 'benchmarks.random_control.strategy_percentile', "Strategy's percentile among the draws", 0),
+    ('Baselines', 'benchmarks.random_control.median_sharpe', 'Median draw, Sharpe ratio', 2),
+    ('Baselines', 'benchmarks.random_control.p5_sharpe', '5th percentile draw, Sharpe ratio', 2),
+    ('Baselines', 'benchmarks.random_control.p95_sharpe', '95th percentile draw, Sharpe ratio', 2),
+    ('Baselines', 'fund_profiles.institutional.total_return_pct', 'Cost schedule A (lowest costs), return, %', 2),
+    ('Baselines', 'fund_profiles.quant_hf.total_return_pct', 'Cost schedule of a systematic stat-arb fund, return, %', 2),
+    ('Pair selection and data, first formation', 'fdr.pairs_tested', 'Pairs tested', 0),
+    ('Pair selection and data, first formation', 'fdr.significant_raw_p05', 'At raw p < 0.05', 0),
+    ('Pair selection and data, first formation', 'fdr.survive_bh_fdr_q10', 'Surviving Benjamini–Hochberg at q = 0.10', 0),
+    ('Pair selection and data, first formation', 'fdr.final_selected_pairs', 'Pairs selected', 0),
+    ('Pair selection and data, first formation', 'universe.missing_value_weight_pct', 'Index weight of members without price history, %', 3),
+    ('Pair selection and data, first formation', 'universe.unmapped_value_weight_pct', 'Index weight of holdings without a usable ticker, %', 3),
+    ('Evidence layer and second family', 'study.dev.facts.gross_bp', 'Gross per trade, bp (equal-weighted)', 1),
+    ('Evidence layer and second family', 'study.dev.facts.cost_bp', 'Cost per trade, bp', 1),
+    ('Evidence layer and second family', 'study.dev.facts.decay_oos_bp', 'Gross per trade after formation, bp', 1),
+    ('Evidence layer and second family', 'study.dev.facts.pers_count', 'Pairs cointegrated again the next year', 0),
+    ('Evidence layer and second family', 'study.dev.facts.st_rev_t_main', 'Short-term reversal loading, t', 2),
+    ('Evidence layer and second family', 'study.dev.facts.start_sharpe_median', 'Median Sharpe ratio over the 12 start dates', 2),
+    ('Evidence layer and second family', 'study.residual.sharpe', 'Avellaneda–Lee (S2), net Sharpe ratio', 2),
+    ('Evidence layer and second family', 'study.dev.snooping.results.spa_zero.p', 'Variant family, Hansen SPA p against cash', 3),
+    ('Evidence layer and second family', 'study.dev.snooping.results.pbo_pct', 'Variant family, probability of backtest overfitting, %', 1),
+    ('Evidence layer and second family', 'study.validation.edge.mean_bp', 'Known-answer check, planted pairs, gross per trade, bp', 1),
+)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -2380,16 +2448,82 @@ def validation(report):
                           'worst_fp_rate': _r(s.get('worst_market_false_positive_rate'), 4), 'pass': s.get('pass')}}
 
 
+def _shown(x, dp):
+    """x as a reader sees it at dp decimals (the page rounds once, here and there alike)."""
+    return None if x is None else float(f'{x:.{dp}f}')
+
+
+def _set_path(d, key, value):
+    *head, last = key.split('.')
+    for part in head:
+        d = d.setdefault(part, {})
+    d[last] = value
+
+
+def _drift_value(key, headline, study):
+    """A drift row's value: a headline key from the headline JSON, a 'study.' key from the study dict."""
+    if key.startswith('study.'):
+        return _get(study, *key.split('.')[1:])
+    return _get(headline, *key.split('.'))
+
+
+def refetch_section(src, directory, headline, study, root, results_root, holdout_calendar):
+    """The re-fetch reproduction beside the published run: its run record, every DRIFT_ROWS value
+    and its difference from the published value as both are shown (the re-fetch's value at the
+    row's decimals minus the published one's), and the fetch's coverage. None without the run.
+
+    The re-fetch's development numbers come from the same builder run on its directory (its
+    variant family, residual arm and known-answer report from its own sub-directories), so each
+    row is computed exactly as the published one is."""
+    directory = pathlib.Path(directory)
+    if not (directory / 'headline_metrics.json').is_file():
+        return None
+    inner = build(directory, results_root=results_root, root=root, holdout_calendar=holdout_calendar,
+                  refetch=None, family_root=directory, residual_dir=directory / 'residual',
+                  validation_dir=directory / 'validation')
+    for name, sha in inner['meta']['sources'].items():
+        src.hashes.setdefault(name, sha)
+    head = src.load(directory / 'headline_metrics.json', required=True)
+    manifest = src.load(directory / 'MANIFEST.json') or {}
+    rc = head.get('run_config') or {}
+    values, diffs, rows = {}, {}, []
+    for group, key, label, dp in DRIFT_ROWS:
+        old, new = _drift_value(key, headline, study), _drift_value(key, head, inner)
+        diff = None if old is None or new is None else _r(_shown(new, dp) - _shown(old, dp), dp)
+        name = key[len('study.'):] if key.startswith('study.') else key
+        _set_path(values, name, new if not isinstance(new, float) else _r(new, dp + EXTRA_DP))
+        _set_path(diffs, name, diff)
+        rows.append({'group': group, 'key': key, 'label': label, 'dp': dp, 'same_as_shown': diff == 0})
+    return {
+        'run': {'name': directory.name, 'commit': rc.get('git_commit'), 'timestamp_utc': rc.get('run_timestamp_utc'),
+                'price_cache_sha256': _get(rc, 'data', 'price_cache', 'sha256'),
+                'price_cache_bytes': _get(rc, 'data', 'price_cache', 'size_bytes'),
+                'symbols': _get(rc, 'data', 'n_symbols'), 'pairs': _get(rc, 'data', 'n_pairs'),
+                'coverage': _get(rc, 'data', 'universe_coverage'),
+                'cached_pct': _r(100 * _get(rc, 'data', 'universe_cached_fraction', default=0) or 0, 1),
+                'not_found_pct': _r(100 * _get(rc, 'data', 'universe_not_found_fraction', default=0) or 0, 1),
+                'archive': manifest.get('archive')},
+        'values': values, 'diff': diffs, 'rows': rows,
+        'rows_same': sum(r['same_as_shown'] for r in rows), 'rows_n': len(rows),
+    }
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Assembly
 # ──────────────────────────────────────────────────────────────────────────────
 
-def build(dev=DEFAULT_DEV, results_root=None, root=ROOT, holdout_calendar=HOLDOUT_CALENDAR):
+def build(dev=DEFAULT_DEV, results_root=None, root=ROOT, holdout_calendar=HOLDOUT_CALENDAR,
+          refetch=REFETCH_RUN, family_root=None, residual_dir=None, validation_dir=None):
     """Return the study dict built from the development run directory `dev`, with the study's
     other sources from `results_root` (default results/); a holdout evaluation there must be on
-    `holdout_calendar`."""
+    `holdout_calendar`. `refetch` names results/<refetch>/, the re-fetch reproduction (None: no
+    'refetch' section); family_root, residual_dir and validation_dir move the variant family,
+    the residual arm and the known-answer report (the re-fetch keeps its own inside its run)."""
     dev = pathlib.Path(dev)
     results_root = pathlib.Path(results_root) if results_root else pathlib.Path(root) / 'results'
+    family_root = pathlib.Path(family_root) if family_root else results_root
+    residual_dir = pathlib.Path(residual_dir) if residual_dir else results_root / 'residual_dev'
+    validation_dir = pathlib.Path(validation_dir) if validation_dir else results_root / 'validation'
     src = Sources(root, results_root)
     headline_path = dev / 'headline_metrics.json'
     headline = src.load(headline_path, required=True)
@@ -2401,13 +2535,13 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT, holdout_calendar=HOLDOU
     anatomy = src.load(dev / 'anatomy.json') or {}
     scenarios = src.load(dev / 'cost_sensitivity.json')
     declaration = src.load(results_root / VARIANT_FAMILY / 'declaration.json')
-    snoop = src.load(results_root / VARIANT_FAMILY / 'snooping.json')
-    family_runs = src.load(results_root / VARIANT_FAMILY / 'runs.json')
-    family_rows = src.load_csv(results_root / VARIANT_FAMILY / 'daily_returns.csv')
+    snoop = src.load(family_root / VARIANT_FAMILY / 'snooping.json')
+    family_runs = src.load(family_root / VARIANT_FAMILY / 'runs.json')
+    family_rows = src.load_csv(family_root / VARIANT_FAMILY / 'daily_returns.csv')
     rob = src.load(dev / ROBUSTNESS)
-    residual = load_residual(src, results_root / 'residual_dev')
+    residual = load_residual(src, residual_dir)
     holdout = src.load(results_root / HOLDOUT_TRIAL / 'evaluation.json')
-    known = src.load(results_root / 'validation' / 'synthetic_validation.json')
+    known = src.load(validation_dir / 'synthetic_validation.json')
     registry = src.load_lines(results_root / REGISTRY)
     v32 = v32_section(src, results_root / V32_RUN)
     # before 'meta' is assembled: the holdout's exports, attempt record and diffs are sources too
@@ -2512,6 +2646,12 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT, holdout_calendar=HOLDOU
         'registry': {'trials': len(registry), 'recorded_runs': sum(len(e.get('runs') or []) for e in registry),
                      'rows': len(trials(registry))} if registry is not None else None,
     }
+    if refetch is not None:
+        section = refetch_section(src, results_root / refetch, headline, study, root, results_root,
+                                  holdout_calendar)
+        if section is not None:
+            study['refetch'] = section
+            study['meta']['sources'] = dict(sorted(src.hashes.items()))
     return study
 
 
