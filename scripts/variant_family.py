@@ -19,6 +19,12 @@ series from the base run. Nothing here re-chooses the primary design.
 Variants that change only trading rules share one prepared study (pair selection,
 re-selection schedule); variants that change selection re-run it.
 
+Each finished variant is checkpointed under <out>/partial/ (its result row and daily series), so a
+run that is interrupted (a container restart, or the out-of-memory killer during a long family)
+resumes where it stopped: a variant whose checkpoint exists is read back, not re-run, and the
+matrix and runs.json are assembled in the declared order as if the run had not stopped. Each
+selection group's study is released before the next is prepared. Neither changes any result.
+
 usage:
   python scripts/variant_family.py run       [--out results/variant_family] [--only NAME ...]
   python scripts/variant_family.py analyse   --base-run DIR [--out results/variant_family] [--reps 10000]
@@ -29,6 +35,8 @@ snooping.json: scripts/stats_battery.py's battery on the family plus PBO by CSCV
 """
 import argparse
 import dataclasses
+import gc
+import hashlib
 import itertools
 import json
 import logging
@@ -70,6 +78,25 @@ def _selection_key(profile) -> tuple:
     return tuple(getattr(profile, f) for f in SELECTION_FIELDS)
 
 
+def _checkpoint(partial: pathlib.Path, name: str) -> pathlib.Path:
+    return partial / (hashlib.sha256(name.encode()).hexdigest()[:16] + '.json')
+
+
+def _write_checkpoint(partial: pathlib.Path, name: str, row: dict, dates, returns) -> None:
+    path = _checkpoint(partial, name)
+    tmp = path.with_suffix('.tmp')
+    tmp.write_text(json.dumps({'name': name, 'row': row, 'dates': [str(d) for d in dates],
+                               'returns': [float(r) for r in returns]}))
+    tmp.replace(path)                     # a checkpoint is either complete or absent
+
+
+def _read_checkpoint(partial: pathlib.Path, name: str):
+    doc = json.loads(_checkpoint(partial, name).read_text())
+    if doc['name'] != name:
+        raise ValueError(f'checkpoint {_checkpoint(partial, name)} is for {doc["name"]!r}, not {name!r}')
+    return doc['row'], pd.Series(doc['returns'], index=pd.to_datetime(doc['dates']))
+
+
 def run(out_dir: pathlib.Path, only=None) -> None:
     from threadpoolctl import threadpool_limits
     with threadpool_limits(limits=1, user_api='blas'):     # as run_complete_system
@@ -90,7 +117,18 @@ def _run(out_dir: pathlib.Path, only=None) -> None:
     loaded = None                         # price/macro data are loaded once and shared
     series, rows = {}, []
     out_dir.mkdir(parents=True, exist_ok=True)
+    partial = out_dir / 'partial'
+    partial.mkdir(exist_ok=True)
     for key, group in groups.items():
+        pending = [v for v in group if not _checkpoint(partial, v['name']).exists()]
+        for v in group:
+            if v not in pending:
+                row, s = _read_checkpoint(partial, v['name'])
+                rows.append(row)
+                series[v['name']] = s
+                log.warning(f"{v['name']}: read back from its checkpoint")
+        if not pending:
+            continue
         group_profile = dataclasses.replace(base_profile, **group[0]['profile'])
         system = CompleteFixedRussell3000TradingSystem(profile=group_profile, calendar=calendar)
         if loaded is None:
@@ -100,7 +138,7 @@ def _run(out_dir: pathlib.Path, only=None) -> None:
             system.share_loaded_data(loaded)
         test_spreads, windows, last = system.prepare_study()
         prepared_profile, prepared_ranker = system.profile, system.rl_agent
-        for v in group:
+        for v in pending:
             profile = dataclasses.replace(base_profile, **v['profile'])
             system.profile = profile
             if profile.ranker != prepared_profile.ranker:
@@ -130,7 +168,14 @@ def _run(out_dir: pathlib.Path, only=None) -> None:
                          'trades': res['total_trades'],
                          'max_drawdown_pct': round(res['max_drawdown'] * 100, 4),
                          'days': len(res['daily_returns']), 'seconds': round(time.time() - t0, 1)})
+            _write_checkpoint(partial, v['name'], rows[-1], res['daily_dates'], res['daily_returns'])
             log.warning(f"{v['name']}: Sharpe {res['sharpe_ratio']:+.2f}, {res['total_trades']} trades")
+        if system is not loaded:          # release this group's study before preparing the next
+            del system, test_spreads, windows
+            gc.collect()
+    order = {v['name']: i for i, v in enumerate(v for g in groups.values() for v in g)}
+    rows.sort(key=lambda r: order[r['name']])
+    series = {name: series[name] for name in sorted(series, key=order.get)}
     matrix = pd.DataFrame(series).sort_index().fillna(0.0)
     matrix.index = matrix.index.strftime('%Y-%m-%d')
     matrix.to_csv(out_dir / 'daily_returns.csv', float_format='%.10g', index_label='date')
