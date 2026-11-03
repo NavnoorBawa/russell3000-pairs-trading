@@ -7,4 +7,18 @@
   root.classList.add('js');
   try { saved = window.localStorage.getItem('theme'); } catch (e) { /* storage blocked */ }
   if (saved === 'light' || saved === 'dark') root.setAttribute('data-theme', saved);
+
+  // A link to something in a closed disclosure (#bottom-line) opens it as the page is read,
+  // before the first paint, rather than later in site.js with the page moving under the reader.
+  var id = location.hash.slice(1);
+  try { id = decodeURIComponent(id); } catch (e) { id = ''; }
+  if (!id || id.indexOf('n=') === 0 || !window.MutationObserver) return;
+  var seen = new MutationObserver(function () {
+    var el = document.getElementById(id);
+    if (!el) return;
+    seen.disconnect();
+    for (var d = el; d; d = d.parentElement) if (d.tagName === 'DETAILS') d.open = true;
+  });
+  seen.observe(root, {childList: true, subtree: true});
+  document.addEventListener('DOMContentLoaded', function () { seen.disconnect(); });
 })();

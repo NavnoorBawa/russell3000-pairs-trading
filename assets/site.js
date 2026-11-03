@@ -458,6 +458,7 @@
   function message(fig, text) {
     var chart = fig.querySelector('.ex-chart');
     if (!chart) return;
+    fig.classList.add('no-chart');        // gives back the room held for the chart (site.css, chart-sizes)
     var p = document.createElement('p');
     p.className = 'ex-error';
     p.textContent = text;

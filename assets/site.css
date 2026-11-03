@@ -159,38 +159,126 @@ html:not(.js) .theme-btn { display: none; }
 .toc-flag .ico { width: 12px; height: 12px; vertical-align: -1px; }
 main { min-width: 0; padding-bottom: 48px; }
 
-/* ── off-screen sections: laid out as they come near, so a phone paints its first screen sooner ── */
-main > section:not(#summary) { content-visibility: auto; contain-intrinsic-size: auto 3000px; }
-#holdout { contain-intrinsic-size: auto 3805px; }
-#performance { contain-intrinsic-size: auto 5480px; }
-#significance { contain-intrinsic-size: auto 5550px; }
-#anatomy { contain-intrinsic-size: auto 4537px; }
-#execution { contain-intrinsic-size: auto 4075px; }
-#risk { contain-intrinsic-size: auto 2485px; }
-#testing { contain-intrinsic-size: auto 3223px; }
-#residual { contain-intrinsic-size: auto 1733px; }
-#method { contain-intrinsic-size: auto 4554px; }
-#validation { contain-intrinsic-size: auto 1385px; }
-#threats { contain-intrinsic-size: auto 3769px; }
-#literature { contain-intrinsic-size: auto 1496px; }
-#reproduce { contain-intrinsic-size: auto 822px; }
-#history { contain-intrinsic-size: auto 757px; }
+/* ── off-screen sections: laid out as they come near, so a phone paints its first screen sooner ──
+   Until a section has been laid out, the browser holds the room it will take: the per-section
+   heights below, and each chart's drawn height (chart-sizes), are measured and written by
+   scripts/build_section_sizes.py; re-run it after the content changes (--check says when). */
+main > section:where(:not(#summary)) { content-visibility: auto; contain-intrinsic-size: auto 3000px; }
+/* section-sizes:begin (scripts/build_section_sizes.py, measured at 1440 px) */
+#holdout { contain-intrinsic-size: auto 3746px; }
+#performance { contain-intrinsic-size: auto 5439px; }
+#significance { contain-intrinsic-size: auto 5503px; }
+#anatomy { contain-intrinsic-size: auto 4496px; }
+#execution { contain-intrinsic-size: auto 4028px; }
+#risk { contain-intrinsic-size: auto 2426px; }
+#testing { contain-intrinsic-size: auto 3164px; }
+#residual { contain-intrinsic-size: auto 1674px; }
+#method { contain-intrinsic-size: auto 4495px; }
+#validation { contain-intrinsic-size: auto 1326px; }
+#threats { contain-intrinsic-size: auto 3785px; }
+#literature { contain-intrinsic-size: auto 1431px; }
+#reproduce { contain-intrinsic-size: auto 4483px; }
+#history { contain-intrinsic-size: auto 692px; }
+/* section-sizes:end */
 @media (max-width: 760px) {
-  #holdout { contain-intrinsic-size: auto 6045px; }
-  #performance { contain-intrinsic-size: auto 7999px; }
-  #significance { contain-intrinsic-size: auto 8407px; }
-  #anatomy { contain-intrinsic-size: auto 6985px; }
-  #execution { contain-intrinsic-size: auto 6738px; }
-  #risk { contain-intrinsic-size: auto 3491px; }
-  #testing { contain-intrinsic-size: auto 4393px; }
-  #residual { contain-intrinsic-size: auto 2418px; }
-  #method { contain-intrinsic-size: auto 8739px; }
-  #validation { contain-intrinsic-size: auto 2138px; }
-  #threats { contain-intrinsic-size: auto 6255px; }
-  #literature { contain-intrinsic-size: auto 3219px; }
-  #reproduce { contain-intrinsic-size: auto 1462px; }
-  #history { contain-intrinsic-size: auto 869px; }
+  /* section-sizes-phone:begin (scripts/build_section_sizes.py, measured at 390 px) */
+  #holdout { contain-intrinsic-size: auto 6002px; }
+  #performance { contain-intrinsic-size: auto 7974px; }
+  #significance { contain-intrinsic-size: auto 8376px; }
+  #anatomy { contain-intrinsic-size: auto 6972px; }
+  #execution { contain-intrinsic-size: auto 6713px; }
+  #risk { contain-intrinsic-size: auto 3454px; }
+  #testing { contain-intrinsic-size: auto 4350px; }
+  #residual { contain-intrinsic-size: auto 2375px; }
+  #method { contain-intrinsic-size: auto 8696px; }
+  #validation { contain-intrinsic-size: auto 2095px; }
+  #threats { contain-intrinsic-size: auto 6246px; }
+  #literature { contain-intrinsic-size: auto 3170px; }
+  #reproduce { contain-intrinsic-size: auto 5976px; }
+  #history { contain-intrinsic-size: auto 820px; }
+  /* section-sizes-phone:end */
 }
+/* chart-sizes:begin (scripts/build_section_sizes.py) */
+/* each chart's room until it is drawn, measured at 1440 px (above 760 px) and 390 px: its legend (held under the caption), and the chart with its tools */
+@media screen and (min-width: 761px) {
+  html.js #ex-1:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-1:not(.is-drawn, .no-chart) .ex-chart { min-height: 565px; }
+  html.js #ex-2:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-2:not(.is-drawn, .no-chart) .ex-chart { min-height: 555px; }
+  html.js #ex-3:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-3:not(.is-drawn, .no-chart) .ex-chart { min-height: 421px; }
+  html.js #ex-4:not(.is-drawn, .no-chart) .ex-chart { min-height: 189px; }
+  html.js #ex-5:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-5:not(.is-drawn, .no-chart) .ex-chart { min-height: 295px; }
+  html.js #ex-6:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 54px; }
+  html.js #ex-6:not(.is-drawn, .no-chart) .ex-chart { min-height: 497px; }
+  html.js #ex-7:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-7:not(.is-drawn, .no-chart) .ex-chart { min-height: 315px; }
+  html.js #ex-8:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-8:not(.is-drawn, .no-chart) .ex-chart { min-height: 485px; }
+  html.js #ex-9:not(.is-drawn, .no-chart) .ex-chart { min-height: 441px; }
+  html.js #ex-10:not(.is-drawn, .no-chart) .ex-chart { min-height: 656px; }
+  html.js #ex-11:not(.is-drawn, .no-chart) .ex-chart { min-height: 221px; }
+  html.js #ex-12:not(.is-drawn, .no-chart) .ex-chart { min-height: 239px; }
+  html.js #ex-13:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-13:not(.is-drawn, .no-chart) .ex-chart { min-height: 235px; }
+  html.js #ex-14:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-14:not(.is-drawn, .no-chart) .ex-chart { min-height: 289px; }
+  html.js #ex-15:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-15:not(.is-drawn, .no-chart) .ex-chart { min-height: 403px; }
+  html.js #ex-16:not(.is-drawn, .no-chart) .ex-chart { min-height: 249px; }
+  html.js #ex-17:not(.is-drawn, .no-chart) .ex-chart { min-height: 249px; }
+  html.js #ex-18:not(.is-drawn, .no-chart) .ex-chart { min-height: 285px; }
+  html.js #ex-19:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-19:not(.is-drawn, .no-chart) .ex-chart { min-height: 385px; }
+  html.js #ex-20:not(.is-drawn, .no-chart) .ex-chart { min-height: 269px; }
+  html.js #ex-21:not(.is-drawn, .no-chart) .ex-chart { min-height: 275px; }
+  html.js #ex-22:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-22:not(.is-drawn, .no-chart) .ex-chart { min-height: 453px; }
+  html.js #ex-25:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-25:not(.is-drawn, .no-chart) .ex-chart { min-height: 322px; }
+  html.js #ex-26:not(.is-drawn, .no-chart) .ex-chart { min-height: 169px; }
+}
+@media screen and (max-width: 760px) {
+  html.js #ex-1:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 81px; }
+  html.js #ex-1:not(.is-drawn, .no-chart) .ex-chart { min-height: 711px; }
+  html.js #ex-2:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 54px; }
+  html.js #ex-2:not(.is-drawn, .no-chart) .ex-chart { min-height: 608px; }
+  html.js #ex-3:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 54px; }
+  html.js #ex-3:not(.is-drawn, .no-chart) .ex-chart { min-height: 459px; }
+  html.js #ex-4:not(.is-drawn, .no-chart) .ex-chart { min-height: 433px; }
+  html.js #ex-5:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-5:not(.is-drawn, .no-chart) .ex-chart { min-height: 333px; }
+  html.js #ex-6:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 135px; }
+  html.js #ex-6:not(.is-drawn, .no-chart) .ex-chart { min-height: 605px; }
+  html.js #ex-7:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 81px; }
+  html.js #ex-7:not(.is-drawn, .no-chart) .ex-chart { min-height: 285px; }
+  html.js #ex-8:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 81px; }
+  html.js #ex-8:not(.is-drawn, .no-chart) .ex-chart { min-height: 505px; }
+  html.js #ex-9:not(.is-drawn, .no-chart) .ex-chart { min-height: 441px; }
+  html.js #ex-10:not(.is-drawn, .no-chart) .ex-chart { min-height: 656px; }
+  html.js #ex-11:not(.is-drawn, .no-chart) .ex-chart { min-height: 221px; }
+  html.js #ex-12:not(.is-drawn, .no-chart) .ex-chart { min-height: 239px; }
+  html.js #ex-13:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-13:not(.is-drawn, .no-chart) .ex-chart { min-height: 235px; }
+  html.js #ex-14:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-14:not(.is-drawn, .no-chart) .ex-chart { min-height: 289px; }
+  html.js #ex-15:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-15:not(.is-drawn, .no-chart) .ex-chart { min-height: 403px; }
+  html.js #ex-16:not(.is-drawn, .no-chart) .ex-chart { min-height: 249px; }
+  html.js #ex-17:not(.is-drawn, .no-chart) .ex-chart { min-height: 249px; }
+  html.js #ex-18:not(.is-drawn, .no-chart) .ex-chart { min-height: 932px; }
+  html.js #ex-19:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-19:not(.is-drawn, .no-chart) .ex-chart { min-height: 341px; }
+  html.js #ex-20:not(.is-drawn, .no-chart) .ex-chart { min-height: 269px; }
+  html.js #ex-21:not(.is-drawn, .no-chart) .ex-chart { min-height: 275px; }
+  html.js #ex-22:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-22:not(.is-drawn, .no-chart) .ex-chart { min-height: 543px; }
+  html.js #ex-25:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 54px; }
+  html.js #ex-25:not(.is-drawn, .no-chart) .ex-chart { min-height: 650px; }
+  html.js #ex-26:not(.is-drawn, .no-chart) .ex-chart { min-height: 193px; }
+}
+/* chart-sizes:end */
 /* the number check reads every section, and print shows them all */
 html.audit main > section:not(#summary) { content-visibility: visible; }
 @media print { main > section:not(#summary) { content-visibility: visible; } }
