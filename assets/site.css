@@ -742,7 +742,8 @@ pre { background: var(--sunk); color: var(--ink); border: 1px solid var(--rule);
   .toc-sheet .toc-chips a { min-width: 36px; padding: 7px 8px; font-size: 13px; }
   .toc-sheet li:has(.toc-sub) > a { border-bottom: 0; }
 }
-@media (max-width: 760px) {
+/* screen only: a printed A4 column (about 688 px) keeps the wide layout and diagrams */
+@media screen and (max-width: 760px) {
   .topbar-in, .page, .foot-in { padding-left: 16px; padding-right: 16px; }
   .topbar-in { padding-top: 4px; padding-bottom: 4px; min-height: 48px; }
   html:not(.js) .topbar { position: static; }
@@ -842,6 +843,29 @@ pre { background: var(--sunk); color: var(--ink); border: 1px solid var(--rule);
   a { color: inherit; text-decoration: none; }
   .ex-grid, .ex-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tbl-wrap { overflow: visible; }
+  /* the A4 column (about 688 px): the wide diagrams, whole on one page; the commands, the drift
+     table and the manifest one under another; wide tables wrap their headers and labels */
+  .dg-wide { display: block; }
+  .dg-compact { display: none; }
+  .ex-diagram, .dg-wrap { break-inside: avoid; page-break-inside: avoid; }
+  .repro { grid-template-columns: minmax(0, 1fr); }
+  .tbl th, .tbl td { padding: 8px 9px; }
+  /* the type sizes of the phone layout, which suit a page of this width */
+  h1 { font-size: 30px; line-height: 1.16; }
+  .sec > h2 { font-size: 24px; }
+  .secno { width: 28px; font-size: 14px; }
+  .status-pill { margin-left: 28px; margin-top: 6px; }
+  .dek { font-size: 16.5px; }
+  .findings-wrap { padding: 12px 16px 4px; }
+  .findings > li { font-size: 15px; padding-left: 24px; }
+  .bottom-line { padding: 2px 16px 18px; }
+  .bl-full > summary { padding: 12px 16px 0; }
+  .inbrief, .bottom-line p { font-size: 15.5px; }
+  .kpi { padding: 12px 12px 14px; }
+  .kpi-value { font-size: 24px; }
+  .kpi.is-pending .kpi-value, .kpi-value.is-text { font-size: 17px; }
+  .ex-title { font-size: 16.5px; }
+  .tbl thead th, .tbl thead th.r, .tbl-holdout tbody th, .tbl-scen tbody th, .tbl-spec tbody th, .threats td:nth-child(2) { white-space: normal; }
   .site-foot { border-top: 1px solid #ccc; }
   .print-li { display: none !important; }
   /* "Print the summary" (site.js): the masthead and the hero on the first page, the key findings on the second */
