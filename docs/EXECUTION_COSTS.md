@@ -51,22 +51,29 @@ The model sits above a patient one-day VWAP (Almgren et al.'s temporary-impact f
 0.314 coefficient is *permanent* impact and is not a trading cost), just above the NYSE
 closing-auction estimate, below the Nasdaq one, and well below a liquidity-demanding
 square-root law with Y = 1. The test fails if a change moves it outside that band. The
-study's trades average about 1% of ADV per leg (`avg_max_leg_adv_participation_pct` in every
-export), where it charges about 5-6 bp per execution, close to the 5 bp per trade Avellaneda
-& Lee (2010) assumed for US statistical arbitrage.
+published v33 run's larger leg averages about 1.6% of ADV (`avg_max_leg_adv_participation_pct`
+in every export), where the model charges about 6.5-7 bp per execution, a little above the 5 bp
+per trade Avellaneda & Lee (2010) assumed for US statistical arbitrage.
 
 ## How much the conclusions depend on it
 
-Not much, and that is measured rather than asserted:
+Not much, and that is measured rather than asserted (the numbers are the published v33
+development run's; the page's Section 5 has each one as a checked value):
 
-- **Gross of all costs there is no significant edge either.** The v32 trades earned +11.4 bp
-  per trade gross (t = 0.37, 161 trades) against about 12.5 bp of round-trip costs; with costs
-  set to zero the main-backtest Sharpe is only about +0.18. Costs decide the sign of a small
-  number, not whether there is an edge.
-- **Scenario re-runs** (`scripts/cost_sensitivity.py`, fixed in advance, each an exact re-run
-  of the same trades): impact Y = 0.6 and 1.0; every short paying 1% and 3% a year; fund size
-  from $10M to $5B. Every scenario makes the result worse; none makes it positive. Results:
-  `results/<run>/cost_sensitivity.json`.
+- **Gross of all costs there is no significant edge either.** Equal-weighted, the 213 trades
+  earned -7.9 bp each before costs (t = -0.25) against 16.1 bp of cost; weighted by size,
+  +13.5 bp of notional against 16.9 bp. With every cost set to zero the main backtest's Sharpe
+  ratio is +0.29, and net P&L breaks even at 0.80 times the modelled costs. Costs decide the
+  sign of a small number, not whether there is an edge.
+- **Scenario re-runs** (`scripts/cost_sensitivity.py`, declared in advance): impact Y = 0.6
+  and 1.0; every short paying 1% and 3% a year; books of $10M, $1B and $5B. Each scenario
+  re-runs the whole backtest, because costs enter the equity path that sizes every later
+  position and the 30% exposure cap decides which signals are filled, so the trades differ
+  (213 to 273); a second, fixed-trade view re-prices the headline run's own trades. Every
+  scenario with higher costs or a larger book makes the result worse. The $10M book, whose
+  impact is smaller, does better than the headline (Sharpe -0.004 against -0.06 on its own
+  re-run; +0.10, a +0.49% return, on the headline's re-priced trades), and is still not
+  distinguishable from zero. Results: `results/<run>/cost_sensitivity.json`.
 - **The cost-multiplier curve** (`results/<run>/anatomy.json`): net Sharpe with every cost
   scaled by k = 0, 0.5, 1, 1.5, 2, and the break-even k.
 
@@ -76,4 +83,4 @@ Not much, and that is measured rather than asserted:
 |---|---|
 | Per-stock closing-auction imbalances and volumes (exchange feeds, TAQ) | the GJW (2026) published size/venue estimates |
 | Historical per-stock borrow fees (Markit, S3) | one buy-side fee plus 1% / 3% stress scenarios |
-| Measured effective spreads per stock and day (TAQ) | dollar-ADV spread buckets checked against published levels; daily-bar spread estimators (Corwin-Schultz, Abdi-Ranaldo, EDGE) were tested and rejected for liquid names: their noise floor (~30-40 bp) is twenty times the true spread |
+| Measured effective spreads per stock and day (TAQ) | dollar-ADV spread buckets checked against published levels; daily-bar spread estimators (Corwin-Schultz, Abdi-Ranaldo, EDGE) are not used: for liquid large caps, whose true spreads are a few basis points, their estimates are dominated by noise (no test of them is committed here) |

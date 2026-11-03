@@ -29,7 +29,7 @@ import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-DEFAULT_JSON = ROOT / 'outputs' / 'headline_metrics.json'
+DEFAULT_JSON = ROOT / 'results' / 'v33_dev' / 'headline_metrics.json'   # the published run, as the checker
 DEFAULT_OUT = ROOT / 'og-image.png'
 
 # ── Palette (the site's light theme: assets/site.css --ink, --pos, --neg) ─────

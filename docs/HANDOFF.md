@@ -3,12 +3,15 @@
 Read this first in any new session. The engineering log (`docs/PROGRESS.md`) has the full
 history; this file is the short version of where things stand and the rules that hold.
 
-## Where things stand (27 October 2026)
+## Where things stand (3 November 2026)
 
 - The study is complete:
   - v33 design, development run of commit `7442705`.
   - The pre-registered 2026 holdout was filed at `7c7d3f9` and run once on 26 October 2026.
   - Neither null was rejected (Holm p 0.955 for both arms).
+  - The development run was repeated on prices fetched afresh (`results/v33_dev_refetch/`,
+    28 October 2026) after its caches were lost; Section 13 of the page puts every published
+    value beside its re-fetched one. No published number changed.
 - Published, with CI green on `main`:
   - Live note: <https://navnoorbawa.github.io/russell3000-pairs-trading/>
   - Paper: <https://navnoorbawa.github.io/russell3000-pairs-trading/paper/pairs_study.pdf>
@@ -56,17 +59,26 @@ python scripts/link_refs.py --check            # every "Exhibit N" / "Section N"
 python scripts/build_hero.py --check           # the hero chart under the masthead is current
 python scripts/build_prereg_timeline.py --check
 python scripts/build_site_data.py --check      # assets/study.json is current
+python scripts/build_drift_table.py --check    # the re-fetch drift table (Section 13, README) is current
+python scripts/build_fonts.py --check          # the subset fonts rebuild byte for byte (pip install -e ".[site]")
 python scripts/build_paper.py                  # the paper records index.html's sha256: rebuild after page edits
 python scripts/build_paper.py --check
-pytest -q                                      # about 1,190 tests; CI also measures coverage
+pytest -q                                      # about 1,220 tests; CI also measures coverage
 ```
+
+The page's text revision date (`NOTE_REVISED` in `scripts/build_site_data.py`) dates the paper
+and must match the byline and JSON-LD `dateModified`; change all three when the text changes in
+substance (tests/test_drift_table.py checks them).
 
 ## How changes are published
 
-- Work on the session's branch. Then fast-forward `main` (`git push origin HEAD:main`), so that
-  GitHub Pages redeploys.
-- CI (`.github/workflows/ci.yml`) runs on `main` and takes about 13 minutes. A newer push cancels
-  an older run.
+- Work on the session's branch and push it. CI (`.github/workflows/ci.yml`) runs on every
+  `claude/**` branch as well as on `main`, and takes about 13 minutes. Wait for it to pass on the
+  branch's head, then fast-forward `main` (`git push origin HEAD:main`).
+- GitHub Pages deploys `main` from the branch within a minute of the push, before CI on `main`
+  finishes, so CI on the branch is the gate. To make the deploy itself wait for CI, the owner
+  can switch Pages to the "GitHub Actions" source (Settings, Pages) and add a deploy job that
+  `needs: test`. A newer push cancels an older run on a branch, never on `main`.
 - After a deploy, compare the live files with the repository's (sha256 of `index.html`,
   `assets/*.js`, `assets/site.css`, `paper/pairs_study.pdf`).
 - Commit messages say what changed and why.
@@ -78,7 +90,7 @@ pytest -q                                      # about 1,190 tests; CI also meas
 | The page | `index.html` (readable without JavaScript) |
 | Styles | `assets/site.css` (hero, tables and charts styles are merged into it); `assets/verify.css` |
 | Behaviour | `assets/site.js` (contents, previews, deep links, print, lazy charts); `assets/exhibits.js` (the 24 charts, crosshairs, SVG/PNG export); `assets/tables.js` (phone layouts, Copy/CSV); `assets/verify.js` (checking any number in the browser) |
-| Generated blocks in the page | `scripts/build_hero.py` (hero), `scripts/build_prereg_timeline.py` (Section 1 timeline), `scripts/link_refs.py` (cross-reference links) |
+| Generated blocks in the page | `scripts/build_hero.py` (hero), `scripts/build_prereg_timeline.py` (Section 1 timeline), `scripts/build_drift_table.py` (Section 13's re-fetch table, also in the README), `scripts/link_refs.py` (cross-reference links) |
 | Data | `assets/study.json`, built from `results/` by `scripts/build_site_data.py` |
 | Fonts | `assets/fonts/Study*.woff2`: subsets of IBM Plex, renamed as its licence requires (`scripts/build_fonts.py`; originals in `assets/fonts/plex/`) |
 | Paper | `paper/` (Typst), built by `scripts/build_paper.py` |

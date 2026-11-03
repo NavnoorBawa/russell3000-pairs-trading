@@ -9,7 +9,7 @@ a paid licence.
 
 | Resource | What it gives the study | Notes |
 |---|---|---|
-| Yahoo Finance chart API (`query2.finance.yahoo.com/v8/finance/chart`) | daily OHLCV, dividends and splits, ~3,000 stocks and the 11 sector SPDRs: 2020-2025 for the development period (no bar after 2025-12-31 has been fetched); 2023-2026 for the holdout, once the registered commit unseals it | called directly; split-unadjusted prices are reconstructed for point-in-time screens, and anchored to N-PORT's price at each snapshot for point-in-time members |
+| Yahoo Finance chart API (`query2.finance.yahoo.com/v8/finance/chart`) | daily OHLCV, dividends and splits, ~3,000 stocks and the 11 sector SPDRs: 2020-2025 for the development period (its cache holds no bar after 2025-12-31); 2023-2026 for the holdout, fetched once by the runbook at the registered commit on 26 October 2026 | called directly; split-unadjusted prices are reconstructed for point-in-time screens, and anchored to N-PORT's price at each snapshot for point-in-time members |
 | SEC EDGAR N-PORT filings of the iShares Russell 3000 ETF (IWV) | point-in-time Russell 3000 membership, quarterly 2019-2025 (26 snapshots, ~2,600 equity holdings each), and each holding's price on the snapshot date | `scripts/build_pit_universe.py`; the index provider's own constituent files are not free |
 | OpenFIGI mapping API | CUSIP -> ticker for every N-PORT holding; with N-PORT's own reported tickers, issuer successions and mappings checked against N-PORT's value per share, 98.96-99.99% of index weight is mapped | keyless tier |
 | SEC EDGAR company submissions | SIC industry code per company | mapped to the Fama-French 49 industries |

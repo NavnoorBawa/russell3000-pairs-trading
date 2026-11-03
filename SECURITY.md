@@ -23,7 +23,9 @@ The realistic attack surface is small and mostly reduces to **what data you feed
 | --- | --- | --- |
 | `data/*.pkl` price cache | `pickle.load()` executes arbitrary code during deserialization (CWE-502) | **Real.** See below. |
 | `yfinance` / `requests` network fetch | Hostile or MITM'd upstream response | HTTPS; response is parsed as a DataFrame, never executed |
-| `scripts/` tools | Publication check, social card and synthetic validation: read local JSON/HTML or generate synthetic data in memory | Not part of the installable package; no network access |
+| `scripts/` builders and checks | The site, paper and drift-table builders, the publication check, the social card and the synthetic validation read local JSON/HTML or generate synthetic data in memory | Not part of the installable package; no network access |
+| `scripts/` data builders | `build_universe.py`, `build_pit_universe.py` and `build_reference_data.py` fetch SEC filings (with the `SEC_USER_AGENT` the user sets) and OpenFIGI mappings; `anatomy_of_the_null.py` fetches FRED's T-bill series | HTTPS; responses are parsed as JSON, CSV or XML, never executed |
+| `scripts/hash_cache.py`, `scripts/robustness_checks.py`, `scripts/anatomy_of_the_null.py` | Read the `data/*.pkl` caches with `pickle.load()` | Same trust boundary as the price-cache row: only caches you generated |
 | `scripts/parameter_sensitivity.py` | On the study data it loads the same `data/*.pkl` caches as the main pipeline and fetches from Yahoo when they are absent; `--synthetic` writes and reloads its own pickles in a temporary directory | Same trust boundary as the price-cache and network rows above |
 | Published site (`index.html`) | Static page, no JS input handling, no cookies, no analytics | No dynamic content |
 
@@ -42,8 +44,9 @@ trustworthy as your machine. The danger is different:
 `data/` is `.gitignore`d and no `.pkl` is distributed with this repository, precisely so that no
 one is ever encouraged to download one. If you obtain a cache file from anyone, treat it as
 executable code. To rebuild it safely, delete the `.pkl` files in `data/` — **not**
-`data/marketcap.csv`, the study universe, which is required and not redistributed — and let
-the system re-fetch from source. A re-fetch is safe but will not reproduce an earlier run
+`data/marketcap.csv`, the v32 universe file (the frozen arm S3 needs it; it is not
+redistributed) — and let the system re-fetch from source. The v33 universe is the committed
+point-in-time index in `reference/universe/`. A re-fetch is safe but will not reproduce an earlier run
 bit-for-bit: vendors revise history, and adjusted prices depend on the fetch date. An
 unreadable cache is reported as an error; it is never silently re-fetched over.
 
@@ -70,8 +73,8 @@ For the record, the pins moved to get there:
 Independently of the version pin, most `torch` advisories are also **unreachable from this
 codebase**: it uses only `nn.Linear`, `nn.LayerNorm`, `nn.MultiheadAttention`, `nn.GELU`,
 `nn.Dropout`, `AdamW` and `clip_grad_norm_`, and **never calls `torch.load()`,
-`load_state_dict()`, or any distributed / RPC API**. (v31.1 results were generated on this set;
-they are withdrawn in v32 pending a re-run, which will use the same pins.)
+`load_state_dict()`, or any distributed / RPC API**. Every published run (v32, v33, the 2026
+holdout and the re-fetch reproduction) was made on this set; each records its versions.
 
 ## What is out of scope
 
@@ -79,4 +82,3 @@ they are withdrawn in v32 pending a re-run, which will use the same pins.)
   outcome, not a vulnerability.
 - Advisories in `torch` that require `torch.load()` or distributed APIs, unless you can show a
   reachable path in this code.
-- Anything in `archive/` — historical material, not shipped as part of the package.

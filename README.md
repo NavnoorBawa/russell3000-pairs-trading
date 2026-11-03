@@ -1,4 +1,4 @@
-# Russell 3000 Statistical Arbitrage — Pairs Trading Research
+# No detectable edge: cointegration pairs trading on the Russell 3000, 2023–2025
 
 [![CI](https://github.com/NavnoorBawa/russell3000-pairs-trading/actions/workflows/ci.yml/badge.svg)](https://github.com/NavnoorBawa/russell3000-pairs-trading/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/NavnoorBawa/russell3000-pairs-trading/actions/workflows/codeql.yml/badge.svg)](https://github.com/NavnoorBawa/russell3000-pairs-trading/actions/workflows/codeql.yml)
@@ -10,7 +10,26 @@
 [Committed results](results/)
 
 One question, answered as strictly as free data allow: **does a cointegration pairs-trading
-strategy on the Russell 3000 have an edge after realistic execution and costs?**
+strategy on the Russell 3000 have an edge after realistic execution and costs?** The answer is
+no detectable edge, before or after costs, on the development period (2023–2025) and in a
+pre-registered test on 2026 data. This repository holds the engine, every committed result, the
+research note's page and its paper, and the checks that tie each published number to its result.
+
+## Quick start
+
+```bash
+git clone https://github.com/NavnoorBawa/russell3000-pairs-trading && cd russell3000-pairs-trading
+python3.12 -m venv .venv
+.venv/bin/pip install --no-deps torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
+.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install pytest hypothesis arch                # the test suite's tools
+.venv/bin/python -m pytest -q                              # the suite: synthetic markets, no network or price data
+.venv/bin/python scripts/check_published_numbers.py        # every number below against the committed results
+python3 -m http.server 8000                                # the research note at http://localhost:8000
+```
+
+Running the study itself again (prices fetched from Yahoo, about two hours) is under
+[Reproduce](#reproduce).
 
 ## The finding
 
@@ -213,10 +232,10 @@ is a falsification check: it can reject a large edge, but it cannot confirm a sm
 |---|---|
 | [`pairs_trading/`](pairs_trading/) | The system: study profiles and calendars (`study_config.py`), the point-in-time universe (`universe.py`), data and price anchoring (`data_processor.py`), pair selection with an exact numpy Engle–Granger (`pair_selector.py`, `fast_coint.py`), the engine (`trading_system.py`), costs (`transaction_costs.py`), significance, power and data-snooping tests (`significance.py`, `power.py`, `snooping.py`), baselines (`benchmark.py`), the evidence layer (`anatomy.py`, `evidence.py`) and the second family (`residual_statarb.py`) |
 | [`scripts/`](scripts/) | Runbooks (`run_dev_studies.sh`, `run_holdout.sh`), the evidence scripts, the holdout evaluator, the trial registry, the site and paper builders and the publication checker |
-| [`results/`](results/) | Every published run, with its provenance: `v33_dev/` (this study, with `anatomy.json`, `cost_sensitivity.json` and `robustness.json`), `residual_dev/` (S2), `validation/`, `v32_dev/` (the published v32 run), `variant_family/` (the declared family of variants, its runs and the data-snooping tests), `holdout2026/` (the pre-registered 2026 test: the three arms' exports, `evaluation.json`, the membership, the price-fetch manifest and the attempt's logs), `rehearsal2025/` and `rehearsal2025b/` (the two scripted dress rehearsals of the runbook, on 2025 data), `trial_attempts.jsonl` (every attempt of the runbook) and `trial_registry.jsonl` (the registered trials; the page's Section 7 lists the runs it does not hold) |
+| [`results/`](results/) | Every published run, with its provenance: `v33_dev/` (this study, with `anatomy.json`, `cost_sensitivity.json` and `robustness.json`), `residual_dev/` (S2), `validation/`, `v32_dev/` (the published v32 run), `variant_family/` (the declared family of variants, its runs and the data-snooping tests), `v33_dev_refetch/` (the re-fetch reproduction of `v33_dev/` on prices fetched afresh, with its own residual arm, variant family and known-answer checks, and `PROVENANCE.md`; no trial), `holdout2026/` (the pre-registered 2026 test: the three arms' exports, `evaluation.json`, the membership, the price-fetch manifest and the attempt's logs), `rehearsal2025/` and `rehearsal2025b/` (the two scripted dress rehearsals of the runbook, on 2025 data), `trial_attempts.jsonl` (every attempt of the runbook) and `trial_registry.jsonl` (the registered trials; the page's Section 7 lists the runs it does not hold) |
 | [`reference/`](reference/) | IWV N-PORT holdings snapshots, the CUSIP-to-ticker map and the industry map, with how each was built and checked |
-| [`docs/`](docs/) | `PROGRESS.md` (the full engineering log, deliberately unflattering), `EXECUTION_COSTS.md`, `FREE_RESOURCES.md` |
-| `index.html`, [`assets/`](assets/) | The research note; `assets/study.json` is built from `results/` by `scripts/build_site_data.py`. The page opens with the answer: an interval chart of every Sharpe ratio it rests on (`scripts/build_hero.py`) and the key findings, each linked to its evidence. Any number on it can be checked against its data in the browser (`assets/verify.js`, by the same rule as `scripts/check_published_numbers.py`); every cross-reference is a link (`scripts/link_refs.py`); Section 1 draws the pre-registration's timeline (`scripts/build_prereg_timeline.py`); tables read as cards on phones and copy or export as CSV (`assets/tables.js`). Without JavaScript it shows the paper's figures. Its fonts are subsets of IBM Plex, renamed as the font licence requires (`scripts/build_fonts.py`, `assets/fonts/README.md`) |
+| [`docs/`](docs/) | `PREREGISTRATION.md` (the 2026 test, frozen at commit 7c7d3f9), `PROGRESS.md` (the full engineering log, deliberately unflattering), `EXECUTION_COSTS.md`, `FREE_RESOURCES.md`, `HANDOFF.md` (the rules and checks for whoever works on the project next) and `IMPROVEMENT_PLAN.md` (what is done and what is still short of the bar) |
+| `index.html`, [`assets/`](assets/) | The research note; `assets/study.json` is built from `results/` by `scripts/build_site_data.py`. The page opens with the answer: an interval chart of every Sharpe ratio it rests on (`scripts/build_hero.py`) and the key findings, each linked to its evidence. Any number on it can be checked against its data in the browser (`assets/verify.js`, by the same rule as `scripts/check_published_numbers.py`); every cross-reference is a link (`scripts/link_refs.py`); Section 1 draws the pre-registration's timeline (`scripts/build_prereg_timeline.py`); Section 13's table puts each published value beside its re-fetched one (`scripts/build_drift_table.py`); tables read as cards on phones and copy or export as CSV (`assets/tables.js`). Without JavaScript it shows the paper's figures. Its fonts are subsets of IBM Plex, renamed as the font licence requires (`scripts/build_fonts.py`, `assets/fonts/README.md`) |
 | [`paper/`](paper/) | The Typst paper and its committed PDF, built from the same data as the page (`scripts/build_paper.py`) |
 | [`tests/`](tests/) | The test suite (below) |
 

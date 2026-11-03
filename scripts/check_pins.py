@@ -36,8 +36,12 @@ def mismatches(lines, version_of=None) -> list:
 
 
 def main(argv=None) -> int:
-    path = (argv if argv is not None else sys.argv[1:]) or ['requirements.txt']
-    with open(path[0]) as f:
+    import argparse
+    ap = argparse.ArgumentParser(description=(__doc__ or '').strip().split('\n\n')[0])
+    ap.add_argument('requirements', nargs='?', default='requirements.txt',
+                    help='the pinned requirements file (default requirements.txt)')
+    args = ap.parse_args(argv)
+    with open(args.requirements) as f:
         bad = mismatches(f)
     if bad:
         print('not as pinned: ' + ', '.join(bad), file=sys.stderr)

@@ -62,6 +62,8 @@ from html.parser import HTMLParser
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEFAULT_JSON = ROOT / 'results' / 'v33_dev' / 'headline_metrics.json'   # the run the page is built from
 DEFAULT_FILES = (ROOT / 'README.md', ROOT / 'index.html')
+# Documents that quote some published numbers: checked by default too, without REQUIRED_KEYS.
+SUPPORTING_FILES = (ROOT / 'docs' / 'FREE_RESOURCES.md',)
 DEFAULT_SITE_JSON = ROOT / 'assets' / 'study.json'
 SITE_NAMESPACE = 'study'            # markers 'study.KEY' resolve into the site data
 SUPPORTED_SCHEMA = 1
@@ -391,7 +393,8 @@ def main(argv=None):
     ap.add_argument('--json', default=None, help='headline metrics JSON (default: '
                     'results/v33_dev/headline_metrics.json, the run the page is built from)')
     ap.add_argument('--files', nargs='+', default=None,
-                    help='published files to check (default: README.md index.html)')
+                    help='published files to check (default: README.md, index.html and, without '
+                         'the required keys, docs/FREE_RESOURCES.md)')
     ap.add_argument('--allow-missing', action='store_true',
                     help='exit 0 instead of 2 when the headline JSON does not exist yet')
     ap.add_argument('--allow-missing-markers', action='store_true',
@@ -407,7 +410,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     json_path = pathlib.Path(args.json) if args.json else DEFAULT_JSON
-    files = [pathlib.Path(f) for f in args.files] if args.files else list(DEFAULT_FILES)
+    files = [pathlib.Path(f) for f in args.files] if args.files else [*DEFAULT_FILES, *SUPPORTING_FILES]
 
     if not json_path.exists():
         msg = (f'{_display(json_path)} not found — run `python -m pairs_trading.main` '
@@ -468,7 +471,9 @@ def main(argv=None):
                 tmp.replace(path)
             print(f'Wrote {n_written} value(s) into {name}')
             text = new_text
-        n, f, w, _ = check_text(data, text, name, allow_missing_markers=args.allow_missing_markers,
+        supporting = path.resolve() in {p.resolve() for p in SUPPORTING_FILES}
+        n, f, w, _ = check_text(data, text, name, required=() if supporting else REQUIRED_KEYS,
+                                allow_missing_markers=args.allow_missing_markers,
                                 is_markdown=_is_markdown(path), unavailable=unavailable)
         if args.verbose:
             for key, body, line in extract_markers(text, is_markdown=_is_markdown(path))[0]:

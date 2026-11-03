@@ -1,5 +1,6 @@
-# Pinned direct dependencies of the study (Python 3.12). These pins produced the v31.1 results
-# (withdrawn in v32 pending a re-run); transitive dependencies are resolved at install time.
+# Pinned direct dependencies of the study (Python 3.12). These pins produced the published v32 and
+# v33 development runs, the 2026 holdout and the re-fetch reproduction (each run records its
+# versions in run_config.versions); transitive dependencies are resolved at install time.
 # CI installs this file directly (see .github/workflows/ci.yml, job "test (pinned)") so the
 # reproducibility claim is actually gated rather than assumed.
 #

@@ -369,7 +369,7 @@ def test_card_renders_to_the_requested_path(tmp_path):
 
 def test_card_default_output_is_the_repo_root():
     assert str(og.DEFAULT_OUT) == os.path.join(REPO, 'og-image.png')
-    assert str(og.DEFAULT_JSON) == os.path.join(REPO, 'outputs', 'headline_metrics.json')
+    assert str(og.DEFAULT_JSON) == os.path.join(REPO, 'results', 'v33_dev', 'headline_metrics.json')
 
 
 # ── the scripts directory ──────────────────────────────────────────────────────

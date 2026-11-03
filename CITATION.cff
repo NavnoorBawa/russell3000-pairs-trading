@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you reference this work, please cite it as below."
-title: "Russell 3000 Statistical Arbitrage — Pairs Trading Research System"
+title: "No detectable edge: cointegration pairs trading on the Russell 3000, 2023–2025 (code and results)"
 abstract: >-
   A cointegration pairs-trading study of the Russell 3000 built to be falsified: point-in-time
   index membership from SEC N-PORT filings, same-industry pairs re-formed every six months,
@@ -33,3 +33,13 @@ keywords:
   - walk-forward validation
   - Sharpe ratio significance
   - quantitative finance
+preferred-citation:
+  type: report
+  title: "No detectable edge: cointegration pairs trading on the Russell 3000, 2023–2025"
+  authors:
+    - family-names: Bawa
+      given-names: Navnoor
+  year: 2026
+  url: "https://navnoorbawa.github.io/russell3000-pairs-trading/"
+  repository-code: "https://github.com/NavnoorBawa/russell3000-pairs-trading"
+  notes: "Research note, v33; pre-registered test at commit 7c7d3f9"

@@ -53,26 +53,34 @@ results files. Items cite what the reviewers verified.
 
 ### Still short of the bar
 
-1. **(P0) The development and holdout price caches were lost, so no development number can be
-   rebuilt from an archived input.** `results/v33_dev/headline_metrics.json` pins the cache at
-   sha256 `3a9a93cc…a7be`; `docs/PROGRESS.md` records the loss of the working storage by
-   2026-10-22. README "Reproduce" and the page's Reproduce section read as if the pinned input
-   still existed. No re-fetch reproduction has been attempted, and the fetch manifest has no
-   per-symbol content hashes, so a re-fetch cannot be diffed symbol by symbol.
-2. **The random-pair control runs through the Gatev rule, not this engine**, and the page says a
-   control on the strategy's engine "is planned". A finished note cannot carry an open promise.
+1. **(P0, partly done) The development and holdout price caches were lost, so no development
+   number can be rebuilt from its archived input.** `results/v33_dev/headline_metrics.json` pins
+   the cache at sha256 `3a9a93cc…a7be`; `docs/PROGRESS.md` records the loss of the working
+   storage by 2026-10-22. Done since: the re-fetch reproduction (A1, `results/v33_dev_refetch/`,
+   with per-symbol fingerprints and its fetch manifest) and the drift table of every quoted value
+   (see Done). Still open: the re-fetch's own caches are archived nowhere (A2, archive part), so
+   the same loss could happen again.
+2. **(Done, as a disclosure) The random-pair control runs through the Gatev rule, not this
+   engine.** The page no longer promises a control on the strategy's engine; the threats table
+   states that none was run. Running one (B1) is still open.
 3. **No single-command rebuild, no container, no lock file.** `requirements.txt` pins 14 direct
    packages; the holdout's environment listing shows 43 transitive packages pinned nowhere.
 4. **`results/variant_family/` and `results/validation/` have no manifest or provenance block**
    (no commit, cache hash or environment), although they carry the SPA p, PBO and deflated Sharpe.
-5. **The causality (look-ahead) tests and the CI known-answer gate run only under the v32
-   profile** (`tests/conftest.py` pins `PAIRS_PROFILE=v32`); the published design is v33.
-6. **Browser behaviour is not under CI**, and only Chromium was ever tested.
+   The re-fetch's copies have `PROVENANCE.md`; `synthetic_validation.py` now records its profile,
+   commit and versions in every new report. The published family's and report's are still open.
+5. **(Done) The causality (look-ahead) tests ran only under the v32 profile**
+   (`tests/conftest.py` pins `PAIRS_PROFILE=v32`). `tests/test_v33_causality.py` now runs the
+   future-perturbation check through v33's point-in-time, same-industry re-formation path. The CI
+   known-answer gate runs the default v33 trading rule on injected pairs (its selection layer is
+   tested by the selection scenario on its own).
+6. **Browser behaviour is not under CI.** Chromium, Firefox and WebKit were tested by hand in the
+   ship audit of 3 November 2026 (see Done); no browser job runs in CI.
 7. **The paper and the page do not say the same thing in the same words**: the page's seven key
    findings and the pre-registration timeline are absent from `paper/main.typ`; exhibit titles
-   differ; the work has three different titles (README, `CITATION.cff`, page/paper); no release,
-   no DOI, no reference list on the page (at least twelve author-year citations resolve to
-   nothing).
+   differ; no release, no DOI, no reference list on the page (at least twelve author-year
+   citations resolve to nothing). (The titles are now one: README, `CITATION.cff` with a
+   preferred citation, page and paper.)
 8. **Length.** 16,254 visible words plus 1,611 of front matter; the Key figures tiles repeat five
    of the hero's six rows; inference is split across Sections 3 and 7.
 9. **Any new study needs a layer outside the frozen code.** `study_config.py` hard-codes
@@ -194,7 +202,8 @@ pre-registration names the 2026 result as seen and carries the trial count (10) 
 
 | Date | Item | Commit | Measured effect |
 |---|---|---|---|
-| 2026-11-03 | A1 re-fetch reproduction: every step of the development runbook (main, anatomy, costs, residual, the 38-variant family, validation, robustness) re-run on prices fetched afresh; published as `results/v33_dev_refetch/`; drift table in the page (Section 13) and README; Reproduce text says the pinned caches were lost | this branch | 52 of 56 compared values agree to the precision shown, every headline number included; persistence count 370 → 359, PBO 79.4% → 65.5%, SPA p against cash 0.964 → 0.880, missing index weight 3.19% → 3.21%; no conclusion changes |
+| 2026-11-03 | A1 re-fetch reproduction: every step of the development runbook (main, anatomy, costs, residual, the 38-variant family, validation, robustness) re-run on prices fetched afresh; published as `results/v33_dev_refetch/` with its fetch manifest and `PROVENANCE.md`; drift table in the page (Section 13) and README; Reproduce text says the pinned caches were lost | `4cca872`, `844fd88` | every headline number of the main backtest, walk-forward and baselines agrees as shown; 55 of 111 table rows moved, among them the variant family's tests (best variant `universe_300` +0.21 → `ranker_gbm` +0.51; SPA p against cash 0.964 → 0.880; PBO 79.4% → 65.5%), three variants by 0.41–0.51 in Sharpe ratio, and persistence on the 300-name set (z −1.71 → −2.17); no conclusion about the strategy changes; `tests/test_drift_table.py` asserts the table is complete and the prose true |
+| 2026-11-03 | Ship audit (six dimensions, two verifiers per finding; 54 findings upheld) and its fixes | this branch | see `docs/PROGRESS.md`, "Ship audit of 3 November 2026" |
 | 2026-11-03 | A2 (code part): per-symbol price-cache fingerprints (`scripts/hash_cache.py`), written by `publish_run.py` as `price_cache_hashes.json` for the re-fetch run | `6ddfc86` | a later fetch can be diffed symbol by symbol without the prices |
 | 2026-11-03 | D2 / B1 deferred: the threats table no longer promises a control on the strategy's own engine; it states that none was run | `9ed77c7` | no open promise on the page or in the paper |
 | 2026-11-03 | `variant_family.py` checkpoints each variant and releases each selection group | `bf8daf1` | the family survives the out-of-memory killer and container restarts; results unchanged |

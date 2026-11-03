@@ -63,8 +63,7 @@ filterwarnings = ["error::FutureWarning", "ignore::DeprecationWarning"]
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-# Lint the package, its tests and the supported scripts; archive/ is historical.
-extend-exclude = ["archive"]
+# Lint the package, its tests and the supported scripts.
 
 [tool.ruff.lint]
 # pyflakes (real bugs: unused imports/vars, undefined names) + key pycodestyle errors.
