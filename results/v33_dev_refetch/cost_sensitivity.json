@@ -1,0 +1,147 @@
+{
+ "profile": "v33",
+ "calendar": "dev",
+ "headline": {
+  "market_impact_coefficient": 0.3,
+  "gc_borrow_rate": 0.0038,
+  "initial_capital": 100000000
+ },
+ "scenarios": [
+  {
+   "group": "headline",
+   "label": "headline",
+   "cost_model": {},
+   "initial_capital": 100000000,
+   "total_return_pct": -0.3873,
+   "sharpe": -0.0618,
+   "trades": 213,
+   "max_drawdown_pct": -4.0534,
+   "total_cost_pct_of_capital": 1.9074,
+   "avg_max_leg_adv_participation_pct": 1.6091,
+   "mean_cost_bp_of_gross_notional": 16.93,
+   "seconds": 47.7
+  },
+  {
+   "group": "impact",
+   "label": "Y=0.3",
+   "cost_model": {
+    "market_impact_coefficient": 0.3
+   },
+   "initial_capital": 100000000,
+   "total_return_pct": -0.3873,
+   "sharpe": -0.0618,
+   "trades": 213,
+   "max_drawdown_pct": -4.0534,
+   "total_cost_pct_of_capital": 1.9074,
+   "avg_max_leg_adv_participation_pct": 1.6091,
+   "mean_cost_bp_of_gross_notional": 16.93,
+   "seconds": 35.7
+  },
+  {
+   "group": "impact",
+   "label": "Y=0.6",
+   "cost_model": {
+    "market_impact_coefficient": 0.6
+   },
+   "initial_capital": 100000000,
+   "total_return_pct": -2.6613,
+   "sharpe": -0.4126,
+   "trades": 273,
+   "max_drawdown_pct": -4.9629,
+   "total_cost_pct_of_capital": 3.2784,
+   "avg_max_leg_adv_participation_pct": 1.408,
+   "mean_cost_bp_of_gross_notional": 27.818,
+   "seconds": 27.1
+  },
+  {
+   "group": "impact",
+   "label": "Y=1.0",
+   "cost_model": {
+    "market_impact_coefficient": 1.0
+   },
+   "initial_capital": 100000000,
+   "total_return_pct": -4.3802,
+   "sharpe": -0.7013,
+   "trades": 248,
+   "max_drawdown_pct": -6.2994,
+   "total_cost_pct_of_capital": 4.433,
+   "avg_max_leg_adv_participation_pct": 1.4591,
+   "mean_cost_bp_of_gross_notional": 39.146,
+   "seconds": 28.1
+  },
+  {
+   "group": "borrow",
+   "label": "borrow 1%",
+   "cost_model": {
+    "gc_borrow_rate": 0.01
+   },
+   "initial_capital": 100000000,
+   "total_return_pct": -1.7876,
+   "sharpe": -0.2631,
+   "trades": 262,
+   "max_drawdown_pct": -4.7832,
+   "total_cost_pct_of_capital": 2.1717,
+   "avg_max_leg_adv_participation_pct": 1.4175,
+   "mean_cost_bp_of_gross_notional": 18.526,
+   "seconds": 27.2
+  },
+  {
+   "group": "borrow",
+   "label": "borrow 3%",
+   "cost_model": {
+    "gc_borrow_rate": 0.03
+   },
+   "initial_capital": 100000000,
+   "total_return_pct": -4.6081,
+   "sharpe": -0.7141,
+   "trades": 265,
+   "max_drawdown_pct": -7.06,
+   "total_cost_pct_of_capital": 2.9043,
+   "avg_max_leg_adv_participation_pct": 1.4208,
+   "mean_cost_bp_of_gross_notional": 24.474,
+   "seconds": 34.6
+  },
+  {
+   "group": "capacity",
+   "label": "$10M",
+   "cost_model": {},
+   "initial_capital": 10000000.0,
+   "total_return_pct": -0.0898,
+   "sharpe": -0.0039,
+   "trades": 245,
+   "max_drawdown_pct": -3.4708,
+   "total_cost_pct_of_capital": 1.0654,
+   "avg_max_leg_adv_participation_pct": 0.1483,
+   "mean_cost_bp_of_gross_notional": 8.812,
+   "seconds": 33.2
+  },
+  {
+   "group": "capacity",
+   "label": "$1B",
+   "cost_model": {},
+   "initial_capital": 1000000000.0,
+   "total_return_pct": -5.8794,
+   "sharpe": -1.0163,
+   "trades": 244,
+   "max_drawdown_pct": -6.7545,
+   "total_cost_pct_of_capital": 4.0365,
+   "avg_max_leg_adv_participation_pct": 13.2642,
+   "mean_cost_bp_of_gross_notional": 36.628,
+   "seconds": 28.3
+  },
+  {
+   "group": "capacity",
+   "label": "$5B",
+   "cost_model": {},
+   "initial_capital": 5000000000.0,
+   "total_return_pct": -8.0684,
+   "sharpe": -1.4998,
+   "trades": 236,
+   "max_drawdown_pct": -9.1654,
+   "total_cost_pct_of_capital": 7.3002,
+   "avg_max_leg_adv_participation_pct": 72.8454,
+   "mean_cost_bp_of_gross_notional": 66.993,
+   "seconds": 27.3
+  }
+ ]
+}

@@ -1,0 +1,39 @@
+grid ENTRY_Z=1.5 EXIT_Z=0.25 STOP_Z=1.0: Sharpe -1.19, 287 trades
+grid ENTRY_Z=1.5 EXIT_Z=0.25 STOP_Z=1.5: Sharpe -0.49, 243 trades
+grid ENTRY_Z=1.5 EXIT_Z=0.25 STOP_Z=2.0: Sharpe -0.28, 239 trades
+grid ENTRY_Z=1.5 EXIT_Z=0.5 STOP_Z=1.0: Sharpe -0.29, 319 trades
+grid ENTRY_Z=1.5 EXIT_Z=0.5 STOP_Z=1.5: Sharpe -0.42, 252 trades
+grid ENTRY_Z=1.5 EXIT_Z=0.5 STOP_Z=2.0: Sharpe -0.35, 250 trades
+grid ENTRY_Z=1.5 EXIT_Z=0.75 STOP_Z=1.0: Sharpe -0.17, 333 trades
+grid ENTRY_Z=1.5 EXIT_Z=0.75 STOP_Z=1.5: Sharpe -1.05, 279 trades
+grid ENTRY_Z=1.5 EXIT_Z=0.75 STOP_Z=2.0: Sharpe -0.62, 252 trades
+grid ENTRY_Z=1.8 EXIT_Z=0.25 STOP_Z=1.0: Sharpe +0.08, 287 trades
+grid ENTRY_Z=1.8 EXIT_Z=0.25 STOP_Z=1.5: Sharpe -1.20, 219 trades
+grid ENTRY_Z=1.8 EXIT_Z=0.25 STOP_Z=2.0: Sharpe -0.74, 223 trades
+grid ENTRY_Z=1.8 EXIT_Z=0.5 STOP_Z=1.0: Sharpe -0.18, 268 trades
+grid ENTRY_Z=1.8 EXIT_Z=0.5 STOP_Z=1.5: Sharpe -0.06, 213 trades
+grid ENTRY_Z=1.8 EXIT_Z=0.5 STOP_Z=2.0: Sharpe -1.13, 221 trades
+grid ENTRY_Z=1.8 EXIT_Z=0.75 STOP_Z=1.0: Sharpe +0.01, 293 trades
+grid ENTRY_Z=1.8 EXIT_Z=0.75 STOP_Z=1.5: Sharpe -0.96, 250 trades
+grid ENTRY_Z=1.8 EXIT_Z=0.75 STOP_Z=2.0: Sharpe -0.76, 239 trades
+grid ENTRY_Z=2.1 EXIT_Z=0.25 STOP_Z=1.0: Sharpe -0.32, 251 trades
+grid ENTRY_Z=2.1 EXIT_Z=0.25 STOP_Z=1.5: Sharpe +0.16, 200 trades
+grid ENTRY_Z=2.1 EXIT_Z=0.25 STOP_Z=2.0: Sharpe -0.80, 186 trades
+grid ENTRY_Z=2.1 EXIT_Z=0.5 STOP_Z=1.0: Sharpe -0.62, 266 trades
+grid ENTRY_Z=2.1 EXIT_Z=0.5 STOP_Z=1.5: Sharpe -0.28, 218 trades
+grid ENTRY_Z=2.1 EXIT_Z=0.5 STOP_Z=2.0: Sharpe -0.81, 213 trades
+grid ENTRY_Z=2.1 EXIT_Z=0.75 STOP_Z=1.0: Sharpe -0.32, 279 trades
+grid ENTRY_Z=2.1 EXIT_Z=0.75 STOP_Z=1.5: Sharpe -1.54, 228 trades
+grid ENTRY_Z=2.1 EXIT_Z=0.75 STOP_Z=2.0: Sharpe -1.69, 202 trades
+regime_gate_on: Sharpe -0.01, 144 trades
+cusum_gate_on: Sharpe -0.38, 244 trades
+hurst_gate_on: Sharpe +0.04, 267 trades
+no_rolling_corr_floor: Sharpe -1.34, 236 trades
+ref_bars_40: Sharpe -0.18, 270 trades
+ref_bars_90: Sharpe -0.72, 241 trades
+ranker_gbm: Sharpe +0.51, 238 trades
+open_fills: Sharpe -0.63, 246 trades
+all_pairs: Sharpe -1.51, 244 trades
+universe_300: Sharpe +0.21, 267 trades
+reform_every_63: Sharpe -0.11, 256 trades
+38 variants -> outputs/v33_dev_refetch/variant_family/daily_returns.csv

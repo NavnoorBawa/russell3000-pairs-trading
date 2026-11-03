@@ -263,4 +263,7 @@ every new pre-registration must pass.
 
 ## Done
 
-_Nothing yet. Record each finished item here: what, the commit, and the measured effect._
+Recorded with commits and measured effects in `docs/IMPROVEMENT_PLAN.md` (Done table): the
+re-fetch reproduction (A1) with its drift table, per-symbol cache fingerprints (A2, code part), the
+removal of the open promise about a control on the strategy's own engine (D2), and a resumable
+variant family.

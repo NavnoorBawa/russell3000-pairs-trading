@@ -999,11 +999,13 @@ Each limitation, which way it biases the result, how large it is, and what addre
 
 #if D.concordance != none [The research-note site presents the same results; @tab-concordance maps its exhibit numbers to this note's.] Every number in this note is formatted by `scripts/build_paper.py` from `assets/study.json`, the file the research-note site's charts and checked numbers come from, and from the headline JSON that file was built from; the site's numbers are checked against the same JSON by `scripts/check_published_numbers.py`. Sentences whose wording depends on the data are asserted against it when the note is compiled. Prices come from Yahoo Finance's chart API, and a later fetch will not match the cached data bit for bit, because vendors revise history. The run manifest (@tab-manifest) pins what was used, and the sha256 of every committed source the note reads is listed in @tab-hashes; both are in the appendix.
 
+The price and macro caches the development run pinned were lost with the working storage by 22 October 2026, so its numbers cannot be rebuilt from that exact input. The same design, calendar and code path were run again on prices fetched afresh (`results/v33_dev_refetch/`); the research-note site's Reproduce section compares every headline value with the published one. Every headline number of the main backtest, the walk-forward and the baselines agrees to the precision shown; three evidence-layer values (the persistence count, the probability of backtest overfitting and the SPA $p$-value against cash) and the universe's missing weight moved, none enough to change a conclusion.
+
 The runbooks clear every `PAIRS_*` switch, fix the hash seed, refuse an environment that differs from `requirements.txt` and record the commit in every export. The execution-cost note, `docs/EXECUTION_COSTS.md`, compares the cost model with published impact estimates at each participation rate and gives the source of the borrow fee. The AR(1) variance of the Sharpe ratio and its source are documented in `pairs_trading/power.py`; the evidence layer is `pairs_trading/anatomy.py` and `pairs_trading/evidence.py`; the variant family and its data-snooping tests are `scripts/variant_family.py` and `pairs_trading/snooping.py`; the robustness checks are `scripts/robustness_checks.py`; the synthetic validation is `scripts/synthetic_validation.py`.
 
 #wide(block(width: 100%, fill: sunk, inset: (x: 9pt, y: 8pt), radius: 2pt, breakable: false, {
   set text(size: 7.8pt)
-  raw(block: true, lang: "bash", "# the environment pinned in requirements.txt
+  raw(block: true, lang: "bash", "# the environment pinned in requirements.txt (CPU torch first, as in README)
 python3.12 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 

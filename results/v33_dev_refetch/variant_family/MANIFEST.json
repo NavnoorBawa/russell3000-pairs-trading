@@ -1,0 +1,30 @@
+{
+ "files": {
+  "daily_returns.csv": {
+   "bytes": 388215,
+   "sha256": "03e52062dc5b93e0b0ed6c71ce49bf526c38c7686e0d5cceb5a40ee944c1ee6a"
+  },
+  "run.log": {
+   "bytes": 2281,
+   "sha256": "9d3e3c783feb9f078ecedc12c8b25cbfdc49ce4e02c168bd36bf200ff1b9ba2e"
+  },
+  "runs.json": {
+   "bytes": 7433,
+   "sha256": "da4d20f278866c69076bbda6b3a36816f292ba060f472b080a27897f45f003f8"
+  },
+  "snooping.json": {
+   "bytes": 20990,
+   "sha256": "c963d428aa8435ef285c6e83fca03032488702475bbe8dceaa0e25719e4d80f9"
+  }
+ },
+ "name": "v33_dev_refetch/variant_family",
+ "price_cache": null,
+ "run_config": {
+  "effective": null,
+  "git_commit": null,
+  "git_dirty": null,
+  "package_version": null,
+  "run_timestamp_utc": null
+ },
+ "study": null
+}

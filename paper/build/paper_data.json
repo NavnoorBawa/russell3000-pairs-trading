@@ -1159,7 +1159,7 @@
   "headline_sha256": "b09f239032db62196602447e8d1d780286b5c2674e8e85d02062beab946d0fb1",
   "paper_date": "2026-10-26",
   "run_dir": "results/v33_dev",
-  "study_sha256": "9aa22e3613a3ddcc52846eb35321443730c3ed279f4d9e18e985a04eda20b4fa",
+  "study_sha256": "4514cf7cb2ed705947dd582795bb05e46046b74cb8dcf1c0b6f1e18ae289f68c",
   "universe_index_sha256": "2afd0cb6a7a7b79e08e6d45a5fc78f7ac6d43903c3cafbde1a042bf048883c3c"
  },
  "pending": {},
@@ -1669,7 +1669,7 @@
    ],
    [
     "Site data",
-    "assets/study.json, sha256 9aa22e3613a3ddcc52846eb35321443730c3ed279f4d9e18e985a04eda20b4fa"
+    "assets/study.json, sha256 4514cf7cb2ed705947dd582795bb05e46046b74cb8dcf1c0b6f1e18ae289f68c"
    ],
    [
     "Universe",
@@ -2318,6 +2318,58 @@
     "7a6163821040cb1e47f276d779fd04b5ebe60caaf1a85ab6eb4c2a1198da906b"
    ],
    [
+    "results/v33_dev_refetch/MANIFEST.json",
+    "98b7f7350f103ed1596c56351aadc3755631caec00c95b0c2aba8bdfb26cec65"
+   ],
+   [
+    "results/v33_dev_refetch/anatomy.json",
+    "acd0f1173434d15d48cca84ed8febf8f473607060349800be77f6a0e3a77a9c9"
+   ],
+   [
+    "results/v33_dev_refetch/cost_sensitivity.json",
+    "f897c9206da66108f17b70707eafdbba2de664cbb110a835b360b97600baf004"
+   ],
+   [
+    "results/v33_dev_refetch/fund_type_comparison.json",
+    "99a0f8feb62fe5d2e7dcd907c52b04f5382bd1fdc9ec5b28f17981249238cd0d"
+   ],
+   [
+    "results/v33_dev_refetch/headline_metrics.json",
+    "72febd38fc78adc1b6cf912e639278b33aff4423ccda2c4adc06b104b7b0015d"
+   ],
+   [
+    "results/v33_dev_refetch/pairs_trading_results_2023_2025_unbiased.json",
+    "c58f32f02bbf156f7ce76b8d0481c5d69b01626b87c8db0d81c5dad5320d89f5"
+   ],
+   [
+    "results/v33_dev_refetch/residual/MANIFEST.json",
+    "23aefd50aee3425a6331e4668f7341e0451cbcec58aa204bac50365a4856524f"
+   ],
+   [
+    "results/v33_dev_refetch/residual/residual_statarb.json",
+    "d0a5e0819926ab8702d4ae84122b557998271ec658bfe394c68fee1e49bda80d"
+   ],
+   [
+    "results/v33_dev_refetch/robustness.json",
+    "53ee3ede73e3bcd58b559eadd32b91f7d625ee847963b107e29522904d70cd3a"
+   ],
+   [
+    "results/v33_dev_refetch/validation/synthetic_validation.json",
+    "11578fffe18bee94a9af10d373c29936f1cac19590296780fa79e4c803cd73f5"
+   ],
+   [
+    "results/v33_dev_refetch/variant_family/daily_returns.csv",
+    "03e52062dc5b93e0b0ed6c71ce49bf526c38c7686e0d5cceb5a40ee944c1ee6a"
+   ],
+   [
+    "results/v33_dev_refetch/variant_family/runs.json",
+    "da4d20f278866c69076bbda6b3a36816f292ba060f472b080a27897f45f003f8"
+   ],
+   [
+    "results/v33_dev_refetch/variant_family/snooping.json",
+    "c963d428aa8435ef285c6e83fca03032488702475bbe8dceaa0e25719e4d80f9"
+   ],
+   [
     "results/validation/synthetic_validation.json",
     "1dd037fdb4d53d4946b3d5182226c45f0cd1f29171e85451ec7f7dcb2ba4485b"
    ],
@@ -2347,7 +2399,7 @@
    ],
    [
     "index.html",
-    "38a509f6b9a409cb20da4e7b4d9935a092ed5529b4cbe8a2cbb3da2ccb2763db"
+    "52a0be94c52f5a4e78ffa164842a9db6f5996fd6c6ebbe2f2634bbe99188641c"
    ]
   ],
   "spec": [

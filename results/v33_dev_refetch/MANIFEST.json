@@ -1,0 +1,90 @@
+{
+ "files": {
+  "anatomy.json": {
+   "bytes": 190710,
+   "sha256": "acd0f1173434d15d48cca84ed8febf8f473607060349800be77f6a0e3a77a9c9"
+  },
+  "cost_sensitivity.json": {
+   "bytes": 3633,
+   "sha256": "f897c9206da66108f17b70707eafdbba2de664cbb110a835b360b97600baf004"
+  },
+  "fund_type_comparison.json": {
+   "bytes": 280970,
+   "sha256": "99a0f8feb62fe5d2e7dcd907c52b04f5382bd1fdc9ec5b28f17981249238cd0d"
+  },
+  "headline_metrics.json": {
+   "bytes": 8647,
+   "sha256": "72febd38fc78adc1b6cf912e639278b33aff4423ccda2c4adc06b104b7b0015d"
+  },
+  "pairs_trading_results_2023_2025_unbiased.json": {
+   "bytes": 868427,
+   "sha256": "c58f32f02bbf156f7ce76b8d0481c5d69b01626b87c8db0d81c5dad5320d89f5"
+  },
+  "pairs_trading_results_2023_2025_unbiased_compact.json": {
+   "bytes": 362645,
+   "sha256": "d3e7e46f0100e6de041c9c683001d290fed0ba102bb38346a8b2ad956fe94007"
+  },
+  "price_cache_hashes.json": {
+   "bytes": 1040479,
+   "sha256": "ad3999ca79267e77e222ac98fe9bdb9df48365d4fa33cbe6e73857b277f8458d"
+  },
+  "robustness.json": {
+   "bytes": 42837,
+   "sha256": "53ee3ede73e3bcd58b559eadd32b91f7d625ee847963b107e29522904d70cd3a"
+  },
+  "run.log": {
+   "bytes": 94893,
+   "sha256": "45d13b640613a4c085e6befb9aad69e9d7a9cbeae3f631dafac6faffea6263ca"
+  }
+ },
+ "name": "v33_dev_refetch",
+ "price_cache": {
+  "mtime_utc": "2026-10-28T07:03:49+00:00",
+  "path": "data/enhanced_russell_3000_data.pkl",
+  "sha256": "ca8a39e64e1e3b486c91f8396111de827583c0d11746ba41a234d11b8fa751b6",
+  "size_bytes": 1044181076
+ },
+ "run_config": {
+  "effective": {
+   "calendar": "dev",
+   "fill": "close",
+   "profile": "v33",
+   "ranker": "none",
+   "regime_gate": false,
+   "reselect": "full",
+   "use_transformer_ranker": false
+  },
+  "git_commit": "10ac3bb2e7bd846d98d45c07e2cd59d80e3ad325",
+  "git_dirty": false,
+  "package_version": "33.0.0",
+  "run_timestamp_utc": "2026-10-28T07:14:10+00:00"
+ },
+ "study": {
+  "calendar": {
+   "backtest_start": "2023-07-01",
+   "data_end": "2025-12-31",
+   "data_start": "2020-01-01",
+   "macro_cache": "data/macro_data.pkl",
+   "model_train_end": "2023-06-30",
+   "name": "dev",
+   "price_cache": "data/enhanced_russell_3000_data.pkl",
+   "selection_cutoff": "2022-12-31",
+   "walk_forward": true
+  },
+  "calendar_hash": "0bcc31796bad",
+  "profile": {
+   "borrow_rate": 0.0038,
+   "formation_calendar_days": 1095,
+   "max_universe": 500,
+   "name": "v33",
+   "pb_financing_spread": 0.0,
+   "ranker": "none",
+   "regime_gate": false,
+   "reselect": "full",
+   "reselect_every": 126,
+   "same_industry": true,
+   "universe": "pit_iwv"
+  },
+  "profile_hash": "d54d21314c22"
+ }
+}

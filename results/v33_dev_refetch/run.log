@@ -1,0 +1,1017 @@
+2026-10-28 07:10:39,591 - INFO - Random seed: 42
+2026-10-28 07:10:39,591 - INFO - Starting the Russell 3000 pairs-trading study
+2026-10-28 07:10:39,592 - INFO - ENHANCED Russell 3000 Data Processor initialized
+2026-10-28 07:10:39,592 - INFO - Pair selector initialised
+2026-10-28 07:10:39,592 - INFO - Signal-quality ranker initialised
+2026-10-28 07:10:39,592 - INFO - ADAPTIVE Prime Fund Position Sizer - Risk Scaled
+2026-10-28 07:10:39,592 - INFO - ADAPTIVE Risk Manager - Volatility & Profit Protection
+2026-10-28 07:10:39,592 - INFO - Transaction cost model: per-share commission, ADV-bucket spread, per-stock sqrt impact, GC borrow, PB carry
+2026-10-28 07:10:39,592 - INFO - Russell 3000 pairs-trading system initialised: profile v33, calendar dev
+2026-10-28 07:10:39,603 - INFO - Starting Russell 3000 pairs-trading study
+2026-10-28 07:10:39,787 - INFO - Point-in-time universe: 3087 distinct members across 13 IWV snapshots (2022-12-30 -> 2025-12-31)
+2026-10-28 07:10:39,797 - INFO - Pair selector initialised
+2026-10-28 07:10:39,797 - INFO - Loading saved data from data/enhanced_russell_3000_data.pkl
+2026-10-28 07:10:53,748 - INFO - Loaded 2533 symbols from saved data
+2026-10-28 07:10:53,809 - INFO - 554 universe symbols have no cached prices (failed or never fetched) and are excluded
+2026-10-28 07:11:45,416 - INFO - Recomputed indicators from cached OHLCV for 2533 symbols (0 left as-is) — removes the pre-v31 bfill look-ahead
+2026-10-28 07:11:54,715 - INFO - Point-in-time prices anchored to N-PORT for 2533 symbols; 733 moved by more than 10% (largest: [['GOSS', 0.0125], ['BYND', 0.0333], ['BKNG', 25.5927], ['ADV', 0.04], ['AGL', 0.04]])
+2026-10-28 07:11:54,728 - INFO - Loaded cached macro data: VIX (1508 days) + 11 sector ETFs
+2026-10-28 07:11:55,867 - INFO - RUN CONFIG: version 33.0.0 | commit 10ac3bb2e7bd | 2026-10-28T07:11:54+00:00 UTC
+2026-10-28 07:11:55,867 - INFO -   switches: {'PAIRS_PROFILE': 'v33', 'PAIRS_CALENDAR': 'dev', 'PAIRS_SEED': '42', 'PAIRS_OUTPUT_DIR': 'outputs/v33_dev_refetch', 'PYTHONHASHSEED': '0', 'PAIRS_EXPECTED_COMMIT': '10ac3bb2e7bd846d98d45c07e2cd59d80e3ad325'} | effective: {'profile': 'v33', 'calendar': 'dev', 'fill': 'close', 'ranker': 'none', 'use_transformer_ranker': False, 'reselect': 'full', 'regime_gate': False}
+2026-10-28 07:11:55,867 - INFO -   data: None -> None, backtest None -> None, 2533 symbols, None pairs
+2026-10-28 07:11:55,867 - INFO -   price cache: data/enhanced_russell_3000_data.pkl, 1044.2 MB, mtime 2026-10-28T07:03:49+00:00, sha256 ca8a39e64e1e3b48
+2026-10-28 07:11:55,867 - INFO -   versions: {'python': '3.12.3', 'numpy': '1.26.4', 'pandas': '2.2.3', 'torch': '2.13.0+cpu', 'scipy': '1.15.2', 'statsmodels': '0.14.4'}
+2026-10-28 07:11:55,882 - INFO -   formation 2022-12-31: 2574 members (snapshot 2022-12-30), 449 without price history (3.2% of index weight)
+2026-10-28 07:11:56,642 - INFO - Pair selection on 2118 symbols with data up to 2022-12-31
+2026-10-28 07:11:56,642 - INFO - Pair selection: screening 2118 symbols
+2026-10-28 07:11:57,078 - INFO - Pair selection: 1366 symbols pass the screens; testing the 500 most liquid
+2026-10-28 07:11:57,121 - INFO - PCA: dropped 12 symbol(s) with <90% return coverage; 488 symbols on 703 common dates
+2026-10-28 07:11:57,235 - INFO - PCA: stripped 5 factors from 488 symbols (factors explain 55.3% of cross-sectional variance)
+2026-10-28 07:11:57,650 - INFO - Pair selection: testing all 5,369 candidate pairs (4 workers)
+
+2026-10-28 07:12:09,141 - INFO - FDR diagnostic (Benjamini-Hochberg on cointegration p-values):
+2026-10-28 07:12:09,141 - INFO -   tested 5,082 pairs | raw p<0.05: 489 (<= 254 expected false positives if all were null)
+2026-10-28 07:12:09,141 - INFO -   survive BH-FDR q<0.05: 0 | q<0.10: 1 | final selected (after half-life/quality/PCA): 309
+2026-10-28 07:12:09,141 - INFO - Pair selection: 309 pairs satisfy all conditions
+2026-10-28 07:12:09,141 - INFO - Top 5 pairs by quality score:
+2026-10-28 07:12:09,141 - INFO -    1. AAP -FAST: Score=1.000, Corr=0.464, Coint_p=0.0011, Half_Life=17.7d
+2026-10-28 07:12:09,141 - INFO -    2. AEP -ED  : Score=1.000, Corr=0.774, Coint_p=0.0070, Half_Life=16.0d
+2026-10-28 07:12:09,141 - INFO -    3. AIG -CB  : Score=1.000, Corr=0.683, Coint_p=0.0077, Half_Life=16.6d
+2026-10-28 07:12:09,141 - INFO -    4. AJG -ELV : Score=1.000, Corr=0.494, Coint_p=0.0024, Half_Life=16.6d
+2026-10-28 07:12:09,141 - INFO -    5. AJG -UNH : Score=1.000, Corr=0.456, Coint_p=0.0053, Half_Life=14.1d
+2026-10-28 07:12:10,558 - INFO - Time split: 309 pairs with >= 100 training days
+2026-10-28 07:12:10,559 - INFO - Training the ranking model on outcomes complete by 2023-06-30
+2026-10-28 07:12:10,559 - INFO - Ranker: none — classical-only ranking (quality = 1.0)
+2026-10-28 07:12:10,899 - INFO - Building the pair schedule (every 126 trading days, 1095-calendar-day formation window)...
+2026-10-28 07:12:10,900 - INFO -   Re-selection 'full': the complete pair search is re-run on each trailing window (new pairs can enter; runtime scales with the universe)
+2026-10-28 07:12:10,916 - INFO -   formation 2023-01-03: 2574 members (snapshot 2022-12-30), 449 without price history (3.2% of index weight)
+2026-10-28 07:12:11,642 - INFO - Pair selector initialised
+2026-10-28 07:12:11,642 - INFO - Pair selection: screening 2118 symbols
+2026-10-28 07:12:12,739 - INFO - Pair selection: 1364 symbols pass the screens; testing the 500 most liquid
+2026-10-28 07:12:12,781 - INFO - PCA: dropped 12 symbol(s) with <90% return coverage; 488 symbols on 704 common dates
+2026-10-28 07:12:12,887 - INFO - PCA: stripped 5 factors from 488 symbols (factors explain 55.3% of cross-sectional variance)
+2026-10-28 07:12:12,900 - INFO - Pair selection: testing all 5,413 candidate pairs (4 workers)
+
+2026-10-28 07:12:20,268 - INFO - FDR diagnostic (Benjamini-Hochberg on cointegration p-values):
+2026-10-28 07:12:20,268 - INFO -   tested 5,128 pairs | raw p<0.05: 504 (<= 256 expected false positives if all were null)
+2026-10-28 07:12:20,268 - INFO -   survive BH-FDR q<0.05: 0 | q<0.10: 1 | final selected (after half-life/quality/PCA): 317
+2026-10-28 07:12:20,268 - INFO - Pair selection: 317 pairs satisfy all conditions
+2026-10-28 07:12:20,268 - INFO - Top 5 pairs by quality score:
+2026-10-28 07:12:20,268 - INFO -    1. AEP -ETR : Score=1.000, Corr=0.798, Coint_p=0.0054, Half_Life=11.8d
+2026-10-28 07:12:20,268 - INFO -    2. AIG -CB  : Score=1.000, Corr=0.683, Coint_p=0.0089, Half_Life=16.6d
+2026-10-28 07:12:20,268 - INFO -    3. AJG -ELV : Score=1.000, Corr=0.495, Coint_p=0.0033, Half_Life=16.6d
+2026-10-28 07:12:20,268 - INFO -    4. AJG -UNH : Score=1.000, Corr=0.456, Coint_p=0.0066, Half_Life=14.2d
+2026-10-28 07:12:20,268 - INFO -    5. BDX -EW  : Score=1.000, Corr=0.423, Coint_p=0.0094, Half_Life=13.1d
+2026-10-28 07:12:20,346 - INFO -   2023-01-03: full search selected 317 pairs
+2026-10-28 07:12:20,398 - INFO -   formation 2023-07-06: 2657 members (snapshot 2023-06-30), 415 without price history (2.8% of index weight)
+2026-10-28 07:12:21,130 - INFO - Pair selector initialised
+2026-10-28 07:12:21,130 - INFO - Pair selection: screening 2236 symbols
+2026-10-28 07:12:21,633 - INFO - Pair selection: 1443 symbols pass the screens; testing the 500 most liquid
+2026-10-28 07:12:21,680 - INFO - PCA: dropped 11 symbol(s) with <90% return coverage; 488 symbols on 695 common dates
+2026-10-28 07:12:21,801 - INFO - PCA: stripped 5 factors from 488 symbols (factors explain 51.2% of cross-sectional variance)
+2026-10-28 07:12:21,813 - INFO - Pair selection: testing all 5,440 candidate pairs (4 workers)
+
+2026-10-28 07:12:28,363 - INFO - FDR diagnostic (Benjamini-Hochberg on cointegration p-values):
+2026-10-28 07:12:28,363 - INFO -   tested 4,989 pairs | raw p<0.05: 371 (<= 249 expected false positives if all were null)
+2026-10-28 07:12:28,363 - INFO -   survive BH-FDR q<0.05: 2 | q<0.10: 4 | final selected (after half-life/quality/PCA): 229
+2026-10-28 07:12:28,363 - INFO - Pair selection: 229 pairs satisfy all conditions
+2026-10-28 07:12:28,363 - INFO - Top 5 pairs by quality score:
+2026-10-28 07:12:28,363 - INFO -    1. ACN -ICLR: Score=1.000, Corr=0.520, Coint_p=0.0036, Half_Life=17.8d
+2026-10-28 07:12:28,364 - INFO -    2. AEE -ETR : Score=1.000, Corr=0.783, Coint_p=0.0007, Half_Life=13.1d
+2026-10-28 07:12:28,364 - INFO -    3. AEE -FE  : Score=1.000, Corr=0.648, Coint_p=0.0010, Half_Life=15.7d
+2026-10-28 07:12:28,364 - INFO -    4. AEP -ETR : Score=1.000, Corr=0.773, Coint_p=0.0013, Half_Life=15.3d
+2026-10-28 07:12:28,364 - INFO -    5. AFL -TRV : Score=1.000, Corr=0.674, Coint_p=0.0086, Half_Life=15.1d
+2026-10-28 07:12:29,480 - INFO -   2023-07-06: full search selected 229 pairs
+2026-10-28 07:12:29,530 - INFO -   formation 2024-01-04: 2675 members (snapshot 2023-12-31), 383 without price history (2.2% of index weight)
+2026-10-28 07:12:30,262 - INFO - Pair selector initialised
+2026-10-28 07:12:30,262 - INFO - Pair selection: screening 2285 symbols
+2026-10-28 07:12:30,795 - INFO - Pair selection: 1474 symbols pass the screens; testing the 500 most liquid
+2026-10-28 07:12:30,847 - INFO - PCA: dropped 6 symbol(s) with <90% return coverage; 494 symbols on 682 common dates
+2026-10-28 07:12:30,972 - INFO - PCA: stripped 5 factors from 494 symbols (factors explain 50.8% of cross-sectional variance)
+2026-10-28 07:12:30,988 - INFO - Pair selection: testing all 5,494 candidate pairs (4 workers)
+
+2026-10-28 07:12:37,953 - INFO - FDR diagnostic (Benjamini-Hochberg on cointegration p-values):
+2026-10-28 07:12:37,953 - INFO -   tested 5,117 pairs | raw p<0.05: 315 (<= 256 expected false positives if all were null)
+2026-10-28 07:12:37,953 - INFO -   survive BH-FDR q<0.05: 2 | q<0.10: 2 | final selected (after half-life/quality/PCA): 170
+2026-10-28 07:12:37,953 - INFO - Pair selection: 170 pairs satisfy all conditions
+2026-10-28 07:12:37,953 - INFO - Top 5 pairs by quality score:
+2026-10-28 07:12:37,953 - INFO -    1. ACN -ICLR: Score=1.000, Corr=0.513, Coint_p=0.0009, Half_Life=12.2d
+2026-10-28 07:12:37,953 - INFO -    2. ALNY-SRPT: Score=1.000, Corr=0.417, Coint_p=0.0000, Half_Life=11.3d
+2026-10-28 07:12:37,953 - INFO -    3. BBY -BURL: Score=1.000, Corr=0.524, Coint_p=0.0060, Half_Life=15.1d
+2026-10-28 07:12:37,953 - INFO -    4. BBY -RH  : Score=1.000, Corr=0.567, Coint_p=0.0090, Half_Life=16.6d
+2026-10-28 07:12:37,953 - INFO -    5. CRL -EBAY: Score=1.000, Corr=0.360, Coint_p=0.0004, Half_Life=9.2d
+2026-10-28 07:12:38,449 - INFO -   2024-01-04: full search selected 170 pairs
+2026-10-28 07:12:38,507 - INFO -   formation 2024-07-08: 2654 members (snapshot 2024-06-30), 346 without price history (1.6% of index weight)
+2026-10-28 07:12:39,762 - INFO - Pair selector initialised
+2026-10-28 07:12:39,762 - INFO - Pair selection: screening 2304 symbols
+2026-10-28 07:12:40,262 - INFO - Pair selection: 1489 symbols pass the screens; testing the 500 most liquid
+2026-10-28 07:12:40,306 - INFO - PCA: dropped 3 symbol(s) with <90% return coverage; 495 symbols on 701 common dates
+2026-10-28 07:12:40,415 - INFO - PCA: stripped 5 factors from 495 symbols (factors explain 48.8% of cross-sectional variance)
+2026-10-28 07:12:40,429 - INFO - Pair selection: testing all 5,456 candidate pairs (4 workers)
+
+2026-10-28 07:12:46,855 - INFO - FDR diagnostic (Benjamini-Hochberg on cointegration p-values):
+2026-10-28 07:12:46,856 - INFO -   tested 5,096 pairs | raw p<0.05: 223 (<= 255 expected false positives if all were null)
+2026-10-28 07:12:46,856 - INFO -   survive BH-FDR q<0.05: 0 | q<0.10: 0 | final selected (after half-life/quality/PCA): 128
+2026-10-28 07:12:46,856 - INFO - Pair selection: 128 pairs satisfy all conditions
+2026-10-28 07:12:46,856 - INFO - Top 5 pairs by quality score:
+2026-10-28 07:12:46,856 - INFO -    1. CDW -ROST: Score=1.000, Corr=0.510, Coint_p=0.0070, Half_Life=16.6d
+2026-10-28 07:12:46,856 - INFO -    2. CMS -DTE : Score=1.000, Corr=0.880, Coint_p=0.0016, Half_Life=12.8d
+2026-10-28 07:12:46,856 - INFO -    3. DOCU-XYZ : Score=1.000, Corr=0.675, Coint_p=0.0012, Half_Life=11.3d
+2026-10-28 07:12:46,856 - INFO -    4. ICLR-MCO : Score=1.000, Corr=0.549, Coint_p=0.0036, Half_Life=16.1d
+2026-10-28 07:12:46,856 - INFO -    5. META-NOW : Score=1.000, Corr=0.589, Coint_p=0.0004, Half_Life=15.1d
+2026-10-28 07:12:47,231 - INFO -   2024-07-08: full search selected 128 pairs
+2026-10-28 07:12:47,281 - INFO -   formation 2025-01-06: 2665 members (snapshot 2024-12-31), 290 without price history (1.4% of index weight)
+2026-10-28 07:12:48,644 - INFO - Pair selector initialised
+2026-10-28 07:12:48,644 - INFO - Pair selection: screening 2367 symbols
+2026-10-28 07:12:49,191 - INFO - Pair selection: 1515 symbols pass the screens; testing the 500 most liquid
+2026-10-28 07:12:49,247 - INFO - PCA: dropped 3 symbol(s) with <90% return coverage; 494 symbols on 745 common dates
+2026-10-28 07:12:49,384 - INFO - PCA: stripped 5 factors from 494 symbols (factors explain 46.7% of cross-sectional variance)
+2026-10-28 07:12:49,399 - INFO - Pair selection: testing all 5,360 candidate pairs (4 workers)
+
+2026-10-28 07:12:55,921 - INFO - FDR diagnostic (Benjamini-Hochberg on cointegration p-values):
+2026-10-28 07:12:55,921 - INFO -   tested 4,892 pairs | raw p<0.05: 493 (<= 245 expected false positives if all were null)
+2026-10-28 07:12:55,921 - INFO -   survive BH-FDR q<0.05: 0 | q<0.10: 0 | final selected (after half-life/quality/PCA): 232
+2026-10-28 07:12:55,921 - INFO - Pair selection: 232 pairs satisfy all conditions
+2026-10-28 07:12:55,921 - INFO - Top 5 pairs by quality score:
+2026-10-28 07:12:55,921 - INFO -    1. CRH -PH  : Score=1.000, Corr=0.639, Coint_p=0.0050, Half_Life=12.6d
+2026-10-28 07:12:55,921 - INFO -    2. CTSH-NET : Score=1.000, Corr=0.429, Coint_p=0.0065, Half_Life=14.8d
+2026-10-28 07:12:55,921 - INFO -    3. DKS -TSCO: Score=1.000, Corr=0.507, Coint_p=0.0046, Half_Life=15.8d
+2026-10-28 07:12:55,921 - INFO -    4. FITB-PNC : Score=1.000, Corr=0.847, Coint_p=0.0037, Half_Life=13.7d
+2026-10-28 07:12:55,921 - INFO -    5. GOOG-GOOGL: Score=1.000, Corr=0.998, Coint_p=0.0016, Half_Life=5.8d
+2026-10-28 07:12:56,710 - INFO -   2025-01-06: full search selected 232 pairs
+2026-10-28 07:12:56,768 - INFO -   formation 2025-07-10: 2658 members (snapshot 2025-06-30), 242 without price history (1.1% of index weight)
+2026-10-28 07:12:57,583 - INFO - Pair selector initialised
+2026-10-28 07:12:57,583 - INFO - Pair selection: screening 2414 symbols
+2026-10-28 07:12:58,638 - INFO - Pair selection: 1559 symbols pass the screens; testing the 500 most liquid
+2026-10-28 07:12:58,678 - INFO - PCA: dropped 5 symbol(s) with <90% return coverage; 493 symbols on 752 common dates
+2026-10-28 07:12:58,802 - INFO - PCA: stripped 5 factors from 493 symbols (factors explain 43.4% of cross-sectional variance)
+2026-10-28 07:12:58,817 - INFO - Pair selection: testing all 5,411 candidate pairs (4 workers)
+
+2026-10-28 07:13:05,258 - INFO - FDR diagnostic (Benjamini-Hochberg on cointegration p-values):
+2026-10-28 07:13:05,259 - INFO -   tested 4,646 pairs | raw p<0.05: 329 (<= 232 expected false positives if all were null)
+2026-10-28 07:13:05,259 - INFO -   survive BH-FDR q<0.05: 0 | q<0.10: 0 | final selected (after half-life/quality/PCA): 187
+2026-10-28 07:13:05,259 - INFO - Pair selection: 187 pairs satisfy all conditions
+2026-10-28 07:13:05,259 - INFO - Top 5 pairs by quality score:
+2026-10-28 07:13:05,259 - INFO -    1. BX  -DLR : Score=1.000, Corr=0.471, Coint_p=0.0046, Half_Life=14.3d
+2026-10-28 07:13:05,259 - INFO -    2. COF -WFC : Score=1.000, Corr=0.686, Coint_p=0.0016, Half_Life=13.2d
+2026-10-28 07:13:05,259 - INFO -    3. CRH -PH  : Score=1.000, Corr=0.643, Coint_p=0.0120, Half_Life=12.3d
+2026-10-28 07:13:05,259 - INFO -    4. DKS -TSCO: Score=1.000, Corr=0.446, Coint_p=0.0001, Half_Life=9.9d
+2026-10-28 07:13:05,259 - INFO -    5. EOG -MPC : Score=1.000, Corr=0.589, Coint_p=0.0043, Half_Life=18.8d
+2026-10-28 07:13:05,740 - INFO -   2025-07-10: full search selected 187 pairs
+2026-10-28 07:13:05,779 - INFO - Quarterly schedule built: 6 re-selections
+2026-10-28 07:13:06,016 - INFO - Main backtest 2023-07-01 -> 2025-12-31
+2026-10-28 07:13:06,016 - INFO - ADAPTIVE Prime Fund Position Sizer - Risk Scaled
+2026-10-28 07:13:09,328 - INFO - Backtest: 628 tradeable days (2023-07-03 -> 2025-12-31), fill=Close
+2026-10-28 07:13:09,491 - INFO - TRADE 1: DAL-UAL SHORT spread  z=+2.69 beta=0.79 quality=0.88 exit=time
+2026-10-28 07:13:09,491 - INFO - TRADE 2: BDX-TFX SHORT spread  z=+2.06 beta=0.39 quality=1.00 exit=target
+2026-10-28 07:13:09,492 - INFO - TRADE 3: MET-TRV SHORT spread  z=+1.95 beta=0.96 quality=1.00 exit=stop
+2026-10-28 07:13:09,492 - INFO - TRADE 4: ETR-EXC LONG spread  z=-1.94 beta=0.74 quality=1.00 exit=target
+2026-10-28 07:13:09,492 - INFO - TRADE 5: DHI-LEN LONG spread  z=-2.10 beta=0.96 quality=0.91 exit=target
+2026-10-28 07:13:10,583 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:10,645 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:10,703 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:10,771 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:10,814 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:10,850 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:10,890 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:10,926 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:10,965 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:11,008 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:11,057 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:11,090 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:11,128 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:11,399 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:11,715 - INFO - Day 2023-09-12: 0 candidates (signals so far: 972)
+2026-10-28 07:13:13,646 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:13,723 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:13,779 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:13,826 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:13,870 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:13,932 - INFO - Day 2023-11-21: 0 candidates (signals so far: 2255)
+2026-10-28 07:13:13,932 - INFO - POSITION SCALING: vol=0.80, profit=1.00, combined=0.80
+2026-10-28 07:13:13,979 - INFO - POSITION SCALING: vol=0.79, profit=1.00, combined=0.79
+2026-10-28 07:13:14,021 - INFO - POSITION SCALING: vol=0.79, profit=1.00, combined=0.79
+2026-10-28 07:13:14,062 - INFO - POSITION SCALING: vol=0.79, profit=1.00, combined=0.79
+2026-10-28 07:13:14,104 - INFO - POSITION SCALING: vol=0.79, profit=1.00, combined=0.79
+2026-10-28 07:13:14,150 - INFO - POSITION SCALING: vol=0.78, profit=1.00, combined=0.78
+2026-10-28 07:13:14,192 - INFO - POSITION SCALING: vol=0.77, profit=1.00, combined=0.77
+2026-10-28 07:13:14,263 - INFO - POSITION SCALING: vol=0.77, profit=1.00, combined=0.77
+2026-10-28 07:13:14,305 - INFO - POSITION SCALING: vol=0.77, profit=1.00, combined=0.77
+2026-10-28 07:13:14,347 - INFO - POSITION SCALING: vol=0.76, profit=1.00, combined=0.76
+2026-10-28 07:13:14,387 - INFO - POSITION SCALING: vol=0.78, profit=1.00, combined=0.78
+2026-10-28 07:13:14,424 - INFO - POSITION SCALING: vol=0.79, profit=1.00, combined=0.79
+2026-10-28 07:13:14,459 - INFO - HIGH VOLATILITY: 3.05% annualized, scaling positions to 50%
+2026-10-28 07:13:14,459 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:14,496 - INFO - HIGH VOLATILITY: 3.10% annualized, scaling positions to 50%
+2026-10-28 07:13:14,496 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:14,539 - INFO - HIGH VOLATILITY: 3.03% annualized, scaling positions to 50%
+2026-10-28 07:13:14,539 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:14,572 - INFO - POSITION SCALING: vol=0.84, profit=1.00, combined=0.84
+2026-10-28 07:13:14,605 - INFO - POSITION SCALING: vol=0.84, profit=1.00, combined=0.84
+2026-10-28 07:13:14,636 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:14,668 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:14,700 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:14,729 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:14,759 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:14,790 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:14,820 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:14,850 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:14,880 - INFO - POSITION SCALING: vol=0.92, profit=1.00, combined=0.92
+2026-10-28 07:13:14,909 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:14,938 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:14,968 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:15,021 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:15,055 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:15,101 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:15,771 - INFO - Day 2024-02-05: 0 candidates (signals so far: 3174)
+2026-10-28 07:13:16,139 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:16,176 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:16,218 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:16,258 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:16,287 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:16,316 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:16,346 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:16,378 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:16,408 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:16,439 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:16,473 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:16,502 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:16,532 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:16,562 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:16,587 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:16,612 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:16,635 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:16,658 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:16,685 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:16,708 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:17,236 - INFO - Day 2024-04-17: 12 candidates (signals so far: 3932)
+2026-10-28 07:13:18,028 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:18,066 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:18,098 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:18,127 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:18,155 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:18,184 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:18,214 - INFO - POSITION SCALING: vol=0.92, profit=1.00, combined=0.92
+2026-10-28 07:13:18,242 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:18,268 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:18,293 - INFO - POSITION SCALING: vol=0.92, profit=1.00, combined=0.92
+2026-10-28 07:13:18,318 - INFO - POSITION SCALING: vol=0.92, profit=1.00, combined=0.92
+2026-10-28 07:13:18,345 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:18,370 - INFO - POSITION SCALING: vol=0.84, profit=1.00, combined=0.84
+2026-10-28 07:13:18,396 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:18,425 - INFO - POSITION SCALING: vol=0.84, profit=1.00, combined=0.84
+2026-10-28 07:13:18,451 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:18,473 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:18,498 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:18,523 - INFO - POSITION SCALING: vol=0.81, profit=1.00, combined=0.81
+2026-10-28 07:13:18,546 - INFO - POSITION SCALING: vol=0.81, profit=1.00, combined=0.81
+2026-10-28 07:13:18,569 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:18,598 - INFO - Day 2024-06-28: 0 candidates (signals so far: 4773)
+2026-10-28 07:13:18,598 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:18,621 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:18,647 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:18,670 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:18,695 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:18,726 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:18,753 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:18,782 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:18,807 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:18,829 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:19,129 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:19,161 - INFO - POSITION SCALING: vol=0.92, profit=1.00, combined=0.92
+2026-10-28 07:13:19,189 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:19,226 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:19,258 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:19,289 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:19,323 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:19,360 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:19,392 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:19,432 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:19,462 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:19,482 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:19,503 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:19,522 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:19,569 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:19,872 - INFO - Day 2024-09-10: 0 candidates (signals so far: 5370)
+2026-10-28 07:13:19,892 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:20,020 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:20,046 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:20,065 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:20,085 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:20,105 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:20,123 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:20,144 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:20,167 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:20,201 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:20,226 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:20,248 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:20,275 - INFO - POSITION SCALING: vol=0.92, profit=1.00, combined=0.92
+2026-10-28 07:13:20,296 - INFO - POSITION SCALING: vol=0.92, profit=1.00, combined=0.92
+2026-10-28 07:13:20,570 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:20,594 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:20,623 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:20,650 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:20,671 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:20,707 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:20,737 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:20,771 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:20,797 - INFO - POSITION SCALING: vol=0.81, profit=1.00, combined=0.81
+2026-10-28 07:13:20,821 - INFO - POSITION SCALING: vol=0.80, profit=1.00, combined=0.80
+2026-10-28 07:13:20,849 - INFO - POSITION SCALING: vol=0.83, profit=1.00, combined=0.83
+2026-10-28 07:13:20,870 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:20,890 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:20,907 - INFO - POSITION SCALING: vol=0.84, profit=1.00, combined=0.84
+2026-10-28 07:13:20,923 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:20,942 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:20,960 - INFO - POSITION SCALING: vol=0.84, profit=1.00, combined=0.84
+2026-10-28 07:13:20,985 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:21,009 - INFO - Day 2024-11-19: 11 candidates (signals so far: 6024)
+2026-10-28 07:13:21,010 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:21,033 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:13:21,049 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:21,063 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:21,080 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:21,095 - INFO - POSITION SCALING: vol=0.92, profit=1.00, combined=0.92
+2026-10-28 07:13:21,110 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:21,124 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:21,139 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:22,533 - INFO - Day 2025-02-04: 0 candidates (signals so far: 6563)
+2026-10-28 07:13:22,619 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:22,664 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:22,707 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:22,743 - INFO - POSITION SCALING: vol=0.92, profit=1.00, combined=0.92
+2026-10-28 07:13:22,779 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:22,818 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:22,853 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:22,887 - INFO - POSITION SCALING: vol=0.88, profit=1.00, combined=0.88
+2026-10-28 07:13:22,934 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:22,970 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:23,008 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:23,049 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:23,091 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:23,129 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:23,164 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:23,201 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:23,238 - INFO - POSITION SCALING: vol=0.80, profit=1.00, combined=0.80
+2026-10-28 07:13:23,278 - INFO - POSITION SCALING: vol=0.78, profit=1.00, combined=0.78
+2026-10-28 07:13:23,334 - INFO - POSITION SCALING: vol=0.79, profit=1.00, combined=0.79
+2026-10-28 07:13:23,376 - INFO - POSITION SCALING: vol=0.80, profit=1.00, combined=0.80
+2026-10-28 07:13:23,444 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:23,487 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:13:23,529 - INFO - POSITION SCALING: vol=0.88, profit=1.00, combined=0.88
+2026-10-28 07:13:23,567 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:23,612 - INFO - POSITION SCALING: vol=0.86, profit=1.00, combined=0.86
+2026-10-28 07:13:23,665 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:23,714 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:23,762 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:23,808 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:23,851 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:23,892 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:23,948 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:23,995 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:13:24,046 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:13:24,084 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:24,124 - INFO - POSITION SCALING: vol=0.86, profit=1.00, combined=0.86
+2026-10-28 07:13:24,169 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:24,291 - INFO - POSITION SCALING: vol=0.88, profit=1.00, combined=0.88
+2026-10-28 07:13:24,335 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:13:24,406 - INFO - POSITION SCALING: vol=0.86, profit=1.00, combined=0.86
+2026-10-28 07:13:24,466 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:24,520 - INFO - HIGH VOLATILITY: 4.07% annualized, scaling positions to 50%
+2026-10-28 07:13:24,520 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:24,562 - INFO - HIGH VOLATILITY: 4.71% annualized, scaling positions to 50%
+2026-10-28 07:13:24,563 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:24,611 - INFO - HIGH VOLATILITY: 4.64% annualized, scaling positions to 50%
+2026-10-28 07:13:24,611 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:24,652 - INFO - HIGH VOLATILITY: 4.65% annualized, scaling positions to 50%
+2026-10-28 07:13:24,653 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:24,692 - INFO - HIGH VOLATILITY: 4.70% annualized, scaling positions to 50%
+2026-10-28 07:13:24,693 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:24,731 - INFO - HIGH VOLATILITY: 4.78% annualized, scaling positions to 50%
+2026-10-28 07:13:24,731 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:24,771 - INFO - Day 2025-04-16: 0 candidates (signals so far: 7785)
+2026-10-28 07:13:24,771 - INFO - HIGH VOLATILITY: 4.80% annualized, scaling positions to 50%
+2026-10-28 07:13:24,771 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:24,807 - INFO - HIGH VOLATILITY: 4.87% annualized, scaling positions to 50%
+2026-10-28 07:13:24,807 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:24,844 - INFO - HIGH VOLATILITY: 4.92% annualized, scaling positions to 50%
+2026-10-28 07:13:24,844 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:24,881 - INFO - HIGH VOLATILITY: 4.96% annualized, scaling positions to 50%
+2026-10-28 07:13:24,881 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:24,916 - INFO - HIGH VOLATILITY: 5.07% annualized, scaling positions to 50%
+2026-10-28 07:13:24,916 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:24,951 - INFO - HIGH VOLATILITY: 5.11% annualized, scaling positions to 50%
+2026-10-28 07:13:24,951 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:24,985 - INFO - HIGH VOLATILITY: 5.09% annualized, scaling positions to 50%
+2026-10-28 07:13:24,986 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:25,021 - INFO - HIGH VOLATILITY: 5.07% annualized, scaling positions to 50%
+2026-10-28 07:13:25,021 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:25,054 - INFO - HIGH VOLATILITY: 5.06% annualized, scaling positions to 50%
+2026-10-28 07:13:25,055 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:25,090 - INFO - HIGH VOLATILITY: 5.07% annualized, scaling positions to 50%
+2026-10-28 07:13:25,090 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:25,128 - INFO - HIGH VOLATILITY: 4.82% annualized, scaling positions to 50%
+2026-10-28 07:13:25,128 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:25,167 - INFO - HIGH VOLATILITY: 4.81% annualized, scaling positions to 50%
+2026-10-28 07:13:25,167 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:25,206 - INFO - HIGH VOLATILITY: 4.80% annualized, scaling positions to 50%
+2026-10-28 07:13:25,206 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:25,242 - INFO - HIGH VOLATILITY: 4.65% annualized, scaling positions to 50%
+2026-10-28 07:13:25,242 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:25,278 - INFO - HIGH VOLATILITY: 3.59% annualized, scaling positions to 50%
+2026-10-28 07:13:25,279 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:25,312 - INFO - POSITION SCALING: vol=0.84, profit=1.00, combined=0.84
+2026-10-28 07:13:25,343 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:25,377 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:25,413 - INFO - POSITION SCALING: vol=0.83, profit=1.00, combined=0.83
+2026-10-28 07:13:25,449 - INFO - POSITION SCALING: vol=0.88, profit=1.00, combined=0.88
+2026-10-28 07:13:25,480 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:13:25,513 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:25,543 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:26,070 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:26,100 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:26,131 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:26,162 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:26,197 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:26,230 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:26,264 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:26,298 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:26,338 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:26,371 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:26,405 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:26,438 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:26,502 - INFO - Day 2025-06-30: 0 candidates (signals so far: 8359)
+2026-10-28 07:13:26,503 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:26,541 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:26,575 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:26,675 - INFO - POSITION SCALING: vol=0.88, profit=1.00, combined=0.88
+2026-10-28 07:13:26,708 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:13:26,779 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:26,813 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:26,880 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:26,916 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:26,952 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:26,983 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:27,014 - INFO - POSITION SCALING: vol=0.83, profit=1.00, combined=0.83
+2026-10-28 07:13:27,047 - INFO - POSITION SCALING: vol=0.83, profit=1.00, combined=0.83
+2026-10-28 07:13:27,085 - INFO - POSITION SCALING: vol=0.83, profit=1.00, combined=0.83
+2026-10-28 07:13:27,124 - INFO - POSITION SCALING: vol=0.83, profit=1.00, combined=0.83
+2026-10-28 07:13:27,157 - INFO - POSITION SCALING: vol=0.83, profit=1.00, combined=0.83
+2026-10-28 07:13:27,185 - INFO - POSITION SCALING: vol=0.83, profit=1.00, combined=0.83
+2026-10-28 07:13:27,222 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:27,251 - INFO - POSITION SCALING: vol=0.79, profit=1.00, combined=0.79
+2026-10-28 07:13:27,284 - INFO - POSITION SCALING: vol=0.79, profit=1.00, combined=0.79
+2026-10-28 07:13:27,311 - INFO - POSITION SCALING: vol=0.78, profit=1.00, combined=0.78
+2026-10-28 07:13:27,342 - INFO - POSITION SCALING: vol=0.78, profit=1.00, combined=0.78
+2026-10-28 07:13:27,374 - INFO - POSITION SCALING: vol=0.92, profit=1.00, combined=0.92
+2026-10-28 07:13:27,404 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:27,433 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:27,468 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:27,502 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:27,530 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:27,559 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:27,585 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:27,611 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:28,076 - INFO - Day 2025-09-10: 0 candidates (signals so far: 9118)
+2026-10-28 07:13:29,909 - INFO - Day 2025-11-19: 1 candidates (signals so far: 10149)
+2026-10-28 07:13:30,753 - INFO - Regime gate: 626 full-scale days, 0 reduced-scale days, 0 no-entry (hard-stop) days
+2026-10-28 07:13:30,753 - INFO - Signal rejections: {'beta_out_of_band': 13367, 'cooloff': 101, 'evaluated': 56960, 'gross_exposure_cap': 2261, 'pair_quality': 5014, 'risk: would': 7866, 'rolling_corr': 25393}
+2026-10-28 07:13:30,760 - INFO - ============================================================
+2026-10-28 07:13:30,760 - INFO - WALK-FORWARD VALIDATION (continuous OOS simulation, per-window refits)
+2026-10-28 07:13:30,760 - INFO -   Train window: 252 days | Test window: 63 days
+2026-10-28 07:13:30,760 - INFO - ============================================================
+2026-10-28 07:13:32,862 - INFO - Walk-forward grid: 19 windows
+2026-10-28 07:13:32,862 - INFO -   Window 1: no pair universe selected by 2021-02-11 — skipped
+2026-10-28 07:13:32,862 - INFO -   Window 2: no pair universe selected by 2021-05-13 — skipped
+2026-10-28 07:13:32,862 - INFO -   Window 3: no pair universe selected by 2021-08-12 — skipped
+2026-10-28 07:13:32,862 - INFO -   Window 4: no pair universe selected by 2021-11-10 — skipped
+2026-10-28 07:13:32,862 - INFO -   Window 5: no pair universe selected by 2022-02-10 — skipped
+2026-10-28 07:13:32,862 - INFO -   Window 6: no pair universe selected by 2022-05-12 — skipped
+2026-10-28 07:13:32,862 - INFO -   Window 7: no pair universe selected by 2022-08-12 — skipped
+2026-10-28 07:13:32,862 - INFO -   Window 8: no pair universe selected by 2022-11-10 — skipped
+2026-10-28 07:13:32,863 - INFO - Signal-quality ranker initialised
+2026-10-28 07:13:32,863 - INFO - Ranker: none — classical-only ranking (quality = 1.0)
+2026-10-28 07:13:32,863 - INFO - Signal-quality ranker initialised
+2026-10-28 07:13:32,863 - INFO - Ranker: none — classical-only ranking (quality = 1.0)
+2026-10-28 07:13:32,864 - INFO - Signal-quality ranker initialised
+2026-10-28 07:13:32,864 - INFO - Ranker: none — classical-only ranking (quality = 1.0)
+2026-10-28 07:13:32,864 - INFO - Signal-quality ranker initialised
+2026-10-28 07:13:32,864 - INFO - Ranker: none — classical-only ranking (quality = 1.0)
+2026-10-28 07:13:32,864 - INFO - Signal-quality ranker initialised
+2026-10-28 07:13:32,864 - INFO - Ranker: none — classical-only ranking (quality = 1.0)
+2026-10-28 07:13:32,865 - INFO - Signal-quality ranker initialised
+2026-10-28 07:13:32,865 - INFO - Ranker: none — classical-only ranking (quality = 1.0)
+2026-10-28 07:13:32,865 - INFO - Signal-quality ranker initialised
+2026-10-28 07:13:32,865 - INFO - Ranker: none — classical-only ranking (quality = 1.0)
+2026-10-28 07:13:32,865 - INFO - Signal-quality ranker initialised
+2026-10-28 07:13:32,865 - INFO - Ranker: none — classical-only ranking (quality = 1.0)
+2026-10-28 07:13:32,866 - INFO - Signal-quality ranker initialised
+2026-10-28 07:13:32,866 - INFO - Ranker: none — classical-only ranking (quality = 1.0)
+2026-10-28 07:13:32,866 - INFO - Signal-quality ranker initialised
+2026-10-28 07:13:32,866 - INFO - Ranker: none — classical-only ranking (quality = 1.0)
+2026-10-28 07:13:32,867 - INFO - Signal-quality ranker initialised
+2026-10-28 07:13:32,867 - INFO - Ranker: none — classical-only ranking (quality = 1.0)
+2026-10-28 07:13:32,867 - INFO - ADAPTIVE Prime Fund Position Sizer - Risk Scaled
+2026-10-28 07:13:36,010 - INFO - Backtest: 693 tradeable days (2023-02-14 -> 2025-11-17), fill=Close
+2026-10-28 07:13:36,222 - INFO - TRADE 1: ES-EXC LONG spread  z=-2.48 beta=0.73 quality=1.00 exit=stop
+2026-10-28 07:13:36,222 - INFO - TRADE 2: SNOW-TTD SHORT spread  z=+2.46 beta=0.65 quality=0.97 exit=target
+2026-10-28 07:13:36,222 - INFO - TRADE 3: NET-ZS SHORT spread  z=+2.55 beta=1.10 quality=0.87 exit=time
+2026-10-28 07:13:36,223 - INFO - TRADE 4: EW-WST LONG spread  z=-2.64 beta=0.60 quality=0.85 exit=stop
+2026-10-28 07:13:36,464 - INFO - TRADE 5: AIG-HIG LONG spread  z=-2.51 beta=1.01 quality=0.87 exit=stop
+2026-10-28 07:13:36,854 - INFO - HIGH VOLATILITY: 3.30% annualized, scaling positions to 50%
+2026-10-28 07:13:36,854 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:36,923 - INFO - HIGH VOLATILITY: 3.15% annualized, scaling positions to 50%
+2026-10-28 07:13:36,923 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:37,000 - INFO - HIGH VOLATILITY: 3.02% annualized, scaling positions to 50%
+2026-10-28 07:13:37,000 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:37,063 - INFO - HIGH VOLATILITY: 3.52% annualized, scaling positions to 50%
+2026-10-28 07:13:37,063 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:37,122 - INFO - HIGH VOLATILITY: 3.42% annualized, scaling positions to 50%
+2026-10-28 07:13:37,122 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:37,178 - INFO - HIGH VOLATILITY: 3.32% annualized, scaling positions to 50%
+2026-10-28 07:13:37,178 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:37,262 - INFO - HIGH VOLATILITY: 3.31% annualized, scaling positions to 50%
+2026-10-28 07:13:37,262 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:37,320 - INFO - HIGH VOLATILITY: 3.21% annualized, scaling positions to 50%
+2026-10-28 07:13:37,320 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:37,387 - INFO - HIGH VOLATILITY: 3.18% annualized, scaling positions to 50%
+2026-10-28 07:13:37,387 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:37,476 - INFO - HIGH VOLATILITY: 3.21% annualized, scaling positions to 50%
+2026-10-28 07:13:37,476 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:37,554 - INFO - HIGH VOLATILITY: 3.13% annualized, scaling positions to 50%
+2026-10-28 07:13:37,555 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:37,634 - INFO - HIGH VOLATILITY: 3.13% annualized, scaling positions to 50%
+2026-10-28 07:13:37,634 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:37,693 - INFO - HIGH VOLATILITY: 3.14% annualized, scaling positions to 50%
+2026-10-28 07:13:37,693 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:37,753 - INFO - POSITION SCALING: vol=0.78, profit=1.00, combined=0.78
+2026-10-28 07:13:37,809 - INFO - POSITION SCALING: vol=0.88, profit=1.00, combined=0.88
+2026-10-28 07:13:37,870 - INFO - POSITION SCALING: vol=0.83, profit=1.00, combined=0.83
+2026-10-28 07:13:37,920 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:37,972 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:38,024 - INFO - POSITION SCALING: vol=0.88, profit=1.00, combined=0.88
+2026-10-28 07:13:38,077 - INFO - POSITION SCALING: vol=0.88, profit=1.00, combined=0.88
+2026-10-28 07:13:38,124 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:13:38,172 - INFO - POSITION SCALING: vol=0.88, profit=1.00, combined=0.88
+2026-10-28 07:13:38,233 - INFO - POSITION SCALING: vol=0.88, profit=1.00, combined=0.88
+2026-10-28 07:13:38,283 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:38,982 - INFO - Day 2023-04-19: 0 candidates (signals so far: 1748)
+2026-10-28 07:13:40,833 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:41,840 - INFO - Day 2023-06-30: 0 candidates (signals so far: 3430)
+2026-10-28 07:13:43,149 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:43,942 - INFO - Day 2023-09-12: 0 candidates (signals so far: 4458)
+2026-10-28 07:13:45,936 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:45,980 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:46,024 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:13:46,073 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:13:46,142 - INFO - POSITION SCALING: vol=0.86, profit=1.00, combined=0.86
+2026-10-28 07:13:46,179 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:46,217 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:46,253 - INFO - Day 2023-11-21: 0 candidates (signals so far: 5748)
+2026-10-28 07:13:46,253 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:46,285 - INFO - POSITION SCALING: vol=0.86, profit=1.00, combined=0.86
+2026-10-28 07:13:46,318 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:13:46,350 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:13:46,381 - INFO - POSITION SCALING: vol=0.86, profit=1.00, combined=0.86
+2026-10-28 07:13:46,416 - INFO - POSITION SCALING: vol=0.86, profit=1.00, combined=0.86
+2026-10-28 07:13:46,457 - INFO - POSITION SCALING: vol=0.88, profit=1.00, combined=0.88
+2026-10-28 07:13:46,506 - INFO - POSITION SCALING: vol=0.88, profit=1.00, combined=0.88
+2026-10-28 07:13:46,549 - INFO - POSITION SCALING: vol=0.88, profit=1.00, combined=0.88
+2026-10-28 07:13:46,593 - INFO - POSITION SCALING: vol=0.88, profit=1.00, combined=0.88
+2026-10-28 07:13:46,632 - INFO - POSITION SCALING: vol=0.88, profit=1.00, combined=0.88
+2026-10-28 07:13:46,679 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:46,711 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:48,192 - INFO - Day 2024-02-05: 0 candidates (signals so far: 6594)
+2026-10-28 07:13:48,192 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:48,225 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:48,258 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:48,288 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:48,328 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:48,695 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:48,729 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:48,757 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:48,788 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:49,074 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:49,104 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:49,132 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:49,157 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:49,182 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:49,211 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:49,876 - INFO - Day 2024-04-17: 16 candidates (signals so far: 7364)
+2026-10-28 07:13:50,215 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:50,251 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:50,289 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:50,322 - INFO - POSITION SCALING: vol=0.92, profit=1.00, combined=0.92
+2026-10-28 07:13:50,356 - INFO - POSITION SCALING: vol=0.92, profit=1.00, combined=0.92
+2026-10-28 07:13:50,398 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:50,450 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:50,485 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:50,519 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:50,550 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:50,588 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:50,620 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:50,651 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:50,683 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:50,720 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:50,751 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:50,781 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:51,277 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:51,306 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:51,337 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:51,367 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:51,400 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:51,432 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:51,459 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:51,488 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:51,514 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:51,538 - INFO - Day 2024-06-28: 0 candidates (signals so far: 8284)
+2026-10-28 07:13:51,538 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:51,742 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:51,766 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:51,789 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:51,818 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:51,842 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:51,874 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:51,898 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:51,922 - INFO - POSITION SCALING: vol=0.86, profit=1.00, combined=0.86
+2026-10-28 07:13:51,949 - INFO - POSITION SCALING: vol=0.86, profit=1.00, combined=0.86
+2026-10-28 07:13:51,976 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:52,014 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:52,049 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:52,074 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:13:52,101 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:52,136 - INFO - POSITION SCALING: vol=0.86, profit=1.00, combined=0.86
+2026-10-28 07:13:52,163 - INFO - POSITION SCALING: vol=0.84, profit=1.00, combined=0.84
+2026-10-28 07:13:52,191 - INFO - POSITION SCALING: vol=0.79, profit=1.00, combined=0.79
+2026-10-28 07:13:52,232 - INFO - POSITION SCALING: vol=0.77, profit=1.00, combined=0.77
+2026-10-28 07:13:52,261 - INFO - POSITION SCALING: vol=0.76, profit=1.00, combined=0.76
+2026-10-28 07:13:52,306 - INFO - POSITION SCALING: vol=0.76, profit=1.00, combined=0.76
+2026-10-28 07:13:52,335 - INFO - POSITION SCALING: vol=0.83, profit=1.00, combined=0.83
+2026-10-28 07:13:52,362 - INFO - POSITION SCALING: vol=0.83, profit=1.00, combined=0.83
+2026-10-28 07:13:52,399 - INFO - POSITION SCALING: vol=0.84, profit=1.00, combined=0.84
+2026-10-28 07:13:52,429 - INFO - POSITION SCALING: vol=0.84, profit=1.00, combined=0.84
+2026-10-28 07:13:52,455 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:52,485 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:52,508 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:52,535 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:13:52,559 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:52,633 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:52,655 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:52,703 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:52,908 - INFO - Day 2024-09-10: 0 candidates (signals so far: 8843)
+2026-10-28 07:13:53,727 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:53,865 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:53,891 - INFO - POSITION SCALING: vol=0.92, profit=1.00, combined=0.92
+2026-10-28 07:13:53,920 - INFO - POSITION SCALING: vol=0.92, profit=1.00, combined=0.92
+2026-10-28 07:13:53,946 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:53,971 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:53,994 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:54,025 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:54,049 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:54,072 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:54,106 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:54,125 - INFO - Day 2024-11-19: 3 candidates (signals so far: 9500)
+2026-10-28 07:13:54,125 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:54,144 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:54,164 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:54,190 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:13:55,670 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:13:55,717 - INFO - POSITION SCALING: vol=0.81, profit=1.00, combined=0.81
+2026-10-28 07:13:55,764 - INFO - POSITION SCALING: vol=0.76, profit=1.00, combined=0.76
+2026-10-28 07:13:55,819 - INFO - POSITION SCALING: vol=0.76, profit=1.00, combined=0.76
+2026-10-28 07:13:55,864 - INFO - Day 2025-02-04: 0 candidates (signals so far: 10158)
+2026-10-28 07:13:55,864 - INFO - HIGH VOLATILITY: 3.09% annualized, scaling positions to 50%
+2026-10-28 07:13:55,864 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:55,906 - INFO - HIGH VOLATILITY: 3.10% annualized, scaling positions to 50%
+2026-10-28 07:13:55,906 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:55,948 - INFO - HIGH VOLATILITY: 3.07% annualized, scaling positions to 50%
+2026-10-28 07:13:55,948 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:55,988 - INFO - HIGH VOLATILITY: 3.07% annualized, scaling positions to 50%
+2026-10-28 07:13:55,988 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:56,030 - INFO - HIGH VOLATILITY: 3.07% annualized, scaling positions to 50%
+2026-10-28 07:13:56,031 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:56,070 - INFO - HIGH VOLATILITY: 3.09% annualized, scaling positions to 50%
+2026-10-28 07:13:56,070 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:56,108 - INFO - HIGH VOLATILITY: 3.10% annualized, scaling positions to 50%
+2026-10-28 07:13:56,108 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:56,153 - INFO - POSITION SCALING: vol=0.75, profit=1.00, combined=0.75
+2026-10-28 07:13:56,192 - INFO - POSITION SCALING: vol=0.76, profit=1.00, combined=0.76
+2026-10-28 07:13:56,233 - INFO - HIGH VOLATILITY: 3.04% annualized, scaling positions to 50%
+2026-10-28 07:13:56,233 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:56,278 - INFO - HIGH VOLATILITY: 3.12% annualized, scaling positions to 50%
+2026-10-28 07:13:56,278 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:56,316 - INFO - HIGH VOLATILITY: 3.18% annualized, scaling positions to 50%
+2026-10-28 07:13:56,316 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:56,351 - INFO - HIGH VOLATILITY: 3.22% annualized, scaling positions to 50%
+2026-10-28 07:13:56,351 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:56,390 - INFO - HIGH VOLATILITY: 3.09% annualized, scaling positions to 50%
+2026-10-28 07:13:56,391 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:56,430 - INFO - HIGH VOLATILITY: 3.12% annualized, scaling positions to 50%
+2026-10-28 07:13:56,431 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:56,476 - INFO - POSITION SCALING: vol=0.77, profit=1.00, combined=0.77
+2026-10-28 07:13:56,515 - INFO - POSITION SCALING: vol=0.89, profit=1.00, combined=0.89
+2026-10-28 07:13:56,553 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:56,596 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:13:56,645 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:13:57,245 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:57,286 - INFO - POSITION SCALING: vol=0.93, profit=1.00, combined=0.93
+2026-10-28 07:13:57,322 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:57,358 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:57,415 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:57,453 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:57,494 - INFO - POSITION SCALING: vol=0.86, profit=1.00, combined=0.86
+2026-10-28 07:13:57,531 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:13:57,570 - INFO - HIGH VOLATILITY: 4.05% annualized, scaling positions to 50%
+2026-10-28 07:13:57,570 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:57,614 - INFO - HIGH VOLATILITY: 4.16% annualized, scaling positions to 50%
+2026-10-28 07:13:57,614 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:57,664 - INFO - HIGH VOLATILITY: 4.22% annualized, scaling positions to 50%
+2026-10-28 07:13:57,664 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:57,720 - INFO - HIGH VOLATILITY: 4.21% annualized, scaling positions to 50%
+2026-10-28 07:13:57,720 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:57,769 - INFO - HIGH VOLATILITY: 4.89% annualized, scaling positions to 50%
+2026-10-28 07:13:57,769 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:57,811 - INFO - HIGH VOLATILITY: 5.11% annualized, scaling positions to 50%
+2026-10-28 07:13:57,811 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:57,861 - INFO - HIGH VOLATILITY: 5.03% annualized, scaling positions to 50%
+2026-10-28 07:13:57,861 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:57,904 - INFO - HIGH VOLATILITY: 5.02% annualized, scaling positions to 50%
+2026-10-28 07:13:57,904 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:57,948 - INFO - HIGH VOLATILITY: 5.03% annualized, scaling positions to 50%
+2026-10-28 07:13:57,948 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:57,980 - INFO - HIGH VOLATILITY: 5.06% annualized, scaling positions to 50%
+2026-10-28 07:13:57,980 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,009 - INFO - Day 2025-04-16: 0 candidates (signals so far: 11440)
+2026-10-28 07:13:58,009 - INFO - HIGH VOLATILITY: 5.32% annualized, scaling positions to 50%
+2026-10-28 07:13:58,009 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,041 - INFO - HIGH VOLATILITY: 5.33% annualized, scaling positions to 50%
+2026-10-28 07:13:58,041 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,071 - INFO - HIGH VOLATILITY: 5.18% annualized, scaling positions to 50%
+2026-10-28 07:13:58,071 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,100 - INFO - HIGH VOLATILITY: 5.20% annualized, scaling positions to 50%
+2026-10-28 07:13:58,100 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,126 - INFO - HIGH VOLATILITY: 5.33% annualized, scaling positions to 50%
+2026-10-28 07:13:58,127 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,153 - INFO - HIGH VOLATILITY: 5.34% annualized, scaling positions to 50%
+2026-10-28 07:13:58,153 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,181 - INFO - HIGH VOLATILITY: 5.24% annualized, scaling positions to 50%
+2026-10-28 07:13:58,181 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,208 - INFO - HIGH VOLATILITY: 5.25% annualized, scaling positions to 50%
+2026-10-28 07:13:58,208 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,236 - INFO - HIGH VOLATILITY: 5.22% annualized, scaling positions to 50%
+2026-10-28 07:13:58,236 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,266 - INFO - HIGH VOLATILITY: 5.20% annualized, scaling positions to 50%
+2026-10-28 07:13:58,266 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,294 - INFO - HIGH VOLATILITY: 4.11% annualized, scaling positions to 50%
+2026-10-28 07:13:58,295 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,328 - INFO - HIGH VOLATILITY: 3.93% annualized, scaling positions to 50%
+2026-10-28 07:13:58,328 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,357 - INFO - HIGH VOLATILITY: 3.91% annualized, scaling positions to 50%
+2026-10-28 07:13:58,357 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,385 - INFO - HIGH VOLATILITY: 4.08% annualized, scaling positions to 50%
+2026-10-28 07:13:58,386 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,415 - INFO - HIGH VOLATILITY: 3.48% annualized, scaling positions to 50%
+2026-10-28 07:13:58,416 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,444 - INFO - HIGH VOLATILITY: 3.16% annualized, scaling positions to 50%
+2026-10-28 07:13:58,445 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,486 - INFO - HIGH VOLATILITY: 3.28% annualized, scaling positions to 50%
+2026-10-28 07:13:58,486 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,525 - INFO - HIGH VOLATILITY: 3.29% annualized, scaling positions to 50%
+2026-10-28 07:13:58,526 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,564 - INFO - HIGH VOLATILITY: 3.31% annualized, scaling positions to 50%
+2026-10-28 07:13:58,564 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,599 - INFO - HIGH VOLATILITY: 3.29% annualized, scaling positions to 50%
+2026-10-28 07:13:58,600 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,634 - INFO - HIGH VOLATILITY: 3.08% annualized, scaling positions to 50%
+2026-10-28 07:13:58,634 - INFO - POSITION SCALING: vol=0.50, profit=1.00, combined=0.50
+2026-10-28 07:13:58,673 - INFO - POSITION SCALING: vol=0.76, profit=1.00, combined=0.76
+2026-10-28 07:13:58,701 - INFO - POSITION SCALING: vol=0.78, profit=1.00, combined=0.78
+2026-10-28 07:13:58,736 - INFO - POSITION SCALING: vol=0.77, profit=1.00, combined=0.77
+2026-10-28 07:13:58,766 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:58,804 - INFO - POSITION SCALING: vol=0.83, profit=1.00, combined=0.83
+2026-10-28 07:13:58,853 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:58,891 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:58,937 - INFO - POSITION SCALING: vol=0.82, profit=1.00, combined=0.82
+2026-10-28 07:13:58,977 - INFO - POSITION SCALING: vol=0.78, profit=1.00, combined=0.78
+2026-10-28 07:13:59,015 - INFO - POSITION SCALING: vol=0.78, profit=1.00, combined=0.78
+2026-10-28 07:13:59,069 - INFO - POSITION SCALING: vol=0.79, profit=1.00, combined=0.79
+2026-10-28 07:13:59,110 - INFO - POSITION SCALING: vol=0.78, profit=1.00, combined=0.78
+2026-10-28 07:13:59,151 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:13:59,194 - INFO - POSITION SCALING: vol=0.90, profit=1.00, combined=0.90
+2026-10-28 07:13:59,234 - INFO - POSITION SCALING: vol=0.91, profit=1.00, combined=0.91
+2026-10-28 07:13:59,270 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:59,311 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:13:59,349 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:13:59,629 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:13:59,786 - INFO - Day 2025-06-30: 8 candidates (signals so far: 11948)
+2026-10-28 07:13:59,966 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:14:00,004 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:14:00,076 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:14:00,125 - INFO - POSITION SCALING: vol=0.98, profit=1.00, combined=0.98
+2026-10-28 07:14:00,172 - INFO - POSITION SCALING: vol=0.96, profit=1.00, combined=0.96
+2026-10-28 07:14:00,216 - INFO - POSITION SCALING: vol=0.95, profit=1.00, combined=0.95
+2026-10-28 07:14:00,267 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:14:00,319 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:14:00,349 - INFO - POSITION SCALING: vol=0.94, profit=1.00, combined=0.94
+2026-10-28 07:14:00,379 - INFO - POSITION SCALING: vol=0.86, profit=1.00, combined=0.86
+2026-10-28 07:14:00,414 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:14:00,464 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:14:00,501 - INFO - POSITION SCALING: vol=0.87, profit=1.00, combined=0.87
+2026-10-28 07:14:00,541 - INFO - POSITION SCALING: vol=0.86, profit=1.00, combined=0.86
+2026-10-28 07:14:00,583 - INFO - POSITION SCALING: vol=0.86, profit=1.00, combined=0.86
+2026-10-28 07:14:00,629 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:14:00,672 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:14:00,715 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:14:00,758 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:14:00,802 - INFO - POSITION SCALING: vol=0.85, profit=1.00, combined=0.85
+2026-10-28 07:14:00,844 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:14:00,881 - INFO - POSITION SCALING: vol=0.97, profit=1.00, combined=0.97
+2026-10-28 07:14:00,917 - INFO - POSITION SCALING: vol=0.99, profit=1.00, combined=0.99
+2026-10-28 07:14:00,970 - INFO - POSITION SCALING: vol=1.00, profit=1.00, combined=1.00
+2026-10-28 07:14:01,639 - INFO - Day 2025-09-10: 12 candidates (signals so far: 12736)
+2026-10-28 07:14:03,328 - INFO - Regime gate: 693 full-scale days, 0 reduced-scale days, 0 no-entry (hard-stop) days
+2026-10-28 07:14:03,329 - INFO - Signal rejections: {'beta_out_of_band': 15309, 'cooloff': 48, 'evaluated': 72232, 'gross_exposure_cap': 2875, 'pair_quality': 5344, 'risk: would': 10277, 'rolling_corr': 29270}
+2026-10-28 07:14:03,340 - INFO -   Window 9: test 2023-02-14 -> 2023-05-15 | return -1.67% | Sharpe -3.02 | trades 28
+2026-10-28 07:14:03,342 - INFO -   Window 10: test 2023-05-16 -> 2023-08-15 | return -0.58% | Sharpe -1.45 | trades 22
+2026-10-28 07:14:03,343 - INFO -   Window 11: test 2023-08-16 -> 2023-11-13 | return -1.64% | Sharpe -3.32 | trades 22
+2026-10-28 07:14:03,344 - INFO -   Window 12: test 2023-11-14 -> 2024-02-14 | return +0.14% | Sharpe +0.33 | trades 20
+2026-10-28 07:14:03,345 - INFO -   Window 13: test 2024-02-15 -> 2024-05-15 | return -1.65% | Sharpe -3.47 | trades 23
+2026-10-28 07:14:03,346 - INFO -   Window 14: test 2024-05-16 -> 2024-08-15 | return +1.10% | Sharpe +1.89 | trades 21
+2026-10-28 07:14:03,348 - INFO -   Window 15: test 2024-08-16 -> 2024-11-13 | return +0.58% | Sharpe +1.24 | trades 22
+2026-10-28 07:14:03,349 - INFO -   Window 16: test 2024-11-14 -> 2025-02-18 | return -0.76% | Sharpe -1.42 | trades 18
+2026-10-28 07:14:03,350 - INFO -   Window 17: test 2025-02-19 -> 2025-05-19 | return +0.73% | Sharpe +0.80 | trades 31
+2026-10-28 07:14:03,351 - INFO -   Window 18: test 2025-05-20 -> 2025-08-19 | return -1.28% | Sharpe -2.62 | trades 24
+2026-10-28 07:14:03,352 - INFO -   Window 19: test 2025-08-20 -> 2025-11-17 | return -1.34% | Sharpe -2.42 | trades 25
+2026-10-28 07:14:03,353 - INFO - ============================================================
+2026-10-28 07:14:03,353 - INFO - WALK-FORWARD SUMMARY
+2026-10-28 07:14:03,353 - INFO -   Windows: 11 traded, 8 skipped (no universe yet) | profitable: 4 (36.4%)
+2026-10-28 07:14:03,353 - INFO -   Avg window return: -0.5795% | median -0.7642%
+2026-10-28 07:14:03,353 - INFO -   Pooled OOS Sharpe: -1.041 | mean of per-window Sharpes: -1.222 (not a portfolio Sharpe)
+2026-10-28 07:14:03,353 - INFO -   Continuous OOS return: -6.2444% | max DD -6.46% | trades 256
+2026-10-28 07:14:03,353 - INFO -   Selection-clean windows: 11/11 (test start after the pair-selection cutoff 2022-12-31)
+2026-10-28 07:14:03,353 - INFO - ============================================================
+2026-10-28 07:14:03,690 - INFO - 
+==============================================================================
+2026-10-28 07:14:03,690 - INFO -                  STATISTICAL SIGNIFICANCE — is the edge real?                 
+2026-10-28 07:14:03,690 - INFO - ==============================================================================
+2026-10-28 07:14:03,691 - INFO - 
+MAIN BACKTEST (optimistic bound):
+2026-10-28 07:14:03,691 - INFO -   Ann. Sharpe          : -0.062  (628 days) | Lo (2002) autocorr-adjusted -0.059 (6 lags)
+2026-10-28 07:14:03,691 - INFO -   P(true Sharpe > 0)   :  46.1%   [skew +0.23, kurt 7.73; null-variance form 46.1%]
+2026-10-28 07:14:03,691 - INFO -   HAC t-stat (mean≠0)  : -0.10  (p=0.923, 6 lags)  not significant @5%
+2026-10-28 07:14:03,691 - INFO -   Bootstrap 95% Sharpe : [-1.29, +1.16]  (includes 0 → within noise)  (block 3, politis-white)
+2026-10-28 07:14:03,691 - INFO -   Deflated Sharpe (DSR):   1.4%   [vs E[max] SR* 1.33 over 32 trials]
+2026-10-28 07:14:03,691 - INFO - 
+OUT-OF-SAMPLE, stitched daily (honest estimate):
+2026-10-28 07:14:03,691 - INFO -   Ann. Sharpe          : -1.041  (716 days) | Lo (2002) autocorr-adjusted -1.002 (6 lags)
+2026-10-28 07:14:03,691 - INFO -   P(true Sharpe > 0)   :   3.9%   [skew -0.26, kurt 7.65; null-variance form 4.0%]
+2026-10-28 07:14:03,691 - INFO -   HAC t-stat (mean≠0)  : -1.87  (p=0.061, 6 lags)  not significant @5%
+2026-10-28 07:14:03,691 - INFO -   Bootstrap 95% Sharpe : [-2.09, +0.05]  (includes 0 → within noise)  (block 4, politis-white)
+2026-10-28 07:14:03,691 - INFO -   Deflated Sharpe (DSR):   0.0%   [vs E[max] SR* 1.25 over 32 trials]
+2026-10-28 07:14:03,691 - INFO - 
+OOS WINDOWS (n=11, the binding constraint):
+2026-10-28 07:14:03,691 - INFO -   mean -0.579%/qtr | t-stat -1.84 | p=0.096 (two-sided) | 4/11 positive | 95% CI (t) [-1.283%, +0.124%]
+2026-10-28 07:14:03,691 - INFO -   one-sided p: H1 mean<0 0.048 | H1 mean>0 0.952
+2026-10-28 07:14:03,691 - INFO -     (percentile bootstrap CI, secondary: [-1.144%, +0.036%] — unreliable at n=11 with tied zeros; the t interval above is the one consistent with the reported p-value)
+2026-10-28 07:14:03,691 - INFO -   NOT significant @5% (two-sided)
+2026-10-28 07:14:03,691 - INFO - ==============================================================================
+2026-10-28 07:14:03,694 - INFO - Transaction cost model: per-share commission, ADV-bucket spread, per-stock sqrt impact, GC borrow, PB carry
+2026-10-28 07:14:03,694 - INFO - ======================================================================
+2026-10-28 07:14:03,694 - INFO - BASELINE BENCHMARKS — distance method (Gatev 2006) + random-pair control
+2026-10-28 07:14:03,695 - INFO - ======================================================================
+2026-10-28 07:14:05,771 - INFO -   Rolling scheme: 5 x 126-day trading blocks, each formed on the prior 252 days | fills: t+1 close | costs: pipeline cost model @ $2,000,000/leg
+2026-10-28 07:14:07,378 - INFO -   Distance method (Gatev)      return   -9.551% | Sharpe -0.80 | 20 pairs x 5 blocks | 120 trades, avg round-trip cost 41.3 bp
+2026-10-28 07:14:07,378 - INFO -   Random-pair control          200 draws | Sharpe median +0.09 [p5 -1.85, p95 +1.17] | distance method at the 10th percentile
+2026-10-28 07:14:07,378 - INFO -   Effective universe per block: [500, 500, 500, 500, 500]
+2026-10-28 07:14:07,378 - INFO - ======================================================================
+2026-10-28 07:14:07,379 - INFO - 
+======================================================================
+2026-10-28 07:14:07,380 - INFO -         STRATEGY vs BASELINES (same universe, same OOS period)        
+2026-10-28 07:14:07,380 - INFO - ======================================================================
+2026-10-28 07:14:07,380 - INFO -   Cointegration + Kalman (this project)    ret  -0.387% | Sharpe -0.06
+2026-10-28 07:14:07,380 - INFO -   Distance method (Gatev 2006), t+1        ret  -9.551% | Sharpe -0.80
+2026-10-28 07:14:07,380 - INFO -   Random-pair control, median of 200       ret  +0.764% | Sharpe +0.09  [p5 -1.85, p95 +1.17]
+2026-10-28 07:14:07,380 - INFO -   Strategy Sharpe percentile among random-pair draws: 37.0
+2026-10-28 07:14:07,381 - INFO -   [main_backtest] vs distance on 628 common days: Sharpe diff +0.73 (95% CI [-0.90, +2.37], p=0.364, Ledoit-Wolf, block 3) | random-draw percentile 37.0
+2026-10-28 07:14:07,381 - INFO -   [walk_forward_oos] vs distance on 621 common days: Sharpe diff +0.01 (95% CI [-1.50, +1.51], p=0.993, Ledoit-Wolf, block 4) | random-draw percentile 10.0
+2026-10-28 07:14:07,381 - INFO -   (sensitivity) distance method with SAME-BAR fills: ret -9.922% | Sharpe -0.82 — bid-ask bounce, not comparable
+2026-10-28 07:14:07,381 - INFO - ======================================================================
+2026-10-28 07:14:07,400 - INFO - Market attribution (main_backtest): beta +0.037 (t +2.40), alpha -0.67%/yr (t -0.48), R2 0.048
+2026-10-28 07:14:07,401 - INFO - Market attribution (walk_forward_oos): beta +0.046 (t +3.44), alpha -2.88%/yr (t -2.41), R2 0.076
+2026-10-28 07:14:10,324 - INFO - 
+======================================================================
+2026-10-28 07:14:10,324 - INFO - REGIME DIAGNOSTIC  2023-04-04 -> 2023-07-05
+2026-10-28 07:14:10,324 - INFO - ======================================================================
+2026-10-28 07:14:10,328 - INFO - VIX: avg 16.4 (min 12.9, max 20.1); prior-year avg 24.44
+2026-10-28 07:14:10,340 - INFO - Daily sector-dispersion z: avg -0.47, max 1.60
+2026-10-28 07:14:10,340 - INFO - 63-day cumulative dispersion z (gate input): avg -0.08, max 1.42; days > 0.8 (gate, with VIX < 20): 6; days > 2.0: 0
+2026-10-28 07:14:10,340 - INFO - Gate rules: VIX>40 -> 0.25x, VIX>30 -> 0.50x, dispersion z>2 -> 0.50x, VIX<20 and dispersion z>0.8 -> 0.40x; >20% reduced days in 63 -> no new entries
+2026-10-28 07:14:10,340 - INFO - ======================================================================
+2026-10-28 07:14:10,340 - INFO - Starting the cost-schedule replay...
+2026-10-28 07:14:10,368 - INFO - 
+====================================================================================================
+                            COST-SCHEDULE REPLAY — ARCHETYPE PARAMETERS                             
+====================================================================================================
+Profile                     Commission    Bid-Ask     MI Cap     Borrow (GC)    Financing  Base Pos%   Max Pos%
+----------------------------------------------------------------------------------------------------
+Systematic Stat-Arb             1.00bp     2.00bp     12.0bp          0.60%/yr       0.50%/yr     12.0%     30.0%
+Multi-Manager Pod               1.50bp     4.00bp     20.0bp          1.00%/yr       1.00%/yr      8.0%     20.0%
+Discretionary Long/Short        5.00bp    10.00bp     50.0bp          2.00%/yr       1.50%/yr      4.0%     10.0%
+Patient Institutional           1.00bp     1.50bp      4.0bp          0.10%/yr       0.00%/yr      2.0%      5.0%
+Retail / Small Prop             0.70bp    15.00bp     80.0bp          6.00%/yr       3.00%/yr      2.0%      5.0%
+====================================================================================================
+2026-10-28 07:14:10,378 - INFO -   Systematic Stat-Arb: return -7.12% | Sharpe -0.55 | max DD -12.63% | peak gross 1.25x | costs 6.80% of capital
+2026-10-28 07:14:10,387 - INFO -   Multi-Manager Pod: return -7.08% | Sharpe -0.84 | max DD -10.30% | peak gross 0.83x | costs 6.94% of capital
+2026-10-28 07:14:10,396 - INFO -   Discretionary Long/Short: return -6.69% | Sharpe -1.60 | max DD -7.81% | peak gross 0.42x | costs 6.61% of capital
+2026-10-28 07:14:10,405 - INFO -   Patient Institutional: return -0.56% | Sharpe -0.26 | max DD -1.85% | peak gross 0.21x | costs 0.37% of capital
+2026-10-28 07:14:10,414 - INFO -   Retail / Small Prop: return -4.87% | Sharpe -2.33 | max DD -5.33% | peak gross 0.21x | costs 4.78% of capital
+2026-10-28 07:14:10,414 - INFO - 
+==========================================================================================
+2026-10-28 07:14:10,414 - INFO -                               FUND TYPE COMPARISON — SUMMARY                              
+2026-10-28 07:14:10,414 - INFO - ==========================================================================================
+2026-10-28 07:14:10,414 - INFO - Cost schedule                     Return%   Sharpe   MaxDD%   WinRate%      Cost%  Peak gross
+2026-10-28 07:14:10,414 - INFO - ------------------------------------------------------------------------------------------
+2026-10-28 07:14:10,414 - INFO - Systematic Stat-Arb                -7.12%    -0.55   -12.63%     46.01%      6.80%       1.25x
+2026-10-28 07:14:10,414 - INFO - Multi-Manager Pod                  -7.08%    -0.84   -10.30%     44.13%      6.94%       0.83x
+2026-10-28 07:14:10,414 - INFO - Discretionary Long/Short           -6.69%    -1.60    -7.81%     39.62%      6.61%       0.42x
+2026-10-28 07:14:10,414 - INFO - Patient Institutional              -0.56%    -0.26    -1.85%     47.14%      0.37%       0.21x
+2026-10-28 07:14:10,414 - INFO - Retail / Small Prop                -4.87%    -2.33    -5.33%     36.89%      4.78%       0.21x
+2026-10-28 07:14:10,414 - INFO - ==========================================================================================
+2026-10-28 07:14:10,500 - INFO - RUN CONFIG: version 33.0.0 | commit 10ac3bb2e7bd | 2026-10-28T07:14:10+00:00 UTC
+2026-10-28 07:14:10,500 - INFO -   switches: {'PAIRS_PROFILE': 'v33', 'PAIRS_CALENDAR': 'dev', 'PAIRS_SEED': '42', 'PAIRS_OUTPUT_DIR': 'outputs/v33_dev_refetch', 'PYTHONHASHSEED': '0', 'PAIRS_EXPECTED_COMMIT': '10ac3bb2e7bd846d98d45c07e2cd59d80e3ad325'} | effective: {'profile': 'v33', 'calendar': 'dev', 'fill': 'close', 'ranker': 'none', 'use_transformer_ranker': False, 'reselect': 'full', 'regime_gate': False}
+2026-10-28 07:14:10,500 - INFO -   data: 2020-01-02 -> 2025-12-31, backtest 2023-07-03 -> 2025-12-31, 2533 symbols, 309 pairs
+2026-10-28 07:14:10,500 - INFO -   price cache: data/enhanced_russell_3000_data.pkl, 1044.2 MB, mtime 2026-10-28T07:03:49+00:00, sha256 ca8a39e64e1e3b48
+2026-10-28 07:14:10,500 - INFO -   versions: {'python': '3.12.3', 'numpy': '1.26.4', 'pandas': '2.2.3', 'torch': '2.13.0+cpu', 'scipy': '1.15.2', 'statsmodels': '0.14.4'}
+2026-10-28 07:14:10,500 - INFO - ================================================================================
+2026-10-28 07:14:10,500 - INFO - EXPORTING BACKTEST RESULTS (2023-07-03 -> 2025-12-31) TO JSON
+2026-10-28 07:14:10,500 - INFO - ================================================================================
+2026-10-28 07:14:10,774 - INFO - Exported results: /home/user/russell3000-pairs-trading/outputs/v33_dev_refetch/pairs_trading_results_2023_2025_unbiased.json (848.1 KB) — 213 trades, 130 pairs, 628 daily points
+2026-10-28 07:14:10,829 - INFO - Exported compact results: /home/user/russell3000-pairs-trading/outputs/v33_dev_refetch/pairs_trading_results_2023_2025_unbiased_compact.json (354.1 KB)
+2026-10-28 07:14:10,830 - INFO - ================================================================================
+2026-10-28 07:14:10,831 - INFO - ================================================================================
+2026-10-28 07:14:10,831 - INFO - EXPORTING FUND TYPE COMPARISON TO JSON
+2026-10-28 07:14:10,831 - INFO - ================================================================================
+2026-10-28 07:14:10,874 - INFO - Fund comparison exported: /home/user/russell3000-pairs-trading/outputs/v33_dev_refetch/fund_type_comparison.json (274.4 KB) — profiles: quant_hf, multi_strat, fundamental_ls, institutional, retail
+2026-10-28 07:14:10,875 - INFO - ================================================================================
+2026-10-28 07:14:10,913 - INFO - Headline metrics: /home/user/russell3000-pairs-trading/outputs/v33_dev_refetch/headline_metrics.json — main -0.39% / Sharpe -0.06 / 213 trades; OOS -0.58%/window, pooled Sharpe -1.04, 4/11 windows positive
+2026-10-28 07:14:11,758 - INFO - Backtest chart saved to /home/user/russell3000-pairs-trading/outputs/v33_dev_refetch/backtest_results.png
+2026-10-28 07:14:11,759 - INFO - Ranker training chart: nothing to plot (ranker not trained; n_samples=0)
+2026-10-28 07:14:12,846 - INFO - Fund comparison chart saved to /home/user/russell3000-pairs-trading/outputs/v33_dev_refetch/fund_comparison.png
+
+==========================================================================================
+MAIN BACKTEST  2023-07-03 -> 2025-12-31   (one calendar; the walk-forward below re-fits per window)
+==========================================================================================
+  Total return           -0.39%      Annualised -0.16%
+  Sharpe (daily, ann.)   -0.06       Annualised volatility 2.15%
+  Max drawdown           -4.05%
+  Trades                 213          Win rate 47.9%   Profit factor 0.98
+  Exit reasons           end_of_data 3, stop 77, target 72, time 61
+  Risk halt              none
+==========================================================================================
+WALK-FORWARD  one continuous out-of-sample simulation, 2023-02-14 -> 2025-12-19
+==========================================================================================
+  Windows                11 evaluated, 8 skipped (no pair universe selected yet); 0 of 11 made no trade
+  Selection-clean        11/11
+  Profitable windows     4/11
+  Window return          avg -0.580%   median -0.764%
+  POOLED OOS SHARPE      -1.04   (daily returns of the continuous simulation: the OOS headline)
+  Mean of per-window Sharpes -1.22   (average of 11 window Sharpes; not a portfolio Sharpe)
+  Continuous OOS return  -6.24%   max DD -6.46%   trades 256   win rate 44.1%
+  Exit reasons           stop 102, target 76, time 78
+==========================================================================================
+SIGNIFICANCE  is the edge distinguishable from zero?
+==========================================================================================
+  OOS per-window t-test  n=11  mean -0.579%/window  t=-1.84  p=0.096 (two-sided)
+                         one-sided p: H1 mean>0 0.952 | H1 mean<0 0.048
+                         95% CI (t) [-1.283%, +0.124%]   bootstrap [-1.144%, +0.036%]
+  OOS daily              Sharpe -1.04 | HAC t -1.87 p=0.061 | PSR 3.9% | DSR 0.0% | bootstrap 95% CI [-2.09, +0.05]
+  Main backtest daily    Sharpe -0.06 | HAC t -0.10 p=0.923 | PSR 46.1% | DSR 1.4% | bootstrap 95% CI [-1.29, +1.16]
+  Verdict                no statistically significant positive OOS edge at 5% (one-sided p=0.952); the OOS mean is significantly NEGATIVE (one-sided p=0.048)
+==========================================================================================
+BENCHMARKS  same universe, same period as the main backtest
+==========================================================================================
+  This strategy           return -0.39%   Sharpe -0.06
+  Gatev (2006) distance   return -9.55%   Sharpe -0.80
+  Sharpe diff vs Gatev    +0.73 (p=0.364, 95% CI [-0.90, +2.37], 628 common days)
+  Random-pair control     median Sharpe +0.09 [5%-95%: -1.85, +1.17] over 200 draws; strategy Sharpe at percentile 37 of the draws
+==========================================================================================
+MULTIPLE TESTING  5,082 pairs tested | 489 at raw p<0.05 | 0 survive BH-FDR q<0.05 | 1 at q<0.10 | 309 selected
+==========================================================================================
+COST-SCHEDULE REPLAY  same trades, archetypal sizing / costs / kill-switch
+==========================================================================================
+  Profile                          Return  Sharpe    MaxDD  WinRate   Costs Peak gross  Kill-switch
+  ------------------------------------------------------------------------------------------
+  Systematic Stat-Arb              -7.12%   -0.55  -12.63%    46.0%   6.80%      1.25x  -
+  Multi-Manager Pod                -7.08%   -0.84  -10.30%    44.1%   6.94%      0.83x  -
+  Discretionary Long/Short         -6.69%   -1.60   -7.81%    39.6%   6.61%      0.42x  -
+  Patient Institutional            -0.56%   -0.26   -1.85%    47.1%   0.37%      0.21x  -
+  Retail / Small Prop              -4.87%   -2.33   -5.33%    36.9%   4.78%      0.21x  -
+==========================================================================================
+OUTPUTS
+  outputs/v33_dev_refetch/pairs_trading_results_2023_2025_unbiased.json
+  outputs/v33_dev_refetch/pairs_trading_results_2023_2025_unbiased_compact.json
+  outputs/v33_dev_refetch/fund_type_comparison.json
+  outputs/v33_dev_refetch/headline_metrics.json
+  outputs/v33_dev_refetch/backtest_results.png
+  outputs/v33_dev_refetch/fund_comparison.png
+==========================================================================================

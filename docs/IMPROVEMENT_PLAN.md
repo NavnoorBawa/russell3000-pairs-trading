@@ -194,4 +194,7 @@ pre-registration names the 2026 result as seen and carries the trial count (10) 
 
 | Date | Item | Commit | Measured effect |
 |---|---|---|---|
-| | *(nothing yet)* | | |
+| 2026-11-03 | A1 re-fetch reproduction: every step of the development runbook (main, anatomy, costs, residual, the 38-variant family, validation, robustness) re-run on prices fetched afresh; published as `results/v33_dev_refetch/`; drift table in the page (Section 13) and README; Reproduce text says the pinned caches were lost | this branch | 52 of 56 compared values agree to the precision shown, every headline number included; persistence count 370 → 359, PBO 79.4% → 65.5%, SPA p against cash 0.964 → 0.880, missing index weight 3.19% → 3.21%; no conclusion changes |
+| 2026-11-03 | A2 (code part): per-symbol price-cache fingerprints (`scripts/hash_cache.py`), written by `publish_run.py` as `price_cache_hashes.json` for the re-fetch run | `6ddfc86` | a later fetch can be diffed symbol by symbol without the prices |
+| 2026-11-03 | D2 / B1 deferred: the threats table no longer promises a control on the strategy's own engine; it states that none was run | `9ed77c7` | no open promise on the page or in the paper |
+| 2026-11-03 | `variant_family.py` checkpoints each variant and releases each selection group | `bf8daf1` | the family survives the out-of-memory killer and container restarts; results unchanged |

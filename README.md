@@ -253,6 +253,88 @@ every export. A single run is `python -m pairs_trading.main --profile v33 --cale
 with a fetch manifest; a later fetch will not match the cached data bit for bit, because vendors
 revise history. `data/`, `logs/` and `outputs/` are git-ignored.
 
+### The run again, on prices fetched afresh
+
+The price and macro caches the development run pinned (`sha256 3a9a93cc…a7be`) were lost with
+the working storage by 22 October 2026, so its numbers cannot be rebuilt from that exact input.
+The same design, calendar and code path were run again, every step from the main backtest to the
+robustness checks, on prices fetched afresh (`results/v33_dev_refetch/`, price cache
+`sha256 ca8a39e6…51b6`, with a fingerprint of every symbol's price series in
+`price_cache_hashes.json`, written by `scripts/hash_cache.py`). Of the
+<!--m:study.refetch.rows_n-->56<!--/m--> values below, <!--m:study.refetch.rows_same-->52<!--/m-->
+agree with the published ones to the precision the page shows, including every headline number
+of the main backtest, the walk-forward and the baselines; three evidence-layer values and the
+universe's missing weight moved, none enough to change a conclusion. The table is written by
+`scripts/build_drift_table.py`.
+
+<!-- drift-table:begin -->
+
+| Measure | Published | Re-fetch | Difference |
+|---|---:|---:|---:|
+| **Main backtest, net of costs** | | | |
+| Sharpe ratio | <!--m:main.sharpe-->−0.06<!--/m--> | <!--m:study.refetch.values.main.sharpe-->−0.06<!--/m--> | <!--m:study.refetch.diff.main.sharpe-->0.00<!--/m--> |
+| Bootstrap 95% interval, lower end | <!--m:significance.main.boot_lo-->−1.29<!--/m--> | <!--m:study.refetch.values.significance.main.boot_lo-->−1.29<!--/m--> | <!--m:study.refetch.diff.significance.main.boot_lo-->0.00<!--/m--> |
+| Bootstrap 95% interval, upper end | <!--m:significance.main.boot_hi-->+1.16<!--/m--> | <!--m:study.refetch.values.significance.main.boot_hi-->+1.16<!--/m--> | <!--m:study.refetch.diff.significance.main.boot_hi-->0.00<!--/m--> |
+| Return, % | <!--m:main.total_return_pct-->−0.39<!--/m--> | <!--m:study.refetch.values.main.total_return_pct-->−0.39<!--/m--> | <!--m:study.refetch.diff.main.total_return_pct-->0.00<!--/m--> |
+| Trades | <!--m:main.trades-->213<!--/m--> | <!--m:study.refetch.values.main.trades-->213<!--/m--> | <!--m:study.refetch.diff.main.trades-->0<!--/m--> |
+| Win rate, % | <!--m:main.win_rate_pct-->47.9<!--/m--> | <!--m:study.refetch.values.main.win_rate_pct-->47.9<!--/m--> | <!--m:study.refetch.diff.main.win_rate_pct-->0.0<!--/m--> |
+| Maximum drawdown, % | <!--m:main.max_drawdown_pct-->−4.05<!--/m--> | <!--m:study.refetch.values.main.max_drawdown_pct-->−4.05<!--/m--> | <!--m:study.refetch.diff.main.max_drawdown_pct-->0.00<!--/m--> |
+| Average gross exposure, % of equity | <!--m:main.avg_gross_exposure_pct-->26.9<!--/m--> | <!--m:study.refetch.values.main.avg_gross_exposure_pct-->26.9<!--/m--> | <!--m:study.refetch.diff.main.avg_gross_exposure_pct-->0.0<!--/m--> |
+| Annual turnover, times | <!--m:main.annual_turnover_x-->9.0<!--/m--> | <!--m:study.refetch.values.main.annual_turnover_x-->9.0<!--/m--> | <!--m:study.refetch.diff.main.annual_turnover_x-->0.0<!--/m--> |
+| Annualised Sharpe ratio (significance table) | <!--m:significance.main.ann_sharpe-->−0.06<!--/m--> | <!--m:study.refetch.values.significance.main.ann_sharpe-->−0.06<!--/m--> | <!--m:study.refetch.diff.significance.main.ann_sharpe-->0.00<!--/m--> |
+| Newey–West t | <!--m:significance.main.hac_t-->−0.10<!--/m--> | <!--m:study.refetch.values.significance.main.hac_t-->−0.10<!--/m--> | <!--m:study.refetch.diff.significance.main.hac_t-->0.00<!--/m--> |
+| Newey–West p | <!--m:significance.main.hac_p-->0.923<!--/m--> | <!--m:study.refetch.values.significance.main.hac_p-->0.923<!--/m--> | <!--m:study.refetch.diff.significance.main.hac_p-->0.000<!--/m--> |
+| Probabilistic Sharpe ratio, % | <!--m:significance.main.psr_pct-->46.1<!--/m--> | <!--m:study.refetch.values.significance.main.psr_pct-->46.1<!--/m--> | <!--m:study.refetch.diff.significance.main.psr_pct-->0.0<!--/m--> |
+| Deflated Sharpe ratio, % | <!--m:significance.main.dsr_pct-->1.4<!--/m--> | <!--m:study.refetch.values.significance.main.dsr_pct-->1.4<!--/m--> | <!--m:study.refetch.diff.significance.main.dsr_pct-->0.0<!--/m--> |
+| **Walk-forward, net of costs** | | | |
+| Sharpe ratio | <!--m:oos.pooled_sharpe-->−1.04<!--/m--> | <!--m:study.refetch.values.oos.pooled_sharpe-->−1.04<!--/m--> | <!--m:study.refetch.diff.oos.pooled_sharpe-->0.00<!--/m--> |
+| Bootstrap 95% interval, lower end | <!--m:significance.oos_daily.boot_lo-->−2.09<!--/m--> | <!--m:study.refetch.values.significance.oos_daily.boot_lo-->−2.09<!--/m--> | <!--m:study.refetch.diff.significance.oos_daily.boot_lo-->0.00<!--/m--> |
+| Bootstrap 95% interval, upper end | <!--m:significance.oos_daily.boot_hi-->+0.05<!--/m--> | <!--m:study.refetch.values.significance.oos_daily.boot_hi-->+0.05<!--/m--> | <!--m:study.refetch.diff.significance.oos_daily.boot_hi-->0.00<!--/m--> |
+| Return of the stitched path, % | <!--m:oos.total_return_pct-->−6.24<!--/m--> | <!--m:study.refetch.values.oos.total_return_pct-->−6.24<!--/m--> | <!--m:study.refetch.diff.oos.total_return_pct-->0.00<!--/m--> |
+| Windows that made money | <!--m:oos.windows_positive-->4<!--/m--> | <!--m:study.refetch.values.oos.windows_positive-->4<!--/m--> | <!--m:study.refetch.diff.oos.windows_positive-->0<!--/m--> |
+| Windows | <!--m:oos.windows-->11<!--/m--> | <!--m:study.refetch.values.oos.windows-->11<!--/m--> | <!--m:study.refetch.diff.oos.windows-->0<!--/m--> |
+| Mean return per window, % | <!--m:oos.avg_window_return_pct-->−0.58<!--/m--> | <!--m:study.refetch.values.oos.avg_window_return_pct-->−0.58<!--/m--> | <!--m:study.refetch.diff.oos.avg_window_return_pct-->0.00<!--/m--> |
+| Its 95% interval, lower end, % | <!--m:significance.oos_windows.ci_lo_pct-->−1.28<!--/m--> | <!--m:study.refetch.values.significance.oos_windows.ci_lo_pct-->−1.28<!--/m--> | <!--m:study.refetch.diff.significance.oos_windows.ci_lo_pct-->0.00<!--/m--> |
+| Its 95% interval, upper end, % | <!--m:significance.oos_windows.ci_hi_pct-->+0.12<!--/m--> | <!--m:study.refetch.values.significance.oos_windows.ci_hi_pct-->+0.12<!--/m--> | <!--m:study.refetch.diff.significance.oos_windows.ci_hi_pct-->0.00<!--/m--> |
+| Its p | <!--m:significance.oos_windows.p-->0.096<!--/m--> | <!--m:study.refetch.values.significance.oos_windows.p-->0.096<!--/m--> | <!--m:study.refetch.diff.significance.oos_windows.p-->0.000<!--/m--> |
+| Annualised Sharpe ratio (significance table) | <!--m:significance.oos_daily.ann_sharpe-->−1.04<!--/m--> | <!--m:study.refetch.values.significance.oos_daily.ann_sharpe-->−1.04<!--/m--> | <!--m:study.refetch.diff.significance.oos_daily.ann_sharpe-->0.00<!--/m--> |
+| Newey–West t | <!--m:significance.oos_daily.hac_t-->−1.87<!--/m--> | <!--m:study.refetch.values.significance.oos_daily.hac_t-->−1.87<!--/m--> | <!--m:study.refetch.diff.significance.oos_daily.hac_t-->0.00<!--/m--> |
+| Newey–West p | <!--m:significance.oos_daily.hac_p-->0.061<!--/m--> | <!--m:study.refetch.values.significance.oos_daily.hac_p-->0.061<!--/m--> | <!--m:study.refetch.diff.significance.oos_daily.hac_p-->0.000<!--/m--> |
+| Probabilistic Sharpe ratio, % | <!--m:significance.oos_daily.psr_pct-->3.9<!--/m--> | <!--m:study.refetch.values.significance.oos_daily.psr_pct-->3.9<!--/m--> | <!--m:study.refetch.diff.significance.oos_daily.psr_pct-->0.0<!--/m--> |
+| Deflated Sharpe ratio, % | <!--m:significance.oos_daily.dsr_pct-->0.0<!--/m--> | <!--m:study.refetch.values.significance.oos_daily.dsr_pct-->0.0<!--/m--> | <!--m:study.refetch.diff.significance.oos_daily.dsr_pct-->0.0<!--/m--> |
+| **Baselines** | | | |
+| Gatev distance method, Sharpe ratio | <!--m:benchmarks.gatev.sharpe-->−0.80<!--/m--> | <!--m:study.refetch.values.benchmarks.gatev.sharpe-->−0.80<!--/m--> | <!--m:study.refetch.diff.benchmarks.gatev.sharpe-->0.00<!--/m--> |
+| Gatev distance method, return, % | <!--m:benchmarks.gatev.total_return_pct-->−9.55<!--/m--> | <!--m:study.refetch.values.benchmarks.gatev.total_return_pct-->−9.55<!--/m--> | <!--m:study.refetch.diff.benchmarks.gatev.total_return_pct-->0.00<!--/m--> |
+| Strategy minus Gatev, Sharpe ratio | <!--m:benchmarks.sharpe_diff_vs_gatev.diff-->+0.73<!--/m--> | <!--m:study.refetch.values.benchmarks.sharpe_diff_vs_gatev.diff-->+0.73<!--/m--> | <!--m:study.refetch.diff.benchmarks.sharpe_diff_vs_gatev.diff-->0.00<!--/m--> |
+| Its Ledoit–Wolf p | <!--m:benchmarks.sharpe_diff_vs_gatev.p-->0.364<!--/m--> | <!--m:study.refetch.values.benchmarks.sharpe_diff_vs_gatev.p-->0.364<!--/m--> | <!--m:study.refetch.diff.benchmarks.sharpe_diff_vs_gatev.p-->0.000<!--/m--> |
+| Random-pair draws | <!--m:benchmarks.random_control.n_draws-->200<!--/m--> | <!--m:study.refetch.values.benchmarks.random_control.n_draws-->200<!--/m--> | <!--m:study.refetch.diff.benchmarks.random_control.n_draws-->0<!--/m--> |
+| Strategy's percentile among the draws | <!--m:benchmarks.random_control.strategy_percentile-->37<!--/m--> | <!--m:study.refetch.values.benchmarks.random_control.strategy_percentile-->37<!--/m--> | <!--m:study.refetch.diff.benchmarks.random_control.strategy_percentile-->0<!--/m--> |
+| Median draw, Sharpe ratio | <!--m:benchmarks.random_control.median_sharpe-->+0.09<!--/m--> | <!--m:study.refetch.values.benchmarks.random_control.median_sharpe-->+0.09<!--/m--> | <!--m:study.refetch.diff.benchmarks.random_control.median_sharpe-->0.00<!--/m--> |
+| 5th percentile draw, Sharpe ratio | <!--m:benchmarks.random_control.p5_sharpe-->−1.85<!--/m--> | <!--m:study.refetch.values.benchmarks.random_control.p5_sharpe-->−1.85<!--/m--> | <!--m:study.refetch.diff.benchmarks.random_control.p5_sharpe-->0.00<!--/m--> |
+| 95th percentile draw, Sharpe ratio | <!--m:benchmarks.random_control.p95_sharpe-->+1.17<!--/m--> | <!--m:study.refetch.values.benchmarks.random_control.p95_sharpe-->+1.17<!--/m--> | <!--m:study.refetch.diff.benchmarks.random_control.p95_sharpe-->0.00<!--/m--> |
+| Cost schedule A (lowest costs), return, % | <!--m:fund_profiles.institutional.total_return_pct-->−0.56<!--/m--> | <!--m:study.refetch.values.fund_profiles.institutional.total_return_pct-->−0.56<!--/m--> | <!--m:study.refetch.diff.fund_profiles.institutional.total_return_pct-->0.00<!--/m--> |
+| Cost schedule of a systematic stat-arb fund, return, % | <!--m:fund_profiles.quant_hf.total_return_pct-->−7.12<!--/m--> | <!--m:study.refetch.values.fund_profiles.quant_hf.total_return_pct-->−7.12<!--/m--> | <!--m:study.refetch.diff.fund_profiles.quant_hf.total_return_pct-->0.00<!--/m--> |
+| **Pair selection and data, first formation** | | | |
+| Pairs tested | <!--m:fdr.pairs_tested-->5,082<!--/m--> | <!--m:study.refetch.values.fdr.pairs_tested-->5,082<!--/m--> | <!--m:study.refetch.diff.fdr.pairs_tested-->0<!--/m--> |
+| At raw p < 0.05 | <!--m:fdr.significant_raw_p05-->489<!--/m--> | <!--m:study.refetch.values.fdr.significant_raw_p05-->489<!--/m--> | <!--m:study.refetch.diff.fdr.significant_raw_p05-->0<!--/m--> |
+| Surviving Benjamini–Hochberg at q = 0.10 | <!--m:fdr.survive_bh_fdr_q10-->1<!--/m--> | <!--m:study.refetch.values.fdr.survive_bh_fdr_q10-->1<!--/m--> | <!--m:study.refetch.diff.fdr.survive_bh_fdr_q10-->0<!--/m--> |
+| Pairs selected | <!--m:fdr.final_selected_pairs-->309<!--/m--> | <!--m:study.refetch.values.fdr.final_selected_pairs-->309<!--/m--> | <!--m:study.refetch.diff.fdr.final_selected_pairs-->0<!--/m--> |
+| Index weight of members without price history, % | <!--m:universe.missing_value_weight_pct-->3.192<!--/m--> | <!--m:study.refetch.values.universe.missing_value_weight_pct-->3.214<!--/m--> | <!--m:study.refetch.diff.universe.missing_value_weight_pct-->+0.022<!--/m--> |
+| Index weight of holdings without a usable ticker, % | <!--m:universe.unmapped_value_weight_pct-->0.142<!--/m--> | <!--m:study.refetch.values.universe.unmapped_value_weight_pct-->0.142<!--/m--> | <!--m:study.refetch.diff.universe.unmapped_value_weight_pct-->0.000<!--/m--> |
+| **Evidence layer and second family** | | | |
+| Gross per trade, bp (equal-weighted) | <!--m:study.dev.facts.gross_bp-->−7.9<!--/m--> | <!--m:study.refetch.values.dev.facts.gross_bp-->−7.9<!--/m--> | <!--m:study.refetch.diff.dev.facts.gross_bp-->0.0<!--/m--> |
+| Cost per trade, bp | <!--m:study.dev.facts.cost_bp-->16.1<!--/m--> | <!--m:study.refetch.values.dev.facts.cost_bp-->16.1<!--/m--> | <!--m:study.refetch.diff.dev.facts.cost_bp-->0.0<!--/m--> |
+| Gross per trade after formation, bp | <!--m:study.dev.facts.decay_oos_bp-->−12.6<!--/m--> | <!--m:study.refetch.values.dev.facts.decay_oos_bp-->−12.6<!--/m--> | <!--m:study.refetch.diff.dev.facts.decay_oos_bp-->0.0<!--/m--> |
+| Pairs cointegrated again the next year | <!--m:study.dev.facts.pers_count-->370<!--/m--> | <!--m:study.refetch.values.dev.facts.pers_count-->359<!--/m--> | <!--m:study.refetch.diff.dev.facts.pers_count-->−11<!--/m--> |
+| Short-term reversal loading, t | <!--m:study.dev.facts.st_rev_t_main-->4.01<!--/m--> | <!--m:study.refetch.values.dev.facts.st_rev_t_main-->4.01<!--/m--> | <!--m:study.refetch.diff.dev.facts.st_rev_t_main-->0.00<!--/m--> |
+| Median Sharpe ratio over the 12 start dates | <!--m:study.dev.facts.start_sharpe_median-->−0.65<!--/m--> | <!--m:study.refetch.values.dev.facts.start_sharpe_median-->−0.65<!--/m--> | <!--m:study.refetch.diff.dev.facts.start_sharpe_median-->0.00<!--/m--> |
+| Avellaneda–Lee (S2), net Sharpe ratio | <!--m:study.residual.sharpe-->−0.28<!--/m--> | <!--m:study.refetch.values.residual.sharpe-->−0.28<!--/m--> | <!--m:study.refetch.diff.residual.sharpe-->0.00<!--/m--> |
+| Variant family, Hansen SPA p against cash | <!--m:study.dev.snooping.results.spa_zero.p-->0.964<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.spa_zero.p-->0.880<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.spa_zero.p-->−0.084<!--/m--> |
+| Variant family, probability of backtest overfitting, % | <!--m:study.dev.snooping.results.pbo_pct-->79.4<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.pbo_pct-->65.5<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.pbo_pct-->−13.9<!--/m--> |
+| Known-answer check, planted pairs, gross per trade, bp | <!--m:study.validation.edge.mean_bp-->+82.6<!--/m--> | <!--m:study.refetch.values.validation.edge.mean_bp-->+82.6<!--/m--> | <!--m:study.refetch.diff.validation.edge.mean_bp-->0.0<!--/m--> |
+
+<!-- drift-table:end -->
+
 ## Built with free data only
 
 Every input is free and needs no account: Yahoo's chart API for prices, the SEC's N-PORT filings of

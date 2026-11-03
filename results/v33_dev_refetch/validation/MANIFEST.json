@@ -1,0 +1,22 @@
+{
+ "files": {
+  "run.log": {
+   "bytes": 2414,
+   "sha256": "42040e3c90c55be25a3d9099af6546635298daea7d322f0959c7df17a1946c85"
+  },
+  "synthetic_validation.json": {
+   "bytes": 7148,
+   "sha256": "11578fffe18bee94a9af10d373c29936f1cac19590296780fa79e4c803cd73f5"
+  }
+ },
+ "name": "v33_dev_refetch/validation",
+ "price_cache": null,
+ "run_config": {
+  "effective": null,
+  "git_commit": null,
+  "git_dirty": null,
+  "package_version": null,
+  "run_timestamp_utc": null
+ },
+ "study": null
+}

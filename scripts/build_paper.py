@@ -105,7 +105,9 @@ WORDS = ('no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', '
 KNOWN_STUDY = {'schema', 'meta', 'dev', 'holdout', 'residual', 'validation',
                'v32',          # the published v32 run: the history and the frozen arm S3
                'trials',       # results/trial_registry.jsonl: every trial whose result was seen
-               'registry'}     # the registry's counts of trials, run records and table rows
+               'registry',     # the registry's counts of trials, run records and table rows
+               'refetch'}      # the re-fetch reproduction: its drift table is on the site; the
+                               # paper's Reproducibility section summarises it in words
 KNOWN_DEV = {'run', 'daily', 'gatev', 'random_band', 'random_sharpes', 'strategy_sharpe', 'gatev_sharpe',
              'random_percentile', 'walk_forward', 'monthly', 'annual', 'rolling_sharpe', 'forest', 'power',
              'dsr_curve', 'waterfall', 'trades', 'factors', 'funnel', 'universe_by_formation', 'cost_schedules',

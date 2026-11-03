@@ -1,0 +1,25 @@
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+WARNING:pairs_trading.pair_selector:Only 24 symbols pass the screens; the pair universe is small
+edge          4692 trades | gross +82.6 bp/trade (t 34.8) | median net Sharpe +3.47 | PASS
+hedge ratio  |beta_hat - beta| median 0.032, 90th pct 0.074
+forced null   5450 trades | gross +1.7 bp/trade (t +0.65) | PASS (look-ahead would give a large positive t)
+selection    planted-pair recall 100% | unrelated pairs admitted 3.3/market (planted), 2.6/market (none planted), worst 3.0% | PASS
+ALL PASS in 86.4 s -> outputs/v33_dev_refetch/validation/synthetic_validation.json
