@@ -18,10 +18,16 @@
   var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   // ── formatting ────────────────────────────────────────────────────────────
+  // one formatter per number of decimals: building one per call is slow (a data table formats
+  // thousands of cells)
+  var formats = {};
+  function fixed(dp) {
+    return formats[dp] || (formats[dp] = new Intl.NumberFormat('en-US', {minimumFractionDigits: dp, maximumFractionDigits: dp}));
+  }
   function num(x, dp, opts) {
     if (x === null || x === undefined || !isFinite(x)) return '–';
     var o = opts || {};
-    var s = Math.abs(x).toLocaleString('en-US', {minimumFractionDigits: dp, maximumFractionDigits: dp});
+    var s = fixed(dp).format(Math.abs(x));
     var zero = Number(Math.abs(x).toFixed(dp)) === 0;
     var sign = x < 0 && !zero ? MINUS : (o.plus && x > 0 && !zero ? '+' : '');
     return sign + s + (o.suffix || '');
@@ -453,8 +459,8 @@
     tipEl.className = 'xtip' + (docked ? ' is-docked' : '');
     tipEl.setAttribute('aria-hidden', 'true');
     if (docked) {
-      var at = spec.dock || panes[0];
-      at.parentNode.insertBefore(tipEl, at);
+      var before = spec.dock || panes[0];
+      before.parentNode.insertBefore(tipEl, before);
     } else {
       tipEl.style.display = 'none';
       container.appendChild(tipEl);

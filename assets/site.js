@@ -222,7 +222,7 @@
   card.setAttribute('aria-hidden', 'true');
   document.body.appendChild(card);
   var REF = 'a.xref, .ev a, .kpi-ev a, .hz a, .tle-what a.xref';
-  var cardFor = null, cardTimer = null;
+  var cardFor = null, cardTimer = null, cardByFocus = false, placeFrame = null;
   function el(tag, cls, text) {
     var e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -290,11 +290,13 @@
   }
   function place(a) {
     var r = a.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = window.innerHeight;
+    var svg = card.querySelector('.xpop-svg');
+    if (svg) svg.style.maxHeight = '';
     var w = card.offsetWidth, h = card.offsetHeight;
     var left = Math.max(8, Math.min(r.left, vw - w - 8));
     // below the link if it fits, else above; if neither side has room, the chart copy shrinks
     // to fit the larger side
-    var below = vh - r.bottom - 16, above = r.top - 16, svg = card.querySelector('.xpop-svg');
+    var below = vh - r.bottom - 16, above = r.top - 16;
     if (h > below && h > above && svg) {
       svg.style.maxHeight = Math.max(60, svg.getBoundingClientRect().height - (h - Math.max(below, above))) + 'px';
       h = card.offsetHeight;
@@ -303,12 +305,13 @@
     card.style.left = left + 'px';
     card.style.top = Math.max(8, top) + 'px';
   }
-  function show(a) {
+  function show(a, byFocus) {
     var id = a.hash && a.hash.length > 1 ? decodeURIComponent(a.hash.slice(1)) : '';
     var target = id && document.getElementById(id);
     if (!target || target.contains(a)) return;
     if (!fill(target)) return;
     cardFor = a;
+    cardByFocus = !!byFocus;
     card.classList.add('on');
     place(a);
   }
@@ -316,6 +319,7 @@
     clearTimeout(cardTimer);
     if (!cardFor && !card.classList.contains('on')) return;
     cardFor = null;
+    cardByFocus = false;
     card.classList.remove('on');
   }
   document.addEventListener('pointerover', function (e) {
@@ -339,12 +343,25 @@
   card.addEventListener('pointerleave', leaving);
   document.addEventListener('focusin', function (e) {
     var a = e.target.closest && e.target.closest(REF);
-    if (a && a.matches(':focus-visible')) show(a); else if (cardFor) hide();
+    if (a && a.matches(':focus-visible')) show(a, true); else if (cardFor) hide();
   });
   document.addEventListener('focusout', function (e) { if (cardFor && e.target === cardFor) hide(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && cardFor) hide(); });
   document.addEventListener('click', function (e) { if (!card.contains(e.target)) hide(); }, true);
-  window.addEventListener('scroll', function () { if (cardFor) hide(); }, {passive: true});
+  // As the page scrolls a preview goes, unless keyboard focus opened it (focusing a link can
+  // scroll the page): that one follows its link while the link is focused and on screen.
+  window.addEventListener('scroll', function () {
+    if (!cardFor) return;
+    if (!cardByFocus || document.activeElement !== cardFor) { hide(); return; }
+    if (placeFrame !== null) return;
+    placeFrame = requestAnimationFrame(function () {
+      placeFrame = null;
+      if (!cardFor) return;
+      var r = cardFor.getBoundingClientRect();
+      if (r.bottom <= 0 || r.top >= window.innerHeight || document.activeElement !== cardFor) hide();
+      else place(cardFor);
+    });
+  }, {passive: true});
 
   // ── a Copy button on each code block (the commands to reproduce, the BibTeX entry) ──
   if (navigator.clipboard) {
@@ -441,6 +458,7 @@
   function message(fig, text) {
     var chart = fig.querySelector('.ex-chart');
     if (!chart) return;
+    fig.classList.add('no-chart');        // gives back the room held for the chart (site.css, chart-sizes)
     var p = document.createElement('p');
     p.className = 'ex-error';
     p.textContent = text;
@@ -525,8 +543,21 @@
 
   // A table region takes keyboard focus (so it can be scrolled from the keyboard) only while
   // its table is wider or taller than its frame; it then shows an edge shadow (site.css).
+  // A frame in a section the browser is skipping (off screen, content-visibility: auto) is left
+  // as it is, as measuring it would lay out the whole section: it is synced when the section is.
+  // Whether a section is skipped is asked of its heading: asked of anything else inside it, the
+  // browser may lay the section out to answer.
+  function skipping(sec) {
+    var h = sec && sec.firstElementChild;
+    return !!(h && h.checkVisibility) && getComputedStyle(sec).contentVisibility === 'auto' &&
+      !h.checkVisibility({contentVisibilityAuto: true});
+  }
   function syncScrollable() {
+    var skipped = new Map();
     document.querySelectorAll('.tbl-wrap').forEach(function (w) {
+      var sec = w.closest('main > section');
+      if (sec && !skipped.has(sec)) skipped.set(sec, skipping(sec));
+      if (sec && skipped.get(sec)) return;
       var scrolls = w.clientWidth > 0 && (w.scrollWidth > w.clientWidth + 1 || w.scrollHeight > w.clientHeight + 1);
       w.classList.toggle('is-scrollable', scrolls);
       if (scrolls) w.tabIndex = 0;
@@ -535,8 +566,12 @@
   }
   syncScrollable();
   var scrollFrame = null;
-  window.addEventListener('resize', function () {
+  function syncSoon() {
     if (scrollFrame === null) scrollFrame = requestAnimationFrame(function () { scrollFrame = null; syncScrollable(); });
+  }
+  window.addEventListener('resize', syncSoon);
+  sections.forEach(function (s) {
+    s.addEventListener('contentvisibilityautostatechange', function (e) { if (!e.skipped) syncSoon(); });
   });
   // each data-table disclosure names its exhibit, and builds its table when first opened
   document.querySelectorAll('details.ex-data').forEach(function (d) {

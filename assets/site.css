@@ -7,13 +7,16 @@
 /* Study Sans, Serif and Mono: subsets of IBM Plex (SIL Open Font License 1.1,
    assets/fonts/LICENSE.txt), renamed as that licence requires of a modified version
    (scripts/build_fonts.py). Served from this site: no third-party request, and the same
-   typography for every reader; IBM Plex itself is next in each stack. */
-@font-face { font-family: "Study Sans"; src: url("fonts/StudySans-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+   typography for every reader; IBM Plex itself is next in each stack.
+   The three faces of the first screen (Serif 500, Sans 400 and 500) are preloaded (index.html)
+   and optional: a first visit on a slow connection that has not got them by the first paint
+   keeps the fallback, rather than reflow the first screen under the reader. The rest swap in. */
+@font-face { font-family: "Study Sans"; src: url("fonts/StudySans-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: optional; }
 @font-face { font-family: "Study Sans"; src: url("fonts/StudySans-Italic.woff2") format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
-@font-face { font-family: "Study Sans"; src: url("fonts/StudySans-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Study Sans"; src: url("fonts/StudySans-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: optional; }
 @font-face { font-family: "Study Sans"; src: url("fonts/StudySans-SemiBold.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
 @font-face { font-family: "Study Serif"; src: url("fonts/StudySerif-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: "Study Serif"; src: url("fonts/StudySerif-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Study Serif"; src: url("fonts/StudySerif-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: optional; }
 @font-face { font-family: "Study Mono"; src: url("fonts/StudyMono-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: "Study Mono"; src: url("fonts/StudyMono-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
 
@@ -94,7 +97,8 @@ sub { line-height: 0; }
 .topbar { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--paper) 94%, transparent); border-bottom: 1px solid var(--rule); backdrop-filter: saturate(1.2) blur(6px); }
 .topbar-in { max-width: 1180px; margin: 0 auto; padding: 10px 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .brand { font: 500 13px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--ink); text-decoration: none; }
-.toplinks { display: flex; align-items: center; gap: 20px; font-size: 14px; }
+/* kept at the right edge, so it stays put when site.js shows the contents button (#where) */
+.toplinks { display: flex; align-items: center; gap: 20px; font-size: 14px; margin-left: auto; }
 .toplinks a { color: var(--ink-2); text-decoration: none; }
 .toplinks a:hover { color: var(--ink); text-decoration: underline; }
 .theme-btn { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font: 500 13px/1 var(--sans); color: var(--ink); background: transparent; border: 1px solid var(--rule-2); border-radius: 999px; padding: 7px 12px; cursor: pointer; }
@@ -155,38 +159,126 @@ html:not(.js) .theme-btn { display: none; }
 .toc-flag .ico { width: 12px; height: 12px; vertical-align: -1px; }
 main { min-width: 0; padding-bottom: 48px; }
 
-/* ── off-screen sections: laid out as they come near, so a phone paints its first screen sooner ── */
-main > section:not(#summary) { content-visibility: auto; contain-intrinsic-size: auto 3000px; }
-#holdout { contain-intrinsic-size: auto 3805px; }
-#performance { contain-intrinsic-size: auto 5480px; }
-#significance { contain-intrinsic-size: auto 5550px; }
-#anatomy { contain-intrinsic-size: auto 4537px; }
-#execution { contain-intrinsic-size: auto 4075px; }
-#risk { contain-intrinsic-size: auto 2485px; }
-#testing { contain-intrinsic-size: auto 3223px; }
-#residual { contain-intrinsic-size: auto 1733px; }
-#method { contain-intrinsic-size: auto 4554px; }
-#validation { contain-intrinsic-size: auto 1385px; }
-#threats { contain-intrinsic-size: auto 3769px; }
-#literature { contain-intrinsic-size: auto 1496px; }
-#reproduce { contain-intrinsic-size: auto 822px; }
-#history { contain-intrinsic-size: auto 757px; }
+/* ── off-screen sections: laid out as they come near, so a phone paints its first screen sooner ──
+   Until a section has been laid out, the browser holds the room it will take: the per-section
+   heights below, and each chart's drawn height (chart-sizes), are measured and written by
+   scripts/build_section_sizes.py; re-run it after the content changes (--check says when). */
+main > section:where(:not(#summary)) { content-visibility: auto; contain-intrinsic-size: auto 3000px; }
+/* section-sizes:begin (scripts/build_section_sizes.py, measured at 1440 px) */
+#holdout { contain-intrinsic-size: auto 3746px; }
+#performance { contain-intrinsic-size: auto 5439px; }
+#significance { contain-intrinsic-size: auto 5503px; }
+#anatomy { contain-intrinsic-size: auto 4496px; }
+#execution { contain-intrinsic-size: auto 4028px; }
+#risk { contain-intrinsic-size: auto 2426px; }
+#testing { contain-intrinsic-size: auto 3164px; }
+#residual { contain-intrinsic-size: auto 1674px; }
+#method { contain-intrinsic-size: auto 4495px; }
+#validation { contain-intrinsic-size: auto 1326px; }
+#threats { contain-intrinsic-size: auto 3785px; }
+#literature { contain-intrinsic-size: auto 1431px; }
+#reproduce { contain-intrinsic-size: auto 4483px; }
+#history { contain-intrinsic-size: auto 692px; }
+/* section-sizes:end */
 @media (max-width: 760px) {
-  #holdout { contain-intrinsic-size: auto 6045px; }
-  #performance { contain-intrinsic-size: auto 7999px; }
-  #significance { contain-intrinsic-size: auto 8407px; }
-  #anatomy { contain-intrinsic-size: auto 6985px; }
-  #execution { contain-intrinsic-size: auto 6738px; }
-  #risk { contain-intrinsic-size: auto 3491px; }
-  #testing { contain-intrinsic-size: auto 4393px; }
-  #residual { contain-intrinsic-size: auto 2418px; }
-  #method { contain-intrinsic-size: auto 8739px; }
-  #validation { contain-intrinsic-size: auto 2138px; }
-  #threats { contain-intrinsic-size: auto 6255px; }
-  #literature { contain-intrinsic-size: auto 3219px; }
-  #reproduce { contain-intrinsic-size: auto 1462px; }
-  #history { contain-intrinsic-size: auto 869px; }
+  /* section-sizes-phone:begin (scripts/build_section_sizes.py, measured at 390 px) */
+  #holdout { contain-intrinsic-size: auto 6002px; }
+  #performance { contain-intrinsic-size: auto 7974px; }
+  #significance { contain-intrinsic-size: auto 8376px; }
+  #anatomy { contain-intrinsic-size: auto 6972px; }
+  #execution { contain-intrinsic-size: auto 6713px; }
+  #risk { contain-intrinsic-size: auto 3454px; }
+  #testing { contain-intrinsic-size: auto 4350px; }
+  #residual { contain-intrinsic-size: auto 2375px; }
+  #method { contain-intrinsic-size: auto 8696px; }
+  #validation { contain-intrinsic-size: auto 2095px; }
+  #threats { contain-intrinsic-size: auto 6246px; }
+  #literature { contain-intrinsic-size: auto 3170px; }
+  #reproduce { contain-intrinsic-size: auto 5976px; }
+  #history { contain-intrinsic-size: auto 820px; }
+  /* section-sizes-phone:end */
 }
+/* chart-sizes:begin (scripts/build_section_sizes.py) */
+/* each chart's room until it is drawn, measured at 1440 px (above 760 px) and 390 px: its legend (held under the caption), and the chart with its tools */
+@media screen and (min-width: 761px) {
+  html.js #ex-1:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-1:not(.is-drawn, .no-chart) .ex-chart { min-height: 565px; }
+  html.js #ex-2:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-2:not(.is-drawn, .no-chart) .ex-chart { min-height: 555px; }
+  html.js #ex-3:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-3:not(.is-drawn, .no-chart) .ex-chart { min-height: 421px; }
+  html.js #ex-4:not(.is-drawn, .no-chart) .ex-chart { min-height: 189px; }
+  html.js #ex-5:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-5:not(.is-drawn, .no-chart) .ex-chart { min-height: 295px; }
+  html.js #ex-6:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 54px; }
+  html.js #ex-6:not(.is-drawn, .no-chart) .ex-chart { min-height: 497px; }
+  html.js #ex-7:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-7:not(.is-drawn, .no-chart) .ex-chart { min-height: 315px; }
+  html.js #ex-8:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-8:not(.is-drawn, .no-chart) .ex-chart { min-height: 485px; }
+  html.js #ex-9:not(.is-drawn, .no-chart) .ex-chart { min-height: 441px; }
+  html.js #ex-10:not(.is-drawn, .no-chart) .ex-chart { min-height: 656px; }
+  html.js #ex-11:not(.is-drawn, .no-chart) .ex-chart { min-height: 221px; }
+  html.js #ex-12:not(.is-drawn, .no-chart) .ex-chart { min-height: 239px; }
+  html.js #ex-13:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-13:not(.is-drawn, .no-chart) .ex-chart { min-height: 235px; }
+  html.js #ex-14:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-14:not(.is-drawn, .no-chart) .ex-chart { min-height: 289px; }
+  html.js #ex-15:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-15:not(.is-drawn, .no-chart) .ex-chart { min-height: 403px; }
+  html.js #ex-16:not(.is-drawn, .no-chart) .ex-chart { min-height: 249px; }
+  html.js #ex-17:not(.is-drawn, .no-chart) .ex-chart { min-height: 249px; }
+  html.js #ex-18:not(.is-drawn, .no-chart) .ex-chart { min-height: 285px; }
+  html.js #ex-19:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-19:not(.is-drawn, .no-chart) .ex-chart { min-height: 385px; }
+  html.js #ex-20:not(.is-drawn, .no-chart) .ex-chart { min-height: 269px; }
+  html.js #ex-21:not(.is-drawn, .no-chart) .ex-chart { min-height: 275px; }
+  html.js #ex-22:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-22:not(.is-drawn, .no-chart) .ex-chart { min-height: 453px; }
+  html.js #ex-25:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-25:not(.is-drawn, .no-chart) .ex-chart { min-height: 322px; }
+  html.js #ex-26:not(.is-drawn, .no-chart) .ex-chart { min-height: 169px; }
+}
+@media screen and (max-width: 760px) {
+  html.js #ex-1:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 81px; }
+  html.js #ex-1:not(.is-drawn, .no-chart) .ex-chart { min-height: 711px; }
+  html.js #ex-2:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 54px; }
+  html.js #ex-2:not(.is-drawn, .no-chart) .ex-chart { min-height: 608px; }
+  html.js #ex-3:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 54px; }
+  html.js #ex-3:not(.is-drawn, .no-chart) .ex-chart { min-height: 459px; }
+  html.js #ex-4:not(.is-drawn, .no-chart) .ex-chart { min-height: 433px; }
+  html.js #ex-5:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-5:not(.is-drawn, .no-chart) .ex-chart { min-height: 333px; }
+  html.js #ex-6:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 135px; }
+  html.js #ex-6:not(.is-drawn, .no-chart) .ex-chart { min-height: 605px; }
+  html.js #ex-7:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 81px; }
+  html.js #ex-7:not(.is-drawn, .no-chart) .ex-chart { min-height: 285px; }
+  html.js #ex-8:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 81px; }
+  html.js #ex-8:not(.is-drawn, .no-chart) .ex-chart { min-height: 505px; }
+  html.js #ex-9:not(.is-drawn, .no-chart) .ex-chart { min-height: 441px; }
+  html.js #ex-10:not(.is-drawn, .no-chart) .ex-chart { min-height: 656px; }
+  html.js #ex-11:not(.is-drawn, .no-chart) .ex-chart { min-height: 221px; }
+  html.js #ex-12:not(.is-drawn, .no-chart) .ex-chart { min-height: 239px; }
+  html.js #ex-13:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-13:not(.is-drawn, .no-chart) .ex-chart { min-height: 235px; }
+  html.js #ex-14:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-14:not(.is-drawn, .no-chart) .ex-chart { min-height: 289px; }
+  html.js #ex-15:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-15:not(.is-drawn, .no-chart) .ex-chart { min-height: 403px; }
+  html.js #ex-16:not(.is-drawn, .no-chart) .ex-chart { min-height: 249px; }
+  html.js #ex-17:not(.is-drawn, .no-chart) .ex-chart { min-height: 249px; }
+  html.js #ex-18:not(.is-drawn, .no-chart) .ex-chart { min-height: 932px; }
+  html.js #ex-19:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-19:not(.is-drawn, .no-chart) .ex-chart { min-height: 341px; }
+  html.js #ex-20:not(.is-drawn, .no-chart) .ex-chart { min-height: 269px; }
+  html.js #ex-21:not(.is-drawn, .no-chart) .ex-chart { min-height: 275px; }
+  html.js #ex-22:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 27px; }
+  html.js #ex-22:not(.is-drawn, .no-chart) .ex-chart { min-height: 543px; }
+  html.js #ex-25:not(.is-drawn, .no-chart) > .ex-head { padding-bottom: 54px; }
+  html.js #ex-25:not(.is-drawn, .no-chart) .ex-chart { min-height: 650px; }
+  html.js #ex-26:not(.is-drawn, .no-chart) .ex-chart { min-height: 193px; }
+}
+/* chart-sizes:end */
 /* the number check reads every section, and print shows them all */
 html.audit main > section:not(#summary) { content-visibility: visible; }
 @media print { main > section:not(#summary) { content-visibility: visible; } }
@@ -742,7 +834,8 @@ pre { background: var(--sunk); color: var(--ink); border: 1px solid var(--rule);
   .toc-sheet .toc-chips a { min-width: 36px; padding: 7px 8px; font-size: 13px; }
   .toc-sheet li:has(.toc-sub) > a { border-bottom: 0; }
 }
-@media (max-width: 760px) {
+/* screen only: a printed A4 column (about 688 px) keeps the wide layout and diagrams */
+@media screen and (max-width: 760px) {
   .topbar-in, .page, .foot-in { padding-left: 16px; padding-right: 16px; }
   .topbar-in { padding-top: 4px; padding-bottom: 4px; min-height: 48px; }
   html:not(.js) .topbar { position: static; }
@@ -842,6 +935,29 @@ pre { background: var(--sunk); color: var(--ink); border: 1px solid var(--rule);
   a { color: inherit; text-decoration: none; }
   .ex-grid, .ex-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tbl-wrap { overflow: visible; }
+  /* the A4 column (about 688 px): the wide diagrams, whole on one page; the commands, the drift
+     table and the manifest one under another; wide tables wrap their headers and labels */
+  .dg-wide { display: block; }
+  .dg-compact { display: none; }
+  .ex-diagram, .dg-wrap { break-inside: avoid; page-break-inside: avoid; }
+  .repro { grid-template-columns: minmax(0, 1fr); }
+  .tbl th, .tbl td { padding: 8px 9px; }
+  /* the type sizes of the phone layout, which suit a page of this width */
+  h1 { font-size: 30px; line-height: 1.16; }
+  .sec > h2 { font-size: 24px; }
+  .secno { width: 28px; font-size: 14px; }
+  .status-pill { margin-left: 28px; margin-top: 6px; }
+  .dek { font-size: 16.5px; }
+  .findings-wrap { padding: 12px 16px 4px; }
+  .findings > li { font-size: 15px; padding-left: 24px; }
+  .bottom-line { padding: 2px 16px 18px; }
+  .bl-full > summary { padding: 12px 16px 0; }
+  .inbrief, .bottom-line p { font-size: 15.5px; }
+  .kpi { padding: 12px 12px 14px; }
+  .kpi-value { font-size: 24px; }
+  .kpi.is-pending .kpi-value, .kpi-value.is-text { font-size: 17px; }
+  .ex-title { font-size: 16.5px; }
+  .tbl thead th, .tbl thead th.r, .tbl-holdout tbody th, .tbl-scen tbody th, .tbl-spec tbody th, .threats td:nth-child(2) { white-space: normal; }
   .site-foot { border-top: 1px solid #ccc; }
   .print-li { display: none !important; }
   /* "Print the summary" (site.js): the masthead and the hero on the first page, the key findings on the second */
