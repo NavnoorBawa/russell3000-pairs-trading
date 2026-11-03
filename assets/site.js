@@ -542,8 +542,21 @@
 
   // A table region takes keyboard focus (so it can be scrolled from the keyboard) only while
   // its table is wider or taller than its frame; it then shows an edge shadow (site.css).
+  // A frame in a section the browser is skipping (off screen, content-visibility: auto) is left
+  // as it is, as measuring it would lay out the whole section: it is synced when the section is.
+  // Whether a section is skipped is asked of its heading: asked of anything else inside it, the
+  // browser may lay the section out to answer.
+  function skipping(sec) {
+    var h = sec && sec.firstElementChild;
+    return !!(h && h.checkVisibility) && getComputedStyle(sec).contentVisibility === 'auto' &&
+      !h.checkVisibility({contentVisibilityAuto: true});
+  }
   function syncScrollable() {
+    var skipped = new Map();
     document.querySelectorAll('.tbl-wrap').forEach(function (w) {
+      var sec = w.closest('main > section');
+      if (sec && !skipped.has(sec)) skipped.set(sec, skipping(sec));
+      if (sec && skipped.get(sec)) return;
       var scrolls = w.clientWidth > 0 && (w.scrollWidth > w.clientWidth + 1 || w.scrollHeight > w.clientHeight + 1);
       w.classList.toggle('is-scrollable', scrolls);
       if (scrolls) w.tabIndex = 0;
@@ -552,8 +565,12 @@
   }
   syncScrollable();
   var scrollFrame = null;
-  window.addEventListener('resize', function () {
+  function syncSoon() {
     if (scrollFrame === null) scrollFrame = requestAnimationFrame(function () { scrollFrame = null; syncScrollable(); });
+  }
+  window.addEventListener('resize', syncSoon);
+  sections.forEach(function (s) {
+    s.addEventListener('contentvisibilityautostatechange', function (e) { if (!e.skipped) syncSoon(); });
   });
   // each data-table disclosure names its exhibit, and builds its table when first opened
   document.querySelectorAll('details.ex-data').forEach(function (d) {
