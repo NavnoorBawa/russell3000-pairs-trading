@@ -171,13 +171,13 @@ main > section:where(:not(#summary)) { content-visibility: auto; contain-intrins
 #anatomy { contain-intrinsic-size: auto 4496px; }
 #execution { contain-intrinsic-size: auto 4028px; }
 #risk { contain-intrinsic-size: auto 2426px; }
-#testing { contain-intrinsic-size: auto 3164px; }
+#testing { contain-intrinsic-size: auto 3188px; }
 #residual { contain-intrinsic-size: auto 1674px; }
 #method { contain-intrinsic-size: auto 4495px; }
 #validation { contain-intrinsic-size: auto 1326px; }
 #threats { contain-intrinsic-size: auto 3785px; }
 #literature { contain-intrinsic-size: auto 1431px; }
-#reproduce { contain-intrinsic-size: auto 4483px; }
+#reproduce { contain-intrinsic-size: auto 2039px; }
 #history { contain-intrinsic-size: auto 692px; }
 /* section-sizes:end */
 @media (max-width: 760px) {
@@ -188,13 +188,13 @@ main > section:where(:not(#summary)) { content-visibility: auto; contain-intrins
   #anatomy { contain-intrinsic-size: auto 6972px; }
   #execution { contain-intrinsic-size: auto 6713px; }
   #risk { contain-intrinsic-size: auto 3454px; }
-  #testing { contain-intrinsic-size: auto 4350px; }
+  #testing { contain-intrinsic-size: auto 4423px; }
   #residual { contain-intrinsic-size: auto 2375px; }
   #method { contain-intrinsic-size: auto 8696px; }
   #validation { contain-intrinsic-size: auto 2095px; }
   #threats { contain-intrinsic-size: auto 6246px; }
   #literature { contain-intrinsic-size: auto 3170px; }
-  #reproduce { contain-intrinsic-size: auto 5976px; }
+  #reproduce { contain-intrinsic-size: auto 3265px; }
   #history { contain-intrinsic-size: auto 820px; }
   /* section-sizes-phone:end */
 }

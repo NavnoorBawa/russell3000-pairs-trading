@@ -3520,3 +3520,53 @@ used, and `check_published_numbers.py` checks them all.
   - Mobile, under simulated slow 4G: performance 87 to 89 (it was about 75), and 100 for
     accessibility, best practices and SEO. First paint is 1.7 s (it was 3.0 s), the largest
     paint 3.6 s (5.3 s), and layout shift 0.007.
+
+## The re-fetch reproduction and the ship audit (2026-10-28 to 2026-11-03)
+
+**Re-fetch.** The development run's caches were lost by 2026-10-22, so the run was repeated on
+prices fetched afresh (`results/v33_dev_refetch/`, `PROVENANCE.md` gives each part's commit).
+The variant family was killed twice for lack of memory under 10ac3bb (after 35 and 33 of 38
+variants) and finished under bf8daf1, which adds checkpoints; every variant the killed runs
+finished came out the same. Every headline number of the main backtest, the walk-forward and the
+baselines agrees to the precision shown. The first drift table compared only 56 values and its
+text said that three evidence-layer values and the missing weight moved; the audit found that
+about fifty quoted values had moved. The table now has every quoted value that moved: 111 rows,
+55 moved, among them the variant family's tests (the best variant is now the learned ranker,
++0.51, where it was the 300-name universe, +0.21), three variants that moved by 0.41 to 0.51 in
+Sharpe ratio on revisions that left the main backtest's Sharpe unchanged as shown, and
+persistence on the 300-name reference set (z -1.71 to -2.17, below the base rate at 5%). No
+conclusion about the strategy changes; `tests/test_drift_table.py` and the paper's claims assert
+the table's completeness and every sentence about it.
+
+**Ship audit.** Six dimensions (numbers, code, tests and CI, browsers, performance, docs), two
+adversarial verifiers per finding: 64 findings, 54 upheld, 3 left unverified when the verifiers
+hit a usage limit (checked by hand afterwards and fixed). Fixed:
+- the chart crosshair threw on every phone tap and arrow key (a local variable shadowed a
+  function), live since 1bfb9d4;
+- print used the phone layout (diagrams 1.9 times too large, Exhibit 23 split across pages,
+  tables 801 px on a 688 px column);
+- the per-section placeholder sizes never applied (a :not(#id) selector outranked them), and
+  charts held 40 px before drawing, so deep links and reloads shifted the page by up to 0.93;
+- start-up forced layout of every skipped section (842-915 ms at 4x CPU, now 51-61 ms); one
+  number formatter per call made the charts slow (3.1 s, now 1.4 s); the first screen's fonts
+  swapped late (layout shift 0.16-0.20, now 0); keyboard previews vanished when focus scrolled;
+- the documented reproduce command would have written over the published results and then
+  stopped: the runbook now refuses RUN=v33_dev once its trials are registered, the robustness
+  checks refuse a cache that is not the run's, and the docs show RUN=v33_dev_repro;
+- `publish_run.py --replace` deleted before it validated; `_drawdown` ignored a first-day
+  loss (no published value changes); `link_refs.py` never checked a link's target;
+- tests that could not fail (the strict-JSON test read a git-ignored folder), no look-ahead test
+  of the v33 path, no check on numbers typed into the page, frozen paths guarded by nothing, the
+  fonts not reproducible, CI not run before main moved;
+- stale documents: `docs/EXECUTION_COSTS.md` still quoted v32, requirements.txt and SECURITY.md
+  described a withdrawn run "pending a re-run", four titles, and dates that ignored the re-fetch.
+
+Not fixed, with the reason: axe flags any focusable marker inside a table caption once "Check
+the numbers" is on (removing the focus would break keyboard use; the alternatives broke table
+semantics); the chart libraries still load at start-up (moving them touches the first screen's
+holdout text, print and the number check); and three published wordings that the owner has to
+decide, because changing them changes a published claim: the Summary's "cannot be told apart
+from random pairs" (the random pairs trade the distance rule, as the threats table now says),
+Exhibit 13's "about as often as any correlated pair" (the re-fetch puts the 300-name set below
+the base rate), and whether Exhibit 8 should point to the variants' sensitivity to revisions
+that Section 13 now discloses.

@@ -93,7 +93,12 @@ def html_block(study, page_text, headline):
     rs = rows(study, page_text)
     if rs is None:
         return f'{BEGIN}\n{END}'
+    # a long reference table: closed by default, as the version history is (a link to #t-refetch
+    # opens it, and print and 'Check the numbers' show it)
     lines = [BEGIN,
+             '  <details class="history drift">',
+             '    <summary>The table: <span data-metric="study.refetch.rows_n">'
+             f'{study["refetch"]["rows_n"]}</span> values, published and re-fetched</summary>',
              '  <div class="tbl-wrap" id="t-refetch" role="region" aria-label="Re-fetch reproduction: published '
              'and re-fetched values" tabindex="0" data-phone="matrix">',
              '    <table class="tbl tbl-num">',
@@ -112,7 +117,7 @@ def html_block(study, page_text, headline):
             f'<td class="r" data-metric="{r["key"]}">{fmt(old_value, r["dp"], r["signed"])}</td>'
             f'<td class="r" data-metric="study.refetch.values.{r["name"]}">{fmt(r["new"], r["dp"], r["signed"])}</td>'
             f'<td class="r" data-metric="study.refetch.diff.{r["name"]}">{fmt(r["diff"], r["dp"], True)}</td></tr>')
-    lines += ['      </tbody>', '    </table>', '  </div>', END]
+    lines += ['      </tbody>', '    </table>', '  </div>', '  </details>', END]
     return '\n'.join(lines)
 
 

@@ -61,6 +61,7 @@ python scripts/build_prereg_timeline.py --check
 python scripts/build_site_data.py --check      # assets/study.json is current
 python scripts/build_drift_table.py --check    # the re-fetch drift table (Section 13, README) is current
 python scripts/build_fonts.py --check          # the subset fonts rebuild byte for byte (pip install -e ".[site]")
+python scripts/build_section_sizes.py --check  # sections' and charts' held room (Playwright for Python + Chromium)
 python scripts/build_paper.py                  # the paper records index.html's sha256: rebuild after page edits
 python scripts/build_paper.py --check
 pytest -q                                      # about 1,220 tests; CI also measures coverage
@@ -90,7 +91,7 @@ substance (tests/test_drift_table.py checks them).
 | The page | `index.html` (readable without JavaScript) |
 | Styles | `assets/site.css` (hero, tables and charts styles are merged into it); `assets/verify.css` |
 | Behaviour | `assets/site.js` (contents, previews, deep links, print, lazy charts); `assets/exhibits.js` (the 24 charts, crosshairs, SVG/PNG export); `assets/tables.js` (phone layouts, Copy/CSV); `assets/verify.js` (checking any number in the browser) |
-| Generated blocks in the page | `scripts/build_hero.py` (hero), `scripts/build_prereg_timeline.py` (Section 1 timeline), `scripts/build_drift_table.py` (Section 13's re-fetch table, also in the README), `scripts/link_refs.py` (cross-reference links) |
+| Generated blocks in the page | `scripts/build_hero.py` (hero), `scripts/build_prereg_timeline.py` (Section 1 timeline), `scripts/build_drift_table.py` (Section 13's re-fetch table, also in the README), `scripts/link_refs.py` (cross-reference links); in `assets/site.css`, `scripts/build_section_sizes.py` (each section's and chart's room before it is laid out or drawn: re-run after content changes) |
 | Data | `assets/study.json`, built from `results/` by `scripts/build_site_data.py` |
 | Fonts | `assets/fonts/Study*.woff2`: subsets of IBM Plex, renamed as its licence requires (`scripts/build_fonts.py`; originals in `assets/fonts/plex/`) |
 | Paper | `paper/` (Typst), built by `scripts/build_paper.py` |
@@ -202,8 +203,20 @@ Each item says what is missing and how to know it is done.
 ### Page and content
 
 - **Mobile performance.**
-  - Now: 87 to 89 under simulated slow 4G. The rest is the long page's HTML (about 57 kB
-    gzipped) and two first-screen fonts.
+  - Measured in the ship audit (3 November 2026) with throttling applied in the browser (slow
+    4G, 4x CPU, gzip), not Lighthouse's simulated throttling, which loads the page unthrottled
+    and cannot see a late font swap; layout shift measured without touch emulation, which marks
+    every shift as input and hides it.
+  - Fixed then: the start-up long task (site.js measured every table frame and forced layout
+    of each skipped section: 842-915 ms, now 51-61 ms; blocking 892-1029 ms, now 165-195 ms);
+    the first screen's font swap (layout shift 0.16 at 390 px and 0.20 at 1440 px, now 0.000:
+    the three first-screen faces are preloaded and font-display: optional); the top bar's jump;
+    deep-link and reload shifts (up to 0.93, now below 0.01: each section's and chart's room is
+    held, `scripts/build_section_sizes.py`); chart drawing (one number formatter per precision:
+    all 24 charts 3.1 s, now 1.4 s at 4x CPU).
+  - Left: the chart libraries and study.json still load at start-up, ahead of site.js; a deep
+    link to the key findings still shifts (0.21) when the SemiBold face swaps in; between 761 and
+    1180 px the 1440 px chart heights are used and can be off (Exhibit 18 by about 200 px).
   - Options:
     - move the no-JavaScript paper-figure blocks, the hero's hidden text and the long tables
       out of the critical HTML;
