@@ -96,16 +96,18 @@ def publish(src: pathlib.Path, name: str, log: pathlib.Path = None, replace: boo
     old = [p for p in dest.iterdir() if p.is_file()] if dest.exists() else []
     if old and not replace:
         raise SystemExit(f"{dest} already holds {len(old)} files; --replace empties it first")
+    # Everything that can stop the publication (the cache's fingerprints, the log) runs before
+    # a file of the destination is touched, so a refusal leaves the earlier publication whole.
+    rc = json.loads(src_head.read_text()).get('run_config', {}) if src_head is not None else {}
+    fp = cache_fingerprints(rc.get('data'), cache_hashes)
+    log_text = clean_log(log.read_text(errors='replace')) if log is not None else None
     for p in old:
         p.unlink()
     dest.mkdir(parents=True, exist_ok=True)
     for p in files:
         shutil.copy2(p, dest / p.name)
-    if log is not None:
-        (dest / 'run.log').write_text(clean_log(log.read_text(errors='replace')))
-    headline = dest / src_head.name if src_head is not None else None
-    rc = json.loads(headline.read_text()).get('run_config', {}) if headline is not None else {}
-    fp = cache_fingerprints(rc.get('data'), cache_hashes)
+    if log_text is not None:
+        (dest / 'run.log').write_text(log_text)
     if fp is not None:
         (dest / 'price_cache_hashes.json').write_text(json.dumps(fp, indent=1, sort_keys=True) + '\n')
     manifest = {

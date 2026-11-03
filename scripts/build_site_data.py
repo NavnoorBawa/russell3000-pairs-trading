@@ -815,7 +815,8 @@ def forest(res, gatev_daily_pct, gross_daily_pct=None):
 def _drawdown(r):
     """Maximum drawdown of a daily return series (%), and its length in trading days: from
     the peak to the trough, and from the peak until the peak is regained (None if never)."""
-    w = np.cumprod(1.0 + np.asarray(r, dtype=float))
+    # wealth from the starting capital (1.0) on, so a loss on the first day counts
+    w = np.concatenate([[1.0], np.cumprod(1.0 + np.asarray(r, dtype=float))])
     dd = w / np.maximum.accumulate(w) - 1.0
     trough = int(np.argmin(dd))
     peak = int(np.argmax(w[:trough + 1]))

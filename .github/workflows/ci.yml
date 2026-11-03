@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # main, and the working branches whose commits are fast-forwarded onto main: CI checks a
+    # commit before it is published (GitHub Pages deploys main as soon as it moves)
+    branches: [main, 'claude/**']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -12,10 +14,11 @@ permissions:
   contents: read
 
 # Supersede in-flight runs for the same ref so a force-push doesn't leave stale
-# jobs holding runner minutes (and, on a compromised action, extra dwell time).
+# jobs holding runner minutes (and, on a compromised action, extra dwell time). Never on
+# main: every commit there is published, so each one keeps its complete run.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   test:

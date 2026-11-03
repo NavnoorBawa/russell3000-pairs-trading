@@ -1370,3 +1370,14 @@ def test_every_sealed_sentence_of_the_page_has_its_complete_wording():
     for phrase in SEALED_PHRASES:
         for m in re.finditer(re.escape(phrase), page):
             assert any(a <= m.start() and m.end() <= b for a, b in spans), (phrase, page[m.start() - 60:m.end() + 60])
+
+
+def test_drawdown_counts_a_first_day_loss():
+    """The running peak starts at the starting capital: a loss on the first day is a drawdown
+    (the engine's own calculate_max_drawdown_from_returns does the same)."""
+    dd, to_trough, to_back = bsd._drawdown(np.array([-0.05, 0.01]))
+    assert dd == pytest.approx(-5.0)
+    assert (to_trough, to_back) == (1, None)
+    dd, to_trough, to_back = bsd._drawdown(np.array([0.0, 0.01, -0.02, 0.03]))
+    assert dd == pytest.approx(-2.0) and (to_trough, to_back) == (1, 2)
+    assert bsd._drawdown(np.array([0.01, 0.02]))[0] == 0.0

@@ -15,9 +15,17 @@ licence notices and say what they are. site.css names them first and IBM Plex se
 reader who has IBM Plex installed is unaffected.
 
     python scripts/build_fonts.py          # writes assets/fonts/Study*.woff2
+    python scripts/build_fonts.py --check  # exit 1 if a committed font differs from a rebuild
+
+The build is deterministic: each subset keeps its source's head.modified timestamp (fontTools
+would otherwise stamp the build's clock), so a rebuild with the pinned fontTools and brotli
+(pip install -e ".[site]") reproduces the committed files byte for byte.
 """
 
+import argparse
 import pathlib
+import sys
+import tempfile
 
 from fontTools import subset
 from fontTools.ttLib import TTFont
@@ -36,7 +44,7 @@ NOTE = ('A subset of IBM Plex (Copyright 2017 IBM Corp., SIL Open Font License 1
         'licence requires of a Modified Version: Reserved Font Name "Plex".')
 
 
-def build(src):
+def build(src, out=OUT):
     opts = subset.Options()
     opts.flavor = 'woff2'
     opts.layout_features = ['*']
@@ -45,7 +53,7 @@ def build(src):
     opts.notdef_outline = True
     opts.hinting = True
     opts.glyph_names = False
-    font = TTFont(src)
+    font = TTFont(src, recalcTimestamp=False)    # keep the source's timestamp: a reproducible file
     sub = subset.Subsetter(opts)
     sub.populate(unicodes=subset.parse_unicodes(UNICODES))
     sub.subset(font)
@@ -60,16 +68,31 @@ def build(src):
     for rec in name.names:
         assert rec.nameID not in NAME_IDS or 'Plex' not in rec.toUnicode(), (src.name, rec.nameID)
     font.flavor = 'woff2'
-    dst = OUT / src.name.replace('IBMPlex', 'Study')
+    dst = pathlib.Path(out) / src.name.replace('IBMPlex', 'Study')
     font.save(dst)
     return dst
 
 
-def main():
-    for src in sorted(SRC.glob('IBMPlex*.woff2')):
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
+    ap.add_argument('--check', action='store_true', help='exit 1 if a committed font differs from a rebuild')
+    args = ap.parse_args(argv)
+    sources = sorted(SRC.glob('IBMPlex*.woff2'))
+    if args.check:
+        with tempfile.TemporaryDirectory() as tmp:
+            stale = [d.name for d in (build(src, tmp) for src in sources)
+                     if not (OUT / d.name).exists() or (OUT / d.name).read_bytes() != d.read_bytes()]
+        if stale:
+            print(f'fonts differ from a rebuild: {", ".join(stale)} (run python scripts/build_fonts.py)',
+                  file=sys.stderr)
+            return 1
+        print(f'the {len(sources)} subset fonts in assets/fonts/ are current')
+        return 0
+    for src in sources:
         dst = build(src)
         print(f'{src.name} ({src.stat().st_size:,} bytes) -> {dst.name} ({dst.stat().st_size:,} bytes)')
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

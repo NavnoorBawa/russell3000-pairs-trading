@@ -137,3 +137,22 @@ def test_publish_without_the_cache_skips_or_stops(tmp_path):
     assert not (dest / 'price_cache_hashes.json').exists()
     with pytest.raises(SystemExit, match='not on disk'):
         pr.publish(out, 'b', cache_hashes='require')
+
+
+def test_a_refused_replace_leaves_the_earlier_publication_whole(tmp_path):
+    """--replace checks the cache before it deletes anything: a refusal keeps every file and the
+    MANIFEST of the earlier publication."""
+    pr = _load('publish_run')
+    pr.ROOT = tmp_path
+    (tmp_path / 'data').mkdir()
+    cache = _cache(tmp_path / 'data', {'AAA': _bars(1)})
+    sha = hashlib.sha256(cache.read_bytes()).hexdigest()
+    good, bad = tmp_path / 'good', tmp_path / 'bad'
+    for out, digest in ((good, sha), (bad, '0' * 64)):
+        out.mkdir()
+        (out / 'headline_metrics.json').write_text(json.dumps(_headline(tmp_path, cache, digest)))
+    dest = pr.publish(good, 'run')
+    before = {p.name: p.read_bytes() for p in dest.iterdir()}
+    with pytest.raises(SystemExit, match='changed after the run'):
+        pr.publish(bad, 'run', replace=True)
+    assert {p.name: p.read_bytes() for p in dest.iterdir()} == before

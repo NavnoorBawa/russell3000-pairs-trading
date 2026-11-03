@@ -88,3 +88,18 @@ def test_every_chart_has_a_static_figure_for_readers_without_javascript():
         m = re.search(r'<noscript><img class="ex-static" src="(paper/build/figures/(\w+)\.svg)" width="\d+" height="\d+"', body)
         assert m, ex
         assert m.group(2) == name and (ROOT / m.group(1)).exists(), ex
+
+
+def test_every_reference_links_to_the_target_its_number_names():
+    assert link_refs.mismatched(PAGE) == []
+
+
+def test_a_mislinked_reference_is_caught():
+    page = PAGE.replace('<a class="xref" href="#ex-12">Exhibit 12</a>', '<a class="xref" href="#ex-13">Exhibit 12</a>', 1)
+    assert page != PAGE
+    assert link_refs.mismatched(page) == ['Exhibit 12 -> #ex-13 (expected #ex-12)']
+    sections = link_refs.section_ids(PAGE)
+    wrong = '#' + sections[2]
+    page = PAGE.replace(f'<a class="xref" href="#{sections[7]}">Section 7</a>',
+                        f'<a class="xref" href="{wrong}">Section 7</a>', 1)
+    assert page != PAGE and link_refs.mismatched(page) == [f'Section 7 -> {wrong} (expected #{sections[7]})']

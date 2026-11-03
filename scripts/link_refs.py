@@ -11,7 +11,9 @@ Inside <main> (and the footer), outside tags, links, code and SVG:
 
 Text is never changed: only links are added, so every data-metric marker keeps its text.
 Idempotent: a second run changes nothing. --check exits 1 if the page has a reference left
-unlinked (tests/test_site_links.py runs it).
+unlinked, or a link whose target is not the one its number names (an "Exhibit 12" linked to
+#ex-13, a "Section 7" left pointing at the old section after the contents list is renumbered);
+tests/test_site_links.py runs it.
 """
 
 import argparse
@@ -156,17 +158,41 @@ def unlinked(page):
     return found
 
 
+XREF = re.compile(r'<a class="xref" href="#([\w-]+)"(?: aria-label="(Exhibit|Section) (\d+)")?>([^<]*)</a>')
+
+
+def mismatched(page):
+    """Links whose target is not the one their number names: "Exhibit 12" pointing at #ex-13, or
+    "Section 7" at a section the contents list numbers otherwise (after a section is inserted)."""
+    sections, bad = section_ids(page), []
+    for m in XREF.finditer(page):
+        href, noun, num, text = m.groups()
+        if noun is None:
+            t = re.fullmatch(r'(Exhibit|Section)\s+(\d+)', html.unescape(text).strip())
+            if t is None:
+                bad.append(f'{text!r} -> #{href} (not a numbered reference)')
+                continue
+            noun, num = t.groups()
+        want = f'ex-{num}' if noun == 'Exhibit' else sections.get(int(num))
+        if href != want:
+            bad.append(f'{noun} {num} -> #{href} (expected #{want})')
+    return bad
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('--check', action='store_true', help='exit 1 if a reference is left unlinked')
     args = ap.parse_args(argv)
     page = PAGE.read_text(encoding='utf-8')
     if args.check:
-        left = unlinked(page)
+        left, wrong = unlinked(page), mismatched(page)
         if left:
             print('unlinked references in index.html:', ', '.join(left))
+        if wrong:
+            print('references linked to the wrong target in index.html:', '; '.join(wrong))
+        if left or wrong:
             return 1
-        print('every Exhibit and Section reference in index.html is linked')
+        print('every Exhibit and Section reference in index.html is linked, each to its own target')
         return 0
     new, missing = apply(page)
     if missing:

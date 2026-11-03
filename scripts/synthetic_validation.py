@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Known-answer validation of the v32 engine on synthetic markets.
+"""Known-answer validation of the engine on synthetic markets.
+
+It runs the engine under the default study profile (v33: no regime gate, no learned ranker,
+one borrow fee; PAIRS_PROFILE selects another) on pairs injected into the system, so the
+trading rule, the Kalman hedge ratio, fills, costs and accounting are exercised but v33's
+point-in-time universe and same-industry selection are not; the selection scenario tests the
+Engle-Granger screen on its own. The report records the profile, its hash, the commit and the
+package versions it ran with.
 
 A backtest on real data can only say what a strategy did; it cannot say whether the
 code measures what it claims to. This script runs the real engine on markets whose
@@ -134,6 +141,29 @@ def scenario_selection(seeds):
             'pass': bool(recall >= 0.8 and worst_fp_rate <= 0.05)}
 
 
+def provenance():
+    """The profile (name and hash), commit and package versions this report ran with."""
+    import subprocess
+    from importlib.metadata import PackageNotFoundError, version
+
+    from pairs_trading.study_config import get_profile
+    profile = get_profile()
+    try:
+        git = subprocess.run(['git', '-C', str(pathlib.Path(__file__).resolve().parents[1]), 'rev-parse', 'HEAD'],
+                             capture_output=True, text=True, timeout=30)
+        commit = git.stdout.strip() or None
+    except (OSError, subprocess.SubprocessError):
+        commit = None
+
+    def v(name):
+        try:
+            return version(name)
+        except PackageNotFoundError:
+            return None
+    return {'profile': profile.name, 'profile_hash': profile.config_hash(), 'git_commit': commit,
+            'versions': {k: v(k) for k in ('numpy', 'pandas', 'scipy', 'statsmodels', 'scikit-learn', 'torch')}}
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('--seeds', type=int, default=5, help='independent markets per scenario')
@@ -152,6 +182,7 @@ def main(argv=None):
     report['seeds'] = args.seeds
     report['trade_range'] = list(TRADE_RANGE)
     report['elapsed_s'] = round(time.time() - t0, 1)
+    report['provenance'] = provenance()
 
     e, n, s = report['edge'], report['forced_null'], report['selection']
     pe, pn = e['pooled_gross_per_trade'], n['pooled_gross_per_trade']

@@ -7,6 +7,10 @@ updates:
       interval: "monthly"
     commit-message:
       prefix: "ci"
+    # CodeQL's init and analyze steps must run the same version: one PR bumps them together
+    groups:
+      codeql:
+        patterns: ["github/codeql-action*"]
 
   # Python dependencies: requirements.txt is the pinned set that produced the published
   # results (see SECURITY.md), so routine version bumps would silently break the

@@ -38,6 +38,9 @@ dev = ["pytest>=8", "pytest-cov", "ruff>=0.5", "arch", "hypothesis"]
 # typst: compiles paper/main.typ (scripts/build_paper.py). Pinned because the committed PDF is
 # checked byte for byte against a fresh compile, which holds only for the same compiler.
 paper = ["typst==0.15.0"]
+# fonttools, brotli: scripts/build_fonts.py subsets the site's fonts; pinned because --check compares
+# the committed woff2 files byte for byte with a rebuild.
+site = ["fonttools==4.68.0", "brotli==1.2.1"]
 
 [project.scripts]
 pairs-trading = "pairs_trading.main:cli"

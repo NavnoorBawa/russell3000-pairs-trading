@@ -205,18 +205,21 @@ def test_export_never_writes_bare_nan_or_infinity():
 
 
 def test_shipped_exports_are_strict_json():
-    """Regression guard for the files the site and downstream consumers read."""
-    import glob
+    """Regression guard for the files the site and downstream consumers read: every committed
+    JSON under results/ and the site's and the paper's data (no bare NaN or Infinity, which
+    browsers' JSON.parse rejects)."""
     import json as _json
-    import os
+    from pathlib import Path
 
     def _reject(c):
         raise AssertionError(f'bare {c}')
 
-    fresh = [f for f in glob.glob('outputs/*.json') if 'unbiased' in f or 'fund_type' in f]
-    if not fresh:
-        pytest.skip('no current exports on disk (run the backtest first)')
-
-    for f in fresh:
-        with open(f) as fh:
-            _json.loads(fh.read(), parse_constant=_reject), os.path.basename(f)
+    root = Path(__file__).resolve().parents[1]
+    shipped = sorted((root / 'results').rglob('*.json')) + [root / 'assets' / 'study.json',
+                                                           root / 'paper' / 'build' / 'paper_data.json']
+    assert len(shipped) > 50, 'the committed results are missing'
+    for f in shipped:
+        try:
+            _json.loads(f.read_text(encoding='utf-8'), parse_constant=_reject)
+        except AssertionError as e:
+            raise AssertionError(f'{f.relative_to(root)}: {e}') from None
