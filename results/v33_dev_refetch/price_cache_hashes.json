@@ -2,12 +2,12 @@
  "encoding": "per series: sha256 over the bar dates as little-endian int64 days since 1970-01-01 (the local date of the bar) followed by the values as little-endian float64, every NaN as the canonical quiet NaN",
  "fetch_manifest": {
   "bytes": 76172,
-  "path": "/home/user/russell3000-pairs-trading/data/enhanced_russell_3000_data_manifest.json",
+  "path": "data/enhanced_russell_3000_data_manifest.json",
   "sha256": "dde344a72ee834457f290b3ea0a4834f2d3c7b3ab85a1b806dca6c052821707f"
  },
  "macro_cache": {
   "bytes": 439927,
-  "path": "/home/user/russell3000-pairs-trading/data/macro_data.pkl",
+  "path": "data/macro_data.pkl",
   "series": {
    "VIX": {
     "bars": 1508,
@@ -87,7 +87,7 @@
  "n_symbols": 2533,
  "price_cache": {
   "bytes": 1044181076,
-  "path": "/home/user/russell3000-pairs-trading/data/enhanced_russell_3000_data.pkl",
+  "path": "data/enhanced_russell_3000_data.pkl",
   "sha256": "ca8a39e64e1e3b486c91f8396111de827583c0d11746ba41a234d11b8fa751b6"
  },
  "schema": 1,

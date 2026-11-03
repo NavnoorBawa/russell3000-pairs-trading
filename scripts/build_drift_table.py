@@ -4,16 +4,18 @@
 The development run's price caches were lost with the working storage (2026-10-22), so its
 numbers cannot be rebuilt from the input it pinned. The re-fetch reproduction
 (results/v33_dev_refetch/, docs/IMPROVEMENT_PLAN.md A1) re-ran the same design, calendar and
-code path on prices fetched afresh; this table puts every headline number the page quotes, and
-the evidence-layer numbers the re-fetch also re-ran, beside the published value. Each value is a
-marker that scripts/check_published_numbers.py checks: the published value under its own key,
-the re-fetch's under study.refetch.values.<key>, the difference under study.refetch.diff.<key>.
-The difference is the re-fetch's value as shown minus the published value as shown, so a 0 means
-the two agree to the precision the page publishes.
+steps on prices fetched afresh. This table puts beside each published value its re-fetched one:
+every key of the headline JSON that the page quotes, the evidence layer's main numbers, every
+other value the page quotes that the re-fetch moved, and every declared variant whose Sharpe
+ratio moved (the rows of assets/study.json's refetch section: scripts/build_site_data.py's
+DRIFT_ROWS, then the variants). Each value is a marker that scripts/check_published_numbers.py
+checks: the published value under its own key, the re-fetch's under study.refetch.values.<key>,
+the difference under study.refetch.diff.<key>. The difference is the re-fetch's value as shown
+minus the published value as shown, so a 0 means the two agree to the precision the page
+publishes. tests/test_drift_table.py checks that the rows are complete.
 
-The rows, labels and decimals are scripts/build_site_data.py's DRIFT_ROWS; a value's sign style
-follows the page's own first marker of that key ('+' shown for positive values where the page
-shows a sign).
+A value's sign style follows the page's own first marker of that key ('+' shown for positive
+values where the page shows a sign); a variant's Sharpe ratio is always signed.
 
 It writes between <!-- drift-table:begin --> and <!-- drift-table:end --> in both files.
 --check exits 1 if either file's copy differs from what this script writes.
@@ -26,7 +28,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from build_site_data import DRIFT_ROWS  # noqa: E402
+from build_site_data import DRIFT_VARIANTS  # noqa: E402
 
 PAGE = ROOT / 'index.html'
 README = ROOT / 'README.md'
@@ -65,13 +67,14 @@ def rows(study, page_text):
         return None
     signed = signed_keys(page_text)
     out = []
-    for group, key, label, dp in DRIFT_ROWS:
+    for row in r['rows']:
+        group, key, label, dp = row['group'], row['key'], row['label'], row['dp']
         name = key[len('study.'):] if key.startswith('study.') else key
         old = _get(study, name.split('.')) if key.startswith('study.') else None
         new = _get(r['values'], name.split('.'))
         diff = _get(r['diff'], name.split('.'))
         out.append({'group': group, 'key': key, 'name': name, 'label': label, 'dp': dp,
-                    'signed': key in signed, 'old': old, 'new': new, 'diff': diff})
+                    'signed': key in signed or group == DRIFT_VARIANTS, 'old': old, 'new': new, 'diff': diff})
     return out
 
 
@@ -94,10 +97,7 @@ def html_block(study, page_text, headline):
              '  <div class="tbl-wrap" id="t-refetch" role="region" aria-label="Re-fetch reproduction: published '
              'and re-fetched values" tabindex="0" data-phone="matrix">',
              '    <table class="tbl tbl-num">',
-             '      <caption>Every headline number of this page, and the evidence-layer numbers the re-fetch re-ran: '
-             'as published (prices fetched to 21 October 2026) and on prices fetched afresh on '
-             f'{_day(study["refetch"]["run"]["timestamp_utc"])}. The difference is the re-fetch as shown minus the '
-             'published value as shown, in the row\'s units.</caption>',
+             f'      <caption>{caption(study)}</caption>',
              '      <thead><tr><th scope="col">Measure</th><th scope="col" class="r">Published</th>'
              '<th scope="col" class="r">Re-fetch</th><th scope="col" class="r">Difference</th></tr></thead>',
              '      <tbody>']
@@ -134,6 +134,17 @@ def md_block(study, page_text, headline):
                      f'| <!--m:study.refetch.diff.{r["name"]}-->{fmt(r["diff"], r["dp"], True)}<!--/m--> |')
     lines += ['', END]
     return '\n'.join(lines)
+
+
+def caption(study):
+    """The table's caption, dated from the two runs' own timestamps."""
+    return ('Each value of the development run\'s headline file that this page quotes, the evidence '
+            'layer\'s main numbers, every other value this page quotes that the re-fetch moved, and every '
+            'declared variant whose Sharpe ratio moved: as published (the run of '
+            f'{_day(study["dev"]["run"]["timestamp_utc"])}) and on prices fetched afresh on '
+            f'{_day(study["refetch"]["run"]["timestamp_utc"])}. The difference is the re-fetch as shown minus '
+            'the published value as shown, in the row\'s units. Left out: second markers of a value listed '
+            'here, and counts the design sets (walk-forward windows, random-pair draws).')
 
 
 def _day(stamp):

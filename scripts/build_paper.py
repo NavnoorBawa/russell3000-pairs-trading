@@ -107,7 +107,8 @@ KNOWN_STUDY = {'schema', 'meta', 'dev', 'holdout', 'residual', 'validation',
                'trials',       # results/trial_registry.jsonl: every trial whose result was seen
                'registry',     # the registry's counts of trials, run records and table rows
                'refetch'}      # the re-fetch reproduction: its drift table is on the site; the
-                               # paper's Reproducibility section summarises it in words
+                               # paper's Reproducibility section quotes its counts, conclusions
+                               # and moved values (METRICS, claims)
 KNOWN_DEV = {'run', 'daily', 'gatev', 'random_band', 'random_sharpes', 'strategy_sharpe', 'gatev_sharpe',
              'random_percentile', 'walk_forward', 'monthly', 'annual', 'rolling_sharpe', 'forest', 'power',
              'dsr_curve', 'waterfall', 'trades', 'factors', 'funnel', 'universe_by_formation', 'cost_schedules',
@@ -705,10 +706,11 @@ def derived(inp):
     forest = {r['key']: r for r in dev['forest']}
     snaps = universe_snapshots(inp['universe_index'])
     power = holdout_power(dev['daily']['net'])
-    # the note's date: its newest dated input (the newest run behind study.json, the declaration
-    # of the variant family, or the holdout's registration and completion), never the build
-    # machine's clock
-    dated = [study['meta']['generated_utc'][:10], (sn.get('declared_utc') or '')[:10],
+    # the note's date: its newest dated input (the newest run behind study.json, the text's last
+    # revision, the declaration of the variant family, or the holdout's registration and
+    # completion), never the build machine's clock
+    dated = [study['meta']['generated_utc'][:10], (study['meta'].get('revised') or '')[:10],
+             (sn.get('declared_utc') or '')[:10],
              (_get(study, 'holdout', 'provenance', 'registry', 'registered_utc') or '')[:10],
              (_get(study, 'holdout', 'provenance', 'completed_utc') or '')[:10]]
     paper_date = max(d for d in dated if d)
@@ -1048,6 +1050,18 @@ METRICS = {
     # the declared variant family's data-snooping tests (results/variant_family)
     **{f'study.dev.snooping.results.{k}': v for k, v in _SNOOPING.items()},
     'study.registry.trials': '.0', 'study.registry.recorded_runs': '.0', 'study.registry.rows': '.0',
+    # the re-fetch reproduction (results/v33_dev_refetch): its counts and the values the
+    # Reproducibility section quotes, beside the published ones
+    'study.dev.run.symbols': ',.0',
+    **{f'study.refetch.{k}': v for k, v in (
+        ('rows_n', '.0'), ('rows_same', '.0'), ('rows_moved', '.0'), ('variants_moved', '.0'),
+        ('variants_move_min', '.2'), ('variants_move_max', '.2'),
+        ('values.dev.run.symbols', ',.0'),
+        ('values.dev.snooping.results.sharpe_best', '+.2'), ('values.dev.snooping.results.spa_zero.p', '.3'),
+        ('values.dev.snooping.results.rw_rejected', '.0'),
+        ('values.dev.snooping.results.spa_gatev_unit_vol.p', '.3'),
+        ('values.dev.snooping.results.pbo_pct', '.1%'),
+        ('values.dev.facts.pers_z', '.2'), ('values.dev.facts.pers_s1_z', '.2'))},
 }
 
 # The evaluated holdout ('paper.ho.', from holdout_derived): in the paper's data only once the
@@ -1103,6 +1117,7 @@ PENDING = {
     'study.residual.': 'pending (the residual arm)',
     'study.validation.': 'pending (the committed validation run)',
     'study.dev.cost_sensitivity.': 'pending (the cost-scenario re-runs)',
+    'study.refetch.': 'pending (the re-fetch reproduction)',
 }
 
 
@@ -1182,7 +1197,26 @@ def claims(data):
     U = dev.get('universe_by_formation') or []
     trials = study.get('trials') or []
     sn = (dev.get('snooping') or {}).get('results') or {}
+    rf = study.get('refetch') or {}
+    rv = rf.get('values') or {}
+    rf_rows = {r['key']: r for r in rf.get('rows') or []}
+    rsn = _get(rv, 'dev', 'snooping', 'results', default={})
+    rfacts = _get(rv, 'dev', 'facts', default={})
+    ranker = next((i for i, v in enumerate(sn.get('variants') or []) if v.get('name') == 'ranker_gbm'), None)
     return {
+        # the re-fetch reproduction (main.typ prints it only when study.json has it)
+        'refetch_headline_same': bool(rf.get('headline_same')),
+        'refetch_best_is_ranker': (_get(rf, 'best', 'refetch') == 'Learned ranker on'
+                                   and _get(rf, 'best', 'published') == "300 names, v32's size"
+                                   and f'study.dev.snooping.results.variants.{ranker}.sharpe' in rf_rows),
+        'refetch_rejects_nothing': bool(rsn) and rsn['spa_zero']['p'] > 0.05 and rsn['rw_rejected'] == 0
+                                   and rsn['spa_gatev_unit_vol']['p'] > 0.05,
+        'refetch_still_overfits': bool(rsn) and rsn['pbo_pct'] > 50,
+        'refetch_persistence_below_base': (rfacts.get('pers_z') is not None and rfacts['pers_z'] <= -1.96
+                                           and facts.get('pers_z') is not None and not _sig(facts['pers_z'])),
+        'refetch_candidate_persistence_same': (_get(rf_rows, 'study.dev.facts.pers_s1_z', 'same_as_shown') is True
+                                               and rfacts.get('pers_s1_z') is not None
+                                               and not _sig(rfacts['pers_s1_z'])),
         # the verdict
         'main_ci_spans_zero': sig['main']['boot_lo'] < 0 < sig['main']['boot_hi'],
         'oos_ci_spans_zero': sig['oos_daily']['boot_lo'] < 0 < sig['oos_daily']['boot_hi'],
@@ -1427,6 +1461,7 @@ def flags(data):
             'cost_split': dev.get('cost_curve') is not None,
             'snooping': (dev.get('snooping') or {}).get('results') is not None,
             'residual': study.get('residual') is not None,
+            'refetch': study.get('refetch') is not None,
             'validation': study.get('validation') is not None,
             'holdout_complete': (study.get('holdout') or {}).get('status') == 'complete',
             'universe_pit': dev.get('universe_by_formation') is not None,

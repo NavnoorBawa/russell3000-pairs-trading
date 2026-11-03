@@ -185,68 +185,152 @@ ROBUSTNESS = 'robustness.json'       # {dev}/: scripts/robustness_checks.py
 # validation/ inside it). Its numbers sit in 'refetch' beside the published run's, for the drift
 # table of the page's Reproduce section and the README (scripts/build_drift_table.py).
 REFETCH_RUN = 'v33_dev_refetch'
-# Every headline number the page quotes (each key of results/v33_dev/headline_metrics.json that
-# index.html marks; tests/test_drift_table.py keeps the list equal to the page's), then the
-# development results quoted from assets/study.json that the re-fetch also re-ran: (group, key,
-# label, decimals shown). The label is the page's wording; the decimals are the page's.
+# The date the note's text was last revised. It is set by hand when the page or the paper changes
+# in substance (a run's timestamp cannot date a change of text); the paper's date is the newest of
+# this and its dated inputs, and tests/test_drift_table.py checks the page's byline and
+# JSON-LD dateModified against it.
+NOTE_REVISED = '2026-11-03'
+# The drift table's rows: (group, key, label, decimals shown). The label is the page's wording;
+# the decimals are the page's. tests/test_drift_table.py keeps the list complete: every key of
+# results/v33_dev/headline_metrics.json that the page quotes has a row (or is in DRIFT_SAME or
+# DRIFT_CONSTANT), and so does every value the page quotes that the re-fetch moved at the
+# precision shown. Rows that agree are kept where they carry a conclusion (the evidence layer,
+# the snooping tests). refetch_section adds one row for each declared variant whose Sharpe
+# ratio moved (Exhibit 8 draws every variant from this file, not from markers).
+_HEAD = 'Main backtest, net of costs'
+_WF = 'Walk-forward, net of costs'
+_BASE = 'Baselines'
+_COSTS = 'Cost schedules and scenarios'
+_SEL = 'Pair selection, first formation'
+_DATA = 'Prices and universe'
+_EVID = 'Evidence layer'
+_PERS = 'Persistence of cointegration, every pair of the 300 most liquid names'
+_PERS_S1 = "Persistence of cointegration, the strategy's candidate pairs"
+_S2 = 'Second family (S2)'
+_FAM = 'Variant family: data-snooping tests'
+_SN = 'study.dev.snooping.results.'
 DRIFT_ROWS = (
-    ('Main backtest, net of costs', 'main.sharpe', 'Sharpe ratio', 2),
-    ('Main backtest, net of costs', 'significance.main.boot_lo', 'Bootstrap 95% interval, lower end', 2),
-    ('Main backtest, net of costs', 'significance.main.boot_hi', 'Bootstrap 95% interval, upper end', 2),
-    ('Main backtest, net of costs', 'main.total_return_pct', 'Return, %', 2),
-    ('Main backtest, net of costs', 'main.trades', 'Trades', 0),
-    ('Main backtest, net of costs', 'main.win_rate_pct', 'Win rate, %', 1),
-    ('Main backtest, net of costs', 'main.max_drawdown_pct', 'Maximum drawdown, %', 2),
-    ('Main backtest, net of costs', 'main.avg_gross_exposure_pct', 'Average gross exposure, % of equity', 1),
-    ('Main backtest, net of costs', 'main.annual_turnover_x', 'Annual turnover, times', 1),
-    ('Main backtest, net of costs', 'significance.main.ann_sharpe', 'Annualised Sharpe ratio (significance table)', 2),
-    ('Main backtest, net of costs', 'significance.main.hac_t', 'Newey–West t', 2),
-    ('Main backtest, net of costs', 'significance.main.hac_p', 'Newey–West p', 3),
-    ('Main backtest, net of costs', 'significance.main.psr_pct', 'Probabilistic Sharpe ratio, %', 1),
-    ('Main backtest, net of costs', 'significance.main.dsr_pct', 'Deflated Sharpe ratio, %', 1),
-    ('Walk-forward, net of costs', 'oos.pooled_sharpe', 'Sharpe ratio', 2),
-    ('Walk-forward, net of costs', 'significance.oos_daily.boot_lo', 'Bootstrap 95% interval, lower end', 2),
-    ('Walk-forward, net of costs', 'significance.oos_daily.boot_hi', 'Bootstrap 95% interval, upper end', 2),
-    ('Walk-forward, net of costs', 'oos.total_return_pct', 'Return of the stitched path, %', 2),
-    ('Walk-forward, net of costs', 'oos.windows_positive', 'Windows that made money', 0),
-    ('Walk-forward, net of costs', 'oos.windows', 'Windows', 0),
-    ('Walk-forward, net of costs', 'oos.avg_window_return_pct', 'Mean return per window, %', 2),
-    ('Walk-forward, net of costs', 'significance.oos_windows.ci_lo_pct', 'Its 95% interval, lower end, %', 2),
-    ('Walk-forward, net of costs', 'significance.oos_windows.ci_hi_pct', 'Its 95% interval, upper end, %', 2),
-    ('Walk-forward, net of costs', 'significance.oos_windows.p', 'Its p', 3),
-    ('Walk-forward, net of costs', 'significance.oos_daily.ann_sharpe', 'Annualised Sharpe ratio (significance table)', 2),
-    ('Walk-forward, net of costs', 'significance.oos_daily.hac_t', 'Newey–West t', 2),
-    ('Walk-forward, net of costs', 'significance.oos_daily.hac_p', 'Newey–West p', 3),
-    ('Walk-forward, net of costs', 'significance.oos_daily.psr_pct', 'Probabilistic Sharpe ratio, %', 1),
-    ('Walk-forward, net of costs', 'significance.oos_daily.dsr_pct', 'Deflated Sharpe ratio, %', 1),
-    ('Baselines', 'benchmarks.gatev.sharpe', 'Gatev distance method, Sharpe ratio', 2),
-    ('Baselines', 'benchmarks.gatev.total_return_pct', 'Gatev distance method, return, %', 2),
-    ('Baselines', 'benchmarks.sharpe_diff_vs_gatev.diff', 'Strategy minus Gatev, Sharpe ratio', 2),
-    ('Baselines', 'benchmarks.sharpe_diff_vs_gatev.p', 'Its Ledoit–Wolf p', 3),
-    ('Baselines', 'benchmarks.random_control.n_draws', 'Random-pair draws', 0),
-    ('Baselines', 'benchmarks.random_control.strategy_percentile', "Strategy's percentile among the draws", 0),
-    ('Baselines', 'benchmarks.random_control.median_sharpe', 'Median draw, Sharpe ratio', 2),
-    ('Baselines', 'benchmarks.random_control.p5_sharpe', '5th percentile draw, Sharpe ratio', 2),
-    ('Baselines', 'benchmarks.random_control.p95_sharpe', '95th percentile draw, Sharpe ratio', 2),
-    ('Baselines', 'fund_profiles.institutional.total_return_pct', 'Cost schedule A (lowest costs), return, %', 2),
-    ('Baselines', 'fund_profiles.quant_hf.total_return_pct', 'Cost schedule of a systematic stat-arb fund, return, %', 2),
-    ('Pair selection and data, first formation', 'fdr.pairs_tested', 'Pairs tested', 0),
-    ('Pair selection and data, first formation', 'fdr.significant_raw_p05', 'At raw p < 0.05', 0),
-    ('Pair selection and data, first formation', 'fdr.survive_bh_fdr_q10', 'Surviving Benjamini–Hochberg at q = 0.10', 0),
-    ('Pair selection and data, first formation', 'fdr.final_selected_pairs', 'Pairs selected', 0),
-    ('Pair selection and data, first formation', 'universe.missing_value_weight_pct', 'Index weight of members without price history, %', 3),
-    ('Pair selection and data, first formation', 'universe.unmapped_value_weight_pct', 'Index weight of holdings without a usable ticker, %', 3),
-    ('Evidence layer and second family', 'study.dev.facts.gross_bp', 'Gross per trade, bp (equal-weighted)', 1),
-    ('Evidence layer and second family', 'study.dev.facts.cost_bp', 'Cost per trade, bp', 1),
-    ('Evidence layer and second family', 'study.dev.facts.decay_oos_bp', 'Gross per trade after formation, bp', 1),
-    ('Evidence layer and second family', 'study.dev.facts.pers_count', 'Pairs cointegrated again the next year', 0),
-    ('Evidence layer and second family', 'study.dev.facts.st_rev_t_main', 'Short-term reversal loading, t', 2),
-    ('Evidence layer and second family', 'study.dev.facts.start_sharpe_median', 'Median Sharpe ratio over the 12 start dates', 2),
-    ('Evidence layer and second family', 'study.residual.sharpe', 'Avellaneda–Lee (S2), net Sharpe ratio', 2),
-    ('Evidence layer and second family', 'study.dev.snooping.results.spa_zero.p', 'Variant family, Hansen SPA p against cash', 3),
-    ('Evidence layer and second family', 'study.dev.snooping.results.pbo_pct', 'Variant family, probability of backtest overfitting, %', 1),
-    ('Evidence layer and second family', 'study.validation.edge.mean_bp', 'Known-answer check, planted pairs, gross per trade, bp', 1),
+    (_HEAD, 'main.sharpe', 'Sharpe ratio', 2),
+    (_HEAD, 'significance.main.boot_lo', 'Bootstrap 95% interval, lower end', 2),
+    (_HEAD, 'significance.main.boot_hi', 'Bootstrap 95% interval, upper end', 2),
+    (_HEAD, 'main.total_return_pct', 'Return, %', 2),
+    (_HEAD, 'main.trades', 'Trades', 0),
+    (_HEAD, 'main.win_rate_pct', 'Win rate, %', 1),
+    (_HEAD, 'main.max_drawdown_pct', 'Maximum drawdown, %', 2),
+    (_HEAD, 'main.avg_gross_exposure_pct', 'Average gross exposure, % of equity', 1),
+    (_HEAD, 'main.annual_turnover_x', 'Annual turnover, times', 1),
+    (_HEAD, 'significance.main.hac_t', 'Newey–West t', 2),
+    (_HEAD, 'significance.main.hac_p', 'Newey–West p', 3),
+    (_HEAD, 'significance.main.psr_pct', 'Probabilistic Sharpe ratio, %', 1),
+    (_HEAD, 'significance.main.dsr_pct', 'Deflated Sharpe ratio, %', 1),
+    (_WF, 'oos.pooled_sharpe', 'Sharpe ratio', 2),
+    (_WF, 'significance.oos_daily.boot_lo', 'Bootstrap 95% interval, lower end', 2),
+    (_WF, 'significance.oos_daily.boot_hi', 'Bootstrap 95% interval, upper end', 2),
+    (_WF, 'oos.total_return_pct', 'Return of the stitched path, %', 2),
+    (_WF, 'oos.windows_positive', 'Windows that made money', 0),
+    (_WF, 'oos.avg_window_return_pct', 'Mean return per window, %', 2),
+    (_WF, 'significance.oos_windows.ci_lo_pct', 'Its 95% interval, lower end, %', 2),
+    (_WF, 'significance.oos_windows.ci_hi_pct', 'Its 95% interval, upper end, %', 2),
+    (_WF, 'significance.oos_windows.p', 'Its p', 3),
+    (_WF, 'significance.oos_daily.hac_t', 'Newey–West t', 2),
+    (_WF, 'significance.oos_daily.hac_p', 'Newey–West p', 3),
+    (_WF, 'significance.oos_daily.psr_pct', 'Probabilistic Sharpe ratio, %', 1),
+    (_WF, 'significance.oos_daily.dsr_pct', 'Deflated Sharpe ratio, %', 1),
+    (_BASE, 'benchmarks.gatev.sharpe', 'Gatev distance method, Sharpe ratio', 2),
+    (_BASE, 'benchmarks.gatev.total_return_pct', 'Gatev distance method, return, %', 2),
+    (_BASE, 'benchmarks.sharpe_diff_vs_gatev.diff', 'Strategy minus Gatev, Sharpe ratio', 2),
+    (_BASE, 'benchmarks.sharpe_diff_vs_gatev.p', 'Its Ledoit–Wolf p', 3),
+    (_BASE, 'benchmarks.random_control.strategy_percentile', "Strategy's percentile among the random-pair draws", 0),
+    (_BASE, 'benchmarks.random_control.median_sharpe', 'Median draw, Sharpe ratio', 2),
+    (_BASE, 'benchmarks.random_control.p5_sharpe', '5th percentile draw, Sharpe ratio', 2),
+    (_BASE, 'benchmarks.random_control.p95_sharpe', '95th percentile draw, Sharpe ratio', 2),
+    (_COSTS, 'fund_profiles.institutional.total_return_pct', 'Cost schedule A, return, %', 2),
+    (_COSTS, 'fund_profiles.quant_hf.total_return_pct', 'Cost schedule D, return, %', 2),
+    (_COSTS, 'study.dev.cost_sensitivity.scenarios.capital_5b.full.adv_pct',
+     "Book of $5B, larger leg, % of a day's volume", 2),
+    (_SEL, 'fdr.pairs_tested', 'Pairs tested', 0),
+    (_SEL, 'fdr.significant_raw_p05', 'At raw p < 0.05', 0),
+    (_SEL, 'fdr.survive_bh_fdr_q10', 'Surviving Benjamini–Hochberg at q = 0.10', 0),
+    (_SEL, 'fdr.final_selected_pairs', 'Pairs selected', 0),
+    (_DATA, 'study.dev.run.symbols', 'Symbols with price history', 0),
+    (_DATA, 'study.dev.facts.cached_pct', 'Share of the symbols requested, %', 1),
+    (_DATA, 'study.dev.facts.fetch_other_pct', 'Failed the fetch or the data checks, %', 1),
+    (_DATA, 'study.dev.facts.coverage_pct', 'Fetch-coverage rule, %', 1),
+    (_DATA, 'study.dev.facts.anchor_moved', 'Histories moved more than 10% by anchoring to N-PORT', 0),
+    (_DATA, 'universe.missing_value_weight_pct', 'Index weight of members without price history, first formation, %', 3),
+    (_DATA, 'universe.unmapped_value_weight_pct', 'Index weight of holdings without a usable ticker, %', 3),
+    (_DATA, 'study.dev.facts.gap_first_missing', 'Members without price history, first formation', 0),
+    (_DATA, 'study.dev.facts.gap_first_pct', 'Survivorship gap, first formation, % of index weight', 2),
+    (_DATA, 'study.dev.facts.gap_first_not_found_pct', 'Of it, names no longer served (HTTP 404), points', 2),
+    (_DATA, 'study.dev.facts.gap_first_fetch_failed_pct', 'Of it, failed fetches, points', 2),
+    (_DATA, 'study.dev.facts.gap_first_data_checks_pct', 'Of it, failed data checks, points', 2),
+    (_DATA, 'study.dev.facts.gap_last_missing', 'Members without price history, last formation', 0),
+    (_DATA, 'study.dev.facts.gap_last_pct', 'Survivorship gap, last formation, % of index weight', 2),
+    (_DATA, 'study.dev.facts.gap_last_not_found_pct', 'Of it, names no longer served (HTTP 404), points', 2),
+    (_DATA, 'study.dev.facts.gap_last_fetch_failed_pct', 'Of it, failed fetches, points', 2),
+    (_DATA, 'study.dev.facts.gap_last_data_checks_pct', 'Of it, failed data checks, points', 2),
+    (_EVID, 'study.dev.facts.gross_bp', 'Gross per trade, bp (equal-weighted)', 1),
+    (_EVID, 'study.dev.facts.cost_bp', 'Cost per trade, bp', 1),
+    (_EVID, 'study.dev.facts.decay_oos_bp', 'Gross per trade after formation, bp', 1),
+    (_EVID, 'study.dev.facts.st_rev_t_main', 'Short-term reversal loading, t', 2),
+    (_EVID, 'study.dev.facts.start_sharpe_median', 'Median Sharpe ratio over the 12 start dates', 2),
+    (_PERS, 'study.dev.facts.pers_of', 'Pairs cointegrated in one year, pooled', 0),
+    (_PERS, 'study.dev.facts.pers_count', 'Of them, cointegrated again the next year', 0),
+    (_PERS, 'study.dev.facts.pers_pct', 'Share, %', 2),
+    (_PERS, 'study.dev.facts.pers_lo_pct', 'Its 95% interval, lower end, %', 2),
+    (_PERS, 'study.dev.facts.pers_hi_pct', 'Its 95% interval, upper end, %', 2),
+    (_PERS, 'study.dev.facts.pers_expected', "Expected at the next year's base rate", 1),
+    (_PERS, 'study.dev.facts.pers_z', 'z against the base rate', 2),
+    (_PERS_S1, 'study.dev.facts.pers_s1_of', 'Pairs cointegrated in one year', 0),
+    (_PERS_S1, 'study.dev.facts.pers_s1_count', 'Of them, cointegrated again the next year', 0),
+    (_PERS_S1, 'study.dev.facts.pers_s1_z', 'z against the base rate', 2),
+    (_S2, 'study.residual.sharpe', 'Avellaneda–Lee, net Sharpe ratio', 2),
+    (_S2, 'study.residual.p', 'Newey–West p', 3),
+    (_S2, 'study.residual.gross_bp', 'Gross per trade, bp', 2),
+    (_S2, 'study.residual.gross_usd_m', 'Gross P&amp;L, $M', 2),
+    (_S2, 'study.dev.facts.s2c_net_mean_bp', 'Mean trade net of stock-leg costs, bp', 2),
+    (_FAM, _SN + 'positive', 'Variants with a positive Sharpe ratio', 0),
+    (_FAM, _SN + 'sharpe_best', "Best variant's Sharpe ratio", 2),
+    (_FAM, _SN + 'ret_best_pct', "Best variant's return, %", 2),
+    (_FAM, _SN + 'base_rank', 'Rank of the v33 design by Sharpe ratio', 0),
+    (_FAM, _SN + 'spa_zero.p', 'Hansen SPA against cash, p', 3),
+    (_FAM, _SN + 'spa_zero.p_lower', 'Its lower p', 3),
+    (_FAM, _SN + 'spa_zero.p_upper', 'Its upper p', 3),
+    (_FAM, _SN + 'spa_zero.rc_p', 'White Reality Check against cash, p', 3),
+    (_FAM, _SN + 'spa_zero.best_t', 'Best variant against cash, studentized mean', 2),
+    (_FAM, _SN + 'spa_gatev_unit_vol.p', 'Hansen SPA against Gatev at unit volatility, p', 3),
+    (_FAM, _SN + 'spa_gatev_unit_vol.rc_p', 'Its Reality Check p', 3),
+    (_FAM, _SN + 'spa_gatev_unit_vol.best_t', 'Best variant against Gatev at unit volatility, studentized mean', 2),
+    (_FAM, _SN + 'spa_gatev.p', 'Hansen SPA against Gatev on daily returns, p', 3),
+    (_FAM, _SN + 'spa_gatev.rc_p', 'Its Reality Check p', 3),
+    (_FAM, _SN + 'spa_gatev.best_t', 'Best variant against Gatev on daily returns, studentized mean', 2),
+    (_FAM, _SN + 'rw_rejected', 'Romano–Wolf stepdown, variants rejected at 5%', 0),
+    (_FAM, _SN + 'rw_min_p', 'Its smallest adjusted p', 2),
+    (_FAM, _SN + 'mcs_included', 'Model confidence set, 90%, variants kept', 0),
+    (_FAM, _SN + 'mcs_min_p', 'Its smallest p', 2),
+    (_FAM, _SN + 'effective_rank', 'Effective number of independent trials', 1),
+    (_FAM, _SN + 'dsr.sd_sr', "Variants' Sharpe dispersion, standard deviation", 2),
+    (_FAM, _SN + 'dsr.sr_star', 'Expected best null Sharpe ratio', 2),
+    (_FAM, _SN + 'dsr_best.psr_pct', "Best variant's probabilistic Sharpe ratio, %", 1),
+    (_FAM, _SN + 'dsr_best.dsr_pct', "Best variant's deflated Sharpe ratio, %", 1),
+    (_FAM, _SN + 'dsr.dsr_pct', "The v33 design's deflated Sharpe ratio, %", 1),
+    (_FAM, _SN + 'pbo_pct', 'Probability of backtest overfitting, %', 1),
+    (_FAM, _SN + 'pbo_is_best_oos_sharpe', 'Best of one half, on the other: mean Sharpe ratio', 2),
+    (_FAM, _SN + 'pbo_is_best_loss_pct', 'Its splits with a loss, %', 1),
+    (_FAM, _SN + 'pbo_median_oos_sharpe', 'Median variant on the same splits: mean Sharpe ratio', 2),
+    (_FAM, _SN + 'pbo_base_loss_pct', 'Variant–splits with a loss, %', 1),
 )
+DRIFT_VARIANTS = 'Declared variants whose Sharpe ratio moved'
+# Page keys the table leaves out, with the reason: a second marker of a value already in the
+# table (key -> its twin; equal in both runs, a test checks), or a value set by the design or
+# the calendar that no price can move (a test checks it is equal in both runs).
+DRIFT_SAME = {
+    'significance.main.ann_sharpe': 'main.sharpe',
+    'significance.oos_daily.ann_sharpe': 'oos.pooled_sharpe',
+    'study.dev.facts.anchor_symbols': 'study.dev.run.symbols',
+    _SN + 'dsr_best.sharpe': _SN + 'sharpe_best',
+}
+DRIFT_CONSTANT = ('oos.windows', 'benchmarks.random_control.n_draws')
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -2461,10 +2545,17 @@ def _set_path(d, key, value):
 
 
 def _drift_value(key, headline, study):
-    """A drift row's value: a headline key from the headline JSON, a 'study.' key from the study dict."""
-    if key.startswith('study.'):
-        return _get(study, *key.split('.')[1:])
-    return _get(headline, *key.split('.'))
+    """A drift row's value: a headline key from the headline JSON, a 'study.' key from the study
+    dict (a list element by its index, as the checker addresses it)."""
+    d, parts = (study, key.split('.')[1:]) if key.startswith('study.') else (headline, key.split('.'))
+    for p in parts:
+        if isinstance(d, list) and p.isdigit() and int(p) < len(d):
+            d = d[int(p)]
+        elif isinstance(d, dict) and d.get(p) is not None:
+            d = d[p]
+        else:
+            return None
+    return d
 
 
 def refetch_section(src, directory, headline, study, root, results_root, holdout_calendar):
@@ -2487,13 +2578,31 @@ def refetch_section(src, directory, headline, study, root, results_root, holdout
     manifest = src.load(directory / 'MANIFEST.json') or {}
     rc = head.get('run_config') or {}
     values, diffs, rows = {}, {}, []
-    for group, key, label, dp in DRIFT_ROWS:
+
+    def add(group, key, label, dp):
         old, new = _drift_value(key, headline, study), _drift_value(key, head, inner)
         diff = None if old is None or new is None else _r(_shown(new, dp) - _shown(old, dp), dp)
         name = key[len('study.'):] if key.startswith('study.') else key
         _set_path(values, name, new if not isinstance(new, float) else _r(new, dp + EXTRA_DP))
         _set_path(diffs, name, diff)
         rows.append({'group': group, 'key': key, 'label': label, 'dp': dp, 'same_as_shown': diff == 0})
+
+    for row in DRIFT_ROWS:
+        add(*row)
+    # Each declared variant whose Sharpe ratio, as Exhibit 8 shows it, moved (the family lists
+    # the variants in declared order in both runs; a name mismatch stops the build).
+    old_v = _get(study, 'dev', 'snooping', 'results', 'variants') or []
+    new_v = _get(inner, 'dev', 'snooping', 'results', 'variants') or []
+    if [v['name'] for v in old_v] != [v['name'] for v in new_v]:
+        raise SystemExit('the re-fetch variant family does not list the declared variants in order')
+    moves = []
+    for i, (a, b) in enumerate(zip(old_v, new_v)):
+        if _shown(a['sharpe'], 2) != _shown(b['sharpe'], 2):
+            moves.append(abs(_shown(b['sharpe'], 2) - _shown(a['sharpe'], 2)))
+            add(DRIFT_VARIANTS, f'study.dev.snooping.results.variants.{i}.sharpe', f"{a['label']}, Sharpe ratio", 2)
+    moved = [r['key'] for r in rows if not r['same_as_shown']]
+    heads = (DRIFT_ROWS[0][0], 'Walk-forward, net of costs', 'Baselines')
+    sn_new = _get(inner, 'dev', 'snooping', 'results') or {}
     return {
         'run': {'name': directory.name, 'commit': rc.get('git_commit'), 'timestamp_utc': rc.get('run_timestamp_utc'),
                 'price_cache_sha256': _get(rc, 'data', 'price_cache', 'sha256'),
@@ -2505,6 +2614,15 @@ def refetch_section(src, directory, headline, study, root, results_root, holdout
                 'archive': manifest.get('archive')},
         'values': values, 'diff': diffs, 'rows': rows,
         'rows_same': sum(r['same_as_shown'] for r in rows), 'rows_n': len(rows),
+        'rows_moved': len(moved), 'moved': moved,
+        'variants_moved': len(moves),
+        # the largest and smallest move among them, as shown (two decimals)
+        'variants_move_max': _r(max(moves), 2) if moves else None,
+        'variants_move_min': _r(min(moves), 2) if moves else None,
+        # every row of the main backtest, the walk-forward and the baselines agrees as shown
+        'headline_same': all(r['same_as_shown'] for r in rows if r['group'] in heads),
+        'best': {'published': _get(study, 'dev', 'snooping', 'results', 'best_label'),
+                 'refetch': sn_new.get('best_label')},
     }
 
 
@@ -2631,6 +2749,7 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT, holdout_calendar=HOLDOU
         'meta': {
             'builder': 'scripts/build_site_data.py',
             'generated_utc': max(s for s in stamps if s),
+            'revised': NOTE_REVISED,
             'commit': run.get('git_commit'),
             'headline_sha256': _sha256(headline_path),
             'sources': dict(sorted(src.hashes.items())),
@@ -2652,6 +2771,8 @@ def build(dev=DEFAULT_DEV, results_root=None, root=ROOT, holdout_calendar=HOLDOU
         if section is not None:
             study['refetch'] = section
             study['meta']['sources'] = dict(sorted(src.hashes.items()))
+            # the re-fetch is an input run too: the newest timestamp covers it
+            study['meta']['generated_utc'] = max(s for s in [*stamps, section['run']['timestamp_utc']] if s)
     return study
 
 
@@ -2672,17 +2793,23 @@ def main(argv=None):
                          '(default results/)')
     ap.add_argument('--holdout-calendar', default=HOLDOUT_CALENDAR, choices=sorted(CALENDARS),
                     help=f'the calendar a holdout evaluation must be on (default {HOLDOUT_CALENDAR})')
+    ap.add_argument('--refetch', metavar='NAME', default=REFETCH_RUN,
+                    help=f'the reproduction under RESULTS/NAME/ to compare with the published run in the '
+                         f"'refetch' section (default {REFETCH_RUN}); another name builds a preview, e.g. "
+                         f'--refetch v33_dev_repro --out /tmp/study.json')
     ap.add_argument('--out', default=str(DEFAULT_OUT), help='output file (default assets/study.json)')
     ap.add_argument('--check', action='store_true', help='exit 1 if the output file differs from a fresh build')
     args = ap.parse_args(argv)
-    # another results tree or calendar is a preview: never written over, or checked as, the committed file
-    if (args.results or args.holdout_calendar != HOLDOUT_CALENDAR) and (
+    # another results tree, calendar or reproduction is a preview: never written over, or checked
+    # as, the committed file
+    if (args.results or args.holdout_calendar != HOLDOUT_CALENDAR or args.refetch != REFETCH_RUN) and (
             args.check or pathlib.Path(args.out).resolve() == DEFAULT_OUT.resolve()):
-        ap.error('--results and --holdout-calendar build a preview into --out FILE, never over (or --check '
-                 'against) assets/study.json')
+        ap.error('--results, --holdout-calendar and --refetch build a preview into --out FILE, never over '
+                 '(or --check against) assets/study.json')
     results_root = pathlib.Path(args.results) if args.results else None
     dev = pathlib.Path(args.dev) if args.dev else (results_root / DEFAULT_DEV.name if results_root else DEFAULT_DEV)
-    text = dumps(build(dev, results_root=results_root, holdout_calendar=args.holdout_calendar))
+    text = dumps(build(dev, results_root=results_root, holdout_calendar=args.holdout_calendar,
+                       refetch=args.refetch))
     out = pathlib.Path(args.out)
     if args.check:
         current = out.read_text(encoding='utf-8') if out.exists() else None

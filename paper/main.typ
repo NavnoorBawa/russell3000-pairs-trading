@@ -330,7 +330,7 @@ The study uses free data only. Academic studies avoid survivorship with paid poi
 - *An anatomy of the null.* The same rule in sample and after formation, the persistence of cointegration, the race between targets and stops against a random-walk spread, and the traded pairs' half-lives explain the null trade by trade (@sec-anatomy).
 - *Power and hurdles.* Each null is reported with the Sharpe ratios it excludes, the Sharpe ratio it could have detected, the track record a given Sharpe ratio would need and the hurdles a result must clear after #m("study.dev.facts.hurdle_tests") recorded versions (@sec-inference).
 - *A second strategy family.* Avellaneda–Lee residual reversion, with the paper's parameters, on the same universe rule, fills and costs (@sec-residual).
-- *A record of the trials, and the search tested.* Every trial (each design run on a calendar) whose result was seen is in an append-only registry, an unpublished exploratory run included; re-runs of the published configuration (start dates, halves, cost scenarios) are reported where they are used and are not registered as trials, and the second family's two earlier universe rules, run and seen before it adopted S1’s screens, are disclosed in @sec-snooping. A family of #m("study.dev.snooping.results.n") variants declared before any of them ran is tested for data snooping as a whole: none beats cash, even before the search is allowed for, or the distance method on a Sharpe scale (@sec-snooping).
+- *A record of the trials, and the search tested.* Every trial (each design run on a calendar) whose result was seen is in an append-only registry, an unpublished exploratory run included; re-runs of the published configuration (start dates, halves, cost scenarios, and the re-fetch of @sec-repro) are reported where they are used and are not registered as trials, and the second family's two earlier universe rules, run and seen before it adopted S1’s screens, are disclosed in @sec-snooping. A family of #m("study.dev.snooping.results.n") variants declared before any of them ran is tested for data snooping as a whole: none beats cash, even before the search is allowed for, or the distance method on a Sharpe scale (@sec-snooping).
 - *Robustness of the null.* The main backtest from #m("study.dev.facts.start_n") start dates, each compared with the published path on the same days (@sec-startdates); returns by volatility and dispersion regime (@sec-regimes); cointegration persistence on the strategy's own candidate pairs (@tab-persistence-s1); and the second family's standard errors clustered in time (@sec-residual).
 - *A sealed 2026 holdout.* #if done [Hypotheses, test, multiplicity correction and decision rule were fixed in a pre-registration before any 2026 daily price history was fetched into the project; the arms then ran under a runbook that records every attempt, and the result is published in full, as the protocol requires. The test period had already ended, so the test is sealed, not prospective (@sec-holdout).] else [Hypotheses, test, multiplicity correction and decision rule #if prereg [were fixed in a pre-registration] else [are to be fixed in a pre-registration] before any 2026 daily price series is fetched; each arm then runs once and its result is published whatever it is. The test period has already ended, so the test is sealed, not prospective (@sec-holdout).]
 
@@ -999,22 +999,24 @@ Each limitation, which way it biases the result, how large it is, and what addre
 
 #if D.concordance != none [The research-note site presents the same results; @tab-concordance maps its exhibit numbers to this note's.] Every number in this note is formatted by `scripts/build_paper.py` from `assets/study.json`, the file the research-note site's charts and checked numbers come from, and from the headline JSON that file was built from; the site's numbers are checked against the same JSON by `scripts/check_published_numbers.py`. Sentences whose wording depends on the data are asserted against it when the note is compiled. Prices come from Yahoo Finance's chart API, and a later fetch will not match the cached data bit for bit, because vendors revise history. The run manifest (@tab-manifest) pins what was used, and the sha256 of every committed source the note reads is listed in @tab-hashes; both are in the appendix.
 
-The price and macro caches the development run pinned were lost with the working storage by 22 October 2026, so its numbers cannot be rebuilt from that exact input. The same design, calendar and code path were run again on prices fetched afresh (`results/v33_dev_refetch/`); the research-note site's Reproduce section compares every headline value with the published one. Every headline number of the main backtest, the walk-forward and the baselines agrees to the precision shown; three evidence-layer values (the persistence count, the probability of backtest overfitting and the SPA $p$-value against cash) and the universe's missing weight moved, none enough to change a conclusion.
+#if flag("refetch") [The price and macro caches the development run pinned were lost with the working storage by 22 October 2026, so its numbers cannot be rebuilt from that exact input. The same design, calendar and steps were run again on prices fetched afresh (`results/v33_dev_refetch/`, whose `PROVENANCE.md` gives the commit of each part); the vendor now serves price history for #m("study.refetch.values.dev.run.symbols") of the symbols, against #m("study.dev.run.symbols"). The research-note site's Reproduce section puts each published value beside its re-fetched one: every headline value the site quotes, the evidence layer's main numbers and every other quoted value that moved. Of its #m("study.refetch.rows_n") rows, #m("study.refetch.rows_moved") moved at the precision shown, but every headline number of the main backtest, the walk-forward and the baselines agrees#claim("refetch_headline_same"). Of the #m("study.dev.snooping.results.n") declared variants, #m("study.refetch.variants_moved") moved by #m("study.refetch.variants_move_min") to #m("study.refetch.variants_move_max") in Sharpe ratio: under the exposure cap a small change in one price changes which later signals are filled, so a single configuration's Sharpe ratio is sensitive to revisions of the prices beyond what its bootstrap interval, which resamples one path, shows. The learned ranker becomes the family's best variant (Sharpe #m("study.refetch.values.dev.snooping.results.sharpe_best"), against #m("study.dev.snooping.results.sharpe_best") for the published best, the 300-name universe)#claim("refetch_best_is_ranker"). No conclusion changes: no variant beats cash once the search is allowed for (SPA $p$ = #m("study.refetch.values.dev.snooping.results.spa_zero.p")\; Romano–Wolf rejects #m("study.refetch.values.dev.snooping.results.rw_rejected")) or the distance method on a Sharpe scale (SPA $p$ = #m("study.refetch.values.dev.snooping.results.spa_gatev_unit_vol.p"))#claim("refetch_rejects_nothing"), and choosing a variant would still overfit (PBO #m("study.refetch.values.dev.snooping.results.pbo_pct"))#claim("refetch_still_overfits"). One description changes in degree: on every pair of the 300 most liquid names, persistence falls below the base rate at the 5% level ($z$ = #m("study.refetch.values.dev.facts.pers_z"), against #m("study.dev.facts.pers_z") as published) rather than matching it#claim("refetch_persistence_below_base")\; on the strategy's own candidate pairs it is unchanged ($z$ = #m("study.refetch.values.dev.facts.pers_s1_z"))#claim("refetch_candidate_persistence_same").]
 
 The runbooks clear every `PAIRS_*` switch, fix the hash seed, refuse an environment that differs from `requirements.txt` and record the commit in every export. The execution-cost note, `docs/EXECUTION_COSTS.md`, compares the cost model with published impact estimates at each participation rate and gives the source of the borrow fee. The AR(1) variance of the Sharpe ratio and its source are documented in `pairs_trading/power.py`; the evidence layer is `pairs_trading/anatomy.py` and `pairs_trading/evidence.py`; the variant family and its data-snooping tests are `scripts/variant_family.py` and `pairs_trading/snooping.py`; the robustness checks are `scripts/robustness_checks.py`; the synthetic validation is `scripts/synthetic_validation.py`.
 
 #wide(block(width: 100%, fill: sunk, inset: (x: 9pt, y: 8pt), radius: 2pt, breakable: false, {
   set text(size: 7.8pt)
-  raw(block: true, lang: "bash", "# the environment pinned in requirements.txt (CPU torch first, as in README)
+  raw(block: true, lang: "bash", "# the environment pinned in requirements.txt (CPU torch first)
 python3.12 -m venv .venv
+.venv/bin/pip install --no-deps torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
 .venv/bin/pip install -r requirements.txt
 
-# the development-period studies behind this note, in order:
-# main, anatomy, costs, residual, variants, validation, publish
-PYTHON=.venv/bin/python bash scripts/run_dev_studies.sh
+# a fresh run of the development-period studies, beside the published ones:
+# main, anatomy, costs, residual, variants, validation, publish, robustness
+# (results/v33_dev_repro/; no trial registered)
+RUN=v33_dev_repro PYTHON=.venv/bin/python bash scripts/run_dev_studies.sh
 
-# the robustness checks (results/v33_dev/robustness.json)
-PYTHONHASHSEED=0 .venv/bin/python scripts/robustness_checks.py
+# its values beside the published ones (a preview study.json)
+.venv/bin/python scripts/build_site_data.py --refetch v33_dev_repro --out /tmp/study.json
 
 # the site's data, the check of every marked number, and this paper
 .venv/bin/python scripts/build_site_data.py           # " + D.meta.run_dir + "
@@ -1022,9 +1024,7 @@ PYTHONHASHSEED=0 .venv/bin/python scripts/robustness_checks.py
 .venv/bin/python scripts/build_paper.py               # needs pip install -e \".[paper]\"
 .venv/bin/python scripts/build_paper.py --check
 
-# the pre-registered 2026 test: once, from a full clone
-# at the registered commit, after the pre-registration
-PYTHON=.venv/bin/python bash scripts/run_holdout.sh")
+# the pre-registered 2026 test is spent: scripts/run_holdout.sh refuses to run it again")
 }))
 
 // floats of the sections above are placed before the disclosures

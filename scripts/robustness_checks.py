@@ -591,7 +591,18 @@ def record_in_manifest(out: pathlib.Path) -> Optional[pathlib.Path]:
     return manifest_path
 
 
-def _study_sections(sections: Sequence[str], n_jobs: int, results: Dict, anatomy: Optional[Dict]) -> Dict:
+def check_same_cache(name: str, got: Dict, recorded: Optional[Dict], allow_other: bool) -> None:
+    """Stop when a cache on disk is not the one the run recorded (unless allow_other): its
+    checks would describe other prices and overwrite the run's robustness.json with them."""
+    want = (recorded or {}).get('sha256')
+    if want and got['sha256'] != want and not allow_other:
+        raise SystemExit(f"the {name} on disk ({got['path']}, sha256 {got['sha256'][:12]}) is not the one the "
+                         f"run recorded (sha256 {want[:12]}): its robustness checks would describe other "
+                         f"prices. Run them on a run made from this cache, or pass --allow-other-cache.")
+
+
+def _study_sections(sections: Sequence[str], n_jobs: int, results: Dict, anatomy: Optional[Dict],
+                    recorded: Optional[Dict] = None, allow_other: bool = False) -> Dict:
     """Sections (a) and (c), on the loaded and prepared v33 development study."""
     from threadpoolctl import threadpool_limits
 
@@ -604,6 +615,7 @@ def _study_sections(sections: Sequence[str], n_jobs: int, results: Dict, anatomy
         seed_everything(SEED)
         system = CompleteFixedRussell3000TradingSystem(profile=PROFILE, calendar=CALENDAR)
         caches = check_caches_are_read_only(system)
+        check_same_cache('price cache', caches['price_cache'], (recorded or {}).get('price_cache'), allow_other)
         system.load_study_data()
         test_spreads, pair_windows, last_test = system.prepare_study()
         out['study'] = describe(system.profile, system.calendar)
@@ -622,9 +634,12 @@ def _study_sections(sections: Sequence[str], n_jobs: int, results: Dict, anatomy
 
 
 def build(sections: Sequence[str], n_jobs: int, run_dir: pathlib.Path = DEV,
-          residual_file: pathlib.Path = RESIDUAL_FILE) -> Dict:
+          residual_file: pathlib.Path = RESIDUAL_FILE, allow_other_cache: bool = False) -> Dict:
     results_file = run_dir / RESULTS_FILE.name
     anatomy_file = run_dir / ANATOMY_FILE.name
+    headline_file = run_dir / 'headline_metrics.json'
+    recorded = (json.loads(headline_file.read_text()).get('run_config') or {}).get('data') \
+        if headline_file.exists() else None
     results = json.loads(results_file.read_text())
     anatomy = json.loads(anatomy_file.read_text())
     inputs = {'results': fingerprint(results_file), 'anatomy': fingerprint(anatomy_file)}
@@ -634,7 +649,7 @@ def build(sections: Sequence[str], n_jobs: int, run_dir: pathlib.Path = DEV,
                     'pythonhashseed': os.environ.get('PYTHONHASHSEED')},
            'profile': PROFILE, 'calendar': CALENDAR, 'sections': sorted(sections), 'inputs': inputs}
     if {'a', 'c'} & set(sections):
-        study = _study_sections(sections, n_jobs, results, anatomy)
+        study = _study_sections(sections, n_jobs, results, anatomy, recorded, allow_other_cache)
         out['study'] = study.pop('study')
         inputs.update(study.pop('caches'))
         out.update(study)
@@ -643,6 +658,7 @@ def build(sections: Sequence[str], n_jobs: int, run_dir: pathlib.Path = DEV,
         from pairs_trading.study_config import get_calendar
         macro_path = ROOT / get_calendar(CALENDAR).macro_cache
         inputs.setdefault('macro_cache', fingerprint(macro_path))
+        check_same_cache('macro cache', inputs['macro_cache'], (recorded or {}).get('macro_cache'), allow_other_cache)
         macro = EnhancedRussell3000DataProcessor._load_pickle_or_raise(str(macro_path))
         out['regimes'] = regime_breakdown(results, macro)
     if 'd' in sections:
@@ -661,6 +677,8 @@ def main(argv=None) -> int:
     ap.add_argument('--n-jobs', type=int, default=None, help='persistence-test workers (default PAIRS_N_JOBS, '
                                                              'else min(4, CPUs))')
     ap.add_argument('--no-manifest', action='store_true', help='do not list the output in MANIFEST.json beside it')
+    ap.add_argument('--allow-other-cache', action='store_true',
+                    help="run although a cache on disk is not the one the run recorded")
     args = ap.parse_args(argv)
     if os.environ.get('PYTHONHASHSEED') != '0':
         raise SystemExit('set PYTHONHASHSEED=0, as the published run did (scripts/run_dev_studies.sh)')
@@ -669,7 +687,8 @@ def main(argv=None) -> int:
     n_jobs = max(1, args.n_jobs if args.n_jobs is not None else int(env_jobs) if env_jobs
                  else min(4, os.cpu_count() or 1))
     run_dir = pathlib.Path(args.run_dir).absolute()
-    report = build(sorted(set(args.sections)), n_jobs, run_dir, pathlib.Path(args.residual).absolute())
+    report = build(sorted(set(args.sections)), n_jobs, run_dir, pathlib.Path(args.residual).absolute(),
+                   args.allow_other_cache)
     out = pathlib.Path(args.out) if args.out else run_dir / DEFAULT_OUT.name
     _atomic_write_json(report, out)
     log.info(f'Wrote {_rel(out)}')

@@ -5,16 +5,19 @@
 # holdout has its own runbook (scripts/run_holdout.sh). Run from a clean checkout with
 # PYTHON set to the environment pinned in requirements.txt:
 #   PYTHON=/path/to/venv/bin/python bash scripts/run_dev_studies.sh [STEP ...]
-# STEP is any of: main anatomy costs residual variants validation publish (default: all,
-# in that order). Each step logs to logs/dev_<step>.log. The variant family is the long
-# one (one main backtest per declared variant, a few hours on four cores).
+# STEP is any of: main anatomy costs residual variants validation publish robustness (default:
+# all, in that order). Each step logs to logs/${RUN}_<step>.log (logs/dev_<step>.log for
+# v33_dev). A whole run takes about two hours on four cores with 16 GB of memory, most of it
+# the variant family (one main backtest per declared variant); main fetches any prices the
+# cache lacks first.
 #
-# RUN names the run (default v33_dev, the published development run). Any other name is a
-# separate run of the same design and calendar, such as the re-fetch reproduction
-# (RUN=v33_dev_refetch): every step writes under outputs/$RUN/ and logs to logs/${RUN}_<step>.log,
-# and publish adds results/$RUN/ (with residual/, variant_family/ and validation/ inside it)
-# without --replace, so it never touches another run's results and registers no trial; its
-# robustness checks are the step "robustness", after publish.
+# RUN names the run. A reproduction is any new name, e.g. RUN=v33_dev_repro: every step writes
+# under outputs/$RUN/, and publish adds results/$RUN/ (with residual/, variant_family/ and
+# validation/ inside it, and the price-fetch manifest) without --replace, so it never touches
+# another run's results and registers no trial; the re-fetch reproduction is RUN=v33_dev_refetch.
+# The default, RUN=v33_dev, is the original publication path: it writes the published
+# results/v33_dev, results/variant_family and results/validation and registers their trials, so
+# it refuses to start once those trials are registered (they are).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -31,6 +34,11 @@ RUN=${RUN:-v33_dev}
 case $RUN in *[!A-Za-z0-9_]*|'') fail "RUN must be letters, digits and underscores";; esac
 OUT=outputs/$RUN
 if [ "$RUN" = v33_dev ]; then
+    # the publication path writes over the committed evidence: only while its trials are new
+    for trial in v33_dev residual_dev variant_family; do
+        "$PY" scripts/register_trial.py --name $trial --check-new >/dev/null 2>&1 \
+            || fail "trial '$trial' is already registered, so RUN=v33_dev would overwrite the published results; run a reproduction under a new name, e.g. RUN=v33_dev_repro"
+    done
     LOG=logs/dev; RESIDUAL_OUT=outputs/residual_dev; FAMILY_OUT=results/variant_family
     VALIDATION_OUT=results/validation
     STEPS=${*:-main anatomy costs residual variants validation publish}
@@ -65,6 +73,9 @@ for step in $STEPS; do
                 2>&1 | tee ${LOG}_validation.log ;;
         publish)     # committed evidence, and one registry line per trial
             if [ "$RUN" != v33_dev ]; then       # a reproduction: its own results/$RUN/, no trial
+                # what was fetched, and when: the manifest beside the price cache the run read
+                manifest=$("$PY" -c "import json, sys; d = json.load(open(sys.argv[1]))['run_config']['data']; print(d['price_cache']['path'][:-len('.pkl')] + '_manifest.json')" $OUT/headline_metrics.json)
+                cp "$manifest" $OUT/price_fetch_manifest.json
                 "$PY" scripts/publish_run.py $OUT $RUN --log ${LOG}_main.log --cache-hashes require
                 "$PY" scripts/publish_run.py $RESIDUAL_OUT $RUN/residual --log ${LOG}_residual.log --cache-hashes skip
                 "$PY" scripts/publish_run.py $FAMILY_OUT $RUN/variant_family --log ${LOG}_variants.log \

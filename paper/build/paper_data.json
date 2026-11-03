@@ -104,6 +104,12 @@
   "persistence_at_chance": true,
   "persistence_s1_at_base_rate": true,
   "persistence_traded_near_chance": true,
+  "refetch_best_is_ranker": true,
+  "refetch_candidate_persistence_same": true,
+  "refetch_headline_same": true,
+  "refetch_persistence_below_base": true,
+  "refetch_rejects_nothing": true,
+  "refetch_still_overfits": true,
   "regimes_not_significant": true,
   "residual_ci_spans_zero": true,
   "residual_cost_split": true,
@@ -345,6 +351,7 @@
   "multi_factor": true,
   "preregistered": true,
   "random_band": true,
+  "refetch": true,
   "residual": true,
   "scenarios": true,
   "snooping": true,
@@ -627,7 +634,7 @@
   "paper.oos_end_month": "December 2025",
   "paper.oos_start_long": "14 February 2023",
   "paper.oos_start_month": "February 2023",
-  "paper.paper_date_long": "26 October 2026",
+  "paper.paper_date_long": "3 November 2026",
   "paper.percentile_ordinal": "37th",
   "paper.period_end_long": "31 December 2025",
   "paper.period_end_month": "December 2025",
@@ -1018,6 +1025,7 @@
   "study.dev.funnel.bh_q10": "1",
   "study.dev.funnel.pairs.1.expected": "254.1",
   "study.dev.rolling_sharpe.window": "126",
+  "study.dev.run.symbols": "2,538",
   "study.dev.snooping.grid_points": "27",
   "study.dev.snooping.results.avg_corr": "0.42",
   "study.dev.snooping.results.base_rank": "9",
@@ -1071,6 +1079,20 @@
   "study.dev.snooping.results.trades_max": "333",
   "study.dev.snooping.results.trades_min": "144",
   "study.dev.snooping.toggles": "11",
+  "study.refetch.rows_moved": "55",
+  "study.refetch.rows_n": "111",
+  "study.refetch.rows_same": "56",
+  "study.refetch.values.dev.facts.pers_s1_z": "−0.55",
+  "study.refetch.values.dev.facts.pers_z": "−2.17",
+  "study.refetch.values.dev.run.symbols": "2,533",
+  "study.refetch.values.dev.snooping.results.pbo_pct": "65.5%",
+  "study.refetch.values.dev.snooping.results.rw_rejected": "0",
+  "study.refetch.values.dev.snooping.results.sharpe_best": "+0.51",
+  "study.refetch.values.dev.snooping.results.spa_gatev_unit_vol.p": "0.421",
+  "study.refetch.values.dev.snooping.results.spa_zero.p": "0.880",
+  "study.refetch.variants_move_max": "0.51",
+  "study.refetch.variants_move_min": "0.41",
+  "study.refetch.variants_moved": "3",
   "study.registry.recorded_runs": "14",
   "study.registry.rows": "17",
   "study.registry.trials": "10",
@@ -1157,9 +1179,9 @@
   "commit": "744270556ba6d688e95bee8d7d88608c7c656c55",
   "headline": "results/v33_dev/headline_metrics.json",
   "headline_sha256": "b09f239032db62196602447e8d1d780286b5c2674e8e85d02062beab946d0fb1",
-  "paper_date": "2026-10-26",
+  "paper_date": "2026-11-03",
   "run_dir": "results/v33_dev",
-  "study_sha256": "4514cf7cb2ed705947dd582795bb05e46046b74cb8dcf1c0b6f1e18ae289f68c",
+  "study_sha256": "336d814d1239491727645bb546813423e5fdaea7e534c6a4b7b6eb909fd2b56a",
   "universe_index_sha256": "2afd0cb6a7a7b79e08e6d45a5fc78f7ac6d43903c3cafbde1a042bf048883c3c"
  },
  "pending": {},
@@ -1669,7 +1691,7 @@
    ],
    [
     "Site data",
-    "assets/study.json, sha256 4514cf7cb2ed705947dd582795bb05e46046b74cb8dcf1c0b6f1e18ae289f68c"
+    "assets/study.json, sha256 336d814d1239491727645bb546813423e5fdaea7e534c6a4b7b6eb909fd2b56a"
    ],
    [
     "Universe",
@@ -2319,7 +2341,7 @@
    ],
    [
     "results/v33_dev_refetch/MANIFEST.json",
-    "98b7f7350f103ed1596c56351aadc3755631caec00c95b0c2aba8bdfb26cec65"
+    "1a7e16e8d709b3bdf017e69ca18284c90bfebd2f04febb8c3199c7fcdcde0d7c"
    ],
    [
     "results/v33_dev_refetch/anatomy.json",
@@ -2340,6 +2362,10 @@
    [
     "results/v33_dev_refetch/pairs_trading_results_2023_2025_unbiased.json",
     "c58f32f02bbf156f7ce76b8d0481c5d69b01626b87c8db0d81c5dad5320d89f5"
+   ],
+   [
+    "results/v33_dev_refetch/price_fetch_manifest.json",
+    "dde344a72ee834457f290b3ea0a4834f2d3c7b3ab85a1b806dca6c052821707f"
    ],
    [
     "results/v33_dev_refetch/residual/MANIFEST.json",
@@ -2399,7 +2425,7 @@
    ],
    [
     "index.html",
-    "52a0be94c52f5a4e78ffa164842a9db6f5996fd6c6ebbe2f2634bbe99188641c"
+    "410c76f677dcbd16e3d64d1338b51cfb39bc7f3808f6aba80e1013c3ed55f243"
    ]
   ],
   "spec": [

@@ -294,6 +294,7 @@ def test_main_typ_has_no_hand_typed_results():
     text = text.replace('Russell 3000', 'Russell')                     # the index's name
     text = re.sub(r':\s*\d+%', ':', text)                              # layout arguments (width: 100%)
     text = re.sub(r'`[^`\n]*`', '', text)                             # inline code: paths, commits, identifiers
+    text = re.sub(r'==[\d.]+', '', text)                               # a package pin in a shell block
     number = re.compile(r'(?<![\w.#])(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?![\d.]*\s*(?:pt|em|mm|cm|fr|in)\b)(?!\.\d)')
     found = set()
     for m in number.finditer(text):

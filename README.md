@@ -228,21 +228,22 @@ python3.12 -m venv .venv
 .venv/bin/pip install --no-deps torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
 .venv/bin/pip install -r requirements.txt
 
-# the development-period studies behind the published numbers, in order:
-# main, anatomy, costs, residual, variants, validation, publish (each logs to logs/dev_<step>.log)
-PYTHON=.venv/bin/python bash scripts/run_dev_studies.sh
-PYTHON=.venv/bin/python bash scripts/run_dev_studies.sh main anatomy     # or any steps
+# a fresh run of the development-period studies, beside the published ones: main, anatomy,
+# costs, residual, variants, validation, publish, robustness, into results/v33_dev_repro/
+# (no trial registered; about two hours on four cores with 16 GB of memory, most of it the
+# variant family; each step logs to logs/v33_dev_repro_<step>.log)
+RUN=v33_dev_repro PYTHON=.venv/bin/python bash scripts/run_dev_studies.sh
+RUN=v33_dev_repro PYTHON=.venv/bin/python bash scripts/run_dev_studies.sh main anatomy   # or any steps
 
-# the robustness checks: start dates, regimes, persistence on the candidate pairs and
-# clustered errors (results/v33_dev/robustness.json; not a step of run_dev_studies.sh)
-PYTHONHASHSEED=0 .venv/bin/python scripts/robustness_checks.py
+# its values beside the published ones (the 'refetch' section of a preview study.json)
+.venv/bin/python scripts/build_site_data.py --refetch v33_dev_repro --out /tmp/study.json
 
-# the site's data, and the check of every marked number in README.md and index.html
+# the site's data, the drift table, and the check of every marked number in README.md and index.html
 .venv/bin/python scripts/build_site_data.py              # results/ -> assets/study.json
+.venv/bin/python scripts/build_drift_table.py            # the table below, from assets/study.json
 .venv/bin/python scripts/check_published_numbers.py      # against results/v33_dev/headline_metrics.json
 
-# the pre-registered 2026 test: once, from a full clone at the registered commit
-PYTHON=.venv/bin/python bash scripts/run_holdout.sh
+# the pre-registered 2026 test is spent: scripts/run_holdout.sh refuses to run it again
 ```
 
 The runbooks clear every `PAIRS_*` switch of the calling shell, set `PYTHONHASHSEED=0`, refuse
@@ -251,21 +252,37 @@ code, and record the commit, the design and calendar hashes and the price cache'
 every export. A single run is `python -m pairs_trading.main --profile v33 --calendar dev
 --output-dir outputs/v33_dev`. Prices come from Yahoo's chart API and are cached under `data/`
 with a fetch manifest; a later fetch will not match the cached data bit for bit, because vendors
-revise history. `data/`, `logs/` and `outputs/` are git-ignored.
+revise history. `data/`, `logs/` and `outputs/` are git-ignored. The default `RUN=v33_dev` is the
+original publication path: it would write over the committed `results/v33_dev/`,
+`results/variant_family/` and `results/validation/`, so it refuses to start while their trials
+are registered, and `scripts/robustness_checks.py` refuses a price cache that is not the one the
+run recorded.
 
 ### The run again, on prices fetched afresh
 
 The price and macro caches the development run pinned (`sha256 3a9a93cc…a7be`) were lost with
 the working storage by 22 October 2026, so its numbers cannot be rebuilt from that exact input.
-The same design, calendar and code path were run again, every step from the main backtest to the
-robustness checks, on prices fetched afresh (`results/v33_dev_refetch/`, price cache
-`sha256 ca8a39e6…51b6`, with a fingerprint of every symbol's price series in
-`price_cache_hashes.json`, written by `scripts/hash_cache.py`). Of the <!--m:study.refetch.rows_n-->56<!--/m-->
-values below, <!--m:study.refetch.rows_same-->52<!--/m--> agree with the published ones to the
-precision the page shows, including every headline number
-of the main backtest, the walk-forward and the baselines; three evidence-layer values and the
-universe's missing weight moved, none enough to change a conclusion. The table is written by
-`scripts/build_drift_table.py`.
+The same design, calendar and steps were run again, from the main backtest to the robustness
+checks, on prices fetched afresh: `results/v33_dev_refetch/` (price cache `sha256 ca8a39e6…51b6`),
+with its fetch manifest, a fingerprint of every symbol's price series (`price_cache_hashes.json`,
+written by `scripts/hash_cache.py`) and the commit of each part (`PROVENANCE.md`).
+
+Every headline number of the main backtest, the walk-forward and the baselines agrees with the
+published one to the precision the page shows. The table lists those numbers, the evidence layer's
+main numbers and every other quoted value that moved: of its <!--m:study.refetch.rows_n-->111<!--/m--> rows, <!--m:study.refetch.rows_moved-->55<!--/m--> moved and <!--m:study.refetch.rows_same-->56<!--/m--> agree. The
+moves are small where a number pools many trades and large where it rests on one path: <!--m:study.refetch.variants_moved-->3<!--/m--> of the <!--m:study.dev.snooping.results.n-->38<!--/m-->
+declared variants moved by <!--m:study.refetch.variants_move_min-->0.41<!--/m--> to <!--m:study.refetch.variants_move_max-->0.51<!--/m--> in Sharpe ratio, because under the 30% exposure cap a small
+change in one price can change which later signals are filled. A single configuration's Sharpe ratio
+is therefore sensitive to revisions of the prices, beyond what its bootstrap interval, which
+resamples one path, shows. The learned ranker becomes the family's best variant (Sharpe <!--m:study.refetch.values.dev.snooping.results.sharpe_best-->+0.51<!--/m-->,
+against <!--m:study.dev.snooping.results.sharpe_best-->+0.21<!--/m--> for the published best).
+
+No conclusion about the strategy changes: no variant beats cash after the search (SPA p = <!--m:study.refetch.values.dev.snooping.results.spa_zero.p-->0.880<!--/m-->,
+Romano–Wolf rejects <!--m:study.refetch.values.dev.snooping.results.rw_rejected-->0<!--/m-->) or the distance method on a Sharpe scale (SPA p = <!--m:study.refetch.values.dev.snooping.results.spa_gatev_unit_vol.p-->0.421<!--/m-->), and choosing one
+would still overfit (PBO <!--m:study.refetch.values.dev.snooping.results.pbo_pct-->65.5<!--/m-->%). One description changes in degree: on every pair of the 300 most
+liquid names, persistence falls below the base rate at the 5% level (z = <!--m:study.refetch.values.dev.facts.pers_z-->−2.17<!--/m-->, against <!--m:study.dev.facts.pers_z-->−1.71<!--/m--> as
+published), rather than matching it; on the strategy's own candidate pairs it is unchanged
+(z = <!--m:study.refetch.values.dev.facts.pers_s1_z-->−0.55<!--/m-->). The table is written by `scripts/build_drift_table.py`.
 
 <!-- drift-table:begin -->
 
@@ -281,7 +298,6 @@ universe's missing weight moved, none enough to change a conclusion. The table i
 | Maximum drawdown, % | <!--m:main.max_drawdown_pct-->−4.05<!--/m--> | <!--m:study.refetch.values.main.max_drawdown_pct-->−4.05<!--/m--> | <!--m:study.refetch.diff.main.max_drawdown_pct-->0.00<!--/m--> |
 | Average gross exposure, % of equity | <!--m:main.avg_gross_exposure_pct-->26.9<!--/m--> | <!--m:study.refetch.values.main.avg_gross_exposure_pct-->26.9<!--/m--> | <!--m:study.refetch.diff.main.avg_gross_exposure_pct-->0.0<!--/m--> |
 | Annual turnover, times | <!--m:main.annual_turnover_x-->9.0<!--/m--> | <!--m:study.refetch.values.main.annual_turnover_x-->9.0<!--/m--> | <!--m:study.refetch.diff.main.annual_turnover_x-->0.0<!--/m--> |
-| Annualised Sharpe ratio (significance table) | <!--m:significance.main.ann_sharpe-->−0.06<!--/m--> | <!--m:study.refetch.values.significance.main.ann_sharpe-->−0.06<!--/m--> | <!--m:study.refetch.diff.significance.main.ann_sharpe-->0.00<!--/m--> |
 | Newey–West t | <!--m:significance.main.hac_t-->−0.10<!--/m--> | <!--m:study.refetch.values.significance.main.hac_t-->−0.10<!--/m--> | <!--m:study.refetch.diff.significance.main.hac_t-->0.00<!--/m--> |
 | Newey–West p | <!--m:significance.main.hac_p-->0.923<!--/m--> | <!--m:study.refetch.values.significance.main.hac_p-->0.923<!--/m--> | <!--m:study.refetch.diff.significance.main.hac_p-->0.000<!--/m--> |
 | Probabilistic Sharpe ratio, % | <!--m:significance.main.psr_pct-->46.1<!--/m--> | <!--m:study.refetch.values.significance.main.psr_pct-->46.1<!--/m--> | <!--m:study.refetch.diff.significance.main.psr_pct-->0.0<!--/m--> |
@@ -292,12 +308,10 @@ universe's missing weight moved, none enough to change a conclusion. The table i
 | Bootstrap 95% interval, upper end | <!--m:significance.oos_daily.boot_hi-->+0.05<!--/m--> | <!--m:study.refetch.values.significance.oos_daily.boot_hi-->+0.05<!--/m--> | <!--m:study.refetch.diff.significance.oos_daily.boot_hi-->0.00<!--/m--> |
 | Return of the stitched path, % | <!--m:oos.total_return_pct-->−6.24<!--/m--> | <!--m:study.refetch.values.oos.total_return_pct-->−6.24<!--/m--> | <!--m:study.refetch.diff.oos.total_return_pct-->0.00<!--/m--> |
 | Windows that made money | <!--m:oos.windows_positive-->4<!--/m--> | <!--m:study.refetch.values.oos.windows_positive-->4<!--/m--> | <!--m:study.refetch.diff.oos.windows_positive-->0<!--/m--> |
-| Windows | <!--m:oos.windows-->11<!--/m--> | <!--m:study.refetch.values.oos.windows-->11<!--/m--> | <!--m:study.refetch.diff.oos.windows-->0<!--/m--> |
 | Mean return per window, % | <!--m:oos.avg_window_return_pct-->−0.58<!--/m--> | <!--m:study.refetch.values.oos.avg_window_return_pct-->−0.58<!--/m--> | <!--m:study.refetch.diff.oos.avg_window_return_pct-->0.00<!--/m--> |
 | Its 95% interval, lower end, % | <!--m:significance.oos_windows.ci_lo_pct-->−1.28<!--/m--> | <!--m:study.refetch.values.significance.oos_windows.ci_lo_pct-->−1.28<!--/m--> | <!--m:study.refetch.diff.significance.oos_windows.ci_lo_pct-->0.00<!--/m--> |
 | Its 95% interval, upper end, % | <!--m:significance.oos_windows.ci_hi_pct-->+0.12<!--/m--> | <!--m:study.refetch.values.significance.oos_windows.ci_hi_pct-->+0.12<!--/m--> | <!--m:study.refetch.diff.significance.oos_windows.ci_hi_pct-->0.00<!--/m--> |
 | Its p | <!--m:significance.oos_windows.p-->0.096<!--/m--> | <!--m:study.refetch.values.significance.oos_windows.p-->0.096<!--/m--> | <!--m:study.refetch.diff.significance.oos_windows.p-->0.000<!--/m--> |
-| Annualised Sharpe ratio (significance table) | <!--m:significance.oos_daily.ann_sharpe-->−1.04<!--/m--> | <!--m:study.refetch.values.significance.oos_daily.ann_sharpe-->−1.04<!--/m--> | <!--m:study.refetch.diff.significance.oos_daily.ann_sharpe-->0.00<!--/m--> |
 | Newey–West t | <!--m:significance.oos_daily.hac_t-->−1.87<!--/m--> | <!--m:study.refetch.values.significance.oos_daily.hac_t-->−1.87<!--/m--> | <!--m:study.refetch.diff.significance.oos_daily.hac_t-->0.00<!--/m--> |
 | Newey–West p | <!--m:significance.oos_daily.hac_p-->0.061<!--/m--> | <!--m:study.refetch.values.significance.oos_daily.hac_p-->0.061<!--/m--> | <!--m:study.refetch.diff.significance.oos_daily.hac_p-->0.000<!--/m--> |
 | Probabilistic Sharpe ratio, % | <!--m:significance.oos_daily.psr_pct-->3.9<!--/m--> | <!--m:study.refetch.values.significance.oos_daily.psr_pct-->3.9<!--/m--> | <!--m:study.refetch.diff.significance.oos_daily.psr_pct-->0.0<!--/m--> |
@@ -307,31 +321,96 @@ universe's missing weight moved, none enough to change a conclusion. The table i
 | Gatev distance method, return, % | <!--m:benchmarks.gatev.total_return_pct-->−9.55<!--/m--> | <!--m:study.refetch.values.benchmarks.gatev.total_return_pct-->−9.55<!--/m--> | <!--m:study.refetch.diff.benchmarks.gatev.total_return_pct-->0.00<!--/m--> |
 | Strategy minus Gatev, Sharpe ratio | <!--m:benchmarks.sharpe_diff_vs_gatev.diff-->+0.73<!--/m--> | <!--m:study.refetch.values.benchmarks.sharpe_diff_vs_gatev.diff-->+0.73<!--/m--> | <!--m:study.refetch.diff.benchmarks.sharpe_diff_vs_gatev.diff-->0.00<!--/m--> |
 | Its Ledoit–Wolf p | <!--m:benchmarks.sharpe_diff_vs_gatev.p-->0.364<!--/m--> | <!--m:study.refetch.values.benchmarks.sharpe_diff_vs_gatev.p-->0.364<!--/m--> | <!--m:study.refetch.diff.benchmarks.sharpe_diff_vs_gatev.p-->0.000<!--/m--> |
-| Random-pair draws | <!--m:benchmarks.random_control.n_draws-->200<!--/m--> | <!--m:study.refetch.values.benchmarks.random_control.n_draws-->200<!--/m--> | <!--m:study.refetch.diff.benchmarks.random_control.n_draws-->0<!--/m--> |
-| Strategy's percentile among the draws | <!--m:benchmarks.random_control.strategy_percentile-->37<!--/m--> | <!--m:study.refetch.values.benchmarks.random_control.strategy_percentile-->37<!--/m--> | <!--m:study.refetch.diff.benchmarks.random_control.strategy_percentile-->0<!--/m--> |
+| Strategy's percentile among the random-pair draws | <!--m:benchmarks.random_control.strategy_percentile-->37<!--/m--> | <!--m:study.refetch.values.benchmarks.random_control.strategy_percentile-->37<!--/m--> | <!--m:study.refetch.diff.benchmarks.random_control.strategy_percentile-->0<!--/m--> |
 | Median draw, Sharpe ratio | <!--m:benchmarks.random_control.median_sharpe-->+0.09<!--/m--> | <!--m:study.refetch.values.benchmarks.random_control.median_sharpe-->+0.09<!--/m--> | <!--m:study.refetch.diff.benchmarks.random_control.median_sharpe-->0.00<!--/m--> |
 | 5th percentile draw, Sharpe ratio | <!--m:benchmarks.random_control.p5_sharpe-->−1.85<!--/m--> | <!--m:study.refetch.values.benchmarks.random_control.p5_sharpe-->−1.85<!--/m--> | <!--m:study.refetch.diff.benchmarks.random_control.p5_sharpe-->0.00<!--/m--> |
 | 95th percentile draw, Sharpe ratio | <!--m:benchmarks.random_control.p95_sharpe-->+1.17<!--/m--> | <!--m:study.refetch.values.benchmarks.random_control.p95_sharpe-->+1.17<!--/m--> | <!--m:study.refetch.diff.benchmarks.random_control.p95_sharpe-->0.00<!--/m--> |
-| Cost schedule A (lowest costs), return, % | <!--m:fund_profiles.institutional.total_return_pct-->−0.56<!--/m--> | <!--m:study.refetch.values.fund_profiles.institutional.total_return_pct-->−0.56<!--/m--> | <!--m:study.refetch.diff.fund_profiles.institutional.total_return_pct-->0.00<!--/m--> |
-| Cost schedule of a systematic stat-arb fund, return, % | <!--m:fund_profiles.quant_hf.total_return_pct-->−7.12<!--/m--> | <!--m:study.refetch.values.fund_profiles.quant_hf.total_return_pct-->−7.12<!--/m--> | <!--m:study.refetch.diff.fund_profiles.quant_hf.total_return_pct-->0.00<!--/m--> |
-| **Pair selection and data, first formation** | | | |
+| **Cost schedules and scenarios** | | | |
+| Cost schedule A, return, % | <!--m:fund_profiles.institutional.total_return_pct-->−0.56<!--/m--> | <!--m:study.refetch.values.fund_profiles.institutional.total_return_pct-->−0.56<!--/m--> | <!--m:study.refetch.diff.fund_profiles.institutional.total_return_pct-->0.00<!--/m--> |
+| Cost schedule D, return, % | <!--m:fund_profiles.quant_hf.total_return_pct-->−7.12<!--/m--> | <!--m:study.refetch.values.fund_profiles.quant_hf.total_return_pct-->−7.12<!--/m--> | <!--m:study.refetch.diff.fund_profiles.quant_hf.total_return_pct-->0.00<!--/m--> |
+| Book of $5B, larger leg, % of a day's volume | <!--m:study.dev.cost_sensitivity.scenarios.capital_5b.full.adv_pct-->72.84<!--/m--> | <!--m:study.refetch.values.dev.cost_sensitivity.scenarios.capital_5b.full.adv_pct-->72.85<!--/m--> | <!--m:study.refetch.diff.dev.cost_sensitivity.scenarios.capital_5b.full.adv_pct-->+0.01<!--/m--> |
+| **Pair selection, first formation** | | | |
 | Pairs tested | <!--m:fdr.pairs_tested-->5,082<!--/m--> | <!--m:study.refetch.values.fdr.pairs_tested-->5,082<!--/m--> | <!--m:study.refetch.diff.fdr.pairs_tested-->0<!--/m--> |
 | At raw p < 0.05 | <!--m:fdr.significant_raw_p05-->489<!--/m--> | <!--m:study.refetch.values.fdr.significant_raw_p05-->489<!--/m--> | <!--m:study.refetch.diff.fdr.significant_raw_p05-->0<!--/m--> |
 | Surviving Benjamini–Hochberg at q = 0.10 | <!--m:fdr.survive_bh_fdr_q10-->1<!--/m--> | <!--m:study.refetch.values.fdr.survive_bh_fdr_q10-->1<!--/m--> | <!--m:study.refetch.diff.fdr.survive_bh_fdr_q10-->0<!--/m--> |
 | Pairs selected | <!--m:fdr.final_selected_pairs-->309<!--/m--> | <!--m:study.refetch.values.fdr.final_selected_pairs-->309<!--/m--> | <!--m:study.refetch.diff.fdr.final_selected_pairs-->0<!--/m--> |
-| Index weight of members without price history, % | <!--m:universe.missing_value_weight_pct-->3.192<!--/m--> | <!--m:study.refetch.values.universe.missing_value_weight_pct-->3.214<!--/m--> | <!--m:study.refetch.diff.universe.missing_value_weight_pct-->+0.022<!--/m--> |
+| **Prices and universe** | | | |
+| Symbols with price history | <!--m:study.dev.run.symbols-->2,538<!--/m--> | <!--m:study.refetch.values.dev.run.symbols-->2,533<!--/m--> | <!--m:study.refetch.diff.dev.run.symbols-->−5<!--/m--> |
+| Share of the symbols requested, % | <!--m:study.dev.facts.cached_pct-->82.2<!--/m--> | <!--m:study.refetch.values.dev.facts.cached_pct-->82.0<!--/m--> | <!--m:study.refetch.diff.dev.facts.cached_pct-->−0.2<!--/m--> |
+| Failed the fetch or the data checks, % | <!--m:study.dev.facts.fetch_other_pct-->3.6<!--/m--> | <!--m:study.refetch.values.dev.facts.fetch_other_pct-->3.8<!--/m--> | <!--m:study.refetch.diff.dev.facts.fetch_other_pct-->+0.2<!--/m--> |
+| Fetch-coverage rule, % | <!--m:study.dev.facts.coverage_pct-->98.8<!--/m--> | <!--m:study.refetch.values.dev.facts.coverage_pct-->98.6<!--/m--> | <!--m:study.refetch.diff.dev.facts.coverage_pct-->−0.2<!--/m--> |
+| Histories moved more than 10% by anchoring to N-PORT | <!--m:study.dev.facts.anchor_moved-->732<!--/m--> | <!--m:study.refetch.values.dev.facts.anchor_moved-->733<!--/m--> | <!--m:study.refetch.diff.dev.facts.anchor_moved-->+1<!--/m--> |
+| Index weight of members without price history, first formation, % | <!--m:universe.missing_value_weight_pct-->3.192<!--/m--> | <!--m:study.refetch.values.universe.missing_value_weight_pct-->3.214<!--/m--> | <!--m:study.refetch.diff.universe.missing_value_weight_pct-->+0.022<!--/m--> |
 | Index weight of holdings without a usable ticker, % | <!--m:universe.unmapped_value_weight_pct-->0.142<!--/m--> | <!--m:study.refetch.values.universe.unmapped_value_weight_pct-->0.142<!--/m--> | <!--m:study.refetch.diff.universe.unmapped_value_weight_pct-->0.000<!--/m--> |
-| **Evidence layer and second family** | | | |
+| Members without price history, first formation | <!--m:study.dev.facts.gap_first_missing-->444<!--/m--> | <!--m:study.refetch.values.dev.facts.gap_first_missing-->449<!--/m--> | <!--m:study.refetch.diff.dev.facts.gap_first_missing-->+5<!--/m--> |
+| Survivorship gap, first formation, % of index weight | <!--m:study.dev.facts.gap_first_pct-->3.33<!--/m--> | <!--m:study.refetch.values.dev.facts.gap_first_pct-->3.36<!--/m--> | <!--m:study.refetch.diff.dev.facts.gap_first_pct-->+0.03<!--/m--> |
+| Of it, names no longer served (HTTP 404), points | <!--m:study.dev.facts.gap_first_not_found_pct-->2.75<!--/m--> | <!--m:study.refetch.values.dev.facts.gap_first_not_found_pct-->2.75<!--/m--> | <!--m:study.refetch.diff.dev.facts.gap_first_not_found_pct-->0.00<!--/m--> |
+| Of it, failed fetches, points | <!--m:study.dev.facts.gap_first_fetch_failed_pct-->0.34<!--/m--> | <!--m:study.refetch.values.dev.facts.gap_first_fetch_failed_pct-->0.36<!--/m--> | <!--m:study.refetch.diff.dev.facts.gap_first_fetch_failed_pct-->+0.02<!--/m--> |
+| Of it, failed data checks, points | <!--m:study.dev.facts.gap_first_data_checks_pct-->0.10<!--/m--> | <!--m:study.refetch.values.dev.facts.gap_first_data_checks_pct-->0.10<!--/m--> | <!--m:study.refetch.diff.dev.facts.gap_first_data_checks_pct-->0.00<!--/m--> |
+| Members without price history, last formation | <!--m:study.dev.facts.gap_last_missing-->237<!--/m--> | <!--m:study.refetch.values.dev.facts.gap_last_missing-->242<!--/m--> | <!--m:study.refetch.diff.dev.facts.gap_last_missing-->+5<!--/m--> |
+| Survivorship gap, last formation, % of index weight | <!--m:study.dev.facts.gap_last_pct-->1.08<!--/m--> | <!--m:study.refetch.values.dev.facts.gap_last_pct-->1.09<!--/m--> | <!--m:study.refetch.diff.dev.facts.gap_last_pct-->+0.01<!--/m--> |
+| Of it, names no longer served (HTTP 404), points | <!--m:study.dev.facts.gap_last_not_found_pct-->0.72<!--/m--> | <!--m:study.refetch.values.dev.facts.gap_last_not_found_pct-->0.72<!--/m--> | <!--m:study.refetch.diff.dev.facts.gap_last_not_found_pct-->0.00<!--/m--> |
+| Of it, failed fetches, points | <!--m:study.dev.facts.gap_last_fetch_failed_pct-->0.25<!--/m--> | <!--m:study.refetch.values.dev.facts.gap_last_fetch_failed_pct-->0.26<!--/m--> | <!--m:study.refetch.diff.dev.facts.gap_last_fetch_failed_pct-->+0.01<!--/m--> |
+| Of it, failed data checks, points | <!--m:study.dev.facts.gap_last_data_checks_pct-->0.09<!--/m--> | <!--m:study.refetch.values.dev.facts.gap_last_data_checks_pct-->0.09<!--/m--> | <!--m:study.refetch.diff.dev.facts.gap_last_data_checks_pct-->0.00<!--/m--> |
+| **Evidence layer** | | | |
 | Gross per trade, bp (equal-weighted) | <!--m:study.dev.facts.gross_bp-->−7.9<!--/m--> | <!--m:study.refetch.values.dev.facts.gross_bp-->−7.9<!--/m--> | <!--m:study.refetch.diff.dev.facts.gross_bp-->0.0<!--/m--> |
 | Cost per trade, bp | <!--m:study.dev.facts.cost_bp-->16.1<!--/m--> | <!--m:study.refetch.values.dev.facts.cost_bp-->16.1<!--/m--> | <!--m:study.refetch.diff.dev.facts.cost_bp-->0.0<!--/m--> |
 | Gross per trade after formation, bp | <!--m:study.dev.facts.decay_oos_bp-->−12.6<!--/m--> | <!--m:study.refetch.values.dev.facts.decay_oos_bp-->−12.6<!--/m--> | <!--m:study.refetch.diff.dev.facts.decay_oos_bp-->0.0<!--/m--> |
-| Pairs cointegrated again the next year | <!--m:study.dev.facts.pers_count-->370<!--/m--> | <!--m:study.refetch.values.dev.facts.pers_count-->359<!--/m--> | <!--m:study.refetch.diff.dev.facts.pers_count-->−11<!--/m--> |
 | Short-term reversal loading, t | <!--m:study.dev.facts.st_rev_t_main-->4.01<!--/m--> | <!--m:study.refetch.values.dev.facts.st_rev_t_main-->4.01<!--/m--> | <!--m:study.refetch.diff.dev.facts.st_rev_t_main-->0.00<!--/m--> |
 | Median Sharpe ratio over the 12 start dates | <!--m:study.dev.facts.start_sharpe_median-->−0.65<!--/m--> | <!--m:study.refetch.values.dev.facts.start_sharpe_median-->−0.65<!--/m--> | <!--m:study.refetch.diff.dev.facts.start_sharpe_median-->0.00<!--/m--> |
-| Avellaneda–Lee (S2), net Sharpe ratio | <!--m:study.residual.sharpe-->−0.28<!--/m--> | <!--m:study.refetch.values.residual.sharpe-->−0.28<!--/m--> | <!--m:study.refetch.diff.residual.sharpe-->0.00<!--/m--> |
-| Variant family, Hansen SPA p against cash | <!--m:study.dev.snooping.results.spa_zero.p-->0.964<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.spa_zero.p-->0.880<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.spa_zero.p-->−0.084<!--/m--> |
-| Variant family, probability of backtest overfitting, % | <!--m:study.dev.snooping.results.pbo_pct-->79.4<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.pbo_pct-->65.5<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.pbo_pct-->−13.9<!--/m--> |
-| Known-answer check, planted pairs, gross per trade, bp | <!--m:study.validation.edge.mean_bp-->+82.6<!--/m--> | <!--m:study.refetch.values.validation.edge.mean_bp-->+82.6<!--/m--> | <!--m:study.refetch.diff.validation.edge.mean_bp-->0.0<!--/m--> |
+| **Persistence of cointegration, every pair of the 300 most liquid names** | | | |
+| Pairs cointegrated in one year, pooled | <!--m:study.dev.facts.pers_of-->7,334<!--/m--> | <!--m:study.refetch.values.dev.facts.pers_of-->7,320<!--/m--> | <!--m:study.refetch.diff.dev.facts.pers_of-->−14<!--/m--> |
+| Of them, cointegrated again the next year | <!--m:study.dev.facts.pers_count-->370<!--/m--> | <!--m:study.refetch.values.dev.facts.pers_count-->359<!--/m--> | <!--m:study.refetch.diff.dev.facts.pers_count-->−11<!--/m--> |
+| Share, % | <!--m:study.dev.facts.pers_pct-->5.04<!--/m--> | <!--m:study.refetch.values.dev.facts.pers_pct-->4.90<!--/m--> | <!--m:study.refetch.diff.dev.facts.pers_pct-->−0.14<!--/m--> |
+| Its 95% interval, lower end, % | <!--m:study.dev.facts.pers_lo_pct-->4.56<!--/m--> | <!--m:study.refetch.values.dev.facts.pers_lo_pct-->4.42<!--/m--> | <!--m:study.refetch.diff.dev.facts.pers_lo_pct-->−0.14<!--/m--> |
+| Its 95% interval, upper end, % | <!--m:study.dev.facts.pers_hi_pct-->5.57<!--/m--> | <!--m:study.refetch.values.dev.facts.pers_hi_pct-->5.42<!--/m--> | <!--m:study.refetch.diff.dev.facts.pers_hi_pct-->−0.15<!--/m--> |
+| Expected at the next year's base rate | <!--m:study.dev.facts.pers_expected-->403.4<!--/m--> | <!--m:study.refetch.values.dev.facts.pers_expected-->401.3<!--/m--> | <!--m:study.refetch.diff.dev.facts.pers_expected-->−2.1<!--/m--> |
+| z against the base rate | <!--m:study.dev.facts.pers_z-->−1.71<!--/m--> | <!--m:study.refetch.values.dev.facts.pers_z-->−2.17<!--/m--> | <!--m:study.refetch.diff.dev.facts.pers_z-->−0.46<!--/m--> |
+| **Persistence of cointegration, the strategy's candidate pairs** | | | |
+| Pairs cointegrated in one year | <!--m:study.dev.facts.pers_s1_of-->1,196<!--/m--> | <!--m:study.refetch.values.dev.facts.pers_s1_of-->1,196<!--/m--> | <!--m:study.refetch.diff.dev.facts.pers_s1_of-->0<!--/m--> |
+| Of them, cointegrated again the next year | <!--m:study.dev.facts.pers_s1_count-->62<!--/m--> | <!--m:study.refetch.values.dev.facts.pers_s1_count-->62<!--/m--> | <!--m:study.refetch.diff.dev.facts.pers_s1_count-->0<!--/m--> |
+| z against the base rate | <!--m:study.dev.facts.pers_s1_z-->−0.55<!--/m--> | <!--m:study.refetch.values.dev.facts.pers_s1_z-->−0.55<!--/m--> | <!--m:study.refetch.diff.dev.facts.pers_s1_z-->0.00<!--/m--> |
+| **Second family (S2)** | | | |
+| Avellaneda–Lee, net Sharpe ratio | <!--m:study.residual.sharpe-->−0.28<!--/m--> | <!--m:study.refetch.values.residual.sharpe-->−0.28<!--/m--> | <!--m:study.refetch.diff.residual.sharpe-->0.00<!--/m--> |
+| Newey–West p | <!--m:study.residual.p-->0.598<!--/m--> | <!--m:study.refetch.values.residual.p-->0.599<!--/m--> | <!--m:study.refetch.diff.residual.p-->+0.001<!--/m--> |
+| Gross per trade, bp | <!--m:study.residual.gross_bp-->+5.35<!--/m--> | <!--m:study.refetch.values.residual.gross_bp-->+5.36<!--/m--> | <!--m:study.refetch.diff.residual.gross_bp-->+0.01<!--/m--> |
+| Gross P&amp;L, $M | <!--m:study.residual.gross_usd_m-->2.71<!--/m--> | <!--m:study.refetch.values.residual.gross_usd_m-->2.72<!--/m--> | <!--m:study.refetch.diff.residual.gross_usd_m-->+0.01<!--/m--> |
+| Mean trade net of stock-leg costs, bp | <!--m:study.dev.facts.s2c_net_mean_bp-->−4.54<!--/m--> | <!--m:study.refetch.values.dev.facts.s2c_net_mean_bp-->−4.53<!--/m--> | <!--m:study.refetch.diff.dev.facts.s2c_net_mean_bp-->+0.01<!--/m--> |
+| **Variant family: data-snooping tests** | | | |
+| Variants with a positive Sharpe ratio | <!--m:study.dev.snooping.results.positive-->7<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.positive-->6<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.positive-->−1<!--/m--> |
+| Best variant's Sharpe ratio | <!--m:study.dev.snooping.results.sharpe_best-->+0.21<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.sharpe_best-->+0.51<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.sharpe_best-->+0.30<!--/m--> |
+| Best variant's return, % | <!--m:study.dev.snooping.results.ret_best_pct-->+1.14<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.ret_best_pct-->+2.89<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.ret_best_pct-->+1.75<!--/m--> |
+| Rank of the v33 design by Sharpe ratio | <!--m:study.dev.snooping.results.base_rank-->9<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.base_rank-->8<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.base_rank-->−1<!--/m--> |
+| Hansen SPA against cash, p | <!--m:study.dev.snooping.results.spa_zero.p-->0.964<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.spa_zero.p-->0.880<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.spa_zero.p-->−0.084<!--/m--> |
+| Its lower p | <!--m:study.dev.snooping.results.spa_zero.p_lower-->0.905<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.spa_zero.p_lower-->0.751<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.spa_zero.p_lower-->−0.154<!--/m--> |
+| Its upper p | <!--m:study.dev.snooping.results.spa_zero.p_upper-->0.975<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.spa_zero.p_upper-->0.904<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.spa_zero.p_upper-->−0.071<!--/m--> |
+| White Reality Check against cash, p | <!--m:study.dev.snooping.results.spa_zero.rc_p-->0.977<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.spa_zero.rc_p-->0.886<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.spa_zero.rc_p-->−0.091<!--/m--> |
+| Best variant against cash, studentized mean | <!--m:study.dev.snooping.results.spa_zero.best_t-->0.38<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.spa_zero.best_t-->0.80<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.spa_zero.best_t-->+0.42<!--/m--> |
+| Hansen SPA against Gatev at unit volatility, p | <!--m:study.dev.snooping.results.spa_gatev_unit_vol.p-->0.489<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.spa_gatev_unit_vol.p-->0.421<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.spa_gatev_unit_vol.p-->−0.068<!--/m--> |
+| Its Reality Check p | <!--m:study.dev.snooping.results.spa_gatev_unit_vol.rc_p-->0.499<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.spa_gatev_unit_vol.rc_p-->0.322<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.spa_gatev_unit_vol.rc_p-->−0.177<!--/m--> |
+| Best variant against Gatev at unit volatility, studentized mean | <!--m:study.dev.snooping.results.spa_gatev_unit_vol.best_t-->1.35<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.spa_gatev_unit_vol.best_t-->1.50<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.spa_gatev_unit_vol.best_t-->+0.15<!--/m--> |
+| Hansen SPA against Gatev on daily returns, p | <!--m:study.dev.snooping.results.spa_gatev.p-->0.219<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.spa_gatev.p-->0.191<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.spa_gatev.p-->−0.028<!--/m--> |
+| Its Reality Check p | <!--m:study.dev.snooping.results.spa_gatev.rc_p-->0.232<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.spa_gatev.rc_p-->0.165<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.spa_gatev.rc_p-->−0.067<!--/m--> |
+| Best variant against Gatev on daily returns, studentized mean | <!--m:study.dev.snooping.results.spa_gatev.best_t-->1.54<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.spa_gatev.best_t-->1.64<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.spa_gatev.best_t-->+0.10<!--/m--> |
+| Romano–Wolf stepdown, variants rejected at 5% | <!--m:study.dev.snooping.results.rw_rejected-->0<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.rw_rejected-->0<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.rw_rejected-->0<!--/m--> |
+| Its smallest adjusted p | <!--m:study.dev.snooping.results.rw_min_p-->0.98<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.rw_min_p-->0.91<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.rw_min_p-->−0.07<!--/m--> |
+| Model confidence set, 90%, variants kept | <!--m:study.dev.snooping.results.mcs_included-->38<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.mcs_included-->38<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.mcs_included-->0<!--/m--> |
+| Its smallest p | <!--m:study.dev.snooping.results.mcs_min_p-->0.60<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.mcs_min_p-->0.51<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.mcs_min_p-->−0.09<!--/m--> |
+| Effective number of independent trials | <!--m:study.dev.snooping.results.effective_rank-->13.7<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.effective_rank-->13.8<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.effective_rank-->+0.1<!--/m--> |
+| Variants' Sharpe dispersion, standard deviation | <!--m:study.dev.snooping.results.dsr.sd_sr-->0.52<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.dsr.sd_sr-->0.53<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.dsr.sd_sr-->+0.01<!--/m--> |
+| Expected best null Sharpe ratio | <!--m:study.dev.snooping.results.dsr.sr_star-->0.91<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.dsr.sr_star-->0.92<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.dsr.sr_star-->+0.01<!--/m--> |
+| Best variant's probabilistic Sharpe ratio, % | <!--m:study.dev.snooping.results.dsr_best.psr_pct-->62.8<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.dsr_best.psr_pct-->79.2<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.dsr_best.psr_pct-->+16.4<!--/m--> |
+| Best variant's deflated Sharpe ratio, % | <!--m:study.dev.snooping.results.dsr_best.dsr_pct-->13.5<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.dsr_best.dsr_pct-->25.4<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.dsr_best.dsr_pct-->+11.9<!--/m--> |
+| The v33 design's deflated Sharpe ratio, % | <!--m:study.dev.snooping.results.dsr.dsr_pct-->6.3<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.dsr.dsr_pct-->6.0<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.dsr.dsr_pct-->−0.3<!--/m--> |
+| Probability of backtest overfitting, % | <!--m:study.dev.snooping.results.pbo_pct-->79.4<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.pbo_pct-->65.5<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.pbo_pct-->−13.9<!--/m--> |
+| Best of one half, on the other: mean Sharpe ratio | <!--m:study.dev.snooping.results.pbo_is_best_oos_sharpe-->−0.87<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.pbo_is_best_oos_sharpe-->−0.71<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.pbo_is_best_oos_sharpe-->+0.16<!--/m--> |
+| Its splits with a loss, % | <!--m:study.dev.snooping.results.pbo_is_best_loss_pct-->99.2<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.pbo_is_best_loss_pct-->90.9<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.pbo_is_best_loss_pct-->−8.3<!--/m--> |
+| Median variant on the same splits: mean Sharpe ratio | <!--m:study.dev.snooping.results.pbo_median_oos_sharpe-->−0.53<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.pbo_median_oos_sharpe-->−0.52<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.pbo_median_oos_sharpe-->+0.01<!--/m--> |
+| Variant–splits with a loss, % | <!--m:study.dev.snooping.results.pbo_base_loss_pct-->76.6<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.pbo_base_loss_pct-->76.8<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.pbo_base_loss_pct-->+0.2<!--/m--> |
+| **Declared variants whose Sharpe ratio moved** | | | |
+| Entry 1.5, exit 0.25, stop 1.5, Sharpe ratio | <!--m:study.dev.snooping.results.variants.1.sharpe-->+0.02<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.variants.1.sharpe-->−0.49<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.variants.1.sharpe-->−0.51<!--/m--> |
+| Entry 2.1, exit 0.75, stop 1.0, Sharpe ratio | <!--m:study.dev.snooping.results.variants.24.sharpe-->−0.80<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.variants.24.sharpe-->−0.32<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.variants.24.sharpe-->+0.48<!--/m--> |
+| Learned ranker on, Sharpe ratio | <!--m:study.dev.snooping.results.variants.33.sharpe-->+0.10<!--/m--> | <!--m:study.refetch.values.dev.snooping.results.variants.33.sharpe-->+0.51<!--/m--> | <!--m:study.refetch.diff.dev.snooping.results.variants.33.sharpe-->+0.41<!--/m--> |
 
 <!-- drift-table:end -->
 

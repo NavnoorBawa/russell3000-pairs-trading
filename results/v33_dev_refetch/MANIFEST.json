@@ -25,8 +25,12 @@
    "sha256": "d3e7e46f0100e6de041c9c683001d290fed0ba102bb38346a8b2ad956fe94007"
   },
   "price_cache_hashes.json": {
-   "bytes": 1040479,
-   "sha256": "ad3999ca79267e77e222ac98fe9bdb9df48365d4fa33cbe6e73857b277f8458d"
+   "bytes": 1040368,
+   "sha256": "2c9c40acd155ba21f48467d2d3cb2a332fab1d767d12d1ccf695b976fe1e7548"
+  },
+  "price_fetch_manifest.json": {
+   "bytes": 76172,
+   "sha256": "dde344a72ee834457f290b3ea0a4834f2d3c7b3ab85a1b806dca6c052821707f"
   },
   "robustness.json": {
    "bytes": 42837,
