@@ -260,9 +260,9 @@ the working storage by 22 October 2026, so its numbers cannot be rebuilt from th
 The same design, calendar and code path were run again, every step from the main backtest to the
 robustness checks, on prices fetched afresh (`results/v33_dev_refetch/`, price cache
 `sha256 ca8a39e6…51b6`, with a fingerprint of every symbol's price series in
-`price_cache_hashes.json`, written by `scripts/hash_cache.py`). Of the
-<!--m:study.refetch.rows_n-->56<!--/m--> values below, <!--m:study.refetch.rows_same-->52<!--/m-->
-agree with the published ones to the precision the page shows, including every headline number
+`price_cache_hashes.json`, written by `scripts/hash_cache.py`). Of the <!--m:study.refetch.rows_n-->56<!--/m-->
+values below, <!--m:study.refetch.rows_same-->52<!--/m--> agree with the published ones to the
+precision the page shows, including every headline number
 of the main backtest, the walk-forward and the baselines; three evidence-layer values and the
 universe's missing weight moved, none enough to change a conclusion. The table is written by
 `scripts/build_drift_table.py`.

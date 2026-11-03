@@ -31,6 +31,7 @@ TABLES = {
     'Threats to validity': ('t-threats', 'cards'),
     'Literature': ('t-literature', 'cards'),
     'Version history': ('t-history', None),
+    'Re-fetch reproduction: published and re-fetched values': ('t-refetch', 'matrix'),
 }
 
 
