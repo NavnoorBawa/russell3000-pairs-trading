@@ -641,11 +641,12 @@ def test_the_evaluated_holdout_fills_its_sections(evaluated, evaluated_built):
     assert [r[2] for r in paper['tables']['ho_record']] == ['registered']
     assert len(paper['tables']['ho_universe']) == len(_arm(H, 'v33_pairs')['universe']) + len(
         _arm(H, 'avellaneda_lee')['universe'])
-    # the paper's date is the holdout's: its runs, its registration and its completion are the
-    # newest dated inputs
-    R = H['provenance']
+    # the paper's date is its newest dated input: the holdout's runs, registration and completion,
+    # the newest run behind study.json (the re-fetch included) and the text's last revision
+    R, meta = H['provenance'], evaluated['study']['meta']
     assert paper['meta']['paper_date'] == max([*R['run_utc'].values(), R['registry']['registered_utc'],
-                                               R['completed_utc']])[:10]
+                                               R['completed_utc'], meta['generated_utc'],
+                                               meta.get('revised') or ''])[:10]
     # the other statistics of every arm, each the arm's value as the site rounds it
     detail = {r[0]: r[1:] for r in paper['tables']['ho_detail']}
     arms = H['arms']
@@ -832,11 +833,12 @@ def test_a_registered_trial_without_its_completion_line(evaluated):
 
 
 def test_the_paper_is_dated_by_the_holdout_record(evaluated):
-    """A registration or completion on a later day than the runs dates the paper."""
-    late = '2026-10-25T09:00:00+00:00'
+    """A registration or completion on a later day than every other dated input (the runs, the
+    text's last revision) dates the paper."""
+    late = '2026-12-25T09:00:00+00:00'
     inp = _variant(evaluated, lambda H: (H['provenance'].update(completed_utc=late),
                                          H['provenance']['attempts'][-1].update(completed_utc=late)))
-    assert bp.build_data(inp)[0]['meta']['paper_date'] == '2026-10-25'
+    assert bp.build_data(inp)[0]['meta']['paper_date'] == '2026-12-25'
 
 
 @pytest.mark.parametrize('scale', [0.05, 0.3, 0.7, 1.0, 1.5, 2.2, 3.1, 4.7, 9.0])
@@ -937,8 +939,9 @@ def test_paper_compiles_to_the_committed_pdf(built):
     assert pdf.startswith(b'%PDF')
     pages = len(re.findall(rb'/Type\s*/Page(?![s\w])', pdf))
     # 26 exhibits, the start-date, snooping, persistence and regime tables, the disclosures of
-    # the trial record and the appendix (37 pages); a runaway float would exceed it
-    assert 14 <= pages <= 40, pages
+    # the trial record, the re-fetch reproduction and the appendix (41 pages); a runaway float
+    # would exceed it
+    assert 14 <= pages <= 44, pages
     manifest = json.loads(bp.MANIFEST.read_text())
     if manifest['tools']['typst'] == bp._typst_version():
         assert pdf == bp.PDF.read_bytes()
