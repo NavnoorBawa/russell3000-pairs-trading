@@ -7,13 +7,16 @@
 /* Study Sans, Serif and Mono: subsets of IBM Plex (SIL Open Font License 1.1,
    assets/fonts/LICENSE.txt), renamed as that licence requires of a modified version
    (scripts/build_fonts.py). Served from this site: no third-party request, and the same
-   typography for every reader; IBM Plex itself is next in each stack. */
-@font-face { font-family: "Study Sans"; src: url("fonts/StudySans-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+   typography for every reader; IBM Plex itself is next in each stack.
+   The three faces of the first screen (Serif 500, Sans 400 and 500) are preloaded (index.html)
+   and optional: a first visit on a slow connection that has not got them by the first paint
+   keeps the fallback, rather than reflow the first screen under the reader. The rest swap in. */
+@font-face { font-family: "Study Sans"; src: url("fonts/StudySans-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: optional; }
 @font-face { font-family: "Study Sans"; src: url("fonts/StudySans-Italic.woff2") format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
-@font-face { font-family: "Study Sans"; src: url("fonts/StudySans-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Study Sans"; src: url("fonts/StudySans-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: optional; }
 @font-face { font-family: "Study Sans"; src: url("fonts/StudySans-SemiBold.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
 @font-face { font-family: "Study Serif"; src: url("fonts/StudySerif-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: "Study Serif"; src: url("fonts/StudySerif-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Study Serif"; src: url("fonts/StudySerif-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: optional; }
 @font-face { font-family: "Study Mono"; src: url("fonts/StudyMono-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: "Study Mono"; src: url("fonts/StudyMono-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
 
@@ -94,7 +97,8 @@ sub { line-height: 0; }
 .topbar { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--paper) 94%, transparent); border-bottom: 1px solid var(--rule); backdrop-filter: saturate(1.2) blur(6px); }
 .topbar-in { max-width: 1180px; margin: 0 auto; padding: 10px 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .brand { font: 500 13px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--ink); text-decoration: none; }
-.toplinks { display: flex; align-items: center; gap: 20px; font-size: 14px; }
+/* kept at the right edge, so it stays put when site.js shows the contents button (#where) */
+.toplinks { display: flex; align-items: center; gap: 20px; font-size: 14px; margin-left: auto; }
 .toplinks a { color: var(--ink-2); text-decoration: none; }
 .toplinks a:hover { color: var(--ink); text-decoration: underline; }
 .theme-btn { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font: 500 13px/1 var(--sans); color: var(--ink); background: transparent; border: 1px solid var(--rule-2); border-radius: 999px; padding: 7px 12px; cursor: pointer; }
